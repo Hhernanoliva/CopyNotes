@@ -18,6 +18,9 @@
 		previousVisibleId
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
+	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
+	import { writeToClipboard } from '$lib/copy/clipboard';
+	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
 
@@ -216,6 +219,16 @@
 		await updateBlock(block.id, { collapsed: block.collapsed });
 	}
 
+	async function handleCopy(block, withChildren) {
+		const tree = buildCopyTree(blocks, block.id, withChildren);
+		try {
+			await writeToClipboard({ text: formatPlainText(tree), html: formatHtml(tree) });
+			toast.success('Copiado');
+		} catch {
+			toast.error('No se pudo copiar. Probá de nuevo.');
+		}
+	}
+
 	async function handleToggleChecked(block) {
 		const plan = planToggleChecked(blocks, block.id);
 		if (!plan) return;
@@ -299,6 +312,7 @@
 					onMoveDown={handleMoveDown}
 					onToggleCollapsed={handleToggleCollapsed}
 					onToggleChecked={handleToggleChecked}
+					onCopy={handleCopy}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
 					onFocusHandled={() => (focusBlockId = null)}

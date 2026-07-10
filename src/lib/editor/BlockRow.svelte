@@ -1,5 +1,5 @@
 <script>
-	import { ChevronRight, Check } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
 
 	let {
@@ -20,6 +20,7 @@
 		onMoveDown,
 		onToggleCollapsed,
 		onToggleChecked,
+		onCopy,
 		onSlashKey,
 		onSlashSelect,
 		onFocusHandled
@@ -182,6 +183,35 @@
 				: ''}"
 		></div>
 	{/if}
+
+	<!-- Copy actions: hidden until hover/keyboard focus so the page stays quiet
+	     (specs/004). mousedown+preventDefault keeps the caret in the block. -->
+	<div
+		class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100"
+	>
+		<button
+			type="button"
+			aria-label="Copiar bloque"
+			title="Copiar bloque"
+			onmousedown={(event) => event.preventDefault()}
+			onclick={() => onCopy(block, false)}
+			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+		>
+			<Copy size={14} aria-hidden="true" />
+		</button>
+		{#if hasChildren}
+			<button
+				type="button"
+				aria-label="Copiar bloque con subniveles"
+				title="Copiar con subniveles"
+				onmousedown={(event) => event.preventDefault()}
+				onclick={() => onCopy(block, true)}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<CopyPlus size={14} aria-hidden="true" />
+			</button>
+		{/if}
+	</div>
 
 	{#if slashOpen}
 		<SlashMenu commands={slashCommands} selectedIndex={slashIndex} onSelect={onSlashSelect} />
