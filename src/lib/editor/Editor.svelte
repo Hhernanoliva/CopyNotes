@@ -119,11 +119,13 @@
 			slash = null;
 		}
 		// Typing "- " at the start of a text block turns it into a bullet.
+		// Structural change: persist immediately — a debounced save under the
+		// same key would be replaced by the next keystroke's content-only save.
 		if (block.type === 'text' && text.startsWith('- ')) {
 			const stripped = text.slice(2);
 			block.type = 'bullet';
 			block.content = stripped;
-			scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { type: 'bullet', content: stripped }));
+			updateBlock(block.id, { type: 'bullet', content: stripped });
 			return;
 		}
 		block.content = text;
