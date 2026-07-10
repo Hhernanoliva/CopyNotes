@@ -46,6 +46,31 @@ This feature uses the `blocks` model heavily:
 - User drags a block to reorder it.
 - User uses `/` to change or insert block types.
 
+## Nesting Applies To All Block Types
+
+Tab/Shift+Tab nesting is type-agnostic: text, bullet, todo, and code blocks
+can all be indented under the previous sibling, Workflowy-style. The first
+block at any level cannot be indented because there is no previous sibling
+to become its parent. This is intentional, not a bug.
+
+## Todo Cascade (decided 2026-07-10)
+
+When todos are nested under todos, checked state cascades both ways:
+
+- Checking a parent todo checks all its todo descendants.
+- Unchecking a parent todo unchecks all its todo descendants.
+- When the last unchecked todo child becomes checked, the parent todo
+  auto-checks.
+- Unchecking any todo child auto-unchecks its parent todo (and that
+  propagates upward).
+- Only todo-type blocks participate. Non-todo children (text, bullets,
+  code, separators) are ignored by the cascade, and a todo parent whose
+  children are all non-todo blocks toggles manually only.
+- Cascade changes persist like any other checked change.
+
+Status: documented, not yet implemented. Cascade logic must live in pure
+block logic (like indent/reorder plans) so it is testable without the UI.
+
 ## Acceptance Criteria
 
 - Writing feels fast and does not require opening many panels.
@@ -61,6 +86,8 @@ This feature uses the `blocks` model heavily:
 - Vitest tests for indent/outdent rules.
 - Vitest tests for reorder rules.
 - Vitest tests for collapse visibility helpers.
+- Vitest tests for todo cascade rules (parent→children, children→parent,
+  mixed-type children ignored).
 - Component test for slash command selection.
 - Component test for todo checked/unchecked behavior.
 - Playwright critical flow: create nested bullets, reload, verify structure.
