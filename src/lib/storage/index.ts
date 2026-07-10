@@ -29,6 +29,7 @@ export {
 	listTagsFor,
 	listAssignmentsForTag
 } from './tags';
+export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 export {
 	getSetting,
 	setSetting,

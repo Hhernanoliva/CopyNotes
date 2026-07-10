@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (fin de Stage 4, copiado de bloques).
+Última actualización: 2026-07-10 (fin de Stage 5, respaldo, exportación e importación).
 
 ## Lo básico
 
@@ -93,6 +93,33 @@ Después pegás donde quieras:
 - Los bloques de código mantienen sus líneas tal cual.
 
 No hace falta seleccionar el texto a mano. Al copiar aparece un avisito abajo que dice **"Copiado"**; si el navegador no deja copiar, avisa con un mensaje para reintentar.
+
+## Respaldo (exportar e importar)
+
+Abajo de la lista de notas hay un botón **Respaldo**. Abre una ventana con todo lo necesario para proteger tus datos.
+
+### Por qué importa
+
+Tus notas viven en el navegador de este dispositivo. Si borrás los datos del navegador o cambiás de equipo sin un respaldo, se pierden. Descargá un respaldo cada tanto.
+
+### Exportar
+
+- **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
+- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar.
+- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas y niveles de verdad.
+
+Todo funciona sin internet.
+
+### Importar
+
+1. Tocá **Elegir archivo de respaldo…** y seleccioná un archivo JSON de CopyNotes.
+2. La app lo revisa primero. Si el archivo está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo.
+3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
+4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
+
+### Reemplazar todo (con cuidado)
+
+En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo lo del respaldo. Pide una confirmación explícita y te recuerda descargar un respaldo de lo actual antes. No se puede deshacer.
 
 ---
 

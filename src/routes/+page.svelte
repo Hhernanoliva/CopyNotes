@@ -2,6 +2,7 @@
 	import { PanelLeft } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
+	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		createBlock,
@@ -16,6 +17,9 @@
 	let sidebarOpen = $state(false);
 	let loading = $state(true);
 	let saveState = $state('idle');
+	let backupOpen = $state(false);
+	// Bumped after an import so the editor re-reads its note from storage.
+	let dataVersion = $state(0);
 
 	function isDesktop() {
 		return window.matchMedia('(min-width: 768px)').matches;
@@ -55,6 +59,15 @@
 		const row = notes.find((note) => note.id === id);
 		if (row) Object.assign(row, changes);
 	}
+
+	async function handleDataChanged() {
+		const rows = await listNotes();
+		notes = rows;
+		if (!rows.some((note) => note.id === currentNoteId)) {
+			currentNoteId = rows[0]?.id ?? null;
+		}
+		dataVersion += 1;
+	}
 </script>
 
 <svelte:head>
@@ -70,7 +83,10 @@
 		onSelect={selectNote}
 		onCreate={newNote}
 		onClose={() => (sidebarOpen = false)}
+		onBackup={() => (backupOpen = true)}
 	/>
+
+	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -101,7 +117,7 @@
 					<div class="bg-muted mt-3 h-5 w-5/6 animate-pulse rounded-md"></div>
 				</div>
 			{:else if currentNoteId}
-				{#key currentNoteId}
+				{#key `${currentNoteId}:${dataVersion}`}
 					<Editor
 						noteId={currentNoteId}
 						onNoteUpdated={handleNoteUpdated}

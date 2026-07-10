@@ -1,7 +1,7 @@
 <script>
-	import { Plus } from '@lucide/svelte';
+	import { DatabaseBackup, Plus } from '@lucide/svelte';
 
-	let { notes, currentNoteId, open, onSelect, onCreate, onClose } = $props();
+	let { notes, currentNoteId, open, onSelect, onCreate, onClose, onBackup } = $props();
 
 	// Escape closes the sidebar only when it behaves as a mobile overlay.
 	function handleWindowKeydown(event) {
@@ -63,5 +63,15 @@
 				</ul>
 			{/if}
 		</nav>
+		<div class="border-border shrink-0 border-t p-2">
+			<button
+				type="button"
+				onclick={onBackup}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex min-h-(--touch-target) w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none md:min-h-9"
+			>
+				<DatabaseBackup size={16} aria-hidden="true" />
+				Respaldo
+			</button>
+		</div>
 	</aside>
 {/if}
