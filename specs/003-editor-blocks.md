@@ -68,8 +68,8 @@ When todos are nested under todos, checked state cascades both ways:
   children are all non-todo blocks toggles manually only.
 - Cascade changes persist like any other checked change.
 
-Status: documented, not yet implemented. Cascade logic must live in pure
-block logic (like indent/reorder plans) so it is testable without the UI.
+Status: implemented 2026-07-10 in `src/lib/blocks/cascade.ts` as pure,
+UI-independent logic with Vitest coverage.
 
 ## Acceptance Criteria
 

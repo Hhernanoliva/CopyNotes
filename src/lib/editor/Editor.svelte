@@ -11,6 +11,7 @@
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
 	import { canDeleteOnBackspace, planEnter, previousVisibleId } from '$lib/blocks/enter';
+	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
 
@@ -189,8 +190,9 @@
 	}
 
 	async function handleToggleChecked(block) {
-		block.checked = !block.checked;
-		await updateBlock(block.id, { checked: block.checked });
+		const plan = planToggleChecked(blocks, block.id);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
 	}
 
 	async function applySlashCommand(command) {
