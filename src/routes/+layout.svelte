@@ -10,6 +10,13 @@
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <ModeWatcher defaultMode="dark" />
-<Toaster theme={mode.current} position="bottom-center" duration={1800} />
+<!-- Sonner reads these vars for toast surface colors; pointing them at the
+     Quiet Ink tokens keeps toasts on-theme in both modes. -->
+<Toaster
+	theme={mode.current}
+	position="bottom-center"
+	duration={1800}
+	style="--normal-bg: var(--popover); --normal-text: var(--popover-foreground); --normal-border: var(--border);"
+/>
 
 {@render children()}
