@@ -5,6 +5,10 @@
 - Build order and slices: `specs/017-mvp-implementation-plan.md`.
 - Explain decisions to Hernan in plain Spanish; he is not an engineer.
 
+## User Guide Rule
+
+`docs/guia-de-uso.md` is the user-facing feature guide, in plain Spanish. Every user-visible feature or behavior change must be documented there **in the same commit that implements it** — what the user sees and how to use it, no technical jargon. Update its "Última actualización" date too. Specs describe intent for builders; the guide describes usage for people.
+
 ## Design Tokens: Quiet Ink → shadcn-svelte
 
 The Quiet Ink token names in `specs/016-design-system.md` (`surface`, `text-muted`, `accent`, `danger`, ...) are the conceptual palette. In code, load their values into shadcn-svelte's CSS variable convention (`background`, `card`, `primary`, `muted-foreground`, `destructive`, ...), because shadcn-svelte components are pre-wired to those names. Do not rename component tokens to match spec 016; do not hard-code raw colors either way. When spec 016 has no shadcn equivalent (e.g. `text-faint`), add a custom CSS variable following the same convention.
