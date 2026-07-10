@@ -66,6 +66,7 @@
 	--border-strong: oklch(0.78 0.01 80);
 	--success: oklch(0.55 0.1 150);
 	--warning: oklch(0.7 0.13 80);
+	--overlay: oklch(0.15 0.005 65 / 0.4);
 }
 
 .dark {
@@ -106,6 +107,7 @@
 	--border-strong: oklch(0.45 0.01 70);
 	--success: oklch(0.68 0.09 150);
 	--warning: oklch(0.78 0.13 80);
+	--overlay: oklch(0.1 0.005 65 / 0.55);
 }
 
 @theme inline {
@@ -142,6 +144,7 @@
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
 	--color-faint: var(--text-faint);
+	--color-overlay: var(--overlay);
 	--color-border-strong: var(--border-strong);
 	--color-success: var(--success);
 	--color-warning: var(--warning);
@@ -164,6 +167,16 @@
 	--touch-target: 2.75rem; /* 44px minimum */
 }
 
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
@@ -173,5 +186,12 @@
 	}
 	html {
 		@apply font-sans;
+		color-scheme: light;
+	}
+	html.dark {
+		color-scheme: dark;
+	}
+	button {
+		touch-action: manipulation;
 	}
 }

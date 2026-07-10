@@ -11,6 +11,7 @@
 		"sourceMap": true,
 		"strict": true,
 		"noImplicitAny": false,
+		"strictNullChecks": false,
 		"moduleResolution": "bundler"
 	}
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
