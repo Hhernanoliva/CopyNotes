@@ -10,7 +10,13 @@
 	import { buildVisibleList } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
-	import { backspaceAction, canDeleteOnBackspace, planEnter, previousVisibleId } from '$lib/blocks/enter';
+	import {
+		backspaceAction,
+		canDeleteOnBackspace,
+		enterOnEmptyAction,
+		planEnter,
+		previousVisibleId
+	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
@@ -128,6 +134,20 @@
 	}
 
 	async function handleEnter(block, forcedType) {
+		if (!forcedType && block.content === '') {
+			const action = enterOnEmptyAction(block);
+			if (action === 'outdent') {
+				await handleOutdent(block);
+				return;
+			}
+			if (action === 'convert') {
+				block.type = 'text';
+				block.checked = false;
+				await updateBlock(block.id, { type: 'text', checked: false });
+				focusBlockId = block.id;
+				return;
+			}
+		}
 		const plan = planEnter(blocks, block.id);
 		if (!plan) return;
 		await applyUpdates(plan.updates);

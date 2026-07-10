@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { backspaceAction, canDeleteOnBackspace, planEnter, previousVisibleId } from './enter';
+import {
+	backspaceAction,
+	canDeleteOnBackspace,
+	enterOnEmptyAction,
+	planEnter,
+	previousVisibleId
+} from './enter';
 
 function block(id, parentBlockId = null, order = 0, collapsed = false) {
 	return { id, parentBlockId, order, collapsed };
@@ -36,6 +42,26 @@ describe('planEnter', () => {
 		expect(plan.parentBlockId).toBe('a');
 		expect(plan.order).toBe(1);
 		expect(plan.updates).toEqual([{ id: 'a2', order: 2 }]);
+	});
+});
+
+describe('enterOnEmptyAction', () => {
+	it('outdents any nested empty block one level', () => {
+		expect(enterOnEmptyAction({ type: 'bullet', parentBlockId: 'p' })).toBe('outdent');
+		expect(enterOnEmptyAction({ type: 'todo', parentBlockId: 'p' })).toBe('outdent');
+		expect(enterOnEmptyAction({ type: 'text', parentBlockId: 'p' })).toBe('outdent');
+	});
+
+	it('cancels the type of an empty typed block at root level', () => {
+		expect(enterOnEmptyAction({ type: 'bullet', parentBlockId: null })).toBe('convert');
+		expect(enterOnEmptyAction({ type: 'todo', parentBlockId: null })).toBe('convert');
+		expect(enterOnEmptyAction({ type: 'code', parentBlockId: null })).toBe('convert');
+	});
+
+	it('inserts normally for empty root text and separators', () => {
+		expect(enterOnEmptyAction({ type: 'text', parentBlockId: null })).toBe('insert');
+		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: null })).toBe('insert');
+		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: 'p' })).toBe('insert');
 	});
 });
 

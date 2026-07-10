@@ -31,6 +31,18 @@ export function planEnter(blocks, id) {
 	};
 }
 
+// Enter on an empty block escapes the structure instead of stacking empty
+// rows: nested rows outdent one level per press (the "double Enter" exit),
+// typed rows at root cancel their type, and everything else inserts as
+// usual. Separators keep inserting because Enter there means "give me a
+// row after the line".
+export function enterOnEmptyAction(block) {
+	if (block.type === 'separator') return 'insert';
+	if ((block.parentBlockId ?? null) !== null) return 'outdent';
+	if (block.type !== 'text') return 'convert';
+	return 'insert';
+}
+
 // Backspace on an empty block first cancels the type (bullet/todo/code
 // become plain text on the same row, Workflowy-style); only a plain text
 // row or a separator is actually deleted.

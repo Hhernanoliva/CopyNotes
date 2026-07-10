@@ -53,6 +53,18 @@ can all be indented under the previous sibling, Workflowy-style. The first
 block at any level cannot be indented because there is no previous sibling
 to become its parent. This is intentional, not a bug.
 
+## Enter On Empty Blocks — Double-Enter Escape (decided 2026-07-10)
+
+Enter on an empty nested block outdents it one level instead of creating
+another empty row. Repeated Enter presses climb one level each until the
+block reaches the root, so "double Enter" exits a one-level nest and lets
+the user start a new sibling structure (e.g. a second bullet with its own
+children). Enter on an empty typed block (bullet/todo/code) already at
+root cancels the type, mirroring the Backspace rule below. Enter on an
+empty root text block inserts normally. Separators are exempt: Enter
+there always inserts a row after the line.
+Implemented in `enterOnEmptyAction` (src/lib/blocks/enter.ts).
+
 ## Backspace On Empty Blocks (decided 2026-07-10)
 
 Workflowy-style two-step delete. Backspace on an empty typed block
