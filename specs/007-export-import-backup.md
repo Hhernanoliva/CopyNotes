@@ -34,6 +34,7 @@ Export/import touches:
 - blocks
 - snippets
 - tags
+- tag assignments
 - settings/preferences where safe
 - backup metadata/version
 
