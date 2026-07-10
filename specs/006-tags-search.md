@@ -60,3 +60,8 @@ Give CopyNotes simple organization without folders in the MVP. Tags and search s
 ## Agent Notes
 
 Tags are the MVP organization system. Keep them simple, but design them cleanly because sync, export, and MCP will all need to understand them later.
+
+### Future-Readiness Decisions (decided 2026-07-10)
+
+- **AI/semantic search later:** all search logic must live in `src/lib/search/` behind one plain interface (query text + tag filter in, ranked results out). UI components must not know how matching works, so the engine can be swapped for fuzzy/full-text/AI search without touching the rest of the app.
+- **Folders later:** folders stay out of the MVP, but do not hard-code "flat list" assumptions. Note listing flows through the storage repository (`listNotes`), so a future `folderId` field plus a Dexie schema version bump is enough to add grouping. Keep sidebar rendering driven by the repository result, not by bespoke flat-array logic.

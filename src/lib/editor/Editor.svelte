@@ -1,12 +1,17 @@
 <script>
 	import {
+		applyInsertionPlan,
 		createBlock,
+		createId,
+		createSnippet,
 		getNote,
 		listBlocksByNote,
+		listSnippets,
 		softDeleteBlock,
 		updateBlock,
 		updateNote
 	} from '$lib/storage';
+	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { buildVisibleList } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -24,18 +29,33 @@
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
 
-	let { noteId, onNoteUpdated, onSaveStateChange } = $props();
+	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged } = $props();
 
 	let note = $state(null);
 	let blocks = $state([]);
 	let focusBlockId = $state(null);
+	// Last block the user touched; snippet insertion from the sidebar lands here.
+	let activeBlockId = $state(null);
 	let titleEl = $state();
 	// Slash menu state: which block it is anchored to, the text typed after
-	// "/", and the highlighted option.
+	// "/", and the highlighted option. mode 'snippets' means /snippet was
+	// chosen and the menu now lists saved snippets instead of block types.
 	let slash = $state(null);
 
 	const visible = $derived(buildVisibleList(blocks));
-	const slashCommands = $derived(slash ? filterCommands(slash.query) : []);
+	const slashCommands = $derived.by(() => {
+		if (!slash) return [];
+		if (slash.mode === 'snippets') {
+			return filterSnippets(slash.snippets, slash.query).map((snippet) => ({
+				id: snippet.id,
+				label: snippet.name,
+				kind: 'snippet',
+				isFavorite: snippet.isFavorite,
+				snippet
+			}));
+		}
+		return filterCommands(slash.query);
+	});
 
 	// Debounced writes per entity; flushed on unmount so nothing is lost
 	// when the user switches notes quickly.
@@ -74,6 +94,7 @@
 			if (cancelled) return;
 			note = loadedNote;
 			blocks = loadedBlocks;
+			activeBlockId = null;
 			if (note && note.title === '' && titleEl) {
 				titleEl.focus();
 			}
@@ -114,7 +135,13 @@
 		// Typing "/" in an empty block opens the slash menu; the query is
 		// whatever follows. Code blocks are exempt, slashes are normal there.
 		if (block.type !== 'code' && text.startsWith('/')) {
-			slash = { blockId: block.id, query: text.slice(1), index: 0 };
+			// Keep the snippet-picker mode alive while the user narrows the query.
+			if (slash && slash.blockId === block.id && slash.mode === 'snippets') {
+				slash.query = text.slice(1);
+				slash.index = 0;
+			} else {
+				slash = { blockId: block.id, query: text.slice(1), index: 0, mode: 'commands' };
+			}
 		} else if (slash && slash.blockId === block.id) {
 			slash = null;
 		}
@@ -237,8 +264,82 @@
 		await applyUpdates(plan.updates);
 	}
 
-	async function applySlashCommand(command) {
+	function cancelPending(key) {
+		const entry = pending.get(key);
+		if (entry) {
+			clearTimeout(entry.timer);
+			pending.delete(key);
+		}
+	}
+
+	async function insertSnippetBlocks(snippet, afterId) {
+		// $state proxies can't be structured-cloned into IndexedDB.
+		const plan = planSnippetInsertion($state.snapshot(blocks), $state.snapshot(snippet), {
+			noteId: note.id,
+			afterId,
+			createId
+		});
+		await applyInsertionPlan(plan);
+		for (const update of plan.updates) {
+			const row = blocks.find((block) => block.id === update.id);
+			if (row) row.order = update.order;
+		}
+		blocks = [...blocks, ...plan.newBlocks];
+		focusBlockId = plan.focusId;
+	}
+
+	async function applySnippetPick(snippet) {
 		const row = blocks.find((block) => block.id === slash.blockId);
+		slash = null;
+		if (!row) return;
+		await insertSnippetBlocks(snippet, row.id);
+		// The "/…" row only existed to open the picker. Drop it — unless it has
+		// children, in which case deleting it would orphan them.
+		const hasChildren = blocks.some((block) => (block.parentBlockId ?? null) === row.id);
+		cancelPending(`block:${row.id}`);
+		if (hasChildren) {
+			row.content = '';
+			await updateBlock(row.id, { content: '' });
+		} else {
+			await softDeleteBlock(row.id);
+			blocks = blocks.filter((block) => block.id !== row.id);
+		}
+	}
+
+	// Called from the page when the user inserts from the snippets library.
+	export async function insertSnippet(snippet) {
+		const active = activeBlockId && blocks.some((block) => block.id === activeBlockId);
+		const afterId = active
+			? activeBlockId
+			: (visible.length ? visible[visible.length - 1].block.id : null);
+		await insertSnippetBlocks(snippet, afterId);
+		toast.success('Snippet insertado');
+	}
+
+	async function handleSaveSnippet(block) {
+		const fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
+		await createSnippet(fields);
+		toast.success('Snippet guardado');
+		if (onSnippetsChanged) onSnippetsChanged();
+	}
+
+	async function applySlashCommand(command) {
+		if (command.kind === 'snippet') {
+			await applySnippetPick(command.snippet);
+			return;
+		}
+		const row = blocks.find((block) => block.id === slash.blockId);
+		if (command.id === 'snippet') {
+			// Switch the menu into snippet-picker mode; the block keeps its "/"
+			// so typing keeps filtering the snippet list.
+			const snippets = await listSnippets();
+			slash = { blockId: slash.blockId, query: '', index: 0, mode: 'snippets', snippets };
+			if (row) {
+				row.content = '/';
+				focusBlockId = row.id;
+			}
+			return;
+		}
 		slash = null;
 		if (!row) return;
 		if (command.id === 'separator') {
@@ -315,9 +416,14 @@
 					onToggleCollapsed={handleToggleCollapsed}
 					onToggleChecked={handleToggleChecked}
 					onCopy={handleCopy}
+					onSaveSnippet={handleSaveSnippet}
+					onActive={(row) => (activeBlockId = row.id)}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
 					onFocusHandled={() => (focusBlockId = null)}
+					slashEmptyLabel={slash?.mode === 'snippets'
+						? 'Todavía no guardaste snippets.'
+						: 'Sin resultados'}
 				/>
 			{/each}
 		</div>

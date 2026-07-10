@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
 import {
+	applyInsertionPlan,
 	createBlock,
 	getBlock,
 	listBlocksByNote,
@@ -77,5 +78,36 @@ describe('blocks repository', () => {
 
 		const raw = await db.table('blocks').get(parent.id);
 		expect(raw.deletedAt).toBeTruthy();
+	});
+});
+
+describe('applyInsertionPlan', () => {
+	it('adds new blocks and bumps sibling orders in one step', async () => {
+		const note = await createNote();
+		const first = await createBlock({ noteId: note.id, content: 'primero', order: 0 });
+		const second = await createBlock({ noteId: note.id, content: 'segundo', order: 1 });
+
+		await applyInsertionPlan({
+			newBlocks: [
+				{
+					id: 'nuevo-1',
+					noteId: note.id,
+					parentBlockId: null,
+					type: 'text',
+					content: 'insertado',
+					order: 1,
+					collapsed: false,
+					checked: false
+				}
+			],
+			updates: [{ id: second.id, order: 2 }]
+		});
+
+		const rows = await listBlocksByNote(note.id);
+		expect(rows.map((block) => block.content)).toEqual(['primero', 'insertado', 'segundo']);
+		const inserted = await getBlock('nuevo-1');
+		expect(inserted.createdAt).toBeTruthy();
+		expect(inserted.deletedAt).toBe(null);
+		void first;
 	});
 });

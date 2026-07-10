@@ -7,6 +7,7 @@ export async function createSnippet(fields) {
 	const {
 		name = '',
 		content = '',
+		blockSnapshot = null,
 		sourceNoteId = null,
 		sourceBlockId = null,
 		isFavorite = false
@@ -16,6 +17,7 @@ export async function createSnippet(fields) {
 		id: createId(),
 		name,
 		content,
+		blockSnapshot,
 		sourceNoteId,
 		sourceBlockId,
 		isFavorite,

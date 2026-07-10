@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { SLASH_COMMANDS, filterCommands, moveSelection } from './slash';
 
 describe('SLASH_COMMANDS', () => {
-	it('offers the block types from spec 003', () => {
+	it('offers the block types from spec 003 plus /snippet from spec 005', () => {
 		const ids = SLASH_COMMANDS.map((command) => command.id);
-		expect(ids).toEqual(['text', 'bullet', 'todo', 'code', 'separator']);
+		expect(ids).toEqual(['text', 'bullet', 'todo', 'code', 'separator', 'snippet']);
 	});
 });
 
@@ -21,6 +21,11 @@ describe('filterCommands', () => {
 	it('matches Spanish keywords case-insensitively', () => {
 		const results = filterCommands('VIÑETA');
 		expect(results.map((command) => command.id)).toEqual(['bullet']);
+	});
+
+	it('matches only the snippet command for "snippet"', () => {
+		const results = filterCommands('snippet');
+		expect(results.map((command) => command.id)).toEqual(['snippet']);
 	});
 
 	it('returns empty for garbage input', () => {

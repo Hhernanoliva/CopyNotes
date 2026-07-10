@@ -1,25 +1,39 @@
 <script>
 	import { PanelLeft } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
+	import { toast } from 'svelte-sonner';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
+	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		createBlock,
 		createNote,
 		getLastOpenedNoteId,
 		listNotes,
-		setLastOpenedNoteId
+		listSnippets,
+		setLastOpenedNoteId,
+		softDeleteSnippet,
+		updateSnippet
 	} from '$lib/storage';
+	import { filterSnippets } from '$lib/snippets';
+	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 
 	let notes = $state([]);
 	let currentNoteId = $state(null);
 	let sidebarOpen = $state(false);
+	let sidebarView = $state('notes');
 	let loading = $state(true);
 	let saveState = $state('idle');
 	let backupOpen = $state(false);
+	let newSnippetOpen = $state(false);
+	let snippets = $state([]);
+	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
+
+	// Favorites first, same ordering as the /snippet menu.
+	const sortedSnippets = $derived(filterSnippets(snippets, ''));
 
 	function isDesktop() {
 		return window.matchMedia('(min-width: 768px)').matches;
@@ -28,9 +42,14 @@
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
-			const [rows, lastId] = await Promise.all([listNotes(), getLastOpenedNoteId()]);
+			const [rows, lastId, snippetRows] = await Promise.all([
+				listNotes(),
+				getLastOpenedNoteId(),
+				listSnippets()
+			]);
 			if (cancelled) return;
 			notes = rows;
+			snippets = snippetRows;
 			const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
 			const current = last ?? rows[0];
 			currentNoteId = current ? current.id : null;
@@ -66,7 +85,44 @@
 		if (!rows.some((note) => note.id === currentNoteId)) {
 			currentNoteId = rows[0]?.id ?? null;
 		}
+		await refreshSnippets();
 		dataVersion += 1;
+	}
+
+	async function refreshSnippets() {
+		snippets = await listSnippets();
+	}
+
+	async function toggleFavorite(snippet) {
+		await updateSnippet(snippet.id, { isFavorite: !snippet.isFavorite });
+		await refreshSnippets();
+	}
+
+	async function deleteSnippet(snippet) {
+		await softDeleteSnippet(snippet.id);
+		await refreshSnippets();
+		toast.success('Snippet borrado');
+	}
+
+	async function insertSnippet(snippet) {
+		if (!currentNoteId || !editorRef) {
+			toast.error('Abrí una nota primero para insertar el snippet.');
+			return;
+		}
+		await editorRef.insertSnippet(snippet);
+		if (!isDesktop()) sidebarOpen = false;
+	}
+
+	function exportSnippets() {
+		const exported = buildSnippetsExport($state.snapshot(snippets), {
+			exportedAt: new Date().toISOString()
+		});
+		downloadFile(
+			snippetsExportFileName(new Date()),
+			JSON.stringify(exported, null, 2),
+			'application/json'
+		);
+		toast.success('Snippets exportados');
 	}
 </script>
 
@@ -78,15 +134,23 @@
 <div class="flex h-svh overflow-hidden">
 	<NoteSidebar
 		{notes}
+		snippets={sortedSnippets}
 		{currentNoteId}
 		open={sidebarOpen}
+		bind:view={sidebarView}
 		onSelect={selectNote}
 		onCreate={newNote}
 		onClose={() => (sidebarOpen = false)}
 		onBackup={() => (backupOpen = true)}
+		onNewSnippet={() => (newSnippetOpen = true)}
+		onToggleFavorite={toggleFavorite}
+		onInsertSnippet={insertSnippet}
+		onDeleteSnippet={deleteSnippet}
+		onExportSnippets={exportSnippets}
 	/>
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
+	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -119,9 +183,11 @@
 			{:else if currentNoteId}
 				{#key `${currentNoteId}:${dataVersion}`}
 					<Editor
+						bind:this={editorRef}
 						noteId={currentNoteId}
 						onNoteUpdated={handleNoteUpdated}
 						onSaveStateChange={(state) => (saveState = state)}
+						onSnippetsChanged={refreshSnippets}
 					/>
 				{/key}
 			{:else}

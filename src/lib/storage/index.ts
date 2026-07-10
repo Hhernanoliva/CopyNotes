@@ -8,7 +8,8 @@ export {
 	listBlocksByNote,
 	listChildBlocks,
 	updateBlock,
-	softDeleteBlock
+	softDeleteBlock,
+	applyInsertionPlan
 } from './blocks';
 export {
 	createSnippet,

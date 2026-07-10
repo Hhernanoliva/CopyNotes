@@ -6,8 +6,9 @@ export const SLASH_COMMANDS = [
 	{ id: 'text', label: 'Texto', keywords: ['text', 'texto', 'parrafo', 'párrafo'] },
 	{ id: 'bullet', label: 'Viñeta', keywords: ['bullet', 'viñeta', 'vineta', 'lista'] },
 	{ id: 'todo', label: 'Tarea', keywords: ['todo', 'tarea', 'check', 'checkbox'] },
-	{ id: 'code', label: 'Código', keywords: ['code', 'codigo', 'código', 'snippet'] },
-	{ id: 'separator', label: 'Separador', keywords: ['separator', 'separador', 'divider', 'linea', 'línea'] }
+	{ id: 'code', label: 'Código', keywords: ['code', 'codigo', 'código'] },
+	{ id: 'separator', label: 'Separador', keywords: ['separator', 'separador', 'divider', 'linea', 'línea'] },
+	{ id: 'snippet', label: 'Snippet', keywords: ['snippet', 'plantilla', 'reutilizar'] }
 ];
 
 export function filterCommands(query) {

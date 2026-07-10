@@ -1,5 +1,5 @@
 <script>
-	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy, CopyPlus, BookmarkPlus } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
 
 	let {
@@ -11,6 +11,7 @@
 		slashOpen = false,
 		slashCommands = [],
 		slashIndex = 0,
+		slashEmptyLabel = 'Sin resultados',
 		onInput,
 		onEnter,
 		onBackspaceEmpty,
@@ -21,6 +22,8 @@
 		onToggleCollapsed,
 		onToggleChecked,
 		onCopy,
+		onSaveSnippet,
+		onActive,
 		onSlashKey,
 		onSlashSelect,
 		onFocusHandled
@@ -155,6 +158,7 @@
 			tabindex="0"
 			aria-label="Separador"
 			onkeydown={handleKeydown}
+			onfocus={() => onActive(block)}
 			class="focus-visible:ring-ring flex h-7 w-full items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<hr class="border-border w-full" />
@@ -175,6 +179,7 @@
 			data-placeholder={placeholder}
 			onkeydown={handleKeydown}
 			oninput={handleInput}
+			onfocus={() => onActive(block)}
 			class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
 			'code'
 				? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
@@ -211,10 +216,27 @@
 				<CopyPlus size={14} aria-hidden="true" />
 			</button>
 		{/if}
+		{#if block.type !== 'separator'}
+			<button
+				type="button"
+				aria-label="Guardar como snippet"
+				title="Guardar como snippet"
+				onmousedown={(event) => event.preventDefault()}
+				onclick={() => onSaveSnippet(block)}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<BookmarkPlus size={14} aria-hidden="true" />
+			</button>
+		{/if}
 	</div>
 
 	{#if slashOpen}
-		<SlashMenu commands={slashCommands} selectedIndex={slashIndex} onSelect={onSlashSelect} />
+		<SlashMenu
+			commands={slashCommands}
+			selectedIndex={slashIndex}
+			onSelect={onSlashSelect}
+			emptyLabel={slashEmptyLabel}
+		/>
 	{/if}
 </div>
 

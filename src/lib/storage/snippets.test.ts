@@ -34,6 +34,24 @@ describe('snippets repository', () => {
 		expect(survivor.sourceBlockId).toBe(block.id);
 	});
 
+	it('persists the structured block snapshot', async () => {
+		const snapshot = {
+			type: 'bullet',
+			content: 'Padre',
+			checked: false,
+			children: [{ type: 'todo', content: 'Hijo', checked: true, children: [] }]
+		};
+		const snippet = await createSnippet({ name: 'Outline', content: '- Padre', blockSnapshot: snapshot });
+		const stored = await getSnippet(snippet.id);
+		expect(stored.blockSnapshot).toEqual(snapshot);
+	});
+
+	it('stores null blockSnapshot for text-only snippets', async () => {
+		const snippet = await createSnippet({ name: 'Texto', content: 'hola' });
+		const stored = await getSnippet(snippet.id);
+		expect(stored.blockSnapshot).toBe(null);
+	});
+
 	it('updates snippet content', async () => {
 		const snippet = await createSnippet({ name: 'A', content: 'old' });
 		const updated = await updateSnippet(snippet.id, { content: 'new' });

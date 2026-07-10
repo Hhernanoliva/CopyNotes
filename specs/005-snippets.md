@@ -64,3 +64,11 @@ Snippets use:
 ## Agent Notes
 
 Snippets are reusable saved content, not live references. This prevents surprises for users and makes backup/export safer.
+
+### Template Readiness (decided 2026-07-10)
+
+The implementation deliberately leaves the ground prepared for future templates:
+
+- Snippet content is stored twice: `content` (plain text, searchable, always present) and `blockSnapshot` (id-free structured block tree, `null` for text-only snippets). The backup format (`018`) already carries both.
+- All insertion goes through one pure function, `planSnippetInsertion` in `src/lib/snippets/insert.ts`. Future template variables (e.g. `{{name}}`) can be implemented as a transform step on the snapshot before that function runs, without touching storage, the editor, or the UI.
+- Do not flatten `blockSnapshot` into text or scatter insertion logic across components; that would close the template path.
