@@ -53,6 +53,15 @@ can all be indented under the previous sibling, Workflowy-style. The first
 block at any level cannot be indented because there is no previous sibling
 to become its parent. This is intentional, not a bug.
 
+## Backspace On Empty Blocks (decided 2026-07-10)
+
+Workflowy-style two-step delete. Backspace on an empty typed block
+(bullet, todo, code) first cancels the type: the row becomes a plain
+text block and the caret stays on the same row, children untouched.
+Backspace on an empty plain text row deletes the row and moves focus
+to the previous visible block. Separators skip the convert step and
+delete directly. Implemented in `backspaceAction` (src/lib/blocks/enter.ts).
+
 ## Todo Cascade (decided 2026-07-10)
 
 When todos are nested under todos, checked state cascades both ways:

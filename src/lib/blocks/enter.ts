@@ -31,6 +31,13 @@ export function planEnter(blocks, id) {
 	};
 }
 
+// Backspace on an empty block first cancels the type (bullet/todo/code
+// become plain text on the same row, Workflowy-style); only a plain text
+// row or a separator is actually deleted.
+export function backspaceAction(block) {
+	return block.type === 'text' || block.type === 'separator' ? 'delete' : 'convert';
+}
+
 export function canDeleteOnBackspace(blocks, id) {
 	if (blocks.length <= 1) return false;
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);

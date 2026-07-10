@@ -10,7 +10,7 @@
 	import { buildVisibleList } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
-	import { canDeleteOnBackspace, planEnter, previousVisibleId } from '$lib/blocks/enter';
+	import { backspaceAction, canDeleteOnBackspace, planEnter, previousVisibleId } from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
@@ -142,6 +142,13 @@
 	}
 
 	async function handleBackspaceEmpty(block) {
+		if (backspaceAction(block) === 'convert') {
+			block.type = 'text';
+			block.checked = false;
+			await updateBlock(block.id, { type: 'text', checked: false });
+			focusBlockId = block.id;
+			return;
+		}
 		if (!canDeleteOnBackspace(blocks, block.id)) return;
 		const prevId = previousVisibleId(blocks, block.id);
 		await softDeleteBlock(block.id);

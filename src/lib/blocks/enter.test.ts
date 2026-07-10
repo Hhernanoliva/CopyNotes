@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canDeleteOnBackspace, planEnter, previousVisibleId } from './enter';
+import { backspaceAction, canDeleteOnBackspace, planEnter, previousVisibleId } from './enter';
 
 function block(id, parentBlockId = null, order = 0, collapsed = false) {
 	return { id, parentBlockId, order, collapsed };
@@ -36,6 +36,19 @@ describe('planEnter', () => {
 		expect(plan.parentBlockId).toBe('a');
 		expect(plan.order).toBe(1);
 		expect(plan.updates).toEqual([{ id: 'a2', order: 2 }]);
+	});
+});
+
+describe('backspaceAction', () => {
+	it('converts typed blocks back to text instead of deleting the row', () => {
+		expect(backspaceAction({ type: 'bullet' })).toBe('convert');
+		expect(backspaceAction({ type: 'todo' })).toBe('convert');
+		expect(backspaceAction({ type: 'code' })).toBe('convert');
+	});
+
+	it('deletes plain text rows and separators', () => {
+		expect(backspaceAction({ type: 'text' })).toBe('delete');
+		expect(backspaceAction({ type: 'separator' })).toBe('delete');
 	});
 });
 
