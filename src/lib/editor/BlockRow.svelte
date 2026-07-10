@@ -1,13 +1,37 @@
 <script>
-	let { block, focused = false, placeholder = '', onInput, onEnter, onBackspaceEmpty, onFocusHandled } = $props();
+	import { ChevronRight, Check } from '@lucide/svelte';
+	import SlashMenu from './SlashMenu.svelte';
 
-	let el;
+	let {
+		block,
+		depth = 0,
+		hasChildren = false,
+		focused = false,
+		placeholder = '',
+		slashOpen = false,
+		slashCommands = [],
+		slashIndex = 0,
+		onInput,
+		onEnter,
+		onBackspaceEmpty,
+		onIndent,
+		onOutdent,
+		onMoveUp,
+		onMoveDown,
+		onToggleCollapsed,
+		onToggleChecked,
+		onSlashKey,
+		onSlashSelect,
+		onFocusHandled
+	} = $props();
 
-	// Sync DOM only when state and DOM diverge (e.g. bullet conversion strips
-	// the "- " prefix). While the user types they always match, so the caret
-	// is never clobbered.
+	let el = $state();
+
+	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
+	// "/query" text). While the user types they always match, so the caret is
+	// never clobbered.
 	$effect(() => {
-		if (el && el.textContent !== block.content) {
+		if (el && block.type !== 'separator' && el.textContent !== block.content) {
 			el.textContent = block.content;
 		}
 	});
@@ -15,17 +39,43 @@
 	$effect(() => {
 		if (focused && el) {
 			el.focus();
+			if (block.type !== 'separator') {
+				const selection = window.getSelection();
+				selection.selectAllChildren(el);
+				selection.collapseToEnd();
+			}
 			onFocusHandled();
 		}
 	});
 
 	function handleKeydown(event) {
+		if (slashOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
+			event.preventDefault();
+			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
+			return;
+		}
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
 			onEnter(block);
 			return;
 		}
-		if (event.key === 'Backspace' && el.textContent === '') {
+		if (event.key === 'Tab') {
+			event.preventDefault();
+			if (event.shiftKey) onOutdent(block);
+			else onIndent(block);
+			return;
+		}
+		if (event.altKey && event.key === 'ArrowUp') {
+			event.preventDefault();
+			onMoveUp(block);
+			return;
+		}
+		if (event.altKey && event.key === 'ArrowDown') {
+			event.preventDefault();
+			onMoveDown(block);
+			return;
+		}
+		if (event.key === 'Backspace' && (block.type === 'separator' || el.textContent === '')) {
 			event.preventDefault();
 			onBackspaceEmpty(block);
 		}
@@ -34,24 +84,97 @@
 	function handleInput() {
 		onInput(block, el.textContent);
 	}
+
+	const ariaLabels = {
+		text: 'Bloque de texto',
+		bullet: 'Viñeta',
+		todo: 'Tarea',
+		code: 'Bloque de código',
+		separator: 'Separador'
+	};
 </script>
 
-<div class="flex items-start gap-2 rounded-md px-2 py-1">
+<div
+	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2"
+	style="padding-left: {depth * 1.5}rem"
+>
+	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
+		{#if hasChildren}
+			<button
+				type="button"
+				onclick={() => onToggleCollapsed(block)}
+				aria-label={block.collapsed ? 'Expandir bloque' : 'Colapsar bloque'}
+				aria-expanded={!block.collapsed}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
+					? 'opacity-100'
+					: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
+			>
+				<ChevronRight
+					size={14}
+					aria-hidden="true"
+					class="transition-transform duration-(--motion-fast) {block.collapsed ? '' : 'rotate-90'}"
+				/>
+			</button>
+		{/if}
+	</div>
+
 	{#if block.type === 'bullet'}
-		<span aria-hidden="true" class="text-faint mt-[0.4rem] select-none text-[0.6rem] leading-none">●</span>
+		<span aria-hidden="true" class="text-faint mt-[0.65rem] shrink-0 select-none text-[0.6rem] leading-none"
+			>●</span
+		>
+	{:else if block.type === 'todo'}
+		<button
+			type="button"
+			role="checkbox"
+			aria-checked={block.checked}
+			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
+			onclick={() => onToggleChecked(block)}
+			class="border-border focus-visible:ring-ring mt-1.5 flex size-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.checked
+				? 'bg-primary border-primary text-primary-foreground'
+				: 'bg-transparent'}"
+		>
+			{#if block.checked}
+				<Check size={12} aria-hidden="true" />
+			{/if}
+		</button>
 	{/if}
-	<div
-		bind:this={el}
-		contenteditable="plaintext-only"
-		role="textbox"
-		tabindex="0"
-		aria-multiline="true"
-		aria-label={block.type === 'bullet' ? 'Viñeta' : 'Bloque de texto'}
-		data-placeholder={placeholder}
-		onkeydown={handleKeydown}
-		oninput={handleInput}
-		class="block-editable min-h-[1.6rem] w-full min-w-0 text-base leading-relaxed break-words outline-none"
-	></div>
+
+	{#if block.type === 'separator'}
+		<!-- Focusable on purpose: keyboard users select it to delete it or add a block after. -->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+		<div
+			bind:this={el}
+			role="separator"
+			tabindex="0"
+			aria-label="Separador"
+			onkeydown={handleKeydown}
+			class="focus-visible:ring-ring flex h-7 w-full items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+		>
+			<hr class="border-border w-full" />
+		</div>
+	{:else}
+		<div
+			bind:this={el}
+			contenteditable="plaintext-only"
+			role="textbox"
+			tabindex="0"
+			aria-multiline="true"
+			aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
+			data-placeholder={placeholder}
+			onkeydown={handleKeydown}
+			oninput={handleInput}
+			class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
+			'code'
+				? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
+				: 'text-base'} {block.type === 'todo' && block.checked
+				? 'text-muted-foreground line-through'
+				: ''}"
+		></div>
+	{/if}
+
+	{#if slashOpen}
+		<SlashMenu commands={slashCommands} selectedIndex={slashIndex} onSelect={onSlashSelect} />
+	{/if}
 </div>
 
 <style>

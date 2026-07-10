@@ -2,12 +2,16 @@
 	import {
 		createBlock,
 		getNote,
-		listChildBlocks,
+		listBlocksByNote,
 		softDeleteBlock,
 		updateBlock,
 		updateNote
 	} from '$lib/storage';
-	import { planInsertAfter, sortByOrder } from '$lib/blocks/ordering';
+	import { buildVisibleList } from '$lib/blocks/hierarchy';
+	import { planIndent, planOutdent } from '$lib/blocks/indent';
+	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
+	import { canDeleteOnBackspace, planEnter, previousVisibleId } from '$lib/blocks/enter';
+	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
 
 	let { noteId, onNoteUpdated, onSaveStateChange } = $props();
@@ -16,6 +20,12 @@
 	let blocks = $state([]);
 	let focusBlockId = $state(null);
 	let titleEl = $state();
+	// Slash menu state: which block it is anchored to, the text typed after
+	// "/", and the highlighted option.
+	let slash = $state(null);
+
+	const visible = $derived(buildVisibleList(blocks));
+	const slashCommands = $derived(slash ? filterCommands(slash.query) : []);
 
 	// Debounced writes per entity; flushed on unmount so nothing is lost
 	// when the user switches notes quickly.
@@ -50,10 +60,10 @@
 		const id = noteId;
 		let cancelled = false;
 		(async () => {
-			const [loadedNote, loadedBlocks] = await Promise.all([getNote(id), listChildBlocks(id, null)]);
+			const [loadedNote, loadedBlocks] = await Promise.all([getNote(id), listBlocksByNote(id)]);
 			if (cancelled) return;
 			note = loadedNote;
-			blocks = sortByOrder(loadedBlocks);
+			blocks = loadedBlocks;
 			if (note && note.title === '' && titleEl) {
 				titleEl.focus();
 			}
@@ -62,6 +72,17 @@
 			cancelled = true;
 		};
 	});
+
+	// Structure changes (indent, reorder, collapse…) persist immediately:
+	// losing hierarchy is worse than an extra write.
+	async function applyUpdates(updates) {
+		for (const update of updates) {
+			const { id, ...changes } = update;
+			const row = blocks.find((block) => block.id === id);
+			if (row) Object.assign(row, changes);
+			await updateBlock(id, changes);
+		}
+	}
 
 	function handleTitleInput(event) {
 		const title = event.currentTarget.value;
@@ -75,11 +96,18 @@
 	function handleTitleKeydown(event) {
 		if (event.key === 'Enter') {
 			event.preventDefault();
-			if (blocks.length > 0) focusBlockId = blocks[0].id;
+			if (visible.length > 0) focusBlockId = visible[0].block.id;
 		}
 	}
 
 	function handleBlockInput(block, text) {
+		// Typing "/" in an empty block opens the slash menu; the query is
+		// whatever follows. Code blocks are exempt, slashes are normal there.
+		if (block.type !== 'code' && text.startsWith('/')) {
+			slash = { blockId: block.id, query: text.slice(1), index: 0 };
+		} else if (slash && slash.blockId === block.id) {
+			slash = null;
+		}
 		// Typing "- " at the start of a text block turns it into a bullet.
 		if (block.type === 'text' && text.startsWith('- ')) {
 			const stripped = text.slice(2);
@@ -92,25 +120,120 @@
 		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text }));
 	}
 
-	async function handleEnter(block) {
-		const plan = planInsertAfter(blocks, block.id);
-		for (const update of plan.updates) {
-			const sibling = blocks.find((row) => row.id === update.id);
-			if (sibling) sibling.order = update.order;
-			await updateBlock(update.id, { order: update.order });
-		}
-		const created = await createBlock({ noteId: note.id, type: block.type, order: plan.order });
-		blocks = sortByOrder([...blocks, created]);
+	// A new block keeps list-like types going; code and separators hand
+	// over to plain text.
+	function inheritType(type) {
+		return type === 'bullet' || type === 'todo' ? type : 'text';
+	}
+
+	async function handleEnter(block, forcedType) {
+		const plan = planEnter(blocks, block.id);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
+		const created = await createBlock({
+			noteId: note.id,
+			parentBlockId: plan.parentBlockId,
+			type: forcedType ?? inheritType(block.type),
+			order: plan.order
+		});
+		blocks = [...blocks, created];
 		focusBlockId = created.id;
 	}
 
 	async function handleBackspaceEmpty(block) {
-		if (blocks.length <= 1) return;
-		const index = blocks.findIndex((row) => row.id === block.id);
+		if (!canDeleteOnBackspace(blocks, block.id)) return;
+		const prevId = previousVisibleId(blocks, block.id);
 		await softDeleteBlock(block.id);
 		blocks = blocks.filter((row) => row.id !== block.id);
-		const previous = blocks[Math.max(0, index - 1)];
-		if (previous) focusBlockId = previous.id;
+		if (prevId) focusBlockId = prevId;
+	}
+
+	async function handleIndent(block) {
+		const plan = planIndent(blocks, block.id);
+		if (!plan) return;
+		// Expand the new parent so the indented block does not vanish.
+		const parentId = plan.updates[0].parentBlockId;
+		const parent = blocks.find((row) => row.id === parentId);
+		if (parent && parent.collapsed) {
+			parent.collapsed = false;
+			await updateBlock(parent.id, { collapsed: false });
+		}
+		await applyUpdates(plan.updates);
+		focusBlockId = block.id;
+	}
+
+	async function handleOutdent(block) {
+		const plan = planOutdent(blocks, block.id);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
+		focusBlockId = block.id;
+	}
+
+	async function handleMoveUp(block) {
+		const plan = planMoveUp(blocks, block.id);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
+		focusBlockId = block.id;
+	}
+
+	async function handleMoveDown(block) {
+		const plan = planMoveDown(blocks, block.id);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
+		focusBlockId = block.id;
+	}
+
+	async function handleToggleCollapsed(block) {
+		block.collapsed = !block.collapsed;
+		await updateBlock(block.id, { collapsed: block.collapsed });
+	}
+
+	async function handleToggleChecked(block) {
+		block.checked = !block.checked;
+		await updateBlock(block.id, { checked: block.checked });
+	}
+
+	async function applySlashCommand(command) {
+		const row = blocks.find((block) => block.id === slash.blockId);
+		slash = null;
+		if (!row) return;
+		if (command.id === 'separator') {
+			row.type = 'separator';
+			row.content = '';
+			await updateBlock(row.id, { type: 'separator', content: '' });
+			await handleEnter(row, 'text');
+			return;
+		}
+		row.type = command.id;
+		row.content = '';
+		const changes = { type: command.id, content: '' };
+		if (command.id === 'todo') {
+			row.checked = false;
+			changes.checked = false;
+		}
+		await updateBlock(row.id, changes);
+		focusBlockId = row.id;
+	}
+
+	function handleSlashKey(key) {
+		if (!slash) return;
+		if (key === 'Escape') {
+			slash = null;
+			return;
+		}
+		if (key === 'ArrowDown') {
+			slash.index = moveSelection(slash.index, 1, slashCommands.length);
+			return;
+		}
+		if (key === 'ArrowUp') {
+			slash.index = moveSelection(slash.index, -1, slashCommands.length);
+			return;
+		}
+		if (key === 'Enter') {
+			const command = slashCommands[slash.index];
+			if (command) applySlashCommand(command);
+			else slash = null;
+		}
 	}
 </script>
 
@@ -128,14 +251,27 @@
 			class="placeholder:text-faint w-full bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
 		/>
 		<div class="mt-6 flex flex-col">
-			{#each blocks as block, index (block.id)}
+			{#each visible as row, index (row.block.id)}
 				<BlockRow
-					{block}
-					focused={focusBlockId === block.id}
-					placeholder={index === 0 && blocks.length === 1 ? 'Escribí algo…' : ''}
+					block={row.block}
+					depth={row.depth}
+					hasChildren={row.hasChildren}
+					focused={focusBlockId === row.block.id}
+					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
+					slashOpen={slash !== null && slash.blockId === row.block.id}
+					{slashCommands}
+					slashIndex={slash ? slash.index : 0}
 					onInput={handleBlockInput}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
+					onIndent={handleIndent}
+					onOutdent={handleOutdent}
+					onMoveUp={handleMoveUp}
+					onMoveDown={handleMoveDown}
+					onToggleCollapsed={handleToggleCollapsed}
+					onToggleChecked={handleToggleChecked}
+					onSlashKey={handleSlashKey}
+					onSlashSelect={applySlashCommand}
 					onFocusHandled={() => (focusBlockId = null)}
 				/>
 			{/each}
