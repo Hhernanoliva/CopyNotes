@@ -123,19 +123,25 @@
 			>●</span
 		>
 	{:else if block.type === 'todo'}
+		<!-- Padded wrapper widens the tap target beyond the visible 16px box. -->
 		<button
 			type="button"
 			role="checkbox"
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
 			onclick={() => onToggleChecked(block)}
-			class="border-border focus-visible:ring-ring mt-1.5 flex size-4 shrink-0 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.checked
-				? 'bg-primary border-primary text-primary-foreground'
-				: 'bg-transparent'}"
+			class="focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
-			{#if block.checked}
-				<Check size={12} aria-hidden="true" />
-			{/if}
+			<span
+				aria-hidden="true"
+				class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {block.checked
+					? 'bg-primary border-primary text-primary-foreground'
+					: 'bg-transparent'}"
+			>
+				{#if block.checked}
+					<Check size={12} />
+				{/if}
+			</span>
 		</button>
 	{/if}
 
@@ -160,6 +166,11 @@
 			tabindex="0"
 			aria-multiline="true"
 			aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
+			aria-haspopup="listbox"
+			aria-controls={slashOpen ? 'slash-menu' : undefined}
+			aria-activedescendant={slashOpen && slashCommands[slashIndex]
+				? `slash-option-${slashCommands[slashIndex].id}`
+				: undefined}
 			data-placeholder={placeholder}
 			onkeydown={handleKeydown}
 			oninput={handleInput}

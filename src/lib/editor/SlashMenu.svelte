@@ -8,6 +8,7 @@
 
 <div
 	role="listbox"
+	id="slash-menu"
 	aria-label="Tipos de bloque"
 	class="bg-popover border-border absolute top-full left-8 z-10 mt-1 w-52 rounded-md border p-1 shadow-md"
 >
@@ -19,6 +20,7 @@
 			<button
 				type="button"
 				role="option"
+				id="slash-option-{command.id}"
 				aria-selected={index === selectedIndex}
 				onpointerdown={(event) => {
 					event.preventDefault();
