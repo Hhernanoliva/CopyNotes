@@ -1,6 +1,8 @@
 <script>
-	import { ChevronRight, Check, Copy, CopyPlus, BookmarkPlus } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy, CopyPlus, BookmarkPlus, Tag } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
+	import TagPicker from '$lib/components/TagPicker.svelte';
+	import TagChips from '$lib/components/TagChips.svelte';
 
 	let {
 		block,
@@ -24,6 +26,13 @@
 		onCopy,
 		onSaveSnippet,
 		onActive,
+		tags = [],
+		allTags = [],
+		tagPickerOpen = false,
+		onTag,
+		onUntag,
+		onTagPick,
+		onTagPickerClose,
 		onSlashKey,
 		onSlashSelect,
 		onFocusHandled
@@ -189,6 +198,12 @@
 		></div>
 	{/if}
 
+	{#if tags.length > 0}
+		<div class="flex max-w-[40%] shrink-0 flex-wrap items-center gap-1 self-center">
+			<TagChips {tags} onRemove={(tag) => onUntag(block, tag)} />
+		</div>
+	{/if}
+
 	<!-- Copy actions: hidden until hover/keyboard focus so the page stays quiet
 	     (specs/004). mousedown+preventDefault keeps the caret in the block. -->
 	<div
@@ -227,6 +242,16 @@
 			>
 				<BookmarkPlus size={14} aria-hidden="true" />
 			</button>
+			<button
+				type="button"
+				aria-label="Etiquetar bloque"
+				title="Etiquetar bloque"
+				aria-expanded={tagPickerOpen}
+				onclick={() => onTag(block)}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<Tag size={14} aria-hidden="true" />
+			</button>
 		{/if}
 	</div>
 
@@ -236,6 +261,16 @@
 			selectedIndex={slashIndex}
 			onSelect={onSlashSelect}
 			emptyLabel={slashEmptyLabel}
+		/>
+	{/if}
+
+	{#if tagPickerOpen}
+		<TagPicker
+			tags={allTags}
+			assignedIds={tags.map((tag) => tag.id)}
+			onPick={onTagPick}
+			onClose={onTagPickerClose}
+			align="right"
 		/>
 	{/if}
 </div>

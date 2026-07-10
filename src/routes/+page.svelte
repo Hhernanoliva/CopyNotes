@@ -7,13 +7,20 @@
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
+		assignTag,
 		createBlock,
 		createNote,
+		findOrCreateTag,
 		getLastOpenedNoteId,
 		listNotes,
 		listSnippets,
+		listTags,
+		listTagsForMany,
+		renameTag,
 		setLastOpenedNoteId,
 		softDeleteSnippet,
+		softDeleteTag,
+		unassignTag,
 		updateSnippet
 	} from '$lib/storage';
 	import { filterSnippets } from '$lib/snippets';
@@ -28,6 +35,8 @@
 	let backupOpen = $state(false);
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
+	let tags = $state([]);
+	let snippetTagsMap = $state({});
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
@@ -50,6 +59,7 @@
 			if (cancelled) return;
 			notes = rows;
 			snippets = snippetRows;
+			await refreshTags();
 			const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
 			const current = last ?? rows[0];
 			currentNoteId = current ? current.id : null;
@@ -91,6 +101,52 @@
 
 	async function refreshSnippets() {
 		snippets = await listSnippets();
+		await refreshTags();
+	}
+
+	async function refreshTags() {
+		tags = await listTags();
+		snippetTagsMap = await listTagsForMany(
+			'snippet',
+			snippets.map((snippet) => snippet.id)
+		);
+	}
+
+	async function createTagFromSidebar(name) {
+		const tag = await findOrCreateTag(name);
+		if (tag) await refreshTags();
+	}
+
+	async function renameTagFromSidebar(tag, name) {
+		const renamed = await renameTag(tag.id, name);
+		if (!renamed) {
+			toast.error('Ya existe una etiqueta con ese nombre.');
+			return;
+		}
+		await refreshTags();
+		// Chips inside the editor show the old name; remount to re-read.
+		dataVersion += 1;
+	}
+
+	async function deleteTag(tag) {
+		await softDeleteTag(tag.id);
+		await refreshTags();
+		dataVersion += 1;
+		toast.success('Etiqueta borrada');
+	}
+
+	async function snippetTagPick(snippet, option) {
+		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
+		if (!tag) return;
+		const assigned = (snippetTagsMap[snippet.id] ?? []).some((row) => row.id === tag.id);
+		if (assigned) await unassignTag(tag.id, 'snippet', snippet.id);
+		else await assignTag(tag.id, 'snippet', snippet.id);
+		await refreshTags();
+	}
+
+	async function snippetUntag(snippet, tag) {
+		await unassignTag(tag.id, 'snippet', snippet.id);
+		await refreshTags();
 	}
 
 	async function toggleFavorite(snippet) {
@@ -135,6 +191,8 @@
 	<NoteSidebar
 		{notes}
 		snippets={sortedSnippets}
+		{tags}
+		snippetTags={snippetTagsMap}
 		{currentNoteId}
 		open={sidebarOpen}
 		bind:view={sidebarView}
@@ -147,6 +205,11 @@
 		onInsertSnippet={insertSnippet}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
+		onCreateTag={createTagFromSidebar}
+		onRenameTag={renameTagFromSidebar}
+		onDeleteTag={deleteTag}
+		onSnippetTagPick={snippetTagPick}
+		onSnippetUntag={snippetUntag}
 	/>
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
@@ -188,6 +251,7 @@
 						onNoteUpdated={handleNoteUpdated}
 						onSaveStateChange={(state) => (saveState = state)}
 						onSnippetsChanged={refreshSnippets}
+						onTagsChanged={refreshTags}
 					/>
 				{/key}
 			{:else}

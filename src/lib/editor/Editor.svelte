@@ -1,17 +1,25 @@
 <script>
 	import {
 		applyInsertionPlan,
+		assignTag,
 		createBlock,
 		createId,
 		createSnippet,
+		findOrCreateTag,
 		getNote,
 		listBlocksByNote,
 		listSnippets,
+		listTags,
+		listTagsForMany,
 		softDeleteBlock,
+		unassignTag,
 		updateBlock,
 		updateNote
 	} from '$lib/storage';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
+	import TagPicker from '$lib/components/TagPicker.svelte';
+	import TagChips from '$lib/components/TagChips.svelte';
+	import { Plus } from '@lucide/svelte';
 	import { buildVisibleList } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -29,7 +37,7 @@
 	import { filterCommands, moveSelection } from './slash';
 	import BlockRow from './BlockRow.svelte';
 
-	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged } = $props();
+	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
 
 	let note = $state(null);
 	let blocks = $state([]);
@@ -41,6 +49,12 @@
 	// "/", and the highlighted option. mode 'snippets' means /snippet was
 	// chosen and the menu now lists saved snippets instead of block types.
 	let slash = $state(null);
+	// Tag state: all live tags (for the picker), the note's tags, tags per
+	// block id, and which target has the picker open ('note' or a block id).
+	let allTags = $state([]);
+	let noteTags = $state([]);
+	let blockTagsMap = $state({});
+	let tagPickerFor = $state(null);
 
 	const visible = $derived(buildVisibleList(blocks));
 	const slashCommands = $derived.by(() => {
@@ -95,6 +109,7 @@
 			note = loadedNote;
 			blocks = loadedBlocks;
 			activeBlockId = null;
+			await refreshTags();
 			if (note && note.title === '' && titleEl) {
 				titleEl.focus();
 			}
@@ -264,6 +279,40 @@
 		await applyUpdates(plan.updates);
 	}
 
+	async function refreshTags() {
+		const blockIds = blocks.map((block) => block.id);
+		const [tags, noteMap, blockMap] = await Promise.all([
+			listTags(),
+			listTagsForMany('note', [noteId]),
+			listTagsForMany('block', blockIds)
+		]);
+		allTags = tags;
+		noteTags = noteMap[noteId] ?? [];
+		blockTagsMap = blockMap;
+	}
+
+	// One handler for both note and block picks: create the tag if it is new,
+	// then toggle the assignment. The picker stays open for multi-tagging.
+	async function handleTagPick(option) {
+		const target = tagPickerFor;
+		if (!target) return;
+		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
+		if (!tag) return;
+		if (option.kind === 'tag' && option.assigned) {
+			await unassignTag(tag.id, target.type, target.id);
+		} else {
+			await assignTag(tag.id, target.type, target.id);
+		}
+		await refreshTags();
+		if (onTagsChanged) onTagsChanged();
+	}
+
+	async function removeTag(type, id, tag) {
+		await unassignTag(tag.id, type, id);
+		await refreshTags();
+		if (onTagsChanged) onTagsChanged();
+	}
+
 	function cancelPending(key) {
 		const entry = pending.get(key);
 		if (entry) {
@@ -395,6 +444,27 @@
 			name="note-title"
 			class="placeholder:text-faint w-full bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
 		/>
+		<div class="relative mt-3 flex flex-wrap items-center gap-1.5">
+			<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
+			<button
+				type="button"
+				onclick={() =>
+					(tagPickerFor = tagPickerFor?.type === 'note' ? null : { type: 'note', id: note.id })}
+				aria-expanded={tagPickerFor?.type === 'note'}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<Plus size={12} aria-hidden="true" />
+				etiqueta
+			</button>
+			{#if tagPickerFor?.type === 'note'}
+				<TagPicker
+					tags={allTags}
+					assignedIds={noteTags.map((tag) => tag.id)}
+					onPick={handleTagPick}
+					onClose={() => (tagPickerFor = null)}
+				/>
+			{/if}
+		</div>
 		<div class="mt-6 flex flex-col">
 			{#each visible as row, index (row.block.id)}
 				<BlockRow
@@ -418,6 +488,17 @@
 					onCopy={handleCopy}
 					onSaveSnippet={handleSaveSnippet}
 					onActive={(row) => (activeBlockId = row.id)}
+					tags={blockTagsMap[row.block.id] ?? []}
+					{allTags}
+					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
+					onTag={(block) =>
+						(tagPickerFor =
+							tagPickerFor?.type === 'block' && tagPickerFor.id === block.id
+								? null
+								: { type: 'block', id: block.id })}
+					onUntag={(block, tag) => removeTag('block', block.id, tag)}
+					onTagPick={handleTagPick}
+					onTagPickerClose={() => (tagPickerFor = null)}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
 					onFocusHandled={() => (focusBlockId = null)}

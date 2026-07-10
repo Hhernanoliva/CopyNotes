@@ -21,6 +21,8 @@ export {
 } from './snippets';
 export {
 	createTag,
+	findOrCreateTag,
+	renameTag,
 	getTag,
 	listTags,
 	updateTag,
@@ -28,6 +30,7 @@ export {
 	assignTag,
 	unassignTag,
 	listTagsFor,
+	listTagsForMany,
 	listAssignmentsForTag
 } from './tags';
 export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';

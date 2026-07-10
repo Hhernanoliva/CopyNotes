@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (Stage 6, primera parte: snippets).
+Última actualización: 2026-07-10 (Stage 6, segunda parte: etiquetas).
 
 ## Lo básico
 
@@ -122,6 +122,37 @@ Al insertarse, el snippet se convierte en renglones normales de la nota: si era 
 ### Exportar snippets
 
 En la pestaña Snippets, abajo, hay un botón **Exportar snippets** que descarga un archivo JSON solo con tus snippets (ej. `copynotes-snippets-2026-07-10.json`). Además, el respaldo completo de siempre ya los incluye.
+
+## Etiquetas
+
+Las etiquetas te ayudan a agrupar y encontrar cosas sin carpetas. Podés etiquetar **notas**, **renglones sueltos** y **snippets**, y una misma etiqueta sirve en los tres lados.
+
+### Etiquetar una nota
+
+Debajo del título hay un botón discreto **+ etiqueta**. Al tocarlo se abre un buscador chiquito: escribí y filtra tus etiquetas; si no existe, te ofrece **Crear «lo que escribiste»** con un Enter. El selector queda abierto por si querés agregar varias; se cierra con Escape o tocando afuera. Las etiquetas de la nota se ven como chips (`#trabajo`) debajo del título; la **x** del chip la quita.
+
+### Etiquetar un renglón
+
+Al pasar el mouse por un renglón, junto a los botones de copiar y del marcador hay uno de **etiqueta**. Mismo buscador. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
+
+### Etiquetar un snippet
+
+En la pestaña Snippets, cada fila tiene también su botón de etiqueta. Los chips se ven debajo del nombre del snippet.
+
+### Administrar etiquetas (pestaña Etiquetas)
+
+El conmutador de la barra lateral ahora tiene tres pestañas: **Notas | Snippets | Etiquetas**. En Etiquetas ves la lista completa, alfabética. Al pasar el mouse por una:
+
+- **Lápiz** — renombrar ahí mismo (Enter guarda, Escape cancela). Si el nombre nuevo ya existe, avisa y no cambia nada.
+- **Tachito** — borrarla (recuperable, como todo). Desaparece de todas las notas, renglones y snippets donde estaba.
+
+El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
+
+### Sin duplicados
+
+`#Trabajo`, `trabajo` y `TRABAJO` cuentan como la misma etiqueta (también ignora acentos: `café` = `cafe`). Nunca vas a terminar con tres versiones de la misma palabra.
+
+**Filtrar y buscar por etiqueta llega en la próxima entrega**, junto con el buscador.
 
 ## Respaldo (exportar e importar)
 
