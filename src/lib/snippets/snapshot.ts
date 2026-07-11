@@ -25,6 +25,7 @@ export function snapshotFromBlocks(blocks, rootId) {
 			type: block.type,
 			content: block.content,
 			checked: block.checked,
+			note: block.note ?? '',
 			children: children.map(node)
 		};
 	}

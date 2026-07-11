@@ -28,6 +28,7 @@ const blockSchema = v.looseObject({
 	order: v.number(),
 	collapsed: v.boolean(),
 	checked: v.boolean(),
+	note: v.optional(v.string()),
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	deletedAt: nullableTimestamp

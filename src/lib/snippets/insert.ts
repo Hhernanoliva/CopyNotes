@@ -34,7 +34,8 @@ export function planSnippetInsertion(blocks, snippet, options) {
 			content: node.content,
 			order: nodeOrder,
 			collapsed: false,
-			checked: node.checked ?? false
+			checked: node.checked ?? false,
+			note: node.note ?? ''
 		});
 		node.children.forEach((child, index) => materialize(child, id, index));
 	}

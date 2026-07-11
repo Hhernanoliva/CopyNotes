@@ -10,7 +10,8 @@ export async function createBlock(fields) {
 		type = 'text',
 		content = '',
 		collapsed = false,
-		checked = false
+		checked = false,
+		note = ''
 	} = fields;
 	let { order } = fields;
 	if (order === undefined) {
@@ -27,6 +28,7 @@ export async function createBlock(fields) {
 		order,
 		collapsed,
 		checked,
+		note,
 		createdAt: timestamp,
 		updatedAt: timestamp,
 		deletedAt: null

@@ -1,4 +1,5 @@
 <script>
+	import { tick } from 'svelte';
 	import { ChevronRight, Check, Copy } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
@@ -17,6 +18,7 @@
 		slashIndex = 0,
 		slashEmptyLabel = 'Sin resultados',
 		onInput,
+		onNoteInput,
 		onEnter,
 		onBackspaceEmpty,
 		onIndent,
@@ -41,6 +43,11 @@
 	} = $props();
 
 	let el = $state();
+	let noteEl = $state();
+	// The secondary note editor shows once it has content or the user is adding
+	// one via Shift+Enter (editor UX pass, slice B).
+	let showNote = $state(false);
+	const noteVisible = $derived(showNote || (block.note ?? '') !== '');
 
 	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
 	// "/query" text). While the user types they always match, so the caret is
@@ -50,6 +57,46 @@
 			el.textContent = block.content;
 		}
 	});
+
+	$effect(() => {
+		if (noteEl && noteEl.textContent !== (block.note ?? '')) {
+			noteEl.textContent = block.note ?? '';
+		}
+	});
+
+	async function openNote() {
+		showNote = true;
+		await tick();
+		if (noteEl) {
+			noteEl.focus();
+			const selection = window.getSelection();
+			selection.selectAllChildren(noteEl);
+			selection.collapseToEnd();
+		}
+	}
+
+	function handleNoteInput() {
+		onNoteInput(block, noteEl.textContent);
+	}
+
+	function handleNoteKeydown(event) {
+		if (event.key === 'Backspace' && noteEl.textContent === '') {
+			event.preventDefault();
+			onNoteInput(block, '');
+			showNote = false;
+			el.focus();
+			return;
+		}
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			el.focus();
+		}
+	}
+
+	function handleNoteBlur() {
+		// An empty note that loses focus disappears; a filled one stays.
+		if (noteEl && noteEl.textContent === '') showNote = false;
+	}
 
 	$effect(() => {
 		if (focused && el) {
@@ -67,6 +114,13 @@
 		if (slashOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
 			event.preventDefault();
 			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
+			return;
+		}
+		// Shift+Enter adds/edits the gray note (Workflowy-style). Code blocks
+		// keep it as a literal newline.
+		if (event.key === 'Enter' && event.shiftKey && block.type !== 'code' && block.type !== 'separator') {
+			event.preventDefault();
+			openNote();
 			return;
 		}
 		if (event.key === 'Enter' && !event.shiftKey) {
@@ -175,29 +229,46 @@
 			<hr class="border-border w-full" />
 		</div>
 	{:else}
-		<div
-			bind:this={el}
-			contenteditable="plaintext-only"
-			role="textbox"
-			tabindex="0"
-			aria-multiline="true"
-			aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
-			aria-haspopup="listbox"
-			aria-controls={slashOpen ? 'slash-menu' : undefined}
-			aria-activedescendant={slashOpen && slashCommands[slashIndex]
-				? `slash-option-${slashCommands[slashIndex].id}`
-				: undefined}
-			data-placeholder={placeholder}
-			onkeydown={handleKeydown}
-			oninput={handleInput}
-			onfocus={() => onActive(block)}
-			class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
-			'code'
-				? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
-				: 'text-base'} {block.type === 'todo' && block.checked
-				? 'text-muted-foreground line-through'
-				: ''}"
-		></div>
+		<div class="flex min-w-0 flex-1 flex-col">
+			<div
+				bind:this={el}
+				contenteditable="plaintext-only"
+				role="textbox"
+				tabindex="0"
+				aria-multiline="true"
+				aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
+				aria-haspopup="listbox"
+				aria-controls={slashOpen ? 'slash-menu' : undefined}
+				aria-activedescendant={slashOpen && slashCommands[slashIndex]
+					? `slash-option-${slashCommands[slashIndex].id}`
+					: undefined}
+				data-placeholder={placeholder}
+				onkeydown={handleKeydown}
+				oninput={handleInput}
+				onfocus={() => onActive(block)}
+				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
+				'code'
+					? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
+					: 'text-base'} {block.type === 'todo' && block.checked
+					? 'text-muted-foreground line-through'
+					: ''}"
+			></div>
+			{#if noteVisible}
+				<div
+					bind:this={noteEl}
+					contenteditable="plaintext-only"
+					role="textbox"
+					tabindex="0"
+					aria-multiline="true"
+					aria-label="Nota del bloque"
+					data-placeholder="Nota…"
+					onkeydown={handleNoteKeydown}
+					oninput={handleNoteInput}
+					onblur={handleNoteBlur}
+					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap outline-none"
+				></div>
+			{/if}
+		</div>
 	{/if}
 
 	{#if tags.length > 0}

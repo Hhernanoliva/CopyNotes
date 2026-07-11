@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (mejoras de editor, tanda A: tooltips rápidos, menú de 3 puntitos, atajos escritos).
+Última actualización: 2026-07-10 (mejoras de editor, tanda B: nota gris con Shift+Enter).
 
 ## Lo básico
 
@@ -40,7 +40,7 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | Tecla | Qué hace |
 |---|---|
 | **Enter** | Renglón nuevo, del mismo tipo que el actual |
-| **Shift+Enter** | Salto de línea adentro del mismo renglón |
+| **Shift+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo). En bloques de código, hace salto de línea |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
@@ -65,6 +65,16 @@ En dos pasos, como Workflowy:
 ### Enter en un renglón con hijos
 
 Si el renglón tiene hijos a la vista, Enter crea el renglón nuevo como **primer hijo** (porque ahí está mirando el ojo). Si los hijos están colapsados, crea un hermano abajo.
+
+## Nota gris del renglón (estilo Workflowy)
+
+Cada renglón puede tener una **nota**: un texto secundario, gris y más chico, pegado debajo, para aclaraciones o detalles que no querés que ensucien la línea principal.
+
+- **Agregar/editar:** parado en un renglón, apretá **Shift+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
+- **Salir de la nota:** clic en otro lado, o **Escape** para volver al renglón.
+- **Borrar la nota:** con la nota vacía, apretá **Backspace**: desaparece y volvés al renglón. Una nota vacía que perdés el foco también se esconde sola.
+- La nota **viaja con el renglón**: se guarda, se copia (como sub-línea debajo) y se exporta en Markdown y HTML.
+- En **bloques de código**, Shift+Enter no hace nota: hace salto de línea, porque el código es multilínea.
 
 ## Colapsar y expandir
 

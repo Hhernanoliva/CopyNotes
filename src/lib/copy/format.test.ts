@@ -134,3 +134,36 @@ describe('formatHtml', () => {
 		);
 	});
 });
+
+describe('block notes in copy output', () => {
+	it('plain text puts the note on indented lines under the block', () => {
+		const tree = buildCopyTree(
+			[block('a', 'bullet', 'Comprar', null, 0, { note: 'en el super\ncon lista' })],
+			'a',
+			false
+		);
+		expect(formatPlainText(tree)).toBe('- Comprar\n  en el super\n  con lista');
+	});
+
+	it('plain text note nests under a nested block at its own depth', () => {
+		const blocks = [
+			block('a', 'bullet', 'Padre'),
+			block('b', 'bullet', 'Hijo', 'a', 0, { note: 'detalle' })
+		];
+		expect(formatPlainText(buildCopyTree(blocks, 'a', true))).toBe('- Padre\n  - Hijo\n    detalle');
+	});
+
+	it('html appends the note after the content', () => {
+		const tree = buildCopyTree(
+			[block('a', 'bullet', 'Comprar', null, 0, { note: 'en el super' })],
+			'a',
+			false
+		);
+		expect(formatHtml(tree)).toContain('Comprar<br>en el super');
+	});
+
+	it('ignores an empty note', () => {
+		const tree = buildCopyTree([block('a', 'text', 'hola', null, 0, { note: '' })], 'a', false);
+		expect(formatPlainText(tree)).toBe('hola');
+	});
+});

@@ -107,3 +107,20 @@ describe('noteExportFileName', () => {
 		expect(noteExportFileName('', 'md')).toBe('nota.md');
 	});
 });
+
+describe('block notes in export', () => {
+	const iso2 = '2026-07-10T00:00:00.000Z';
+	function blk(id, type, content, parentBlockId, order, note) {
+		return { id, noteId: 'note_1', parentBlockId: parentBlockId ?? null, type, content, order, collapsed: false, checked: false, note: note ?? '', createdAt: iso2, updatedAt: iso2, deletedAt: null };
+	}
+
+	it('Markdown puts the note on an indented line under the item', () => {
+		const blocks = [blk('a', 'bullet', 'Comprar', null, 0, 'en el super')];
+		expect(noteToMarkdown({ id: 'note_1', title: 'T' }, blocks)).toContain('- Comprar\n  en el super');
+	});
+
+	it('HTML appends the note after the content', () => {
+		const blocks = [blk('a', 'bullet', 'Comprar', null, 0, 'en el super')];
+		expect(noteToHtml({ id: 'note_1', title: 'T' }, blocks)).toContain('Comprar<br>en el super');
+	});
+})

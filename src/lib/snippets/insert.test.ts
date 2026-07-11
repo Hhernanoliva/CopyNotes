@@ -43,7 +43,8 @@ describe('planSnippetInsertion', () => {
 				content: 'Hola equipo',
 				order: 1,
 				collapsed: false,
-				checked: false
+				checked: false,
+				note: ''
 			}
 		]);
 		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);

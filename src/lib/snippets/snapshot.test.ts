@@ -10,7 +10,8 @@ function block(fields) {
 		content: fields.content ?? '',
 		order: fields.order ?? 0,
 		collapsed: fields.collapsed ?? false,
-		checked: fields.checked ?? false
+		checked: fields.checked ?? false,
+		note: fields.note ?? ''
 	};
 }
 
@@ -22,6 +23,7 @@ describe('snapshotFromBlocks', () => {
 			type: 'todo',
 			content: 'Llamar cliente',
 			checked: true,
+			note: '',
 			children: []
 		});
 	});
@@ -39,6 +41,7 @@ describe('snapshotFromBlocks', () => {
 			type: 'todo',
 			content: 'Nieto',
 			checked: false,
+			note: '',
 			children: []
 		});
 	});
@@ -101,5 +104,13 @@ describe('snippetFieldsFromText', () => {
 		const fields = snippetFieldsFromText('   \n');
 		expect(fields.name).toBe('Snippet');
 		expect(fields.content).toBe('');
+	});
+});
+
+describe('snapshot captures block notes', () => {
+	it('keeps the note on each snapshot node', () => {
+		const blocks = [block({ id: 'root', type: 'bullet', content: 'Padre', note: 'una aclaración' })];
+		const snapshot = snapshotFromBlocks(blocks, 'root');
+		expect(snapshot.note).toBe('una aclaración');
 	});
 });

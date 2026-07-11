@@ -27,6 +27,8 @@ function plainLines(node, depth) {
 	else if (block.type === 'bullet') lines = [indent + '- ' + block.content];
 	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${block.content}`];
 	else lines = block.content.split('\n').map((line) => indent + line);
+	// The secondary note sits one indent deeper, right under the block.
+	if (block.note) lines = lines.concat(block.note.split('\n').map((line) => indent + '  ' + line));
 	for (const child of node.children) lines = lines.concat(plainLines(child, depth + 1));
 	return lines;
 }
@@ -48,11 +50,16 @@ function htmlChildren(node) {
 	return '<ul>' + node.children.map(htmlNode).join('') + '</ul>';
 }
 
+function noteHtml(block) {
+	if (!block.note) return '';
+	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
+}
+
 function htmlContent(block) {
 	if (block.type === 'separator') return '<hr>';
-	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>';
-	if (block.type === 'todo') return todoMark(block) + ' ' + escapeHtml(block.content);
-	return escapeHtml(block.content);
+	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
+	if (block.type === 'todo') return todoMark(block) + ' ' + escapeHtml(block.content) + noteHtml(block);
+	return escapeHtml(block.content) + noteHtml(block);
 }
 
 function htmlNode(node) {
@@ -63,7 +70,7 @@ export function formatHtml(tree) {
 	const { block } = tree;
 	// A lone text/code/separator block pastes as its natural element, not a list.
 	if (tree.children.length === 0 && block.type !== 'bullet' && block.type !== 'todo') {
-		if (block.type === 'text') return '<p>' + escapeHtml(block.content) + '</p>';
+		if (block.type === 'text') return '<p>' + escapeHtml(block.content) + noteHtml(block) + '</p>';
 		return htmlContent(block);
 	}
 	return '<ul>' + htmlNode(tree) + '</ul>';

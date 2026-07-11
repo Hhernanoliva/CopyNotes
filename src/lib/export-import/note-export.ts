@@ -20,6 +20,11 @@ function todoMark(block) {
 
 // --- Markdown ---
 
+function noteLines(block, indent) {
+	if (!block.note) return [];
+	return block.note.split('\n').map((line) => indent + '  ' + line);
+}
+
 function markdownListLines(node, depth) {
 	const { block } = node;
 	const indent = '  '.repeat(depth);
@@ -28,6 +33,7 @@ function markdownListLines(node, depth) {
 	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${block.content}`];
 	else if (block.type === 'separator') lines = [indent + '---'];
 	else lines = block.content.split('\n').map((line) => indent + line);
+	lines = lines.concat(noteLines(block, indent));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, depth + 1));
 	return lines;
 }
@@ -39,6 +45,7 @@ function markdownRootChunk(node) {
 	if (block.type === 'separator') lines = ['---'];
 	else if (block.type === 'code') lines = ['```', block.content, '```'];
 	else lines = [block.content];
+	lines = lines.concat(noteLines(block, ''));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, 1));
 	return lines.join('\n');
 }
@@ -71,13 +78,18 @@ function escapeHtml(text) {
 		.replaceAll('"', '&quot;');
 }
 
+function noteHtml(block) {
+	if (!block.note) return '';
+	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
+}
+
 function htmlListItem(node) {
 	const { block } = node;
 	let content;
 	if (block.type === 'separator') content = '<hr>';
-	else if (block.type === 'code') content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>';
-	else if (block.type === 'todo') content = todoMark(block) + ' ' + escapeHtml(block.content);
-	else content = escapeHtml(block.content);
+	else if (block.type === 'code') content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
+	else if (block.type === 'todo') content = todoMark(block) + ' ' + escapeHtml(block.content) + noteHtml(block);
+	else content = escapeHtml(block.content) + noteHtml(block);
 	const children =
 		node.children.length > 0 ? '<ul>' + node.children.map(htmlListItem).join('') + '</ul>' : '';
 	return '<li>' + content + children + '</li>';
@@ -88,8 +100,8 @@ function htmlRootChunk(node) {
 	if (block.type === 'bullet' || block.type === 'todo') return htmlListItem(node);
 	let element;
 	if (block.type === 'separator') element = '<hr>';
-	else if (block.type === 'code') element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>';
-	else element = '<p>' + escapeHtml(block.content) + '</p>';
+	else if (block.type === 'code') element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
+	else element = '<p>' + escapeHtml(block.content) + noteHtml(block) + '</p>';
 	if (node.children.length > 0) {
 		element += '<ul>' + node.children.map(htmlListItem).join('') + '</ul>';
 	}

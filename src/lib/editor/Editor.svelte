@@ -183,6 +183,11 @@
 		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text }));
 	}
 
+	function handleNoteInput(block, text) {
+		block.note = text;
+		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }));
+	}
+
 	// A new block keeps list-like types going; code and separators hand
 	// over to plain text.
 	function inheritType(type) {
@@ -497,6 +502,7 @@
 					{slashCommands}
 					slashIndex={slash ? slash.index : 0}
 					onInput={handleBlockInput}
+					onNoteInput={handleNoteInput}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
 					onIndent={handleIndent}
