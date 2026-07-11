@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F en la búsqueda).
+Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas entre renglones).
 
 ## Lo básico
 
@@ -64,6 +64,7 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | **Shift+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo). En bloques de código, hace salto de línea |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
+| **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 

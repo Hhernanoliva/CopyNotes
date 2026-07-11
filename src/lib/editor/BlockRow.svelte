@@ -43,7 +43,8 @@
 		onTagPickerClose,
 		onSlashKey,
 		onSlashSelect,
-		onFocusHandled
+		onFocusHandled,
+		onVerticalArrow
 	} = $props();
 
 	let el = $state();
@@ -132,6 +133,20 @@
 			onEnter(block);
 			return;
 		}
+		// Bare Up/Down cross to the neighbour block when the caret is at this
+		// block's visual edge (Editor decides); otherwise the browser moves the
+		// caret inside a wrapped block as usual.
+		if (
+			(event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+			!event.shiftKey &&
+			!event.altKey &&
+			!event.metaKey &&
+			!event.ctrlKey
+		) {
+			const direction = event.key === 'ArrowDown' ? 1 : -1;
+			if (onVerticalArrow?.(block, direction)) event.preventDefault();
+			return;
+		}
 		if (event.key === 'Tab') {
 			event.preventDefault();
 			if (event.shiftKey) onOutdent(block);
@@ -191,6 +206,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	data-block-id={block.id}
 	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2 {selected
 		? 'bg-primary/10'
 		: ''}"

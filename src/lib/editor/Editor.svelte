@@ -45,6 +45,7 @@
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
+	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
 	import BlockRow from './BlockRow.svelte';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
@@ -373,6 +374,32 @@
 		return direction < 0
 			? caret.top - box.top < lineHeight * 0.75
 			: box.bottom - caret.bottom < lineHeight * 0.75;
+	}
+
+	// Bare Up/Down: cross to the neighbour block when the caret sits at this
+	// block's visual edge, landing at the same horizontal column. Returns true
+	// when it consumed the key (moved); false lets the browser move inside the
+	// wrapped block. Places the caret directly (no focusBlockId) so BlockRow's
+	// focus effect does not yank the caret to the block's end.
+	function handleVerticalArrow(block, direction) {
+		if (hasSelection) return false;
+		if (!caretAtBlockEdge(direction)) return false;
+		const neighborId = neighborVisibleId(blocks, block.id, direction);
+		if (!neighborId) return false;
+		const x = caretColumnX();
+		const el = document.querySelector(
+			`[data-block-id="${neighborId}"] [contenteditable], [data-block-id="${neighborId}"] [role="separator"]`
+		);
+		if (!(el instanceof HTMLElement)) return false;
+		el.focus();
+		if (el.getAttribute('contenteditable') !== null) {
+			if (x == null || !placeCaretAtColumn(el, x, edgeForDirection(direction))) {
+				const sel = window.getSelection();
+				sel.selectAllChildren(el);
+				sel.collapseToEnd();
+			}
+		}
+		return true;
 	}
 
 	// Shift+Arrow extends an active block selection, or starts one from the
@@ -737,6 +764,7 @@
 					onTagPickerClose={closeTagPicker}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
+					onVerticalArrow={handleVerticalArrow}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
