@@ -11,15 +11,23 @@
 export const CLIPBOARD_FORMAT = 'web application/x-copynotes+json';
 
 // A copy tree ({ block, children }) from format.buildCopyTree becomes an
-// id-free node, the same shape snippet snapshots use so insertion can be reused.
-export function treeToNode(tree) {
+// id-free node, the same shape snippet snapshots use so insertion can be reused,
+// plus tag names (by block id) so tags survive a paste back into CopyNotes.
+export function treeToNode(tree, tagsById = {}) {
 	return {
 		type: tree.block.type,
 		content: tree.block.content ?? '',
 		checked: tree.block.checked ?? false,
 		note: tree.block.note ?? '',
-		children: tree.children.map(treeToNode)
+		tags: (tagsById[tree.block.id] ?? []).map((tag) => tag.name),
+		children: tree.children.map((child) => treeToNode(child, tagsById))
 	};
+}
+
+// Nodes in pre-order — the same order planSnippetInsertion materialises blocks,
+// so a paste can line each created block up with its source node (for tags).
+export function flattenNode(node) {
+	return [node, ...node.children.flatMap(flattenNode)];
 }
 
 // Serialise a forest of nodes to the string carried on the custom format.

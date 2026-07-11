@@ -79,8 +79,10 @@ test('pasting CopyNotes clipboard content rebuilds block types and nesting', asy
 	// checked todo travel on the app's own clipboard format. The paste handler
 	// must rebuild them as code + todo, not flatten them to text.
 	const forest = JSON.stringify([
-		{ type: 'code', content: 'saludar()', checked: false, note: '', children: [] },
-		{ type: 'todo', content: 'listo', checked: true, note: '', children: [] }
+		{ type: 'code', content: 'saludar()', checked: false, note: '', tags: [], children: [] },
+		{ type: 'todo', content: 'listo', checked: true, note: '', tags: [], children: [] },
+		{ type: 'separator', content: '', checked: false, note: '', tags: [], children: [] },
+		{ type: 'bullet', content: 'con etiqueta', checked: false, note: '', tags: ['prueba'], children: [] }
 	]);
 	await first.evaluate((el, payload) => {
 		const dt = new DataTransfer();
@@ -89,16 +91,20 @@ test('pasting CopyNotes clipboard content rebuilds block types and nesting', asy
 			new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
 		);
 	}, forest);
-	await page.waitForTimeout(500);
+	await page.waitForTimeout(600);
 
 	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
 	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+	await expect(page.locator('main [role="separator"]')).toHaveCount(1);
+	await expect(page.getByText('prueba', { exact: false })).toBeVisible();
 
 	// And it survives a reload (persisted through storage).
 	await page.waitForTimeout(600);
 	await page.reload();
 	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
 	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+	await expect(page.locator('main [role="separator"]')).toHaveCount(1);
+	await expect(page.getByText('prueba', { exact: false })).toBeVisible();
 });
 
 test('a checked todo persists across reload', async ({ page }) => {

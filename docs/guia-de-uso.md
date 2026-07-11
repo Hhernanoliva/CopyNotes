@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (arreglos de edición spec 019; pegado interno conserva tipos y anidado).
+Última actualización: 2026-07-11 (arreglos de edición spec 019; pegado interno conserva tipos, código, separador, etiquetas y anidado).
 
 ## Lo básico
 
@@ -78,7 +78,10 @@ Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…)
 - Las **líneas en blanco se ignoran** (no dejan renglones vacíos).
 - Pegar **una sola línea** funciona normal, se inserta donde está el cursor.
 
-**Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes (con viñetas, tareas, código y anidado) y los pegás en otra parte de CopyNotes, se pegan **igualitos**: cada uno con su tipo, su tildado y su nivel. Cuando pegás en otra app, sale como texto normal.
+**Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes y los pegás en otra parte de CopyNotes, se pegan **igualitos**: viñetas, tareas (con su tildado), **código**, **separadores**, **etiquetas** y el **anidado**. Cuando pegás en otra app, sale como texto normal.
+
+- **Copiar un solo renglón:** parado en él, **Cmd/Ctrl+C** lo copia entero (con su tipo y etiquetas). Si en cambio seleccionaste un pedazo de texto adentro del renglón, Cmd/Ctrl+C copia solo ese texto, como siempre.
+- **Copiar varios:** seleccionalos (arrastrando o con Shift+↑/↓) y **Cmd/Ctrl+C**.
 
 ### Doble Enter para salir del anidado
 

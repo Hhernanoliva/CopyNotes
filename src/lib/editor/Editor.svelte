@@ -43,7 +43,7 @@
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
-	import { treeToNode, serializeForest } from '$lib/copy/serialize';
+	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
@@ -350,6 +350,7 @@
 		if (!forest || forest.length === 0) return;
 		recordSnapshot();
 		let afterId = block.id;
+		let tagsTouched = false;
 		for (const root of forest) {
 			const plan = planSnippetInsertion(
 				$state.snapshot(blocks),
@@ -362,7 +363,23 @@
 				if (row) row.order = update.order;
 			}
 			blocks = [...blocks, ...plan.newBlocks];
+			// New blocks come out in pre-order, same as the flattened source nodes,
+			// so tags line up 1:1. Re-create the tag by name and assign it.
+			const sourceNodes = flattenNode(root);
+			for (let i = 0; i < plan.newBlocks.length; i++) {
+				for (const name of sourceNodes[i]?.tags ?? []) {
+					const tag = await findOrCreateTag(name);
+					if (tag) {
+						await assignTag(tag.id, 'block', plan.newBlocks[i].id);
+						tagsTouched = true;
+					}
+				}
+			}
 			afterId = plan.newBlocks[0].id;
+		}
+		if (tagsTouched) {
+			await refreshTags();
+			if (onTagsChanged) onTagsChanged();
 		}
 		const origin = blocks.find((item) => item.id === block.id);
 		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
@@ -442,7 +459,7 @@
 			await writeToClipboard({
 				text: formatPlainText(tree),
 				html: formatHtml(tree),
-				custom: serializeForest([treeToNode(tree)])
+				custom: serializeForest([treeToNode(tree, blockTagsMap)])
 			});
 			toast.success('Copiado');
 		} catch {
@@ -564,7 +581,7 @@
 			await writeToClipboard({
 				text: trees.map(formatPlainText).join('\n'),
 				html: trees.map(formatHtml).join(''),
-				custom: serializeForest(trees.map(treeToNode))
+				custom: serializeForest(trees.map((tree) => treeToNode(tree, blockTagsMap)))
 			});
 			toast.success(`Copiado (${rootIds.length})`);
 		} catch {
@@ -629,6 +646,25 @@
 		}
 		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
 			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) claim(event);
+			return;
+		}
+		// Cmd/Ctrl+C with no multi-selection and a collapsed caret inside a block:
+		// copy that whole block richly (custom format) so code, separators and
+		// tags survive a paste. A real in-block text selection falls through to
+		// the browser's native copy of just that text.
+		if (
+			(event.metaKey || event.ctrlKey) &&
+			event.key.toLowerCase() === 'c' &&
+			!hasSelection &&
+			event.target instanceof HTMLElement &&
+			(event.target.isContentEditable || event.target.getAttribute('role') === 'separator')
+		) {
+			const sel = window.getSelection();
+			const activeBlock = activeBlockId && blocks.find((block) => block.id === activeBlockId);
+			if ((!sel || sel.isCollapsed) && activeBlock) {
+				claim(event);
+				handleCopy(activeBlock, false);
+			}
 			return;
 		}
 		if (!hasSelection) return;
