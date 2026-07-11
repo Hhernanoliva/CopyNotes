@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (arreglos de edición spec 019: borrar notas, Ctrl/Cmd+F, flechas, Ctrl+Enter/Shift+Enter, pegar multilínea, deshacer/rehacer).
+Última actualización: 2026-07-11 (arreglos de edición spec 019; pegado interno conserva tipos y anidado).
 
 ## Lo básico
 
@@ -77,6 +77,8 @@ Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…)
 - **Reconoce viñetas y tareas** por cómo empieza la línea: `- `, `* ` o `• ` → viñeta; `[ ]` o `[x]` → tarea (con su tilde). El resto queda como texto.
 - Las **líneas en blanco se ignoran** (no dejan renglones vacíos).
 - Pegar **una sola línea** funciona normal, se inserta donde está el cursor.
+
+**Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes (con viñetas, tareas, código y anidado) y los pegás en otra parte de CopyNotes, se pegan **igualitos**: cada uno con su tipo, su tildado y su nivel. Cuando pegás en otra app, sale como texto normal.
 
 ### Doble Enter para salir del anidado
 

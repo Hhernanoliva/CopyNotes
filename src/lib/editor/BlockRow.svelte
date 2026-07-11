@@ -6,6 +6,7 @@
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { CLIPBOARD_FORMAT, deserializeForest } from '$lib/copy/serialize';
 
 	let {
 		block,
@@ -45,7 +46,8 @@
 		onSlashSelect,
 		onFocusHandled,
 		onVerticalArrow,
-		onPasteLines
+		onPasteLines,
+		onPasteBlocks
 	} = $props();
 
 	let el = $state();
@@ -186,10 +188,20 @@
 		onInput(block, el.textContent);
 	}
 
-	// Multi-line paste is split into blocks by the editor; a single line pastes
-	// inline as usual. Code blocks keep the browser's literal paste.
+	// Paste handling, in priority order:
+	// 1. CopyNotes' own copied content (hidden marker in the HTML) → rebuild the
+	//    exact blocks, types and nesting included.
+	// 2. External multi-line text → split into blocks, recognising bullets/todos.
+	// 3. A single line → let the browser paste it inline.
+	// Code blocks keep the browser's literal paste in every case.
 	function handlePaste(event) {
 		if (block.type === 'code') return;
+		const forest = deserializeForest(event.clipboardData?.getData(CLIPBOARD_FORMAT));
+		if (forest) {
+			event.preventDefault();
+			onPasteBlocks?.(block, forest);
+			return;
+		}
 		const text = event.clipboardData?.getData('text/plain') ?? '';
 		if (!text.includes('\n')) return;
 		event.preventDefault();

@@ -143,7 +143,18 @@ Shift+Enter to be a soft line break, and the gray note on Ctrl/Cmd+Enter.
   becomes a bullet; `[ ] ` / `[x] ` (case-insensitive x) becomes a todo with
   its checked state; everything else is a text block.
 
-**Behaviour:**
+**Internal round-trip (added 2026-07-11):** Copying inside CopyNotes must paste
+back with **types, checked state, code and nesting intact** — not flattened to
+text. The plain-text round-trip loses that (a todo renders as `- [ ] …`, code
+has no marker, nesting is spaces). Fix: on copy, also write the real block
+forest to CopyNotes' **own clipboard format** (`web application/x-copynotes+json`
+via `ClipboardItem`), which survives the browser's HTML sanitisation (a hidden
+HTML comment does not). On paste, if that format is present, rebuild the exact
+blocks by reusing the snippet-insertion machinery (`planSnippetInsertion` over
+each forest root). External paste has no such payload and falls back to the line
+parser below. Pure serialize/deserialize in `copy/serialize.ts` under Vitest.
+
+**Behaviour (external text):**
 - Add a `paste` handler on the block editable. If the clipboard's plain text has
   **no** newline → let the browser paste inline (normal single-line paste).
 - If it has newlines → `preventDefault`, then:

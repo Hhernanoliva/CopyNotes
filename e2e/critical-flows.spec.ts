@@ -65,6 +65,42 @@ test('undo reverses typing and a new block, and the result persists', async ({ p
 	await expect(page.locator('main [role="textbox"]', { hasText: 'Primero' })).toBeVisible();
 });
 
+test('pasting CopyNotes clipboard content rebuilds block types and nesting', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Round trip');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Una nota', { delay: 10 });
+	await page.waitForTimeout(200);
+
+	// Simulate pasting content copied inside CopyNotes: a code block and a
+	// checked todo travel on the app's own clipboard format. The paste handler
+	// must rebuild them as code + todo, not flatten them to text.
+	const forest = JSON.stringify([
+		{ type: 'code', content: 'saludar()', checked: false, note: '', children: [] },
+		{ type: 'todo', content: 'listo', checked: true, note: '', children: [] }
+	]);
+	await first.evaluate((el, payload) => {
+		const dt = new DataTransfer();
+		dt.setData('web application/x-copynotes+json', payload);
+		el.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+		);
+	}, forest);
+	await page.waitForTimeout(500);
+
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+
+	// And it survives a reload (persisted through storage).
+	await page.waitForTimeout(600);
+	await page.reload();
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+});
+
 test('a checked todo persists across reload', async ({ page }) => {
 	await page.goto('/');
 	const firstUnchecked = page.locator('[role="checkbox"][aria-checked="false"]').first();

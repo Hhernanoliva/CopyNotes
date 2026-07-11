@@ -32,6 +32,13 @@ describe('parsePastedLines', () => {
 		]);
 	});
 
+	it('recognises a todo with a leading bullet marker (CopyNotes plain text)', () => {
+		expect(parsePastedLines('- [ ] pan\n- [x] llamar')).toEqual([
+			{ type: 'todo', content: 'pan', checked: false },
+			{ type: 'todo', content: 'llamar', checked: true }
+		]);
+	});
+
 	it('returns an empty array for empty input', () => {
 		expect(parsePastedLines('')).toEqual([]);
 		expect(parsePastedLines('\n\n')).toEqual([]);

@@ -43,6 +43,7 @@
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
+	import { treeToNode, serializeForest } from '$lib/copy/serialize';
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
@@ -341,6 +342,38 @@
 		focusBlockId = afterId;
 	}
 
+	// Paste of CopyNotes' own copied content: rebuild the exact blocks (types,
+	// checked, code, nesting) from the hidden clipboard marker. Each forest root
+	// lands as a sibling after the current block, reusing the snippet-insertion
+	// machinery; an empty origin block is dropped so the paste reads clean.
+	async function handlePasteBlocks(block, forest) {
+		if (!forest || forest.length === 0) return;
+		recordSnapshot();
+		let afterId = block.id;
+		for (const root of forest) {
+			const plan = planSnippetInsertion(
+				$state.snapshot(blocks),
+				{ blockSnapshot: root },
+				{ noteId: note.id, afterId, createId }
+			);
+			await applyInsertionPlan(plan);
+			for (const update of plan.updates) {
+				const row = blocks.find((item) => item.id === update.id);
+				if (row) row.order = update.order;
+			}
+			blocks = [...blocks, ...plan.newBlocks];
+			afterId = plan.newBlocks[0].id;
+		}
+		const origin = blocks.find((item) => item.id === block.id);
+		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
+		if (origin && (origin.content ?? '') === '' && origin.type !== 'separator' && !originHasChildren) {
+			cancelPending(`block:${block.id}`);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((item) => item.id !== block.id);
+		}
+		focusBlockId = afterId;
+	}
+
 	async function handleBackspaceEmpty(block) {
 		if (backspaceAction(block) === 'convert') {
 			recordSnapshot();
@@ -406,7 +439,11 @@
 	async function handleCopy(block, withChildren) {
 		const tree = buildCopyTree(blocks, block.id, withChildren);
 		try {
-			await writeToClipboard({ text: formatPlainText(tree), html: formatHtml(tree) });
+			await writeToClipboard({
+				text: formatPlainText(tree),
+				html: formatHtml(tree),
+				custom: serializeForest([treeToNode(tree)])
+			});
 			toast.success('Copiado');
 		} catch {
 			toast.error('No se pudo copiar. Probá de nuevo.');
@@ -526,7 +563,8 @@
 		try {
 			await writeToClipboard({
 				text: trees.map(formatPlainText).join('\n'),
-				html: trees.map(formatHtml).join('')
+				html: trees.map(formatHtml).join(''),
+				custom: serializeForest(trees.map(treeToNode))
 			});
 			toast.success(`Copiado (${rootIds.length})`);
 		} catch {
@@ -884,6 +922,7 @@
 					onSlashSelect={applySlashCommand}
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
+					onPasteBlocks={handlePasteBlocks}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'

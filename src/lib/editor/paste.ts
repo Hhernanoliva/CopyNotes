@@ -3,7 +3,9 @@
 // everything else is text. Confirmed with Hernan 2026-07-11.
 
 const BULLET = /^\s*[-*•]\s+(.*)$/;
-const TODO = /^\s*\[( |x|X)\]\s+(.*)$/;
+// Optional leading bullet marker so both "[ ] x" and "- [ ] x" (CopyNotes' own
+// plain-text rendering) are read as todos. Checked before BULLET.
+const TODO = /^\s*(?:[-*•]\s+)?\[( |x|X)\]\s+(.*)$/;
 
 export function parsePastedLines(text) {
 	if (!text) return [];
