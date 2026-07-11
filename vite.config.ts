@@ -1,7 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 
 export default defineConfig({
 	plugins: [
@@ -12,10 +13,42 @@ export default defineConfig({
 				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
-			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
-			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
+			// CopyNotes is a fully client-side, local-first app: the shell is
+			// prerendered (see +layout.ts) and there are no server routes, so we
+			// ship it as static files. This is what makes the PWA service worker
+			// serve correctly and keeps a future Tauri/desktop path simple.
 			adapter: adapter()
+		}),
+		// PWA: installable + offline. We register the service worker ourselves
+		// (virtual:pwa-register/svelte in PwaLifecycle.svelte), so injectRegister
+		// is off. autoUpdate silently swaps in new versions on the next visit.
+		SvelteKitPWA({
+			registerType: 'autoUpdate',
+			injectRegister: false,
+			manifest: {
+				name: 'CopyNotes',
+				short_name: 'CopyNotes',
+				description: 'Notas locales, simples y listas para copiar.',
+				lang: 'es',
+				start_url: '/',
+				scope: '/',
+				display: 'standalone',
+				background_color: '#211f1c',
+				theme_color: '#211f1c',
+				icons: [
+					{ src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+					{ src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+					{ src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+					{ src: '/pwa-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }
+				]
+			},
+			workbox: {
+				globPatterns: ['client/**/*.{js,css,ico,png,svg,webp,woff,woff2,html,webmanifest}'],
+				navigateFallback: '/',
+				cleanupOutdatedCaches: true,
+				maximumFileSizeToCacheInBytes: 3_000_000
+			},
+			devOptions: { enabled: false }
 		})
 	],
 	test: {

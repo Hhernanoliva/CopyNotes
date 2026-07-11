@@ -1,10 +1,13 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
+	import { browser } from '$app/environment';
 	import { ModeWatcher, mode, setMode } from 'mode-watcher';
 	import { Toaster } from 'svelte-sonner';
 	import { getTheme } from '$lib/storage';
 	import { browserThemeColors } from '$lib/theme/browser-colors';
+	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
+	import InstallPrompt from '$lib/pwa/InstallPrompt.svelte';
 
 	let { children } = $props();
 
@@ -47,5 +50,12 @@
 >
 	Saltar al editor
 </a>
+
+<!-- Service worker + install prompt are browser-only: never instantiate them
+     during prerender/SSR, where useRegisterSW would touch navigator. -->
+{#if browser}
+	<PwaLifecycle />
+	<InstallPrompt />
+{/if}
 
 {@render children()}

@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (panel de ayuda y atajos).
+Última actualización: 2026-07-11 (instalable como app y uso sin conexión).
 
 ## Lo básico
 
@@ -11,6 +11,12 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 - **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.
+
+## Instalar y usar sin conexión
+
+- **Instalá CopyNotes como app.** En navegadores compatibles aparece una tarjetita discreta abajo a la izquierda que dice "Instalá CopyNotes". Al aceptarla, CopyNotes se instala como una app en tu dispositivo (con su propio ícono). Si la cerrás, no vuelve a molestar. En algunos navegadores también podés instalar desde el menú del navegador.
+- **Funciona sin internet.** Una vez abierta, CopyNotes sigue funcionando aunque te quedes sin conexión: podés leer, escribir, usar snippets y descargar respaldos. Cuando está lista para el modo sin conexión, aparece un aviso breve "Listo para usar sin conexión".
+- **Se actualiza sola.** Cuando hay una versión nueva, se aplica sola la próxima vez que abrís la app.
 
 ## La primera vez
 
