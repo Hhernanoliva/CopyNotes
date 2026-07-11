@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (instalable como app y uso sin conexión).
+Última actualización: 2026-07-11 (mejoras en el teléfono y accesibilidad).
 
 ## Lo básico
 
@@ -17,6 +17,12 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 - **Instalá CopyNotes como app.** En navegadores compatibles aparece una tarjetita discreta abajo a la izquierda que dice "Instalá CopyNotes". Al aceptarla, CopyNotes se instala como una app en tu dispositivo (con su propio ícono). Si la cerrás, no vuelve a molestar. En algunos navegadores también podés instalar desde el menú del navegador.
 - **Funciona sin internet.** Una vez abierta, CopyNotes sigue funcionando aunque te quedes sin conexión: podés leer, escribir, usar snippets y descargar respaldos. Cuando está lista para el modo sin conexión, aparece un aviso breve "Listo para usar sin conexión".
 - **Se actualiza sola.** Cuando hay una versión nueva, se aplica sola la próxima vez que abrís la app.
+
+## En el teléfono
+
+- **Lista de notas a pantalla casi completa.** En el celular, el botón de panel (arriba a la izquierda) abre la lista de notas como un panel grande que cubre casi toda la pantalla, con un fondo oscuro detrás. Tocás afuera o la tecla Escape para cerrarla.
+- **Botones siempre visibles.** En pantallas táctiles, los botones de cada snippet y etiqueta (favorito, insertar, etiquetar, renombrar, borrar) se ven siempre, sin necesidad de pasar el mouse.
+- **Navegación con teclado.** Mientras el panel está abierto en el teléfono, el foco del teclado se queda dentro y vuelve al botón que lo abrió al cerrarlo.
 
 ## La primera vez
 

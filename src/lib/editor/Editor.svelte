@@ -77,6 +77,10 @@
 	);
 	const hasSelection = $derived(selectedIds.length > 1);
 	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
+	// The block highlight is visual only; announce the count for screen readers.
+	const selectionAnnouncement = $derived(
+		hasSelection ? `${selectedIds.length} renglones seleccionados` : ''
+	);
 
 	const visible = $derived(buildVisibleList(blocks));
 	const slashCommands = $derived.by(() => {
@@ -648,6 +652,7 @@
 			: ''}"
 		onkeydowncapture={handleSelectionKeys}
 	>
+		<div class="sr-only" role="status" aria-live="polite">{selectionAnnouncement}</div>
 		<div class="group/title flex items-center gap-2">
 			<input
 				bind:this={titleEl}

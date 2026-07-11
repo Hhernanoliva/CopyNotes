@@ -50,10 +50,52 @@
 	let editingValue = $state('');
 	let tagPickerSnippetId = $state(null);
 
+	let asideEl = $state();
+
+	function isMobile() {
+		return !window.matchMedia('(min-width: 768px)').matches;
+	}
+
 	// Escape closes the sidebar only when it behaves as a mobile overlay.
 	function handleWindowKeydown(event) {
-		if (event.key === 'Escape' && open && !window.matchMedia('(min-width: 768px)').matches) {
+		if (event.key === 'Escape' && open && isMobile()) {
 			onClose();
+		}
+	}
+
+	// Visible, tabbable controls inside the drawer, in DOM order.
+	function focusables() {
+		if (!asideEl) return [];
+		return [...asideEl.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')].filter(
+			(node) => !node.disabled && node.offsetParent !== null
+		);
+	}
+
+	// On mobile the drawer is a modal overlay: pull focus in when it opens and
+	// return it to whatever opened it when it closes, so keyboard/screen-reader
+	// users are not stranded behind the backdrop.
+	$effect(() => {
+		if (!asideEl || !isMobile()) return;
+		const restoreTo = document.activeElement;
+		focusables()[0]?.focus();
+		return () => {
+			if (restoreTo instanceof HTMLElement && document.body.contains(restoreTo)) restoreTo.focus();
+		};
+	});
+
+	// Keep Tab cycling within the drawer while it is a mobile overlay.
+	function trapTab(event) {
+		if (event.key !== 'Tab' || !isMobile()) return;
+		const items = focusables();
+		if (items.length === 0) return;
+		const first = items[0];
+		const last = items[items.length - 1];
+		if (event.shiftKey && document.activeElement === first) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && document.activeElement === last) {
+			event.preventDefault();
+			first.focus();
 		}
 	}
 
@@ -95,7 +137,10 @@
 		onclick={onClose}
 		class="bg-overlay fixed inset-0 z-30 md:hidden"
 	></button>
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions — the Tab-trap keydown keeps the mobile drawer modal -->
 	<aside
+		bind:this={asideEl}
+		onkeydown={trapTab}
 		class="bg-sidebar border-border fixed inset-y-0 left-0 z-40 flex w-[85%] max-w-xs flex-col border-r md:static md:z-auto md:w-[270px] md:max-w-none"
 	>
 		<div class="flex h-12 shrink-0 items-center justify-between border-b px-3">
@@ -105,7 +150,7 @@
 						type="button"
 						aria-pressed={view === option.id}
 						onclick={() => (view = option.id)}
-						class="focus-visible:ring-ring rounded-[5px] px-2 py-1 text-xs font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {view ===
+						class="focus-visible:ring-ring rounded-[5px] px-2 py-1 text-xs font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none max-md:px-3 max-md:py-2 {view ===
 						option.id
 							? 'bg-background text-foreground shadow-sm'
 							: 'text-muted-foreground hover:text-foreground'}"
@@ -182,9 +227,9 @@
 											aria-pressed={snippet.isFavorite}
 											title={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
 											onclick={() => onToggleFavorite(snippet)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {snippet.isFavorite
+											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {snippet.isFavorite
 												? 'text-foreground opacity-100'
-												: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
+												: 'opacity-0 max-md:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'}"
 										>
 											<Star size={14} aria-hidden="true" class={snippet.isFavorite ? 'fill-current' : ''} />
 										</button>
@@ -193,7 +238,7 @@
 											aria-label="Insertar en la nota"
 											title="Insertar en la nota"
 											onclick={() => onInsertSnippet(snippet)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<ArrowDownToLine size={14} aria-hidden="true" />
 										</button>
@@ -204,7 +249,7 @@
 											aria-expanded={tagPickerSnippetId === snippet.id}
 											onclick={() =>
 												(tagPickerSnippetId = tagPickerSnippetId === snippet.id ? null : snippet.id)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Tag size={14} aria-hidden="true" />
 										</button>
@@ -213,7 +258,7 @@
 											aria-label="Borrar snippet"
 											title="Borrar snippet"
 											onclick={() => onDeleteSnippet(snippet)}
-											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Trash2 size={14} aria-hidden="true" />
 										</button>
@@ -307,7 +352,7 @@
 											aria-label="Renombrar etiqueta {tag.name}"
 											title="Renombrar"
 											onclick={() => startRename(tag)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Pencil size={14} aria-hidden="true" />
 										</button>
@@ -316,7 +361,7 @@
 											aria-label="Borrar etiqueta {tag.name}"
 											title="Borrar etiqueta"
 											onclick={() => onDeleteTag(tag)}
-											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Trash2 size={14} aria-hidden="true" />
 										</button>
