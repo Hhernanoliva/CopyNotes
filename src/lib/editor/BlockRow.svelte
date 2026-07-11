@@ -33,6 +33,7 @@
 		selected = false,
 		onShiftSelect,
 		onPlainMousedown,
+		onDragOver,
 		tags = [],
 		allTags = [],
 		tagPickerOpen = false,
@@ -158,13 +159,13 @@
 	}
 
 	// Shift+click selects a block range instead of moving the caret; a plain
-	// click clears any active multi-selection.
+	// mousedown starts a potential drag-select and clears any active selection.
 	function handleMousedown(event) {
 		if (event.shiftKey) {
 			event.preventDefault();
 			onShiftSelect?.(block);
 		} else {
-			onPlainMousedown?.();
+			onPlainMousedown?.(block);
 		}
 	}
 
@@ -188,11 +189,13 @@
 	};
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2 {selected
 		? 'bg-primary/10'
 		: ''}"
 	style="padding-left: {depth * 1.5}rem"
+	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
 >
 	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
 		{#if hasChildren}

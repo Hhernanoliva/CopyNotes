@@ -68,6 +68,10 @@
 	// Multi-block selection: anchor+focus block ids. selectedIds is the visible
 	// range between them; a real selection is 2+ blocks.
 	let selection = $state(null);
+	// Drag-select: the block where the mouse went down, and whether a drag has
+	// actually crossed into another block (so a plain click stays a click).
+	let dragAnchorId = $state(null);
+	let dragging = $state(false);
 	const selectedIds = $derived(
 		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
 	);
@@ -319,6 +323,33 @@
 	function clearSelection() {
 		selection = null;
 	}
+
+	// A plain mousedown clears any selection and arms a drag from this block.
+	function startDrag(block) {
+		clearSelection();
+		dragAnchorId = block.id;
+		dragging = false;
+	}
+
+	// Mouse dragged into another block with the button held: grow the block
+	// selection to cover the range, and drop the native text selection.
+	function dragOver(block, buttons) {
+		if (!dragAnchorId || !(buttons & 1) || block.id === dragAnchorId) return;
+		dragging = true;
+		selection = { anchorId: dragAnchorId, focusId: block.id };
+		window.getSelection()?.removeAllRanges();
+	}
+
+	function endDrag() {
+		dragAnchorId = null;
+		dragging = false;
+	}
+
+	// Reset the drag on any mouse release, even outside the editor.
+	$effect(() => {
+		window.addEventListener('pointerup', endDrag);
+		return () => window.removeEventListener('pointerup', endDrag);
+	});
 
 	// True when the caret sits on the block's first (up) or last (down) visual
 	// line, so a further Shift+Arrow should jump to the neighbour block instead
@@ -602,7 +633,9 @@
 {#if note}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14"
+		class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14 {dragging
+			? 'select-none'
+			: ''}"
 		onkeydowncapture={handleSelectionKeys}
 	>
 		<div class="group/title flex items-center gap-2">
@@ -674,7 +707,8 @@
 					onActive={(row) => (activeBlockId = row.id)}
 					selected={selectedSet.has(row.block.id)}
 					onShiftSelect={shiftSelect}
-					onPlainMousedown={clearSelection}
+					onPlainMousedown={startDrag}
+					onDragOver={dragOver}
 					tags={blockTagsMap[row.block.id] ?? []}
 					{allTags}
 					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
