@@ -29,18 +29,19 @@
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
-	const headings = [
+	const headings = $derived([
 		['h1', 'Título 1', active.h1],
 		['h2', 'Título 2', active.h2],
 		['h3', 'Título 3', active.h3],
 		['normal', 'Texto normal', active.normal]
-	];
+	]);
 </script>
 
 {#if rect}
 	<div
 		bind:this={el}
 		role="toolbar"
+		tabindex="0"
 		aria-label="Formato de texto"
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
@@ -88,7 +89,7 @@
 		<div class="relative">
 			<FormattingButton label="Más opciones" onActivate={() => (openPanel = openPanel === 'more' ? null : 'more')}><MoreHorizontal size={15} /></FormattingButton>
 			{#if openPanel === 'more'}
-				<div class="bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu">
+				<div class="bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1">
 					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Quitar formato</button>
 					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Copiar texto seleccionado</button>
 				</div>

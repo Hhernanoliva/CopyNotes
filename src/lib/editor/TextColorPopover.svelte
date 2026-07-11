@@ -5,7 +5,7 @@
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="bg-popover border-border flex gap-1 rounded-md border p-1 shadow-lg" role="menu" aria-label="Color de texto" onkeydown={keydown}>
+<div class="bg-popover border-border flex gap-1 rounded-md border p-1 shadow-lg" role="menu" tabindex="-1" aria-label="Color de texto" onkeydown={keydown}>
 	{#each TEXT_COLORS as color}
 		<button
 			type="button"
