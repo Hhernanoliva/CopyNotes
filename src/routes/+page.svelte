@@ -25,6 +25,7 @@
 		setHasCompletedOnboarding,
 		setLastOpenedNoteId,
 		setTheme,
+		softDeleteNote,
 		softDeleteSnippet,
 		softDeleteTag,
 		unassignTag,
@@ -138,6 +139,17 @@
 		await createBlock({ noteId: note.id, type: 'text' });
 		notes = [note, ...notes];
 		selectNote(note.id);
+	}
+
+	async function deleteNote(id) {
+		await softDeleteNote(id);
+		notes = notes.filter((note) => note.id !== id);
+		if (currentNoteId === id) {
+			const next = notes[0];
+			currentNoteId = next ? next.id : null;
+			if (next) setLastOpenedNoteId(next.id);
+		}
+		toast.success('Nota borrada');
 	}
 
 	function handleNoteUpdated(id, changes) {
@@ -258,6 +270,7 @@
 		onCreate={newNote}
 		onClose={() => (sidebarOpen = false)}
 		onBackup={() => (backupOpen = true)}
+		onDeleteNote={deleteNote}
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
 		onInsertSnippet={insertSnippet}

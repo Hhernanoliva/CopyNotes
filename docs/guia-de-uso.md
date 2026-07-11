@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (mejoras en el teléfono y accesibilidad).
+Última actualización: 2026-07-11 (borrar notas desde la lista).
 
 ## Lo básico
 
@@ -38,6 +38,7 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 | Cambiar de nota | Clic en la nota en la barra lateral |
 | Mostrar/ocultar la lista de notas | Botón de panel (arriba a la izquierda) |
 | Ponerle título | Escribí en el título; **Enter** te baja al primer renglón |
+| Borrar nota | Pasá el mouse por la nota en la lista y tocá el tacho. Se puede recuperar desde un respaldo. |
 
 ## Tipos de renglón (bloques)
 
