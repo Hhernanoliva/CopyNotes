@@ -2,10 +2,12 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
 import {
+	getDemoNoteCreated,
 	getHasCompletedOnboarding,
 	getLastOpenedNoteId,
 	getSetting,
 	getTheme,
+	setDemoNoteCreated,
 	setHasCompletedOnboarding,
 	setLastOpenedNoteId,
 	setSetting,
@@ -43,5 +45,11 @@ describe('settings repository', () => {
 	it('last opened note round trips', async () => {
 		await setLastOpenedNoteId('note-123');
 		expect(await getLastOpenedNoteId()).toBe('note-123');
+	});
+
+	it('demo-note flag defaults to false and can be marked created', async () => {
+		expect(await getDemoNoteCreated()).toBe(false);
+		await setDemoNoteCreated(true);
+		expect(await getDemoNoteCreated()).toBe(true);
 	});
 });

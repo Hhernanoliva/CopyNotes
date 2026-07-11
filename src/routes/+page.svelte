@@ -13,12 +13,15 @@
 		createBlock,
 		createNote,
 		findOrCreateTag,
+		getDemoNoteCreated,
 		getLastOpenedNoteId,
 		listNotes,
 		listSnippets,
 		listTags,
 		listTagsForMany,
 		renameTag,
+		setDemoNoteCreated,
+		setHasCompletedOnboarding,
 		setLastOpenedNoteId,
 		setTheme,
 		softDeleteSnippet,
@@ -26,6 +29,7 @@
 		unassignTag,
 		updateSnippet
 	} from '$lib/storage';
+	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { filterSnippets } from '$lib/snippets';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -57,12 +61,25 @@
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
-			const [rows, lastId, snippetRows] = await Promise.all([
+			let [rows, lastId, snippetRows] = await Promise.all([
 				listNotes(),
 				getLastOpenedNoteId(),
 				listSnippets()
 			]);
 			if (cancelled) return;
+
+			// First run: seed an editable demo note so the user learns by using it.
+			if (rows.length === 0) {
+				const demoNoteCreated = await getDemoNoteCreated();
+				if (!cancelled && shouldSeedDemoNote({ demoNoteCreated, noteCount: rows.length })) {
+					const demo = await seedDemoNote();
+					await Promise.all([setDemoNoteCreated(true), setHasCompletedOnboarding(true)]);
+					if (cancelled) return;
+					rows = await listNotes();
+					lastId = demo.id;
+				}
+			}
+
 			notes = rows;
 			snippets = snippetRows;
 			await refreshTags();
@@ -315,6 +332,13 @@
 						class="bg-primary text-primary-foreground focus-visible:ring-ring mt-2 flex min-h-(--touch-target) items-center rounded-md px-5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px"
 					>
 						Nueva nota
+					</button>
+					<button
+						type="button"
+						onclick={() => (backupOpen = true)}
+						class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-4 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+					>
+						o importá un backup
 					</button>
 				</div>
 			{/if}

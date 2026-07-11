@@ -45,5 +45,7 @@ export {
 	getHasCompletedOnboarding,
 	setHasCompletedOnboarding,
 	getLastOpenedNoteId,
-	setLastOpenedNoteId
+	setLastOpenedNoteId,
+	getDemoNoteCreated,
+	setDemoNoteCreated
 } from './settings';

@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (tema claro y oscuro).
+Última actualización: 2026-07-11 (nota de bienvenida en el primer uso).
 
 ## Lo básico
 
@@ -10,6 +10,12 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 - **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
+
+## La primera vez
+
+- **Nota de bienvenida.** La primera vez que abrís CopyNotes aparece una nota de ejemplo, "👋 Bienvenido a CopyNotes", con viñetas, una viñeta anidada, tareas, una etiqueta y un bloque de código. Es una nota normal: tocala, editala o borrala para aprender probando.
+- **Aparece una sola vez.** Aunque la borres, no vuelve a aparecer. Las siguientes veces entrás directo a tu última nota.
+- **Si no tenés notas.** La pantalla de inicio te ofrece **Nueva nota** y, al lado, **importá un backup** por si querés restaurar tus datos.
 
 ## Notas
 

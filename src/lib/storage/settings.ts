@@ -35,3 +35,13 @@ export function getLastOpenedNoteId() {
 export function setLastOpenedNoteId(noteId) {
 	return setSetting('lastOpenedNoteId', noteId);
 }
+
+// Marks that the first-run demo note was seeded, so it is never recreated —
+// not even if the user later deletes it and empties the note list.
+export async function getDemoNoteCreated() {
+	return (await getSetting('demoNoteCreated')) === true;
+}
+
+export function setDemoNoteCreated(value) {
+	return setSetting('demoNoteCreated', value === true);
+}
