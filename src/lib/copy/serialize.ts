@@ -42,9 +42,15 @@ export function serializeForest(forest) {
 // so it is a no-op server-side and never throws.
 const STORE_KEY = 'copynotes:clipboard';
 
+// Compare on normalised line endings: some platforms rewrite \n to \r\n on the
+// clipboard, which would break an exact text match.
+function normalize(text) {
+	return (text ?? '').replace(/\r\n?/g, '\n');
+}
+
 export function rememberCopy(text, payload) {
 	try {
-		localStorage.setItem(STORE_KEY, JSON.stringify({ text, payload }));
+		localStorage.setItem(STORE_KEY, JSON.stringify({ text: normalize(text), payload }));
 	} catch {
 		// localStorage unavailable (SSR, privacy mode) — the custom format and
 		// line parser still cover paste.
@@ -56,7 +62,7 @@ export function recallCopy(text) {
 		const raw = localStorage.getItem(STORE_KEY);
 		if (!raw) return null;
 		const stored = JSON.parse(raw);
-		return stored && stored.text === text ? stored.payload : null;
+		return stored && stored.text === normalize(text) ? stored.payload : null;
 	} catch {
 		return null;
 	}
