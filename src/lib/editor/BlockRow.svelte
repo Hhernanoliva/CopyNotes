@@ -44,7 +44,8 @@
 		onSlashKey,
 		onSlashSelect,
 		onFocusHandled,
-		onVerticalArrow
+		onVerticalArrow,
+		onPasteLines
 	} = $props();
 
 	let el = $state();
@@ -185,6 +186,16 @@
 		onInput(block, el.textContent);
 	}
 
+	// Multi-line paste is split into blocks by the editor; a single line pastes
+	// inline as usual. Code blocks keep the browser's literal paste.
+	function handlePaste(event) {
+		if (block.type === 'code') return;
+		const text = event.clipboardData?.getData('text/plain') ?? '';
+		if (!text.includes('\n')) return;
+		event.preventDefault();
+		onPasteLines?.(block, text);
+	}
+
 	// Shift+click selects a block range instead of moving the caret; a plain
 	// mousedown starts a potential drag-select and clears any active selection.
 	function handleMousedown(event) {
@@ -304,6 +315,7 @@
 				data-placeholder={placeholder}
 				onkeydown={handleKeydown}
 				oninput={handleInput}
+				onpaste={handlePaste}
 				onmousedown={handleMousedown}
 				onfocus={() => onActive(block)}
 				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===

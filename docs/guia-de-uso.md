@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas; Ctrl+Enter nota, Shift+Enter salto de línea).
+Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas; Ctrl+Enter/Shift+Enter; pegar multilínea).
 
 ## Lo básico
 
@@ -68,6 +68,15 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
+
+### Pegar varias líneas
+
+Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…), CopyNotes lo **separa en renglones** en vez de meter todo en uno solo.
+
+- Cada línea que pegás se vuelve un renglón.
+- **Reconoce viñetas y tareas** por cómo empieza la línea: `- `, `* ` o `• ` → viñeta; `[ ]` o `[x]` → tarea (con su tilde). El resto queda como texto.
+- Las **líneas en blanco se ignoran** (no dejan renglones vacíos).
+- Pegar **una sola línea** funciona normal, se inserta donde está el cursor.
 
 ### Doble Enter para salir del anidado
 

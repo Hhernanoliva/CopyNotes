@@ -46,6 +46,7 @@
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
+	import { parsePastedLines } from './paste';
 	import BlockRow from './BlockRow.svelte';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
@@ -245,6 +246,47 @@
 		});
 		blocks = [...blocks, created];
 		focusBlockId = created.id;
+	}
+
+	// Paste of multiple lines: split into blocks. Reuse the current block for
+	// the first line when it is empty (typical: Enter then paste); otherwise
+	// insert every line as a sibling after it. Bullets/todos come pre-typed from
+	// the parser; blank lines were already dropped.
+	async function handlePasteLines(block, text) {
+		const parsed = parsePastedLines(text);
+		if (parsed.length === 0) return;
+		let startIndex = 0;
+		let afterId = block.id;
+		const isEmpty = (block.content ?? '') === '' && block.type !== 'separator';
+		if (isEmpty) {
+			const first = parsed[0];
+			block.type = first.type;
+			block.content = first.content;
+			const changes = { type: first.type, content: first.content };
+			if (first.type === 'todo') {
+				block.checked = first.checked;
+				changes.checked = first.checked;
+			}
+			await updateBlock(block.id, changes);
+			startIndex = 1;
+		}
+		for (let i = startIndex; i < parsed.length; i++) {
+			const line = parsed[i];
+			const plan = planEnter(blocks, afterId);
+			if (!plan) break;
+			await applyUpdates(plan.updates);
+			const created = await createBlock({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				type: line.type,
+				order: plan.order,
+				content: line.content,
+				...(line.type === 'todo' ? { checked: line.checked } : {})
+			});
+			blocks = [...blocks, created];
+			afterId = created.id;
+		}
+		focusBlockId = afterId;
 	}
 
 	async function handleBackspaceEmpty(block) {
@@ -765,6 +807,7 @@
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
 					onVerticalArrow={handleVerticalArrow}
+					onPasteLines={handlePasteLines}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
