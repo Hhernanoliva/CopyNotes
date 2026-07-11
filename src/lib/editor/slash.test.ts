@@ -4,7 +4,7 @@ import { SLASH_COMMANDS, filterCommands, moveSelection } from './slash';
 describe('SLASH_COMMANDS', () => {
 	it('offers the block types from spec 003 plus /snippet from spec 005', () => {
 		const ids = SLASH_COMMANDS.map((command) => command.id);
-		expect(ids).toEqual(['text', 'bullet', 'todo', 'code', 'separator', 'snippet']);
+		expect(ids).toEqual(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'code', 'separator', 'snippet']);
 	});
 });
 
@@ -36,6 +36,11 @@ describe('filterCommands', () => {
 		// "ta" starts "tarea" but only appears inside "viñeta"/"lista".
 		const results = filterCommands('ta');
 		expect(results[0].id).toBe('todo');
+	});
+
+	it('filters headings by h2', () => {
+		const ids = filterCommands('h2').map((c) => c.id);
+		expect(ids).toContain('heading2');
 	});
 });
 
