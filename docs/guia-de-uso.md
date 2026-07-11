@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas; Ctrl+Enter/Shift+Enter; pegar multilínea).
+Última actualización: 2026-07-11 (arreglos de edición spec 019: borrar notas, Ctrl/Cmd+F, flechas, Ctrl+Enter/Shift+Enter, pegar multilínea, deshacer/rehacer).
 
 ## Lo básico
 
@@ -119,6 +119,13 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - **Borrar** los seleccionados: **Backspace** o **Delete**. Se borran todos (recuperable). Si un renglón seleccionado tiene hijos, se van con él. Si borrás todo, queda un renglón vacío para seguir.
 - **Mover** el grupo: **Alt+↑ / Alt+↓**. Mueve todos los seleccionados juntos entre sus vecinos (funciona cuando son hermanos seguidos).
 - **Salir de la selección:** **Escape**, o hacé clic o empezá a escribir en un renglón.
+
+## Deshacer y rehacer
+
+- **Deshacer:** **Ctrl/Cmd+Z**. Vuelve atrás lo último que hiciste, sea escribir, borrar, mover, indentar, tildar una tarea, pegar o insertar un snippet. Cada golpe deshace un paso más.
+- **Rehacer:** **Ctrl/Cmd+Shift+Z** (o **Ctrl+Y**). Vuelve a aplicar lo que deshiciste.
+- El deshacer del texto va **por tandas**: un Ctrl+Z borra el último tramo que escribiste de una, no letra por letra.
+- El historial es **por nota**: al cambiar de nota, arranca limpio.
 
 ## Colapsar y expandir
 

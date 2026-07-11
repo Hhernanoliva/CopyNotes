@@ -37,6 +37,13 @@ export async function createBlock(fields) {
 	return block;
 }
 
+// Upsert a full block row by its id. Used by undo/redo to restore a block
+// exactly as it was (including a re-create of a soft-deleted one), which
+// createBlock cannot do because it always mints a fresh id.
+export async function putBlock(block) {
+	await blocks.put(block);
+}
+
 export async function getBlock(id) {
 	const block = await blocks.get(id);
 	if (!block || block.deletedAt) return undefined;

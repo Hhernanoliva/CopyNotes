@@ -4,6 +4,7 @@ export { createId, now } from './ids';
 export { createNote, getNote, listNotes, updateNote, softDeleteNote } from './notes';
 export {
 	createBlock,
+	putBlock,
 	getBlock,
 	listBlocksByNote,
 	listChildBlocks,

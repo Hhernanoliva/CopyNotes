@@ -37,6 +37,34 @@ test('create a note, nest a bullet, and it survives a reload', async ({ page }) 
 	await expect(page.locator('main [role="textbox"]', { hasText: 'Hijo' })).toBeVisible();
 });
 
+test('undo reverses typing and a new block, and the result persists', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Undo E2E');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Primero', { delay: 20 });
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Segundo', { delay: 20 });
+	await page.waitForTimeout(150);
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toBeVisible();
+
+	// Undo the "Segundo" typing burst, then the Enter that created the block.
+	await page.keyboard.press('Control+z');
+	await page.waitForTimeout(120);
+	await page.keyboard.press('Control+z');
+	await page.waitForTimeout(700); // let the restore persist
+
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toHaveCount(0);
+
+	await page.reload();
+	await expect(title(page)).toHaveValue('Undo E2E');
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toHaveCount(0);
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Primero' })).toBeVisible();
+});
+
 test('a checked todo persists across reload', async ({ page }) => {
 	await page.goto('/');
 	const firstUnchecked = page.locator('[role="checkbox"][aria-checked="false"]').first();

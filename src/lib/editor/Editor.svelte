@@ -11,6 +11,7 @@
 		listSnippets,
 		listTags,
 		listTagsForMany,
+		putBlock,
 		softDeleteBlock,
 		softDeleteBlocks,
 		unassignTag,
@@ -47,6 +48,7 @@
 	import { filterCommands, moveSelection } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
 	import { parsePastedLines } from './paste';
+	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
@@ -137,6 +139,8 @@
 			note = loadedNote;
 			blocks = loadedBlocks;
 			activeBlockId = null;
+			history.reset();
+			lastTextBlockId = null;
 			await refreshTags();
 			if (note && note.title === '' && titleEl) {
 				titleEl.focus();
@@ -146,6 +150,49 @@
 			cancelled = true;
 		};
 	});
+
+	// --- Undo/redo (spec 019, fix 6) ---
+	// Per-note snapshot history. A snapshot is the full ordered block list plus
+	// the focused block. Text edits are grouped into one step per burst.
+	const history = createHistory({ limit: 100 });
+	let lastTextAt = 0;
+	let lastTextBlockId = null;
+
+	function currentSnapshot() {
+		return { blocks: $state.snapshot(blocks), focusId: activeBlockId };
+	}
+
+	// Record before a structural mutation. Resets the text-burst tracker so a
+	// following keystroke starts its own undo step.
+	function recordSnapshot() {
+		history.push(currentSnapshot());
+		lastTextBlockId = null;
+	}
+
+	// Record before a text edit, but only once per burst: a new block or a pause
+	// over ~600ms starts a fresh undo step.
+	function recordTextSnapshot(blockId) {
+		const stamp = Date.now();
+		if (blockId !== lastTextBlockId || stamp - lastTextAt > 600) history.push(currentSnapshot());
+		lastTextAt = stamp;
+		lastTextBlockId = blockId;
+	}
+
+	// Apply a snapshot to the editor and persist the difference through storage.
+	async function restore(snapshot) {
+		if (!snapshot) return;
+		flushPending();
+		const diff = diffBlocks($state.snapshot(blocks), snapshot.blocks);
+		for (const id of diff.deletedIds) await softDeleteBlock(id);
+		for (const row of diff.created) await putBlock(row);
+		for (const row of diff.updated) await putBlock(row);
+		blocks = snapshot.blocks.map((row) => ({ ...row }));
+		lastTextBlockId = null;
+		focusBlockId =
+			snapshot.focusId && blocks.some((row) => row.id === snapshot.focusId)
+				? snapshot.focusId
+				: (blocks[0]?.id ?? null);
+	}
 
 	// Structure changes (indent, reorder, collapse…) persist immediately:
 	// losing hierarchy is worse than an extra write.
@@ -175,6 +222,7 @@
 	}
 
 	function handleBlockInput(block, text) {
+		recordTextSnapshot(block.id);
 		// Typing "/" in an empty block opens the slash menu; the query is
 		// whatever follows. Code blocks are exempt, slashes are normal there.
 		if (block.type !== 'code' && text.startsWith('/')) {
@@ -210,6 +258,7 @@
 	}
 
 	function handleNoteInput(block, text) {
+		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
 		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }));
 	}
@@ -228,6 +277,7 @@
 				return;
 			}
 			if (action === 'convert') {
+				recordSnapshot();
 				block.type = 'text';
 				block.checked = false;
 				await updateBlock(block.id, { type: 'text', checked: false });
@@ -237,6 +287,7 @@
 		}
 		const plan = planEnter(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		const created = await createBlock({
 			noteId: note.id,
@@ -255,6 +306,7 @@
 	async function handlePasteLines(block, text) {
 		const parsed = parsePastedLines(text);
 		if (parsed.length === 0) return;
+		recordSnapshot();
 		let startIndex = 0;
 		let afterId = block.id;
 		const isEmpty = (block.content ?? '') === '' && block.type !== 'separator';
@@ -291,6 +343,7 @@
 
 	async function handleBackspaceEmpty(block) {
 		if (backspaceAction(block) === 'convert') {
+			recordSnapshot();
 			block.type = 'text';
 			block.checked = false;
 			await updateBlock(block.id, { type: 'text', checked: false });
@@ -298,6 +351,7 @@
 			return;
 		}
 		if (!canDeleteOnBackspace(blocks, block.id)) return;
+		recordSnapshot();
 		const prevId = previousVisibleId(blocks, block.id);
 		await softDeleteBlock(block.id);
 		blocks = blocks.filter((row) => row.id !== block.id);
@@ -307,6 +361,7 @@
 	async function handleIndent(block) {
 		const plan = planIndent(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		// Expand the new parent so the indented block does not vanish.
 		const parentId = plan.updates[0].parentBlockId;
 		const parent = blocks.find((row) => row.id === parentId);
@@ -321,6 +376,7 @@
 	async function handleOutdent(block) {
 		const plan = planOutdent(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
@@ -328,6 +384,7 @@
 	async function handleMoveUp(block) {
 		const plan = planMoveUp(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
@@ -335,11 +392,13 @@
 	async function handleMoveDown(block) {
 		const plan = planMoveDown(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
 
 	async function handleToggleCollapsed(block) {
+		recordSnapshot();
 		block.collapsed = !block.collapsed;
 		await updateBlock(block.id, { collapsed: block.collapsed });
 	}
@@ -357,6 +416,7 @@
 	async function handleToggleChecked(block) {
 		const plan = planToggleChecked(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 	}
 
@@ -475,6 +535,7 @@
 	}
 
 	async function deleteSelection() {
+		recordSnapshot();
 		const ids = planDeleteSelection(blocks, selectedIds);
 		const last = selectedIds[selectedIds.length - 1];
 		const first = selectedIds[0];
@@ -498,6 +559,7 @@
 	async function moveSelectedBlocks(direction) {
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		// Reordering moves the focused block's DOM node, which blurs it. Refocus
 		// so the next Alt+Arrow still reaches the editor's key handler.
@@ -514,6 +576,19 @@
 		event.stopPropagation();
 	}
 	function handleSelectionKeys(event) {
+		// Undo/redo win over everything, but only inside a block editable — the
+		// note title is a plain <input> and keeps its own native undo.
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+			claim(event);
+			if (event.shiftKey) restore(history.redo(currentSnapshot()));
+			else restore(history.undo(currentSnapshot()));
+			return;
+		}
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+			claim(event);
+			restore(history.redo(currentSnapshot()));
+			return;
+		}
 		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
 			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) claim(event);
 			return;
@@ -604,6 +679,7 @@
 	}
 
 	async function insertSnippetBlocks(snippet, afterId) {
+		recordSnapshot();
 		// $state proxies can't be structured-cloned into IndexedDB.
 		const plan = planSnippetInsertion($state.snapshot(blocks), $state.snapshot(snippet), {
 			noteId: note.id,
