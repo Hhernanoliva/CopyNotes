@@ -6,7 +6,7 @@
 	function submit() { onSave(url); }
 	function keydown(e) {
 		if (e.key === 'Enter') { e.preventDefault(); submit(); }
-		if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
 	}
 </script>
 
