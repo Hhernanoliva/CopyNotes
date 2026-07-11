@@ -107,6 +107,39 @@ test('pasting CopyNotes clipboard content rebuilds block types and nesting', asy
 	await expect(page.getByText('prueba', { exact: false })).toBeVisible();
 });
 
+test('paste falls back to the localStorage buffer when only text/plain arrives', async ({ page }) => {
+	// The browser does not always deliver the custom clipboard format. This
+	// covers the fallback: content copied inside CopyNotes is stashed in
+	// localStorage keyed by its plain text; a paste whose text/plain matches
+	// rebuilds the exact blocks even without the custom format. (Playwright's
+	// synthetic Ctrl+V does not fire a real paste, so we dispatch the event.)
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Buffer');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Una nota', { delay: 10 });
+	await page.waitForTimeout(200);
+
+	await page.evaluate(() => {
+		const payload = JSON.stringify([
+			{ type: 'code', content: 'saludar()', checked: false, note: '', tags: [], children: [] }
+		]);
+		localStorage.setItem('copynotes:clipboard', JSON.stringify({ text: 'saludar()', payload }));
+	});
+	await first.evaluate((el) => {
+		const dt = new DataTransfer();
+		dt.setData('text/plain', 'saludar()'); // matches the buffered text; no custom format
+		el.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+		);
+	});
+	await page.waitForTimeout(500);
+
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+});
+
 test('a checked todo persists across reload', async ({ page }) => {
 	await page.goto('/');
 	const firstUnchecked = page.locator('[role="checkbox"][aria-checked="false"]').first();

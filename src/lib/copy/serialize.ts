@@ -35,6 +35,33 @@ export function serializeForest(forest) {
 	return JSON.stringify(forest);
 }
 
+// Reliable same-browser fallback: the custom clipboard format is not delivered
+// on every browser/paste path, so we also stash the payload in localStorage
+// keyed by the exact plain text we copied. On paste, if the clipboard's plain
+// text matches, we know it is our own content and use the rich payload. Guarded
+// so it is a no-op server-side and never throws.
+const STORE_KEY = 'copynotes:clipboard';
+
+export function rememberCopy(text, payload) {
+	try {
+		localStorage.setItem(STORE_KEY, JSON.stringify({ text, payload }));
+	} catch {
+		// localStorage unavailable (SSR, privacy mode) — the custom format and
+		// line parser still cover paste.
+	}
+}
+
+export function recallCopy(text) {
+	try {
+		const raw = localStorage.getItem(STORE_KEY);
+		if (!raw) return null;
+		const stored = JSON.parse(raw);
+		return stored && stored.text === text ? stored.payload : null;
+	} catch {
+		return null;
+	}
+}
+
 // Parse a clipboard payload back to a forest, or null when it is missing or not
 // a non-empty CopyNotes forest.
 export function deserializeForest(payload) {

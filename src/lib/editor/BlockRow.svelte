@@ -6,7 +6,7 @@
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { CLIPBOARD_FORMAT, deserializeForest } from '$lib/copy/serialize';
+	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
 
 	let {
 		block,
@@ -196,13 +196,16 @@
 	// Code blocks keep the browser's literal paste in every case.
 	function handlePaste(event) {
 		if (block.type === 'code') return;
-		const forest = deserializeForest(event.clipboardData?.getData(CLIPBOARD_FORMAT));
+		const text = event.clipboardData?.getData('text/plain') ?? '';
+		// Prefer CopyNotes' own content: the custom clipboard format when the
+		// browser delivers it, else the localStorage buffer matched by exact text.
+		const payload = event.clipboardData?.getData(CLIPBOARD_FORMAT) || recallCopy(text);
+		const forest = deserializeForest(payload);
 		if (forest) {
 			event.preventDefault();
 			onPasteBlocks?.(block, forest);
 			return;
 		}
-		const text = event.clipboardData?.getData('text/plain') ?? '';
 		if (!text.includes('\n')) return;
 		event.preventDefault();
 		onPasteLines?.(block, text);
