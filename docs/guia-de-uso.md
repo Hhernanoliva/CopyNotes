@@ -81,7 +81,7 @@ Cada renglón puede tener una **nota**: un texto secundario, gris y más chico, 
 Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 
 - **Marcar un rango:** hacé clic en un renglón, y después **Shift+clic** en otro. Se pintan todos los del medio con un fondo suave.
-- **Agrandar/achicar con teclado:** con la selección activa, **Shift+↑ / Shift+↓** suma o quita un renglón.
+- **Con el teclado:** parado en un renglón, **Shift+↑ / Shift+↓** empieza a marcar hacia arriba o hacia abajo, y cada golpe suma (o quita) un renglón. Una flecha sola (sin Shift) deja la selección y mueve el cursor normal.
 - **Copiar** los seleccionados: **Cmd+C** (Ctrl+C en Windows). Copia todo el grupo como esquema, respetando niveles.
 - **Borrar** los seleccionados: **Backspace** o **Delete**. Se borran todos (recuperable). Si un renglón seleccionado tiene hijos, se van con él. Si borrás todo, queda un renglón vacío para seguir.
 - **Mover** el grupo: **Alt+↑ / Alt+↓**. Mueve todos los seleccionados juntos entre sus vecinos (funciona cuando son hermanos seguidos).

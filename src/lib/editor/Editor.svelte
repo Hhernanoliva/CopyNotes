@@ -320,12 +320,39 @@
 		selection = null;
 	}
 
-	// Shift+Arrow only extends an existing block selection; without one it must
-	// fall through so the block does normal in-line text selection.
+	// True when the caret sits on the block's first (up) or last (down) visual
+	// line, so a further Shift+Arrow should jump to the neighbour block instead
+	// of selecting more text inside the current one. Handles wrapped lines via
+	// the caret's client rect, not the raw content.
+	function caretAtBlockEdge(direction) {
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) return true;
+		const range = sel.getRangeAt(0);
+		if (!range.collapsed) return false; // mid text-selection: let the browser extend it
+		const el = document.activeElement;
+		if (!el || el.getAttribute('contenteditable') === null) return true;
+		const rects = range.getClientRects();
+		const caret = rects.length ? rects[0] : range.getBoundingClientRect();
+		const box = el.getBoundingClientRect();
+		const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
+		return direction < 0
+			? caret.top - box.top < lineHeight * 0.75
+			: box.bottom - caret.bottom < lineHeight * 0.75;
+	}
+
+	// Shift+Arrow extends an active block selection, or starts one from the
+	// focused block when the caret is at that block's edge. Returns false to let
+	// the browser do normal in-line text selection.
 	function extendSelection(direction) {
-		if (!hasSelection) return false;
-		const focus = neighborVisibleId(blocks, selection.focusId, direction);
-		if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
+		if (hasSelection) {
+			const focus = neighborVisibleId(blocks, selection.focusId, direction);
+			if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
+			return true;
+		}
+		if (!activeBlockId || !caretAtBlockEdge(direction)) return false;
+		const neighbor = neighborVisibleId(blocks, activeBlockId, direction);
+		if (!neighbor) return false;
+		selection = { anchorId: activeBlockId, focusId: neighbor };
 		return true;
 	}
 
@@ -398,6 +425,11 @@
 			const anchor = selection.focusId;
 			clearSelection();
 			focusBlockId = anchor;
+			return;
+		}
+		// A bare arrow drops the selection and lets the caret move normally.
+		if (!event.altKey && !event.metaKey && !event.ctrlKey && event.key.startsWith('Arrow')) {
+			clearSelection();
 			return;
 		}
 		// A plain keystroke drops the selection and resumes normal editing.
