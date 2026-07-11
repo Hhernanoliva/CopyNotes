@@ -9,6 +9,7 @@ export async function createBlock(fields) {
 		parentBlockId = null,
 		type = 'text',
 		content = '',
+		html,
 		collapsed = false,
 		checked = false,
 		note = ''
@@ -25,6 +26,7 @@ export async function createBlock(fields) {
 		parentBlockId,
 		type,
 		content,
+		html: html ?? content,
 		order,
 		collapsed,
 		checked,

@@ -141,3 +141,18 @@ describe('softDeleteBlocks', () => {
 		void b;
 	});
 });
+
+describe('html field', () => {
+	it('createBlock defaults html to its plain content', async () => {
+		const block = await createBlock({ noteId: 'n1', content: 'hola' });
+		const saved = await getBlock(block.id);
+		expect(saved.html).toBe('hola');
+	});
+
+	it('createBlock keeps an explicit html value', async () => {
+		const block = await createBlock({ noteId: 'n1', content: 'hola', html: '<strong>hola</strong>' });
+		const saved = await getBlock(block.id);
+		expect(saved.html).toBe('<strong>hola</strong>');
+		expect(saved.content).toBe('hola');
+	});
+});

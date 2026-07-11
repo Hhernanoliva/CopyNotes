@@ -12,3 +12,17 @@ db.version(1).stores({
 	tagAssignments: 'id, tagId, [targetType+targetId]',
 	settings: 'key'
 });
+
+db.version(2)
+	.stores({
+		notes: 'id, updatedAt',
+		blocks: 'id, noteId, parentBlockId'
+	})
+	.upgrade(async (tx) => {
+		await tx
+			.table('blocks')
+			.toCollection()
+			.modify((block) => {
+				if (block.html === undefined) block.html = block.content ?? '';
+			});
+	});
