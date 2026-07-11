@@ -305,6 +305,15 @@
 		blockTagsMap = blockMap;
 	}
 
+	// Closing a picker must hand focus back to where the user was, otherwise
+	// Escape drops the caret to <body> and they have to click back in.
+	function closeTagPicker() {
+		const target = tagPickerFor;
+		tagPickerFor = null;
+		if (target?.type === 'block') focusBlockId = target.id;
+		else if (target?.type === 'note') titleEl?.focus();
+	}
+
 	// One handler for both note and block picks: create the tag if it is new,
 	// then toggle the assignment. The picker stays open for multi-tagging.
 	async function handleTagPick(option) {
@@ -479,7 +488,7 @@
 						tags={allTags}
 						assignedIds={noteTags.map((tag) => tag.id)}
 						onPick={handleTagPick}
-						onClose={() => (tagPickerFor = null)}
+						onClose={closeTagPicker}
 						align="right"
 					/>
 				{/if}
@@ -524,7 +533,7 @@
 								: { type: 'block', id: block.id })}
 					onUntag={(block, tag) => removeTag('block', block.id, tag)}
 					onTagPick={handleTagPick}
-					onTagPickerClose={() => (tagPickerFor = null)}
+					onTagPickerClose={closeTagPicker}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
 					onFocusHandled={() => (focusBlockId = null)}

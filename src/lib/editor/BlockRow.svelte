@@ -154,6 +154,17 @@
 		onInput(block, el.textContent);
 	}
 
+	// Return the caret to this block after a transient menu closes.
+	function focusContent() {
+		if (!el) return;
+		el.focus();
+		if (block.type !== 'separator') {
+			const selection = window.getSelection();
+			selection.selectAllChildren(el);
+			selection.collapseToEnd();
+		}
+	}
+
 	const ariaLabels = {
 		text: 'Bloque de texto',
 		bullet: 'Viñeta',
@@ -299,6 +310,7 @@
 				onCopyWithChildren={() => onCopy(block, true)}
 				onSaveSnippet={() => onSaveSnippet(block)}
 				onTag={() => onTag(block)}
+				onDismiss={focusContent}
 			/>
 		{/if}
 	</div>

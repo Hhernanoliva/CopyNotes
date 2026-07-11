@@ -4,7 +4,9 @@
 
 	// The 3-dots menu holding every block action except the always-visible Copy
 	// (editor UX pass). Each item shows its typed quick key when it has one.
-	let { hasChildren = false, onCopyWithChildren, onSaveSnippet, onTag } = $props();
+	// onDismiss returns focus to the block when the menu closes without handing
+	// focus to another surface (Escape, click-away, copy/snippet).
+	let { hasChildren = false, onCopyWithChildren, onSaveSnippet, onTag, onDismiss } = $props();
 
 	let open = $state(false);
 	let rootEl = $state();
@@ -12,10 +14,16 @@
 	$effect(() => {
 		if (!open) return;
 		function onPointerDown(event) {
-			if (rootEl && !rootEl.contains(event.target)) open = false;
+			if (rootEl && !rootEl.contains(event.target)) {
+				open = false;
+				onDismiss?.();
+			}
 		}
 		function onKeydown(event) {
-			if (event.key === 'Escape') open = false;
+			if (event.key === 'Escape') {
+				open = false;
+				onDismiss?.();
+			}
 		}
 		document.addEventListener('pointerdown', onPointerDown);
 		document.addEventListener('keydown', onKeydown);
@@ -25,9 +33,11 @@
 		};
 	});
 
-	function run(action) {
+	// restoreFocus false for actions that open another surface (tag picker).
+	function run(action, restoreFocus = true) {
 		open = false;
 		action();
+		if (restoreFocus) onDismiss?.();
 	}
 </script>
 
@@ -79,7 +89,7 @@
 				type="button"
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onTag)}
+				onclick={() => run(onTag, false)}
 				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
 			>
 				<Tag size={15} aria-hidden="true" />
