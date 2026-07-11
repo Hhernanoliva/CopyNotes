@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (Stage 6, tercera parte: búsqueda).
+Última actualización: 2026-07-10 (mejoras de editor, tanda A: tooltips rápidos, menú de 3 puntitos, atajos escritos).
 
 ## Lo básico
 
@@ -32,7 +32,8 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 ### Cómo cambiar el tipo
 
 - Escribí **`/`** al inicio de un renglón vacío: se abre un menú con los tipos. Filtrá escribiendo (ej. `/ta` para Tarea), movete con **↑ ↓**, elegí con **Enter**, cancelá con **Escape**.
-- Atajo: escribir **`- `** (guion y espacio) al inicio de un renglón de texto lo convierte en viñeta.
+- Atajo escrito: **`- `** o **`* `** (guion o asterisco, y espacio) al inicio de un renglón de texto lo convierte en viñeta.
+- Atajo escrito para etiquetar: escribí **`#`** en un renglón y se abre el selector de etiquetas de ese renglón (el `#` no queda escrito, es solo el gatillo).
 
 ## Escribir y organizar
 
@@ -81,10 +82,13 @@ Cuando anidás tareas adentro de tareas:
 
 ## Copiar bloques
 
-Al pasar el mouse por un renglón (o llegar con el teclado) aparecen botones de copiar a la derecha:
+Al pasar el mouse por un renglón (o llegar con el teclado) aparecen dos botones a la derecha:
 
-- **Copiar bloque** (icono de dos hojas): copia solo ese renglón.
-- **Copiar con subniveles** (icono con un +): aparece solo si el renglón tiene hijos; copia el renglón con todo lo anidado adentro, aunque esté colapsado.
+- **Copiar bloque** (icono de dos hojas, siempre a la vista): copia solo ese renglón.
+- **Más acciones** (los tres puntitos **⋯**): abre un menú chico con el resto de las acciones del renglón:
+  - **Copiar con subniveles**: aparece si el renglón tiene hijos; copia el renglón con todo lo anidado adentro, aunque esté colapsado.
+  - **Guardar como snippet**.
+  - **Etiquetar** (atajo: escribir `#` en el renglón).
 
 Después pegás donde quieras:
 
@@ -100,7 +104,7 @@ Un snippet es un texto que usás seguido —una respuesta tipo, una checklist, u
 
 ### Guardar un snippet
 
-- **Desde un renglón:** pasá el mouse por el renglón y tocá el botón del **marcador** (a la derecha, junto a los de copiar). Se guarda ese renglón **con todo lo anidado adentro**. Aparece el avisito "Snippet guardado".
+- **Desde un renglón:** pasá el mouse por el renglón, tocá los **tres puntitos ⋯** a la derecha y elegí **Guardar como snippet**. Se guarda ese renglón **con todo lo anidado adentro**. Aparece el avisito "Snippet guardado".
 - **Desde cero:** en la barra lateral, pasá a la pestaña **Snippets** y tocá el **+**. Se abre una ventanita para escribir o pegar el texto (el nombre es opcional: si no ponés uno, usa la primera línea).
 
 El snippet guardado es una **copia independiente**: si después editás o borrás el renglón original, el snippet no cambia ni se pierde.
@@ -129,11 +133,11 @@ Las etiquetas te ayudan a agrupar y encontrar cosas sin carpetas. Podés etiquet
 
 ### Etiquetar una nota
 
-Debajo del título hay un botón discreto **+ etiqueta**. Al tocarlo se abre un buscador chiquito: escribí y filtra tus etiquetas; si no existe, te ofrece **Crear «lo que escribiste»** con un Enter. El selector queda abierto por si querés agregar varias; se cierra con Escape o tocando afuera. Las etiquetas de la nota se ven como chips (`#trabajo`) debajo del título; la **x** del chip la quita.
+Al lado del título, al pasar el mouse, aparece un **icono de etiqueta**. Al tocarlo se abre un buscador chiquito: escribí y filtra tus etiquetas; si no existe, te ofrece **Crear «lo que escribiste»** con un Enter. El selector queda abierto por si querés agregar varias; se cierra con Escape o tocando afuera. Las etiquetas de la nota se ven como chips (`#trabajo`) debajo del título; la **x** del chip la quita.
 
 ### Etiquetar un renglón
 
-Al pasar el mouse por un renglón, junto a los botones de copiar y del marcador hay uno de **etiqueta**. Mismo buscador. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
+Al pasar el mouse por un renglón, tocá los **tres puntitos ⋯** y elegí **Etiquetar** (o el atajo: escribir `#` en el renglón). Mismo buscador. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
 
 ### Etiquetar un snippet
 

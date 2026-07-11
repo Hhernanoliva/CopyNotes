@@ -1,0 +1,91 @@
+<script>
+	import { MoreHorizontal, CopyPlus, BookmarkPlus, Tag } from '@lucide/svelte';
+	import { tooltip } from '$lib/actions/tooltip';
+
+	// The 3-dots menu holding every block action except the always-visible Copy
+	// (editor UX pass). Each item shows its typed quick key when it has one.
+	let { hasChildren = false, onCopyWithChildren, onSaveSnippet, onTag } = $props();
+
+	let open = $state(false);
+	let rootEl = $state();
+
+	$effect(() => {
+		if (!open) return;
+		function onPointerDown(event) {
+			if (rootEl && !rootEl.contains(event.target)) open = false;
+		}
+		function onKeydown(event) {
+			if (event.key === 'Escape') open = false;
+		}
+		document.addEventListener('pointerdown', onPointerDown);
+		document.addEventListener('keydown', onKeydown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown);
+			document.removeEventListener('keydown', onKeydown);
+		};
+	});
+
+	function run(action) {
+		open = false;
+		action();
+	}
+</script>
+
+<div bind:this={rootEl} class="relative">
+	<button
+		type="button"
+		aria-label="Más acciones"
+		aria-haspopup="menu"
+		aria-expanded={open}
+		use:tooltip={'Más acciones'}
+		onmousedown={(event) => event.preventDefault()}
+		onclick={() => (open = !open)}
+		class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
+			? 'text-foreground'
+			: ''}"
+	>
+		<MoreHorizontal size={14} aria-hidden="true" />
+	</button>
+
+	{#if open}
+		<div
+			role="menu"
+			aria-label="Acciones del bloque"
+			class="bg-popover border-border absolute top-full right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-md"
+		>
+			{#if hasChildren}
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onCopyWithChildren)}
+					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				>
+					<CopyPlus size={15} aria-hidden="true" />
+					<span class="flex-1">Copiar con subniveles</span>
+				</button>
+			{/if}
+			<button
+				type="button"
+				role="menuitem"
+				onmousedown={(event) => event.preventDefault()}
+				onclick={() => run(onSaveSnippet)}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+			>
+				<BookmarkPlus size={15} aria-hidden="true" />
+				<span class="flex-1">Guardar como snippet</span>
+			</button>
+			<button
+				type="button"
+				role="menuitem"
+				onmousedown={(event) => event.preventDefault()}
+				onclick={() => run(onTag)}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+			>
+				<Tag size={15} aria-hidden="true" />
+				<span class="flex-1">Etiquetar</span>
+				<kbd class="text-faint border-border rounded border px-1 text-xs">#</kbd>
+			</button>
+		</div>
+	{/if}
+</div>

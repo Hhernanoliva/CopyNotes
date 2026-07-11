@@ -17,9 +17,11 @@
 		updateNote
 	} from '$lib/storage';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
+	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
-	import { Plus } from '@lucide/svelte';
+	import { Tag } from '@lucide/svelte';
+	import { tooltip } from '$lib/actions/tooltip';
 	import { buildVisibleList } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -160,14 +162,21 @@
 		} else if (slash && slash.blockId === block.id) {
 			slash = null;
 		}
-		// Typing "- " at the start of a text block turns it into a bullet.
-		// Structural change: persist immediately — a debounced save under the
-		// same key would be replaced by the next keystroke's content-only save.
-		if (block.type === 'text' && text.startsWith('- ')) {
-			const stripped = text.slice(2);
+		// Typed triggers: "- "/"* " make a bullet, a lone "#" opens the tag picker.
+		const trigger = detectTrigger(block, text);
+		if (trigger?.kind === 'bullet') {
+			// Structural change: persist immediately — a debounced save under the
+			// same key would be replaced by the next keystroke's content-only save.
 			block.type = 'bullet';
-			block.content = stripped;
-			updateBlock(block.id, { type: 'bullet', content: stripped });
+			block.content = trigger.content;
+			updateBlock(block.id, { type: 'bullet', content: trigger.content });
+			return;
+		}
+		if (trigger?.kind === 'tag') {
+			// Drop the "#" and open the tag picker anchored to this block.
+			block.content = '';
+			updateBlock(block.id, { content: '' });
+			tagPickerFor = { type: 'block', id: block.id };
 			return;
 		}
 		block.content = text;
@@ -433,38 +442,49 @@
 
 {#if note}
 	<div class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14">
-		<input
-			bind:this={titleEl}
-			value={note.title}
-			oninput={handleTitleInput}
-			onkeydown={handleTitleKeydown}
-			placeholder="Sin título"
-			aria-label="Título de la nota"
-			autocomplete="off"
-			name="note-title"
-			class="placeholder:text-faint w-full bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
-		/>
-		<div class="relative mt-3 flex flex-wrap items-center gap-1.5">
-			<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
-			<button
-				type="button"
-				onclick={() =>
-					(tagPickerFor = tagPickerFor?.type === 'note' ? null : { type: 'note', id: note.id })}
-				aria-expanded={tagPickerFor?.type === 'note'}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex min-h-6 items-center gap-1 rounded-md px-1.5 text-xs transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<Plus size={12} aria-hidden="true" />
-				etiqueta
-			</button>
-			{#if tagPickerFor?.type === 'note'}
-				<TagPicker
-					tags={allTags}
-					assignedIds={noteTags.map((tag) => tag.id)}
-					onPick={handleTagPick}
-					onClose={() => (tagPickerFor = null)}
-				/>
-			{/if}
+		<div class="group/title flex items-center gap-2">
+			<input
+				bind:this={titleEl}
+				value={note.title}
+				oninput={handleTitleInput}
+				onkeydown={handleTitleKeydown}
+				placeholder="Sin título"
+				aria-label="Título de la nota"
+				autocomplete="off"
+				name="note-title"
+				class="placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
+			/>
+			<div class="relative shrink-0">
+				<button
+					type="button"
+					aria-label="Etiquetar nota"
+					use:tooltip={'Etiquetar nota'}
+					onclick={() =>
+						(tagPickerFor = tagPickerFor?.type === 'note' ? null : { type: 'note', id: note.id })}
+					aria-expanded={tagPickerFor?.type === 'note'}
+					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-8 items-center justify-center rounded-md transition-all duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {tagPickerFor?.type ===
+						'note' || noteTags.length > 0
+						? 'opacity-100'
+						: 'opacity-0 group-hover/title:opacity-100 group-focus-within/title:opacity-100'}"
+				>
+					<Tag size={18} aria-hidden="true" />
+				</button>
+				{#if tagPickerFor?.type === 'note'}
+					<TagPicker
+						tags={allTags}
+						assignedIds={noteTags.map((tag) => tag.id)}
+						onPick={handleTagPick}
+						onClose={() => (tagPickerFor = null)}
+						align="right"
+					/>
+				{/if}
+			</div>
 		</div>
+		{#if noteTags.length > 0}
+			<div class="mt-3 flex flex-wrap items-center gap-1.5">
+				<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
+			</div>
+		{/if}
 		<div class="mt-6 flex flex-col">
 			{#each visible as row, index (row.block.id)}
 				<BlockRow

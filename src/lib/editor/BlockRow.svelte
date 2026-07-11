@@ -1,8 +1,10 @@
 <script>
-	import { ChevronRight, Check, Copy, CopyPlus, BookmarkPlus, Tag } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
+	import BlockActionsMenu from './BlockActionsMenu.svelte';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
+	import { tooltip } from '$lib/actions/tooltip';
 
 	let {
 		block,
@@ -204,54 +206,29 @@
 		</div>
 	{/if}
 
-	<!-- Copy actions: hidden until hover/keyboard focus so the page stays quiet
-	     (specs/004). mousedown+preventDefault keeps the caret in the block. -->
+	<!-- Line actions: Copy stays visible, everything else lives in the 3-dots
+	     menu (editor UX pass). Hidden until hover/keyboard focus so the page
+	     stays quiet. mousedown+preventDefault keeps the caret in the block. -->
 	<div
 		class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100"
 	>
 		<button
 			type="button"
 			aria-label="Copiar bloque"
-			title="Copiar bloque"
+			use:tooltip={'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
 			onclick={() => onCopy(block, false)}
 			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<Copy size={14} aria-hidden="true" />
 		</button>
-		{#if hasChildren}
-			<button
-				type="button"
-				aria-label="Copiar bloque con subniveles"
-				title="Copiar con subniveles"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => onCopy(block, true)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<CopyPlus size={14} aria-hidden="true" />
-			</button>
-		{/if}
 		{#if block.type !== 'separator'}
-			<button
-				type="button"
-				aria-label="Guardar como snippet"
-				title="Guardar como snippet"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => onSaveSnippet(block)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<BookmarkPlus size={14} aria-hidden="true" />
-			</button>
-			<button
-				type="button"
-				aria-label="Etiquetar bloque"
-				title="Etiquetar bloque"
-				aria-expanded={tagPickerOpen}
-				onclick={() => onTag(block)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<Tag size={14} aria-hidden="true" />
-			</button>
+			<BlockActionsMenu
+				{hasChildren}
+				onCopyWithChildren={() => onCopy(block, true)}
+				onSaveSnippet={() => onSaveSnippet(block)}
+				onTag={() => onTag(block)}
+			/>
 		{/if}
 	</div>
 
