@@ -1,10 +1,11 @@
 <script>
-	import { PanelLeft } from '@lucide/svelte';
+	import { PanelLeft, Search } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
+	import SearchDialog from '$lib/components/SearchDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		assignTag,
@@ -33,6 +34,7 @@
 	let loading = $state(true);
 	let saveState = $state('idle');
 	let backupOpen = $state(false);
+	let searchOpen = $state(false);
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
@@ -75,6 +77,14 @@
 		currentNoteId = id;
 		setLastOpenedNoteId(id);
 		if (!isDesktop()) sidebarOpen = false;
+	}
+
+	// Cmd/Ctrl+K opens search from anywhere.
+	function handleShortcut(event) {
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault();
+			searchOpen = true;
+		}
 	}
 
 	async function newNote() {
@@ -187,6 +197,8 @@
 	<meta name="description" content="Notas locales, simples y listas para copiar." />
 </svelte:head>
 
+<svelte:window onkeydown={handleShortcut} />
+
 <div class="flex h-svh overflow-hidden">
 	<NoteSidebar
 		{notes}
@@ -214,6 +226,7 @@
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
+	<SearchDialog bind:open={searchOpen} onOpenNote={selectNote} />
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -227,7 +240,16 @@
 				<PanelLeft size={18} aria-hidden="true" />
 			</button>
 			<span class="text-sm font-bold">CopyNotes</span>
-			<span aria-live="polite" class="text-muted-foreground ml-auto text-xs">
+			<button
+				type="button"
+				onclick={() => (searchOpen = true)}
+				aria-label="Buscar"
+				title="Buscar (Cmd/Ctrl+K)"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring ml-auto flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+			>
+				<Search size={18} aria-hidden="true" />
+			</button>
+			<span aria-live="polite" class="text-muted-foreground text-xs">
 				{#if saveState === 'saving'}
 					Guardando…
 				{:else if saveState === 'saved'}

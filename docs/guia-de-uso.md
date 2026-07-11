@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (Stage 6, segunda parte: etiquetas).
+Última actualización: 2026-07-10 (Stage 6, tercera parte: búsqueda).
 
 ## Lo básico
 
@@ -152,7 +152,22 @@ El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
 
 `#Trabajo`, `trabajo` y `TRABAJO` cuentan como la misma etiqueta (también ignora acentos: `café` = `cafe`). Nunca vas a terminar con tres versiones de la misma palabra.
 
-**Filtrar y buscar por etiqueta llega en la próxima entrega**, junto con el buscador.
+## Buscar
+
+Arriba, en la barra de la app, hay una **lupa** (atajo: **Cmd+K** en Mac, **Ctrl+K** en Windows/Linux). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+
+### Cómo funciona
+
+- **Escribí** en el campo de arriba: busca a la vez en los **títulos de notas**, el **texto de los bloques** y los **snippets** (nombre y contenido). No distingue mayúsculas ni acentos (`cafe` encuentra `café`).
+- Los resultados aparecen agrupados en **Notas**, **Bloques** y **Snippets**, con la parte que coincide resaltada. Cada bloque muestra en qué nota está.
+- **Clic en un resultado de nota o bloque** te abre esa nota y cierra el panel.
+- **Filtrar por etiqueta:** debajo del campo hay una fila con tus etiquetas. Tocá una o varias para mostrar solo lo que las tenga. Si elegís varias, tiene que tener **todas**.
+- **Combinado:** texto y etiquetas se suman. "Mostrame lo que diga _plan_ y esté etiquetado _#trabajo_".
+- Lo borrado nunca aparece en los resultados. Todo funciona sin internet.
+
+### Detalle sobre las etiquetas en la búsqueda
+
+El filtro de etiqueta mira la etiqueta **de cada cosa por separado**. Si etiquetaste la **nota** con `#trabajo`, el filtro `#trabajo` te trae esa nota, pero **no** sus bloques sueltos (salvo que hayas etiquetado los bloques también). Cada nota, bloque y snippet lleva sus propias etiquetas.
 
 ## Respaldo (exportar e importar)
 

@@ -130,6 +130,11 @@ export async function listTagsForMany(targetType, targetIds) {
 	return map;
 }
 
+// Every live tag assignment, for building the search tagsByTarget map.
+export async function listAllAssignments() {
+	return tagAssignments.filter((assignment) => !assignment.deletedAt).toArray();
+}
+
 export async function listAssignmentsForTag(tagId) {
 	return tagAssignments
 		.where('tagId')

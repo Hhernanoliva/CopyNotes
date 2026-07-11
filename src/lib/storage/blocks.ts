@@ -50,6 +50,12 @@ export async function listBlocksByNote(noteId) {
 	return rows.sort((a, b) => a.order - b.order);
 }
 
+// Every live block across all notes, for search indexing.
+export async function listAllBlocks() {
+	const rows = await blocks.filter((block) => !block.deletedAt).toArray();
+	return rows;
+}
+
 export async function listChildBlocks(noteId, parentBlockId) {
 	const parent = parentBlockId ?? null;
 	const rows = await listBlocksByNote(noteId);

@@ -61,6 +61,12 @@ Give CopyNotes simple organization without folders in the MVP. Tags and search s
 
 Tags are the MVP organization system. Keep them simple, but design them cleanly because sync, export, and MCP will all need to understand them later.
 
+### Search Implementation (built 2026-07-10)
+
+- Engine lives in `src/lib/search/`: `searchAll(dataset, { text, tagIds })` returns `{ notes, blocks, snippets }`. Pure, in-memory, substring + accent/case folding. This is the swappable interface; a fuzzy/full-text/AI engine can replace the internals without any UI change.
+- Tag filter is **per-item AND**: an item must carry every selected tag on itself. A block inside a tag-tagged note is NOT matched by the note's tag unless the block is tagged too. This keeps the rule predictable and matches the independent-tags data model. If cascade (note tag implies its blocks) is ever wanted, it belongs in the dataset builder, not scattered in the UI.
+- Text query with empty everything returns nothing (no accidental "list all").
+
 ### Future-Readiness Decisions (decided 2026-07-10)
 
 - **AI/semantic search later:** all search logic must live in `src/lib/search/` behind one plain interface (query text + tag filter in, ranked results out). UI components must not know how matching works, so the engine can be swapped for fuzzy/full-text/AI search without touching the rest of the app.

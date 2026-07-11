@@ -11,6 +11,7 @@ import {
 	listAssignmentsForTag,
 	listTags,
 	listTagsFor,
+	listAllAssignments,
 	listTagsForMany,
 	softDeleteTag,
 	unassignTag,
@@ -154,5 +155,18 @@ describe('listTagsForMany', () => {
 
 		const map = await listTagsForMany('snippet', ['s1']);
 		expect(map.s1 ?? []).toEqual([]);
+	});
+});
+
+describe('listAllAssignments', () => {
+	it('returns live assignments only', async () => {
+		const tag = await findOrCreateTag('viva');
+		await assignTag(tag.id, 'note', 'n1');
+		await assignTag(tag.id, 'block', 'b1');
+		await unassignTag(tag.id, 'block', 'b1');
+
+		const rows = await listAllAssignments();
+		expect(rows).toHaveLength(1);
+		expect(rows[0].targetType).toBe('note');
 	});
 });

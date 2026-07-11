@@ -9,7 +9,8 @@ export {
 	listChildBlocks,
 	updateBlock,
 	softDeleteBlock,
-	applyInsertionPlan
+	applyInsertionPlan,
+	listAllBlocks
 } from './blocks';
 export {
 	createSnippet,
@@ -31,7 +32,8 @@ export {
 	unassignTag,
 	listTagsFor,
 	listTagsForMany,
-	listAssignmentsForTag
+	listAssignmentsForTag,
+	listAllAssignments
 } from './tags';
 export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 export {

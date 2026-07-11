@@ -5,6 +5,7 @@ import {
 	applyInsertionPlan,
 	createBlock,
 	getBlock,
+	listAllBlocks,
 	listBlocksByNote,
 	listChildBlocks,
 	softDeleteBlock,
@@ -109,5 +110,18 @@ describe('applyInsertionPlan', () => {
 		expect(inserted.createdAt).toBeTruthy();
 		expect(inserted.deletedAt).toBe(null);
 		void first;
+	});
+});
+
+describe('listAllBlocks', () => {
+	it('returns live blocks across notes and hides soft-deleted ones', async () => {
+		const noteA = await createNote();
+		const noteB = await createNote();
+		await createBlock({ noteId: noteA.id, content: 'a1' });
+		const dead = await createBlock({ noteId: noteB.id, content: 'b1' });
+		await softDeleteBlock(dead.id);
+
+		const rows = await listAllBlocks();
+		expect(rows.map((block) => block.content)).toEqual(['a1']);
 	});
 });
