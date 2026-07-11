@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas entre renglones).
+Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F; flechas; Ctrl+Enter nota, Shift+Enter salto de línea).
 
 ## Lo básico
 
@@ -61,7 +61,8 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | Tecla | Qué hace |
 |---|---|
 | **Enter** | Renglón nuevo, del mismo tipo que el actual |
-| **Shift+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo). En bloques de código, hace salto de línea |
+| **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea |
+| **Ctrl/Cmd+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
@@ -92,11 +93,12 @@ Si el renglón tiene hijos a la vista, Enter crea el renglón nuevo como **prime
 
 Cada renglón puede tener una **nota**: un texto secundario, gris y más chico, pegado debajo, para aclaraciones o detalles que no querés que ensucien la línea principal.
 
-- **Agregar/editar:** parado en un renglón, apretá **Shift+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
+- **Agregar/editar:** parado en un renglón, apretá **Ctrl/Cmd+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
 - **Salir de la nota:** clic en otro lado, o **Escape** para volver al renglón.
 - **Borrar la nota:** con la nota vacía, apretá **Backspace**: desaparece y volvés al renglón. Una nota vacía que perdés el foco también se esconde sola.
 - La nota **viaja con el renglón**: se guarda, se copia (como sub-línea debajo) y se exporta en Markdown y HTML.
-- En **bloques de código**, Shift+Enter no hace nota: hace salto de línea, porque el código es multilínea.
+
+> **Ojo, cambió:** antes la nota gris se abría con Shift+Enter. Ahora Shift+Enter hace un **salto de línea dentro del mismo renglón**, y la nota gris se abre con **Ctrl/Cmd+Enter**.
 
 ## Seleccionar varios renglones
 

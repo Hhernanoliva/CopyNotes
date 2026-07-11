@@ -121,14 +121,26 @@
 			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
 			return;
 		}
-		// Shift+Enter adds/edits the gray note (Workflowy-style). Code blocks
-		// keep it as a literal newline.
-		if (event.key === 'Enter' && event.shiftKey && block.type !== 'code' && block.type !== 'separator') {
+		// Ctrl/Cmd+Enter adds/edits the gray note (Workflowy-style).
+		if (
+			event.key === 'Enter' &&
+			(event.metaKey || event.ctrlKey) &&
+			block.type !== 'code' &&
+			block.type !== 'separator'
+		) {
 			event.preventDefault();
 			openNote();
 			return;
 		}
-		if (event.key === 'Enter' && !event.shiftKey) {
+		// Shift+Enter inserts a soft line break inside this block, not a new one.
+		// Code blocks already treat Enter/Shift+Enter as newlines via the browser.
+		if (event.key === 'Enter' && event.shiftKey && block.type !== 'separator' && block.type !== 'code') {
+			event.preventDefault();
+			document.execCommand('insertLineBreak');
+			onInput(block, el.textContent);
+			return;
+		}
+		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			event.preventDefault();
 			onEnter(block);
 			return;
@@ -294,7 +306,7 @@
 				oninput={handleInput}
 				onmousedown={handleMousedown}
 				onfocus={() => onActive(block)}
-				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
+				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
 				'code'
 					? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
 					: 'text-base'} {block.type === 'todo' && block.checked
