@@ -1,5 +1,6 @@
 <script>
-	import { PanelLeft, Search } from '@lucide/svelte';
+	import { Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
+	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
@@ -19,6 +20,7 @@
 		listTagsForMany,
 		renameTag,
 		setLastOpenedNoteId,
+		setTheme,
 		softDeleteSnippet,
 		softDeleteTag,
 		unassignTag,
@@ -26,6 +28,7 @@
 	} from '$lib/storage';
 	import { filterSnippets } from '$lib/snippets';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
+	import { tooltip } from '$lib/actions/tooltip';
 
 	let notes = $state([]);
 	let currentNoteId = $state(null);
@@ -45,6 +48,7 @@
 
 	// Favorites first, same ordering as the /snippet menu.
 	const sortedSnippets = $derived(filterSnippets(snippets, ''));
+	const currentTheme = $derived(mode.current === 'light' ? 'light' : 'dark');
 
 	function isDesktop() {
 		return window.matchMedia('(min-width: 768px)').matches;
@@ -84,6 +88,16 @@
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
 			event.preventDefault();
 			searchOpen = true;
+		}
+	}
+
+	async function toggleTheme() {
+		const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+		setMode(nextTheme);
+		try {
+			await setTheme(nextTheme);
+		} catch {
+			toast.error('No se pudo recordar el tema. Probá de nuevo.');
 		}
 	}
 
@@ -249,6 +263,19 @@
 			>
 				<Search size={18} aria-hidden="true" />
 			</button>
+			<button
+				type="button"
+				onclick={toggleTheme}
+				aria-label={currentTheme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
+				use:tooltip={currentTheme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+			>
+				{#if currentTheme === 'dark'}
+					<Sun size={18} aria-hidden="true" />
+				{:else}
+					<Moon size={18} aria-hidden="true" />
+				{/if}
+			</button>
 			<span aria-live="polite" class="text-muted-foreground text-xs">
 				{#if saveState === 'saving'}
 					Guardando…
@@ -258,7 +285,7 @@
 			</span>
 		</header>
 
-		<main class="flex-1 overflow-y-auto">
+		<main id="contenido-principal" tabindex="-1" class="flex-1 overflow-y-auto focus-visible:outline-none">
 			{#if loading}
 				<div class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14" aria-hidden="true">
 					<div class="bg-muted h-10 w-2/3 animate-pulse rounded-md"></div>

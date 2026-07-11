@@ -27,9 +27,11 @@ describe('settings repository', () => {
 		expect(await getSetting('theme')).toBe('light');
 	});
 
-	it('theme helpers round trip', async () => {
+	it('theme helpers remember the selected theme', async () => {
 		await setTheme('dark');
 		expect(await getTheme()).toBe('dark');
+		await setTheme('light');
+		expect(await getTheme()).toBe('light');
 	});
 
 	it('onboarding defaults to false and can be completed', async () => {

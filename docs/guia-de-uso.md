@@ -2,13 +2,14 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-10 (mejoras de editor, tanda C: seleccionar varios renglones).
+Última actualización: 2026-07-11 (tema claro y oscuro).
 
 ## Lo básico
 
 - **Tus notas viven en este dispositivo.** No hay cuenta ni nube: todo se guarda automáticamente en el navegador.
 - **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
+- **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 
 ## Notas
 
