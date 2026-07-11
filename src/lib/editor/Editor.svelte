@@ -11,6 +11,7 @@
 		listSnippets,
 		listTags,
 		listTagsForMany,
+		putBlock,
 		softDeleteBlock,
 		softDeleteBlocks,
 		unassignTag,
@@ -42,9 +43,13 @@
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
+	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
+	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
+	import { parsePastedLines } from './paste';
+	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
@@ -135,6 +140,8 @@
 			note = loadedNote;
 			blocks = loadedBlocks;
 			activeBlockId = null;
+			history.reset();
+			lastTextBlockId = null;
 			await refreshTags();
 			if (note && note.title === '' && titleEl) {
 				titleEl.focus();
@@ -144,6 +151,49 @@
 			cancelled = true;
 		};
 	});
+
+	// --- Undo/redo (spec 019, fix 6) ---
+	// Per-note snapshot history. A snapshot is the full ordered block list plus
+	// the focused block. Text edits are grouped into one step per burst.
+	const history = createHistory({ limit: 100 });
+	let lastTextAt = 0;
+	let lastTextBlockId = null;
+
+	function currentSnapshot() {
+		return { blocks: $state.snapshot(blocks), focusId: activeBlockId };
+	}
+
+	// Record before a structural mutation. Resets the text-burst tracker so a
+	// following keystroke starts its own undo step.
+	function recordSnapshot() {
+		history.push(currentSnapshot());
+		lastTextBlockId = null;
+	}
+
+	// Record before a text edit, but only once per burst: a new block or a pause
+	// over ~600ms starts a fresh undo step.
+	function recordTextSnapshot(blockId) {
+		const stamp = Date.now();
+		if (blockId !== lastTextBlockId || stamp - lastTextAt > 600) history.push(currentSnapshot());
+		lastTextAt = stamp;
+		lastTextBlockId = blockId;
+	}
+
+	// Apply a snapshot to the editor and persist the difference through storage.
+	async function restore(snapshot) {
+		if (!snapshot) return;
+		flushPending();
+		const diff = diffBlocks($state.snapshot(blocks), snapshot.blocks);
+		for (const id of diff.deletedIds) await softDeleteBlock(id);
+		for (const row of diff.created) await putBlock(row);
+		for (const row of diff.updated) await putBlock(row);
+		blocks = snapshot.blocks.map((row) => ({ ...row }));
+		lastTextBlockId = null;
+		focusBlockId =
+			snapshot.focusId && blocks.some((row) => row.id === snapshot.focusId)
+				? snapshot.focusId
+				: (blocks[0]?.id ?? null);
+	}
 
 	// Structure changes (indent, reorder, collapse…) persist immediately:
 	// losing hierarchy is worse than an extra write.
@@ -173,6 +223,7 @@
 	}
 
 	function handleBlockInput(block, text) {
+		recordTextSnapshot(block.id);
 		// Typing "/" in an empty block opens the slash menu; the query is
 		// whatever follows. Code blocks are exempt, slashes are normal there.
 		if (block.type !== 'code' && text.startsWith('/')) {
@@ -208,6 +259,7 @@
 	}
 
 	function handleNoteInput(block, text) {
+		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
 		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }));
 	}
@@ -226,6 +278,7 @@
 				return;
 			}
 			if (action === 'convert') {
+				recordSnapshot();
 				block.type = 'text';
 				block.checked = false;
 				await updateBlock(block.id, { type: 'text', checked: false });
@@ -235,6 +288,7 @@
 		}
 		const plan = planEnter(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		const created = await createBlock({
 			noteId: note.id,
@@ -246,8 +300,100 @@
 		focusBlockId = created.id;
 	}
 
+	// Paste of multiple lines: split into blocks. Reuse the current block for
+	// the first line when it is empty (typical: Enter then paste); otherwise
+	// insert every line as a sibling after it. Bullets/todos come pre-typed from
+	// the parser; blank lines were already dropped.
+	async function handlePasteLines(block, text) {
+		const parsed = parsePastedLines(text);
+		if (parsed.length === 0) return;
+		recordSnapshot();
+		let startIndex = 0;
+		let afterId = block.id;
+		const isEmpty = (block.content ?? '') === '' && block.type !== 'separator';
+		if (isEmpty) {
+			const first = parsed[0];
+			block.type = first.type;
+			block.content = first.content;
+			const changes = { type: first.type, content: first.content };
+			if (first.type === 'todo') {
+				block.checked = first.checked;
+				changes.checked = first.checked;
+			}
+			await updateBlock(block.id, changes);
+			startIndex = 1;
+		}
+		for (let i = startIndex; i < parsed.length; i++) {
+			const line = parsed[i];
+			const plan = planEnter(blocks, afterId);
+			if (!plan) break;
+			await applyUpdates(plan.updates);
+			const created = await createBlock({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				type: line.type,
+				order: plan.order,
+				content: line.content,
+				...(line.type === 'todo' ? { checked: line.checked } : {})
+			});
+			blocks = [...blocks, created];
+			afterId = created.id;
+		}
+		focusBlockId = afterId;
+	}
+
+	// Paste of CopyNotes' own copied content: rebuild the exact blocks (types,
+	// checked, code, nesting) from the hidden clipboard marker. Each forest root
+	// lands as a sibling after the current block, reusing the snippet-insertion
+	// machinery; an empty origin block is dropped so the paste reads clean.
+	async function handlePasteBlocks(block, forest) {
+		if (!forest || forest.length === 0) return;
+		recordSnapshot();
+		let afterId = block.id;
+		let tagsTouched = false;
+		for (const root of forest) {
+			const plan = planSnippetInsertion(
+				$state.snapshot(blocks),
+				{ blockSnapshot: root },
+				{ noteId: note.id, afterId, createId }
+			);
+			await applyInsertionPlan(plan);
+			for (const update of plan.updates) {
+				const row = blocks.find((item) => item.id === update.id);
+				if (row) row.order = update.order;
+			}
+			blocks = [...blocks, ...plan.newBlocks];
+			// New blocks come out in pre-order, same as the flattened source nodes,
+			// so tags line up 1:1. Re-create the tag by name and assign it.
+			const sourceNodes = flattenNode(root);
+			for (let i = 0; i < plan.newBlocks.length; i++) {
+				for (const name of sourceNodes[i]?.tags ?? []) {
+					const tag = await findOrCreateTag(name);
+					if (tag) {
+						await assignTag(tag.id, 'block', plan.newBlocks[i].id);
+						tagsTouched = true;
+					}
+				}
+			}
+			afterId = plan.newBlocks[0].id;
+		}
+		if (tagsTouched) {
+			await refreshTags();
+			if (onTagsChanged) onTagsChanged();
+		}
+		const origin = blocks.find((item) => item.id === block.id);
+		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
+		if (origin && (origin.content ?? '') === '' && origin.type !== 'separator' && !originHasChildren) {
+			cancelPending(`block:${block.id}`);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((item) => item.id !== block.id);
+		}
+		focusBlockId = afterId;
+	}
+
 	async function handleBackspaceEmpty(block) {
 		if (backspaceAction(block) === 'convert') {
+			recordSnapshot();
 			block.type = 'text';
 			block.checked = false;
 			await updateBlock(block.id, { type: 'text', checked: false });
@@ -255,6 +401,7 @@
 			return;
 		}
 		if (!canDeleteOnBackspace(blocks, block.id)) return;
+		recordSnapshot();
 		const prevId = previousVisibleId(blocks, block.id);
 		await softDeleteBlock(block.id);
 		blocks = blocks.filter((row) => row.id !== block.id);
@@ -264,6 +411,7 @@
 	async function handleIndent(block) {
 		const plan = planIndent(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		// Expand the new parent so the indented block does not vanish.
 		const parentId = plan.updates[0].parentBlockId;
 		const parent = blocks.find((row) => row.id === parentId);
@@ -278,6 +426,7 @@
 	async function handleOutdent(block) {
 		const plan = planOutdent(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
@@ -285,6 +434,7 @@
 	async function handleMoveUp(block) {
 		const plan = planMoveUp(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
@@ -292,11 +442,13 @@
 	async function handleMoveDown(block) {
 		const plan = planMoveDown(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
 	}
 
 	async function handleToggleCollapsed(block) {
+		recordSnapshot();
 		block.collapsed = !block.collapsed;
 		await updateBlock(block.id, { collapsed: block.collapsed });
 	}
@@ -304,7 +456,11 @@
 	async function handleCopy(block, withChildren) {
 		const tree = buildCopyTree(blocks, block.id, withChildren);
 		try {
-			await writeToClipboard({ text: formatPlainText(tree), html: formatHtml(tree) });
+			await writeToClipboard({
+				text: formatPlainText(tree),
+				html: formatHtml(tree),
+				custom: serializeForest([treeToNode(tree, blockTagsMap)])
+			});
 			toast.success('Copiado');
 		} catch {
 			toast.error('No se pudo copiar. Probá de nuevo.');
@@ -314,6 +470,7 @@
 	async function handleToggleChecked(block) {
 		const plan = planToggleChecked(blocks, block.id);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 	}
 
@@ -375,6 +532,32 @@
 			: box.bottom - caret.bottom < lineHeight * 0.75;
 	}
 
+	// Bare Up/Down: cross to the neighbour block when the caret sits at this
+	// block's visual edge, landing at the same horizontal column. Returns true
+	// when it consumed the key (moved); false lets the browser move inside the
+	// wrapped block. Places the caret directly (no focusBlockId) so BlockRow's
+	// focus effect does not yank the caret to the block's end.
+	function handleVerticalArrow(block, direction) {
+		if (hasSelection) return false;
+		if (!caretAtBlockEdge(direction)) return false;
+		const neighborId = neighborVisibleId(blocks, block.id, direction);
+		if (!neighborId) return false;
+		const x = caretColumnX();
+		const el = document.querySelector(
+			`[data-block-id="${neighborId}"] [contenteditable], [data-block-id="${neighborId}"] [role="separator"]`
+		);
+		if (!(el instanceof HTMLElement)) return false;
+		el.focus();
+		if (el.getAttribute('contenteditable') !== null) {
+			if (x == null || !placeCaretAtColumn(el, x, edgeForDirection(direction))) {
+				const sel = window.getSelection();
+				sel.selectAllChildren(el);
+				sel.collapseToEnd();
+			}
+		}
+		return true;
+	}
+
 	// Shift+Arrow extends an active block selection, or starts one from the
 	// focused block when the caret is at that block's edge. Returns false to let
 	// the browser do normal in-line text selection.
@@ -397,7 +580,8 @@
 		try {
 			await writeToClipboard({
 				text: trees.map(formatPlainText).join('\n'),
-				html: trees.map(formatHtml).join('')
+				html: trees.map(formatHtml).join(''),
+				custom: serializeForest(trees.map((tree) => treeToNode(tree, blockTagsMap)))
 			});
 			toast.success(`Copiado (${rootIds.length})`);
 		} catch {
@@ -406,6 +590,7 @@
 	}
 
 	async function deleteSelection() {
+		recordSnapshot();
 		const ids = planDeleteSelection(blocks, selectedIds);
 		const last = selectedIds[selectedIds.length - 1];
 		const first = selectedIds[0];
@@ -429,6 +614,7 @@
 	async function moveSelectedBlocks(direction) {
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
+		recordSnapshot();
 		await applyUpdates(plan.updates);
 		// Reordering moves the focused block's DOM node, which blurs it. Refocus
 		// so the next Alt+Arrow still reaches the editor's key handler.
@@ -445,8 +631,40 @@
 		event.stopPropagation();
 	}
 	function handleSelectionKeys(event) {
+		// Undo/redo win over everything, but only inside a block editable — the
+		// note title is a plain <input> and keeps its own native undo.
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+			claim(event);
+			if (event.shiftKey) restore(history.redo(currentSnapshot()));
+			else restore(history.undo(currentSnapshot()));
+			return;
+		}
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+			claim(event);
+			restore(history.redo(currentSnapshot()));
+			return;
+		}
 		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
 			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) claim(event);
+			return;
+		}
+		// Cmd/Ctrl+C with no multi-selection and a collapsed caret inside a block:
+		// copy that whole block richly (custom format) so code, separators and
+		// tags survive a paste. A real in-block text selection falls through to
+		// the browser's native copy of just that text.
+		if (
+			(event.metaKey || event.ctrlKey) &&
+			event.key.toLowerCase() === 'c' &&
+			!hasSelection &&
+			event.target instanceof HTMLElement &&
+			(event.target.isContentEditable || event.target.getAttribute('role') === 'separator')
+		) {
+			const sel = window.getSelection();
+			const activeBlock = activeBlockId && blocks.find((block) => block.id === activeBlockId);
+			if ((!sel || sel.isCollapsed) && activeBlock) {
+				claim(event);
+				handleCopy(activeBlock, false);
+			}
 			return;
 		}
 		if (!hasSelection) return;
@@ -535,6 +753,7 @@
 	}
 
 	async function insertSnippetBlocks(snippet, afterId) {
+		recordSnapshot();
 		// $state proxies can't be structured-cloned into IndexedDB.
 		const plan = planSnippetInsertion($state.snapshot(blocks), $state.snapshot(snippet), {
 			noteId: note.id,
@@ -737,6 +956,9 @@
 					onTagPickerClose={closeTagPicker}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={applySlashCommand}
+					onVerticalArrow={handleVerticalArrow}
+					onPasteLines={handlePasteLines}
+					onPasteBlocks={handlePasteBlocks}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'

@@ -16,11 +16,20 @@
 			title: 'Escribir',
 			items: [
 				{ keys: ['Enter'], desc: 'Nuevo renglón' },
-				{ keys: ['Shift', 'Enter'], desc: 'Nota debajo del renglón' },
+				{ keys: ['Shift', 'Enter'], desc: 'Salto de línea en el mismo renglón' },
+				{ keys: [mod, 'Enter'], desc: 'Nota debajo del renglón' },
+				{ keys: ['↑ / ↓'], desc: 'Mover el cursor entre renglones' },
 				{ keys: ['Tab'], desc: 'Anidar el renglón' },
 				{ keys: ['Shift', 'Tab'], desc: 'Sacar un nivel' },
 				{ keys: ['Alt', '↑ / ↓'], desc: 'Mover el renglón arriba o abajo' },
 				{ keys: ['Backspace'], desc: 'En un renglón vacío: vuelve a texto o lo borra' }
+			]
+		},
+		{
+			title: 'Deshacer',
+			items: [
+				{ keys: [mod, 'Z'], desc: 'Deshacer (escribir, borrar, mover, pegar…)' },
+				{ keys: [mod, 'Shift', 'Z'], desc: 'Rehacer' }
 			]
 		},
 		{
@@ -40,6 +49,7 @@
 				{ keys: ['- '], desc: 'Al empezar un renglón, lo convierte en viñeta' },
 				{ keys: ['#'], desc: 'Etiquetar' },
 				{ keys: [mod, 'K'], desc: 'Buscar' },
+				{ keys: [mod, 'F'], desc: 'Buscar (con el texto seleccionado)' },
 				{ keys: ['?'], desc: 'Abrir esta ayuda' }
 			]
 		}

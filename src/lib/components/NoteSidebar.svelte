@@ -24,6 +24,7 @@
 		onCreate,
 		onClose,
 		onBackup,
+		onDeleteNote,
 		onNewSnippet,
 		onToggleFavorite,
 		onInsertSnippet,
@@ -181,21 +182,35 @@
 				{:else}
 					<ul class="flex flex-col gap-0.5">
 						{#each notes as note (note.id)}
-							<li>
+							<li
+								class="group hover:bg-accent flex items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast) {currentNoteId ===
+								note.id
+									? 'bg-accent'
+									: ''}"
+							>
 								<button
 									type="button"
 									onclick={() => onSelect(note.id)}
 									aria-current={currentNoteId === note.id ? 'page' : undefined}
-									class="hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) w-full items-center rounded-md px-2 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none md:min-h-9 {currentNoteId ===
+									class="focus-visible:ring-ring flex min-h-(--touch-target) min-w-0 flex-1 items-center rounded-md px-2 text-left text-sm focus-visible:ring-2 focus-visible:outline-none md:min-h-9 {currentNoteId ===
 									note.id
-										? 'bg-accent text-foreground'
+										? 'text-foreground'
 										: 'text-muted-foreground'}"
 								>
 									{#if note.title}
-										{note.title}
+										<span class="truncate">{note.title}</span>
 									{:else}
 										<span class="text-faint">Sin título</span>
 									{/if}
+								</button>
+								<button
+									type="button"
+									aria-label="Borrar nota {note.title || 'sin título'}"
+									title="Borrar nota"
+									onclick={() => onDeleteNote(note.id)}
+									class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
+								>
+									<Trash2 size={14} aria-hidden="true" />
 								</button>
 							</li>
 						{/each}

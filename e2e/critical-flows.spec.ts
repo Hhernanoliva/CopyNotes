@@ -37,6 +37,109 @@ test('create a note, nest a bullet, and it survives a reload', async ({ page }) 
 	await expect(page.locator('main [role="textbox"]', { hasText: 'Hijo' })).toBeVisible();
 });
 
+test('undo reverses typing and a new block, and the result persists', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Undo E2E');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Primero', { delay: 20 });
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Segundo', { delay: 20 });
+	await page.waitForTimeout(150);
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toBeVisible();
+
+	// Undo the "Segundo" typing burst, then the Enter that created the block.
+	await page.keyboard.press('Control+z');
+	await page.waitForTimeout(120);
+	await page.keyboard.press('Control+z');
+	await page.waitForTimeout(700); // let the restore persist
+
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toHaveCount(0);
+
+	await page.reload();
+	await expect(title(page)).toHaveValue('Undo E2E');
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Segundo' })).toHaveCount(0);
+	await expect(page.locator('main [role="textbox"]', { hasText: 'Primero' })).toBeVisible();
+});
+
+test('pasting CopyNotes clipboard content rebuilds block types and nesting', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Round trip');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Una nota', { delay: 10 });
+	await page.waitForTimeout(200);
+
+	// Simulate pasting content copied inside CopyNotes: a code block and a
+	// checked todo travel on the app's own clipboard format. The paste handler
+	// must rebuild them as code + todo, not flatten them to text.
+	const forest = JSON.stringify([
+		{ type: 'code', content: 'saludar()', checked: false, note: '', tags: [], children: [] },
+		{ type: 'todo', content: 'listo', checked: true, note: '', tags: [], children: [] },
+		{ type: 'separator', content: '', checked: false, note: '', tags: [], children: [] },
+		{ type: 'bullet', content: 'con etiqueta', checked: false, note: '', tags: ['prueba'], children: [] }
+	]);
+	await first.evaluate((el, payload) => {
+		const dt = new DataTransfer();
+		dt.setData('web application/x-copynotes+json', payload);
+		el.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+		);
+	}, forest);
+	await page.waitForTimeout(600);
+
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+	await expect(page.locator('main [role="separator"]')).toHaveCount(1);
+	await expect(page.getByText('prueba', { exact: false })).toBeVisible();
+
+	// And it survives a reload (persisted through storage).
+	await page.waitForTimeout(600);
+	await page.reload();
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+	await expect(page.locator('main [role="checkbox"][aria-checked="true"]')).toHaveCount(1);
+	await expect(page.locator('main [role="separator"]')).toHaveCount(1);
+	await expect(page.getByText('prueba', { exact: false })).toBeVisible();
+});
+
+test('paste falls back to the localStorage buffer when only text/plain arrives', async ({ page }) => {
+	// The browser does not always deliver the custom clipboard format. This
+	// covers the fallback: content copied inside CopyNotes is stashed in
+	// localStorage keyed by its plain text; a paste whose text/plain matches
+	// rebuilds the exact blocks even without the custom format. (Playwright's
+	// synthetic Ctrl+V does not fire a real paste, so we dispatch the event.)
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Buffer');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Una nota', { delay: 10 });
+	await page.waitForTimeout(200);
+
+	await page.evaluate(() => {
+		const payload = JSON.stringify([
+			{ type: 'code', content: 'saludar()', checked: false, note: '', tags: [], children: [] }
+		]);
+		localStorage.setItem('copynotes:clipboard', JSON.stringify({ text: 'saludar()', payload }));
+	});
+	await first.evaluate((el) => {
+		const dt = new DataTransfer();
+		dt.setData('text/plain', 'saludar()'); // matches the buffered text; no custom format
+		el.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+		);
+	});
+	await page.waitForTimeout(500);
+
+	await expect(page.locator('main [role="textbox"].font-mono')).toHaveCount(1);
+});
+
 test('a checked todo persists across reload', async ({ page }) => {
 	await page.goto('/');
 	const firstUnchecked = page.locator('[role="checkbox"][aria-checked="false"]').first();

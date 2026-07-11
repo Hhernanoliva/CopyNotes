@@ -167,3 +167,25 @@ describe('block notes in copy output', () => {
 		expect(formatPlainText(tree)).toBe('hola');
 	});
 });
+
+describe('soft line breaks inside a block', () => {
+	it('keeps a soft break inside a bullet as a hanging line (plain text)', () => {
+		const tree = buildCopyTree([block('a', 'bullet', 'uno\ndos')], 'a', false);
+		expect(formatPlainText(tree)).toBe('- uno\n  dos');
+	});
+
+	it('hangs extra todo lines under the checkbox marker (plain text)', () => {
+		const tree = buildCopyTree([block('a', 'todo', 'uno\ndos', null, 0, { checked: false })], 'a', false);
+		expect(formatPlainText(tree)).toBe('- [ ] uno\n      dos');
+	});
+
+	it('renders a soft break inside a bullet as <br> in HTML', () => {
+		const tree = buildCopyTree([block('a', 'bullet', 'uno\ndos')], 'a', false);
+		expect(formatHtml(tree)).toContain('uno<br>dos');
+	});
+
+	it('renders a soft break inside a lone text block as <br> in HTML', () => {
+		const tree = buildCopyTree([block('a', 'text', 'uno\ndos')], 'a', false);
+		expect(formatHtml(tree)).toBe('<p>uno<br>dos</p>');
+	});
+});

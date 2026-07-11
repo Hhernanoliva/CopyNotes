@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (mejoras en el teléfono y accesibilidad).
+Última actualización: 2026-07-11 (arreglos de edición spec 019; pegado interno conserva tipos, código, separador, etiquetas y anidado).
 
 ## Lo básico
 
@@ -38,6 +38,7 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 | Cambiar de nota | Clic en la nota en la barra lateral |
 | Mostrar/ocultar la lista de notas | Botón de panel (arriba a la izquierda) |
 | Ponerle título | Escribí en el título; **Enter** te baja al primer renglón |
+| Borrar nota | Pasá el mouse por la nota en la lista y tocá el tacho. Se puede recuperar desde un respaldo. |
 
 ## Tipos de renglón (bloques)
 
@@ -60,11 +61,27 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | Tecla | Qué hace |
 |---|---|
 | **Enter** | Renglón nuevo, del mismo tipo que el actual |
-| **Shift+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo). En bloques de código, hace salto de línea |
+| **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea |
+| **Ctrl/Cmd+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
+| **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
+
+### Pegar varias líneas
+
+Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…), CopyNotes lo **separa en renglones** en vez de meter todo en uno solo.
+
+- Cada línea que pegás se vuelve un renglón.
+- **Reconoce viñetas y tareas** por cómo empieza la línea: `- `, `* ` o `• ` → viñeta; `[ ]` o `[x]` → tarea (con su tilde). El resto queda como texto.
+- Las **líneas en blanco se ignoran** (no dejan renglones vacíos).
+- Pegar **una sola línea** funciona normal, se inserta donde está el cursor.
+
+**Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes y los pegás en otra parte de CopyNotes, se pegan **igualitos**: viñetas, tareas (con su tildado), **código**, **separadores**, **etiquetas** y el **anidado**. Cuando pegás en otra app, sale como texto normal.
+
+- **Copiar un solo renglón:** parado en él, **Cmd/Ctrl+C** lo copia entero (con su tipo y etiquetas). Si en cambio seleccionaste un pedazo de texto adentro del renglón, Cmd/Ctrl+C copia solo ese texto, como siempre.
+- **Copiar varios:** seleccionalos (arrastrando o con Shift+↑/↓) y **Cmd/Ctrl+C**.
 
 ### Doble Enter para salir del anidado
 
@@ -90,11 +107,12 @@ Si el renglón tiene hijos a la vista, Enter crea el renglón nuevo como **prime
 
 Cada renglón puede tener una **nota**: un texto secundario, gris y más chico, pegado debajo, para aclaraciones o detalles que no querés que ensucien la línea principal.
 
-- **Agregar/editar:** parado en un renglón, apretá **Shift+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
+- **Agregar/editar:** parado en un renglón, apretá **Ctrl/Cmd+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
 - **Salir de la nota:** clic en otro lado, o **Escape** para volver al renglón.
 - **Borrar la nota:** con la nota vacía, apretá **Backspace**: desaparece y volvés al renglón. Una nota vacía que perdés el foco también se esconde sola.
 - La nota **viaja con el renglón**: se guarda, se copia (como sub-línea debajo) y se exporta en Markdown y HTML.
-- En **bloques de código**, Shift+Enter no hace nota: hace salto de línea, porque el código es multilínea.
+
+> **Ojo, cambió:** antes la nota gris se abría con Shift+Enter. Ahora Shift+Enter hace un **salto de línea dentro del mismo renglón**, y la nota gris se abre con **Ctrl/Cmd+Enter**.
 
 ## Seleccionar varios renglones
 
@@ -106,6 +124,13 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - **Borrar** los seleccionados: **Backspace** o **Delete**. Se borran todos (recuperable). Si un renglón seleccionado tiene hijos, se van con él. Si borrás todo, queda un renglón vacío para seguir.
 - **Mover** el grupo: **Alt+↑ / Alt+↓**. Mueve todos los seleccionados juntos entre sus vecinos (funciona cuando son hermanos seguidos).
 - **Salir de la selección:** **Escape**, o hacé clic o empezá a escribir en un renglón.
+
+## Deshacer y rehacer
+
+- **Deshacer:** **Ctrl/Cmd+Z**. Vuelve atrás lo último que hiciste, sea escribir, borrar, mover, indentar, tildar una tarea, pegar o insertar un snippet. Cada golpe deshace un paso más.
+- **Rehacer:** **Ctrl/Cmd+Shift+Z** (o **Ctrl+Y**). Vuelve a aplicar lo que deshiciste.
+- El deshacer del texto va **por tandas**: un Ctrl+Z borra el último tramo que escribiste de una, no letra por letra.
+- El historial es **por nota**: al cambiar de nota, arranca limpio.
 
 ## Colapsar y expandir
 
@@ -199,7 +224,10 @@ El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
 
 ## Buscar
 
-Arriba, en la barra de la app, hay una **lupa** (atajo: **Cmd+K** en Mac, **Ctrl+K** en Windows/Linux). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+Arriba, en la barra de la app, hay una **lupa** (atajos: **Cmd/Ctrl+K** o **Cmd/Ctrl+F**). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+
+- **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador.
+- **Cmd/Ctrl+K** abre la búsqueda vacía.
 
 ### Cómo funciona
 
