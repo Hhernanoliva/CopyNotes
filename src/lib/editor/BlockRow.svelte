@@ -7,6 +7,8 @@
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
+	import { sanitizeHtml, htmlToPlainText } from '$lib/format';
+	import { HEADING_TYPES } from '$lib/format';
 
 	let {
 		block,
@@ -57,11 +59,18 @@
 	let showNote = $state(false);
 	const noteVisible = $derived(showNote || (block.note ?? '') !== '');
 
+	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
+	// literal plain text (code needs exact whitespace, separator has no content).
+	const isRich = $derived(block.type !== 'code' && block.type !== 'separator');
+
 	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
 	// "/query" text). While the user types they always match, so the caret is
 	// never clobbered.
 	$effect(() => {
-		if (el && block.type !== 'separator' && el.textContent !== block.content) {
+		if (!el || block.type === 'separator') return;
+		if (isRich) {
+			if (el.innerHTML !== (block.html ?? '')) el.innerHTML = block.html ?? '';
+		} else if (el.textContent !== block.content) {
 			el.textContent = block.content;
 		}
 	});
@@ -140,7 +149,7 @@
 		if (event.key === 'Enter' && event.shiftKey && block.type !== 'separator' && block.type !== 'code') {
 			event.preventDefault();
 			document.execCommand('insertLineBreak');
-			onInput(block, el.textContent);
+			handleInput();
 			return;
 		}
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -185,7 +194,12 @@
 	}
 
 	function handleInput() {
-		onInput(block, el.textContent);
+		if (isRich) {
+			const html = sanitizeHtml(el.innerHTML);
+			onInput(block, { html, content: htmlToPlainText(html) });
+		} else {
+			onInput(block, { html: el.textContent, content: el.textContent });
+		}
 	}
 
 	// Paste handling, in priority order:
@@ -317,7 +331,7 @@
 		<div class="flex min-w-0 flex-1 flex-col">
 			<div
 				bind:this={el}
-				contenteditable="plaintext-only"
+				contenteditable={isRich ? 'true' : 'plaintext-only'}
 				role="textbox"
 				tabindex="0"
 				aria-multiline="true"
@@ -338,7 +352,9 @@
 					? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
 					: 'text-base'} {block.type === 'todo' && block.checked
 					? 'text-muted-foreground line-through'
-					: ''}"
+					: ''} {block.type === 'heading1' ? 'block-editable--h1' : ''} {block.type === 'heading2'
+					? 'block-editable--h2'
+					: ''} {block.type === 'heading3' ? 'block-editable--h3' : ''}"
 			></div>
 			{#if noteVisible}
 				<div
