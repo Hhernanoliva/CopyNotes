@@ -92,3 +92,14 @@ export async function softDeleteBlock(id) {
 	const timestamp = now();
 	await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
 }
+
+// Soft-delete many blocks at once (multi-block selection). One transaction so
+// a group delete can't half-apply.
+export async function softDeleteBlocks(ids) {
+	const timestamp = now();
+	await db.transaction('rw', blocks, async () => {
+		for (const id of ids) {
+			await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+		}
+	});
+}

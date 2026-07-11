@@ -9,6 +9,7 @@ import {
 	listBlocksByNote,
 	listChildBlocks,
 	softDeleteBlock,
+	softDeleteBlocks,
 	updateBlock
 } from './blocks';
 import { createNote } from './notes';
@@ -123,5 +124,20 @@ describe('listAllBlocks', () => {
 
 		const rows = await listAllBlocks();
 		expect(rows.map((block) => block.content)).toEqual(['a1']);
+	});
+});
+
+describe('softDeleteBlocks', () => {
+	it('soft-deletes many blocks in one call', async () => {
+		const note = await createNote();
+		const a = await createBlock({ noteId: note.id, content: 'a' });
+		const b = await createBlock({ noteId: note.id, content: 'b' });
+		const c = await createBlock({ noteId: note.id, content: 'c' });
+
+		await softDeleteBlocks([a.id, c.id]);
+
+		const rows = await listBlocksByNote(note.id);
+		expect(rows.map((block) => block.content)).toEqual(['b']);
+		void b;
 	});
 });

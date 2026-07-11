@@ -12,10 +12,18 @@
 		listTags,
 		listTagsForMany,
 		softDeleteBlock,
+		softDeleteBlocks,
 		unassignTag,
 		updateBlock,
 		updateNote
 	} from '$lib/storage';
+	import {
+		selectionRange,
+		neighborVisibleId,
+		orderedSelectionRoots,
+		planDeleteSelection,
+		planMoveSelection
+	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -57,6 +65,14 @@
 	let noteTags = $state([]);
 	let blockTagsMap = $state({});
 	let tagPickerFor = $state(null);
+	// Multi-block selection: anchor+focus block ids. selectedIds is the visible
+	// range between them; a real selection is 2+ blocks.
+	let selection = $state(null);
+	const selectedIds = $derived(
+		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
+	);
+	const hasSelection = $derived(selectedIds.length > 1);
+	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
 
 	const visible = $derived(buildVisibleList(blocks));
 	const slashCommands = $derived.by(() => {
@@ -293,6 +309,103 @@
 		await applyUpdates(plan.updates);
 	}
 
+	// --- Multi-block selection ---
+
+	function shiftSelect(block) {
+		const anchor = selection?.anchorId ?? activeBlockId ?? block.id;
+		selection = { anchorId: anchor, focusId: block.id };
+	}
+
+	function clearSelection() {
+		selection = null;
+	}
+
+	// Shift+Arrow only extends an existing block selection; without one it must
+	// fall through so the block does normal in-line text selection.
+	function extendSelection(direction) {
+		if (!hasSelection) return false;
+		const focus = neighborVisibleId(blocks, selection.focusId, direction);
+		if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
+		return true;
+	}
+
+	async function copySelection() {
+		const rootIds = orderedSelectionRoots(blocks, selectedIds);
+		const trees = rootIds.map((id) => buildCopyTree(blocks, id, true));
+		try {
+			await writeToClipboard({
+				text: trees.map(formatPlainText).join('\n'),
+				html: trees.map(formatHtml).join('')
+			});
+			toast.success(`Copiado (${rootIds.length})`);
+		} catch {
+			toast.error('No se pudo copiar. Probá de nuevo.');
+		}
+	}
+
+	async function deleteSelection() {
+		const ids = planDeleteSelection(blocks, selectedIds);
+		const last = selectedIds[selectedIds.length - 1];
+		const first = selectedIds[0];
+		const focusTarget =
+			neighborVisibleId(blocks, last, 1) ?? neighborVisibleId(blocks, first, -1);
+		selection = null;
+		await softDeleteBlocks(ids);
+		const removed = new Set(ids);
+		blocks = blocks.filter((block) => !removed.has(block.id));
+		if (blocks.length === 0) {
+			const created = await createBlock({ noteId: note.id, type: 'text' });
+			blocks = [created];
+			focusBlockId = created.id;
+		} else if (focusTarget && blocks.some((block) => block.id === focusTarget)) {
+			focusBlockId = focusTarget;
+		} else {
+			focusBlockId = blocks[0].id;
+		}
+	}
+
+	async function moveSelectedBlocks(direction) {
+		const plan = planMoveSelection(blocks, selectedIds, direction);
+		if (!plan) return;
+		await applyUpdates(plan.updates);
+	}
+
+	// Runs in capture phase so it can preempt the focused block's own keys while
+	// a multi-block selection is active.
+	function handleSelectionKeys(event) {
+		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+			return;
+		}
+		if (!hasSelection) return;
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
+			event.preventDefault();
+			copySelection();
+			return;
+		}
+		if (event.key === 'Backspace' || event.key === 'Delete') {
+			event.preventDefault();
+			deleteSelection();
+			return;
+		}
+		if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+			event.preventDefault();
+			moveSelectedBlocks(event.key === 'ArrowDown' ? 1 : -1);
+			return;
+		}
+		if (event.key === 'Escape') {
+			event.preventDefault();
+			const anchor = selection.focusId;
+			clearSelection();
+			focusBlockId = anchor;
+			return;
+		}
+		// A plain keystroke drops the selection and resumes normal editing.
+		if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.length === 1) {
+			clearSelection();
+		}
+	}
+
 	async function refreshTags() {
 		const blockIds = blocks.map((block) => block.id);
 		const [tags, noteMap, blockMap] = await Promise.all([
@@ -455,7 +568,11 @@
 </script>
 
 {#if note}
-	<div class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14">
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14"
+		onkeydowncapture={handleSelectionKeys}
+	>
 		<div class="group/title flex items-center gap-2">
 			<input
 				bind:this={titleEl}
@@ -523,6 +640,9 @@
 					onCopy={handleCopy}
 					onSaveSnippet={handleSaveSnippet}
 					onActive={(row) => (activeBlockId = row.id)}
+					selected={selectedSet.has(row.block.id)}
+					onShiftSelect={shiftSelect}
+					onPlainMousedown={clearSelection}
 					tags={blockTagsMap[row.block.id] ?? []}
 					{allTags}
 					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}

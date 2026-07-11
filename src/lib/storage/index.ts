@@ -9,6 +9,7 @@ export {
 	listChildBlocks,
 	updateBlock,
 	softDeleteBlock,
+	softDeleteBlocks,
 	applyInsertionPlan,
 	listAllBlocks
 } from './blocks';

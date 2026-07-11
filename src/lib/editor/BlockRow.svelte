@@ -30,6 +30,9 @@
 		onCopy,
 		onSaveSnippet,
 		onActive,
+		selected = false,
+		onShiftSelect,
+		onPlainMousedown,
 		tags = [],
 		allTags = [],
 		tagPickerOpen = false,
@@ -154,6 +157,17 @@
 		onInput(block, el.textContent);
 	}
 
+	// Shift+click selects a block range instead of moving the caret; a plain
+	// click clears any active multi-selection.
+	function handleMousedown(event) {
+		if (event.shiftKey) {
+			event.preventDefault();
+			onShiftSelect?.(block);
+		} else {
+			onPlainMousedown?.();
+		}
+	}
+
 	// Return the caret to this block after a transient menu closes.
 	function focusContent() {
 		if (!el) return;
@@ -175,7 +189,9 @@
 </script>
 
 <div
-	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2"
+	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2 {selected
+		? 'bg-primary/10'
+		: ''}"
 	style="padding-left: {depth * 1.5}rem"
 >
 	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
@@ -234,6 +250,7 @@
 			tabindex="0"
 			aria-label="Separador"
 			onkeydown={handleKeydown}
+			onmousedown={handleMousedown}
 			onfocus={() => onActive(block)}
 			class="focus-visible:ring-ring flex h-7 w-full items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
@@ -256,6 +273,7 @@
 				data-placeholder={placeholder}
 				onkeydown={handleKeydown}
 				oninput={handleInput}
+				onmousedown={handleMousedown}
 				onfocus={() => onActive(block)}
 				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words outline-none {block.type ===
 				'code'
