@@ -51,6 +51,7 @@
 	import { parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
+	import { sanitizeHtml, htmlToPlainText, planBlockType, HEADING_TYPES } from '$lib/format';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
 
@@ -222,7 +223,9 @@
 		}
 	}
 
-	function handleBlockInput(block, text) {
+	function handleBlockInput(block, payload) {
+		const text = payload.content;
+		const html = payload.html;
 		recordTextSnapshot(block.id);
 		// Typing "/" in an empty block opens the slash menu; the query is
 		// whatever follows. Code blocks are exempt, slashes are normal there.
@@ -244,18 +247,29 @@
 			// same key would be replaced by the next keystroke's content-only save.
 			block.type = 'bullet';
 			block.content = trigger.content;
-			updateBlock(block.id, { type: 'bullet', content: trigger.content });
+			block.html = trigger.content;
+			updateBlock(block.id, { type: 'bullet', content: trigger.content, html: trigger.content });
 			return;
 		}
 		if (trigger?.kind === 'tag') {
 			// Drop the "#" and open the tag picker anchored to this block.
 			block.content = '';
-			updateBlock(block.id, { content: '' });
+			block.html = '';
+			updateBlock(block.id, { content: '', html: '' });
 			tagPickerFor = { type: 'block', id: block.id };
 			return;
 		}
 		block.content = text;
-		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text }));
+		block.html = html;
+		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text, html }));
+	}
+
+	// Convert a block to a different type (e.g. heading) via the format engine's
+	// planner, which decides which fields change.
+	async function setBlockType(block, nextType) {
+		const changes = planBlockType(block, nextType);
+		Object.assign(block, changes);
+		await updateBlock(block.id, changes);
 	}
 
 	function handleNoteInput(block, text) {
@@ -810,6 +824,16 @@
 			return;
 		}
 		const row = blocks.find((block) => block.id === slash.blockId);
+		if (row && HEADING_TYPES.includes(command.id)) {
+			// Strip the "/query" text, then convert the type. Headings are a type
+			// change, not an insert, so no new block is created.
+			row.content = '';
+			row.html = '';
+			await updateBlock(row.id, { content: '', html: '' });
+			await setBlockType(row, command.id);
+			slash = null;
+			return;
+		}
 		if (command.id === 'snippet') {
 			// Switch the menu into snippet-picker mode; the block keeps its "/"
 			// so typing keeps filtering the snippet list.
