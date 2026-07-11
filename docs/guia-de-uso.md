@@ -161,6 +161,7 @@ Después pegás donde quieras:
 - En apps simples (Notas, un mail sin formato): llega como texto con sangría legible; las tareas se ven como `[x]` (hecha) o `[ ]` (pendiente).
 - En editores con formato (Google Docs, Notion, Gmail): llega como lista con viñetas y niveles de verdad.
 - Los bloques de código mantienen sus líneas tal cual.
+- **Pegado dentro de CopyNotes:** vuelve igualito, con tipo, tildado, código, separadores, etiquetas y anidado (ver "Pegar varias líneas").
 
 No hace falta seleccionar el texto a mano. Al copiar aparece un avisito abajo que dice **"Copiado"**; si el navegador no deja copiar, avisa con un mensaje para reintentar.
 
