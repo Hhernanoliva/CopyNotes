@@ -11,10 +11,12 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
+		"test:e2e": "playwright test",
 		"test": "npm run test:unit -- --run"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.23.0",
+		"@playwright/test": "^1.61.1",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.69.2",

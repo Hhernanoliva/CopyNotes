@@ -19,11 +19,17 @@ pnpm dev       # abre la app en http://localhost:5173
 ## Otros comandos
 
 ```bash
-pnpm test      # corre las pruebas (Vitest)
+pnpm test      # corre las pruebas de lógica (Vitest)
+pnpm test:e2e  # corre los flujos críticos end-to-end (Playwright)
 pnpm check     # revisa tipos y errores de Svelte
 pnpm build     # genera la versión de producción
 pnpm preview   # sirve la versión de producción localmente
 ```
+
+`pnpm test:e2e` levanta la versión de producción (`build` + `preview`) y prueba
+los flujos críticos, incluido el uso sin conexión. En CI se instala el navegador
+con `pnpm exec playwright install chromium`. Para reusar un Chromium ya cacheado
+sin descargar, exportá `PLAYWRIGHT_CHROMIUM_PATH` apuntando al ejecutable.
 
 ## Stack
 
