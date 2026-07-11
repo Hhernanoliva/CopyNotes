@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (borrar notas desde la lista).
+Última actualización: 2026-07-11 (borrar notas; Ctrl/Cmd+F en la búsqueda).
 
 ## Lo básico
 
@@ -200,7 +200,10 @@ El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
 
 ## Buscar
 
-Arriba, en la barra de la app, hay una **lupa** (atajo: **Cmd+K** en Mac, **Ctrl+K** en Windows/Linux). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+Arriba, en la barra de la app, hay una **lupa** (atajos: **Cmd/Ctrl+K** o **Cmd/Ctrl+F**). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+
+- **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador.
+- **Cmd/Ctrl+K** abre la búsqueda vacía.
 
 ### Cómo funciona
 

@@ -9,7 +9,7 @@
 	} from '$lib/storage';
 	import { searchAll, buildTagsByTarget, highlightSegments } from '$lib/search';
 
-	let { open = $bindable(false), onOpenNote } = $props();
+	let { open = $bindable(false), onOpenNote, initialQuery = '' } = $props();
 
 	let dialogEl = $state(null);
 	let text = $state('');
@@ -25,7 +25,7 @@
 	$effect(() => {
 		if (!dialogEl) return;
 		if (open && !dialogEl.open) {
-			text = '';
+			text = initialQuery ?? '';
 			selectedTagIds = [];
 			dialogEl.showModal();
 			loadData();
