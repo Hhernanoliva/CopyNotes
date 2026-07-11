@@ -41,6 +41,7 @@ describe('planSnippetInsertion', () => {
 				parentBlockId: null,
 				type: 'text',
 				content: 'Hola equipo',
+				html: 'Hola equipo',
 				order: 1,
 				collapsed: false,
 				checked: false,
@@ -49,6 +50,25 @@ describe('planSnippetInsertion', () => {
 		]);
 		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);
 		expect(plan.focusId).toBe('new-0');
+	});
+
+	it('backfills html from content when the snippet/snapshot has no html', () => {
+		const blocks = [existingBlock('a', 0)];
+		const plan = planSnippetInsertion(blocks, textSnippet, {
+			noteId: 'note-1',
+			afterId: 'a',
+			createId: counterIds()
+		});
+		expect(plan.newBlocks[0].html).toBe(plan.newBlocks[0].content);
+
+		const outlinePlan = planSnippetInsertion(blocks, outlineSnippet, {
+			noteId: 'note-1',
+			afterId: 'a',
+			createId: counterIds()
+		});
+		for (const block of outlinePlan.newBlocks) {
+			expect(block.html).toBe(block.content);
+		}
 	});
 
 	it('recreates a snapshot as nested blocks with fresh ids', () => {

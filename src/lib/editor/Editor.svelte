@@ -329,7 +329,8 @@
 			const first = parsed[0];
 			block.type = first.type;
 			block.content = first.content;
-			const changes = { type: first.type, content: first.content };
+			block.html = first.html ?? first.content;
+			const changes = { type: first.type, content: first.content, html: first.html ?? first.content };
 			if (first.type === 'todo') {
 				block.checked = first.checked;
 				changes.checked = first.checked;
@@ -794,7 +795,8 @@
 		cancelPending(`block:${row.id}`);
 		if (hasChildren) {
 			row.content = '';
-			await updateBlock(row.id, { content: '' });
+			row.html = '';
+			await updateBlock(row.id, { content: '', html: '' });
 		} else {
 			await softDeleteBlock(row.id);
 			blocks = blocks.filter((block) => block.id !== row.id);
@@ -856,7 +858,8 @@
 		}
 		row.type = command.id;
 		row.content = '';
-		const changes = { type: command.id, content: '' };
+		row.html = '';
+		const changes = { type: command.id, content: '', html: '' };
 		if (command.id === 'todo') {
 			row.checked = false;
 			changes.checked = false;

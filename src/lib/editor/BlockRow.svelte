@@ -69,7 +69,12 @@
 	$effect(() => {
 		if (!el || block.type === 'separator') return;
 		if (isRich) {
-			if (el.innerHTML !== (block.html ?? '')) el.innerHTML = block.html ?? '';
+			const html = block.html ?? '';
+			if (html !== '') {
+				if (el.innerHTML !== html) el.innerHTML = html;
+			} else if (el.textContent !== (block.content ?? '')) {
+				el.textContent = block.content ?? '';
+			}
 		} else if (el.textContent !== block.content) {
 			el.textContent = block.content;
 		}

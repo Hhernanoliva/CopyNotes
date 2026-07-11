@@ -19,6 +19,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 	const rootNode = snippet.blockSnapshot ?? {
 		type: 'text',
 		content: snippet.content,
+		html: snippet.html ?? snippet.content,
 		checked: false,
 		children: []
 	};
@@ -32,6 +33,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 			parentBlockId: parentId,
 			type: node.type,
 			content: node.content,
+			html: node.html ?? node.content,
 			order: nodeOrder,
 			collapsed: false,
 			checked: node.checked ?? false,
