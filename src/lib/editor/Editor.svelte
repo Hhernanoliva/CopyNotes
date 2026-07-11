@@ -426,33 +426,43 @@
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
 		await applyUpdates(plan.updates);
+		// Reordering moves the focused block's DOM node, which blurs it. Refocus
+		// so the next Alt+Arrow still reaches the editor's key handler.
+		if (selection) focusBlockId = selection.focusId;
 	}
 
 	// Runs in capture phase so it can preempt the focused block's own keys while
-	// a multi-block selection is active.
+	// a multi-block selection is active. stopPropagation is essential: without
+	// it the event still reaches the focused block's keydown, double-handling
+	// the key (e.g. Alt+Arrow would also do a single-block move — corrupting
+	// order at an edge where the group move is a no-op).
+	function claim(event) {
+		event.preventDefault();
+		event.stopPropagation();
+	}
 	function handleSelectionKeys(event) {
 		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) claim(event);
 			return;
 		}
 		if (!hasSelection) return;
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
-			event.preventDefault();
+			claim(event);
 			copySelection();
 			return;
 		}
 		if (event.key === 'Backspace' || event.key === 'Delete') {
-			event.preventDefault();
+			claim(event);
 			deleteSelection();
 			return;
 		}
 		if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-			event.preventDefault();
+			claim(event);
 			moveSelectedBlocks(event.key === 'ArrowDown' ? 1 : -1);
 			return;
 		}
 		if (event.key === 'Escape') {
-			event.preventDefault();
+			claim(event);
 			const anchor = selection.focusId;
 			clearSelection();
 			focusBlockId = anchor;
