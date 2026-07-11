@@ -1,5 +1,5 @@
 <script>
-	import { Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
+	import { CircleHelp, Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
@@ -7,6 +7,7 @@
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
 	import SearchDialog from '$lib/components/SearchDialog.svelte';
+	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		assignTag,
@@ -42,6 +43,7 @@
 	let saveState = $state('idle');
 	let backupOpen = $state(false);
 	let searchOpen = $state(false);
+	let helpOpen = $state(false);
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
@@ -100,11 +102,24 @@
 		if (!isDesktop()) sidebarOpen = false;
 	}
 
-	// Cmd/Ctrl+K opens search from anywhere.
+	function isTypingTarget(target) {
+		return (
+			target?.isContentEditable ||
+			target?.tagName === 'INPUT' ||
+			target?.tagName === 'TEXTAREA'
+		);
+	}
+
+	// Cmd/Ctrl+K opens search; "?" opens help — but never while typing.
 	function handleShortcut(event) {
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
 			event.preventDefault();
 			searchOpen = true;
+			return;
+		}
+		if (event.key === '?' && !event.metaKey && !event.ctrlKey && !isTypingTarget(event.target)) {
+			event.preventDefault();
+			helpOpen = true;
 		}
 	}
 
@@ -258,6 +273,7 @@
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
 	<SearchDialog bind:open={searchOpen} onOpenNote={selectNote} />
+	<HelpDialog bind:open={helpOpen} />
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -279,6 +295,15 @@
 				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring ml-auto flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
 			>
 				<Search size={18} aria-hidden="true" />
+			</button>
+			<button
+				type="button"
+				onclick={() => (helpOpen = true)}
+				aria-label="Ayuda y atajos"
+				use:tooltip={'Ayuda y atajos (?)'}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+			>
+				<CircleHelp size={18} aria-hidden="true" />
 			</button>
 			<button
 				type="button"

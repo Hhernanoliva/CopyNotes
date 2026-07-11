@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (nota de bienvenida en el primer uso).
+Última actualización: 2026-07-11 (panel de ayuda y atajos).
 
 ## Lo básico
 
@@ -10,6 +10,7 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 - **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
+- **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.
 
 ## La primera vez
 
