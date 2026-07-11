@@ -57,10 +57,18 @@ export default defineConfig({
 			{
 				extends: './vite.config.ts',
 				test: {
+					name: 'jsdom',
+					environment: 'jsdom',
+					include: ['src/lib/format/sanitize.test.ts']
+				}
+			},
+			{
+				extends: './vite.config.ts',
+				test: {
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'src/lib/format/sanitize.test.ts']
 				}
 			}
 		]
