@@ -262,8 +262,8 @@
 			// same key would be replaced by the next keystroke's content-only save.
 			block.type = 'bullet';
 			block.content = trigger.content;
-			block.html = trigger.content;
-			updateBlock(block.id, { type: 'bullet', content: trigger.content, html: trigger.content });
+			block.html = plainTextToHtml(trigger.content);
+			updateBlock(block.id, { type: 'bullet', content: trigger.content, html: plainTextToHtml(trigger.content) });
 			return;
 		}
 		if (trigger?.kind === 'tag') {
