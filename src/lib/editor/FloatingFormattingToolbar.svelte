@@ -43,6 +43,7 @@
 		role="toolbar"
 		tabindex="0"
 		aria-label="Formato de texto"
+		data-copynotes-toolbar
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
 		class="bg-popover border-border flex items-center gap-0.5 rounded-lg border p-1 shadow-xl"

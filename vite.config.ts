@@ -59,7 +59,10 @@ export default defineConfig({
 				test: {
 					name: 'jsdom',
 					environment: 'jsdom',
-					include: ['src/lib/format/**/*.{test,spec}.{js,ts}']
+					include: [
+						'src/lib/format/**/*.{test,spec}.{js,ts}',
+						'src/lib/editor/**/*.{test,spec}.{js,ts}'
+					]
 				}
 			},
 			{
@@ -68,7 +71,11 @@ export default defineConfig({
 					name: 'server',
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}'],
-					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'src/lib/format/**/*.{test,spec}.{js,ts}']
+					exclude: [
+						'src/**/*.svelte.{test,spec}.{js,ts}',
+						'src/lib/format/**/*.{test,spec}.{js,ts}',
+						'src/lib/editor/**/*.{test,spec}.{js,ts}'
+					]
 				}
 			}
 		]

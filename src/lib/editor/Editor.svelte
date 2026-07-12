@@ -52,6 +52,7 @@
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
 	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
+	import { textOffset, rangeFromTextOffsets } from './selection-offsets';
 	import {
 		sanitizeHtml,
 		htmlToPlainText,
@@ -305,7 +306,7 @@
 		// this guard we'd immediately null the toolbar out from under the user,
 		// closing the popover they just opened. Leave existing state alone while
 		// focus sits inside the toolbar itself.
-		if (toolbar && document.activeElement?.closest('[role="toolbar"][aria-label="Formato de texto"]')) {
+		if (toolbar && document.activeElement?.closest('[data-copynotes-toolbar]')) {
 			return;
 		}
 		const sel = window.getSelection();
@@ -357,45 +358,6 @@
 		document.addEventListener('selectionchange', refreshToolbar);
 		return () => document.removeEventListener('selectionchange', refreshToolbar);
 	});
-
-	// Count characters from the start of `root`'s text content up to
-	// (node, offset), so a selection can be re-anchored by character position
-	// instead of by node identity (nodes get replaced below).
-	function textOffset(root, node, offset) {
-		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-		let total = 0;
-		let current;
-		while ((current = walker.nextNode())) {
-			if (current === node) return total + offset;
-			total += current.textContent.length;
-		}
-		return total;
-	}
-
-	// Inverse of textOffset: walk root's text nodes to build a Range spanning
-	// [start, end) characters.
-	function rangeFromTextOffsets(root, start, end) {
-		const range = document.createRange();
-		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-		let total = 0;
-		let startSet = false;
-		let current;
-		while ((current = walker.nextNode())) {
-			const len = current.textContent.length;
-			if (!startSet && total + len >= start) {
-				range.setStart(current, start - total);
-				startSet = true;
-			}
-			if (startSet && total + len >= end) {
-				range.setEnd(current, end - total);
-				return range;
-			}
-			total += len;
-		}
-		range.selectNodeContents(root);
-		range.collapse(false);
-		return range;
-	}
 
 	// Commands mutate the contenteditable DOM directly (execCommand / manual DOM
 	// wraps), so the affected block's state is stale afterwards — re-read its
@@ -470,7 +432,7 @@
 			case 'clear': document.execCommand('removeFormat'); break;
 			case 'copyText': {
 				const text = window.getSelection()?.toString() ?? '';
-				if (text) await navigator.clipboard.writeText(text);
+				if (text && navigator.clipboard) await navigator.clipboard.writeText(text);
 				return;
 			}
 		}

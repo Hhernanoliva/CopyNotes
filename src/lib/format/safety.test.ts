@@ -11,7 +11,7 @@ test('code block: everything disabled', () => {
 		.toEqual({ inline: false, inlineCode: false, blockType: false, link: false, color: false });
 });
 
-test('multi-block: block-type and inline code disabled, others on', () => {
+test('multi-block: everything disabled', () => {
 	expect(commandsForSelection({ blockType: 'text', spansBlocks: true }))
-		.toEqual({ inline: true, inlineCode: false, blockType: false, link: true, color: true });
+		.toEqual({ inline: false, inlineCode: false, blockType: false, link: false, color: false });
 });
