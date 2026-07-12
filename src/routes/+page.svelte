@@ -113,7 +113,12 @@
 	}
 
 	// Cmd/Ctrl+K opens search; "?" opens help — but never while typing.
+	// A more specific handler closer to the target (e.g. the block editor's
+	// own Cmd/Ctrl+K for inserting a link) may already have claimed the key via
+	// preventDefault by the time it bubbles here; respect that instead of
+	// stealing focus into the search box.
 	function handleShortcut(event) {
+		if (event.defaultPrevented) return;
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
 			event.preventDefault();
 			searchSeed = window.getSelection()?.toString().trim() ?? '';

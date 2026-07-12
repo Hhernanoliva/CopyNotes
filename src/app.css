@@ -68,6 +68,11 @@
 	--success: oklch(0.55 0.1 150);
 	--warning: oklch(0.7 0.13 80);
 	--overlay: oklch(0.15 0.005 65 / 0.4);
+	--fmt-color-amber: oklch(0.56 0.12 70);
+	--fmt-color-red: oklch(0.55 0.19 27);
+	--fmt-color-green: oklch(0.5 0.13 150);
+	--fmt-color-blue: oklch(0.52 0.13 250);
+	--fmt-color-gray: oklch(0.6 0.01 80);
 }
 
 .dark {
@@ -110,6 +115,11 @@
 	--success: oklch(0.68 0.09 150);
 	--warning: oklch(0.78 0.13 80);
 	--overlay: oklch(0.1 0.005 65 / 0.55);
+	--fmt-color-amber: oklch(0.76 0.11 75);
+	--fmt-color-red: oklch(0.7 0.17 27);
+	--fmt-color-green: oklch(0.72 0.13 150);
+	--fmt-color-blue: oklch(0.72 0.12 250);
+	--fmt-color-gray: oklch(0.72 0.01 80);
 }
 
 @theme inline {
@@ -221,3 +231,25 @@
 .cn-tooltip-visible {
 	opacity: 1;
 }
+
+.fmt-color-amber { color: var(--fmt-color-amber); }
+.fmt-color-red { color: var(--fmt-color-red); }
+.fmt-color-green { color: var(--fmt-color-green); }
+.fmt-color-blue { color: var(--fmt-color-blue); }
+.fmt-color-gray { color: var(--fmt-color-gray); }
+
+.block-editable code {
+	background: var(--muted);
+	border-radius: 0.25rem;
+	padding: 0.05em 0.3em;
+	font-size: 0.9em;
+	font-family: ui-monospace, monospace;
+}
+.block-editable a {
+	color: var(--fmt-color-blue);
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.block-editable--h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.25; }
+.block-editable--h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; }
+.block-editable--h3 { font-size: 1.1rem; font-weight: 600; line-height: 1.35; }

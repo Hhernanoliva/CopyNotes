@@ -24,6 +24,7 @@ export function snapshotFromBlocks(blocks, rootId) {
 		return {
 			type: block.type,
 			content: block.content,
+			html: block.html ?? '',
 			checked: block.checked,
 			note: block.note ?? '',
 			children: children.map(node)

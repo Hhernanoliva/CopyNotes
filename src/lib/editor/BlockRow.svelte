@@ -7,6 +7,7 @@
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
+	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
 
 	let {
 		block,
@@ -47,7 +48,8 @@
 		onFocusHandled,
 		onVerticalArrow,
 		onPasteLines,
-		onPasteBlocks
+		onPasteBlocks,
+		onRequestLink
 	} = $props();
 
 	let el = $state();
@@ -57,11 +59,24 @@
 	let showNote = $state(false);
 	const noteVisible = $derived(showNote || (block.note ?? '') !== '');
 
+	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
+	// literal plain text (code needs exact whitespace, separator has no content).
+	const isRich = $derived(block.type !== 'code' && block.type !== 'separator');
+
 	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
 	// "/query" text). While the user types they always match, so the caret is
 	// never clobbered.
 	$effect(() => {
-		if (el && block.type !== 'separator' && el.textContent !== block.content) {
+		if (!el || block.type === 'separator') return;
+		if (isRich) {
+			const html = block.html ?? '';
+			if (html !== '') {
+				const safe = sanitizeHtml(html);
+				if (el.innerHTML !== safe) el.innerHTML = safe;
+			} else if (el.textContent !== (block.content ?? '')) {
+				el.textContent = block.content ?? '';
+			}
+		} else if (el.textContent !== block.content) {
 			el.textContent = block.content;
 		}
 	});
@@ -124,6 +139,28 @@
 			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
 			return;
 		}
+		// Inline formatting shortcuts work even when the floating toolbar is not
+		// visible; only b/i/u/shift+s/k are claimed, everything else (copy,
+		// paste, select-all, undo, Ctrl/Cmd+Enter…) falls through untouched.
+		if (isRich && (event.metaKey || event.ctrlKey)) {
+			const key = event.key.toLowerCase();
+			let cmd = null;
+			if (key === 'b') cmd = 'bold';
+			else if (key === 'i') cmd = 'italic';
+			else if (key === 'u') cmd = 'underline';
+			else if (key === 's' && event.shiftKey) cmd = 'strikethrough';
+			if (cmd) {
+				event.preventDefault();
+				applyInline(cmd);
+				handleInput();
+				return;
+			}
+			if (key === 'k') {
+				event.preventDefault();
+				onRequestLink?.(block);
+				return;
+			}
+		}
 		// Ctrl/Cmd+Enter adds/edits the gray note (Workflowy-style).
 		if (
 			event.key === 'Enter' &&
@@ -140,7 +177,7 @@
 		if (event.key === 'Enter' && event.shiftKey && block.type !== 'separator' && block.type !== 'code') {
 			event.preventDefault();
 			document.execCommand('insertLineBreak');
-			onInput(block, el.textContent);
+			handleInput();
 			return;
 		}
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
@@ -185,7 +222,12 @@
 	}
 
 	function handleInput() {
-		onInput(block, el.textContent);
+		if (isRich) {
+			const html = sanitizeHtml(el.innerHTML);
+			onInput(block, { html, content: htmlToPlainText(html) });
+		} else {
+			onInput(block, { html: el.textContent, content: el.textContent });
+		}
 	}
 
 	// Paste handling, in priority order:
@@ -317,7 +359,7 @@
 		<div class="flex min-w-0 flex-1 flex-col">
 			<div
 				bind:this={el}
-				contenteditable="plaintext-only"
+				contenteditable={isRich ? 'true' : 'plaintext-only'}
 				role="textbox"
 				tabindex="0"
 				aria-multiline="true"
@@ -338,7 +380,9 @@
 					? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
 					: 'text-base'} {block.type === 'todo' && block.checked
 					? 'text-muted-foreground line-through'
-					: ''}"
+					: ''} {block.type === 'heading1' ? 'block-editable--h1' : ''} {block.type === 'heading2'
+					? 'block-editable--h2'
+					: ''} {block.type === 'heading3' ? 'block-editable--h3' : ''}"
 			></div>
 			{#if noteVisible}
 				<div

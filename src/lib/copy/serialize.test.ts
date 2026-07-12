@@ -14,15 +14,27 @@ describe('treeToNode', () => {
 		expect(treeToNode(t, tagsById)).toEqual({
 			type: 'bullet',
 			content: 'padre',
+			html: '',
 			checked: false,
 			note: 'nota',
 			tags: ['trabajo'],
-			children: [{ type: 'todo', content: 'hijo', checked: true, note: '', tags: [], children: [] }]
+			children: [
+				{ type: 'todo', content: 'hijo', html: '', checked: true, note: '', tags: [], children: [] }
+			]
 		});
 	});
 
 	it('defaults tags to an empty array when no map is given', () => {
 		expect(treeToNode(tree({ id: 'a', type: 'text', content: 'x' })).tags).toEqual([]);
+	});
+
+	it('carries the real sanitized html through, when present', () => {
+		const t = tree({ id: 'a', type: 'text', content: 'hola', html: '<strong>hola</strong>' });
+		expect(treeToNode(t).html).toBe('<strong>hola</strong>');
+	});
+
+	it('defaults html to an empty string when the block has none', () => {
+		expect(treeToNode(tree({ id: 'a', type: 'text', content: 'x' })).html).toBe('');
 	});
 });
 

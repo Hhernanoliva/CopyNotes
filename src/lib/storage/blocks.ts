@@ -1,5 +1,6 @@
 import { db } from './db';
 import { createId, now } from './ids';
+import { plainTextToHtml } from '$lib/format';
 
 const blocks = db.table('blocks');
 
@@ -9,6 +10,7 @@ export async function createBlock(fields) {
 		parentBlockId = null,
 		type = 'text',
 		content = '',
+		html,
 		collapsed = false,
 		checked = false,
 		note = ''
@@ -25,6 +27,7 @@ export async function createBlock(fields) {
 		parentBlockId,
 		type,
 		content,
+		html: html ?? plainTextToHtml(content),
 		order,
 		collapsed,
 		checked,

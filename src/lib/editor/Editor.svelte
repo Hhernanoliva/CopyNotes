@@ -51,6 +51,22 @@
 	import { parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
+	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
+	import { textOffset, rangeFromTextOffsets } from './selection-offsets';
+	import {
+		sanitizeHtml,
+		htmlToPlainText,
+		plainTextToHtml,
+		planBlockType,
+		HEADING_TYPES,
+		activeFormatsFor,
+		commandsForSelection,
+		applyInline,
+		toggleCode,
+		applyColor,
+		applyLink,
+		removeLink
+	} from '$lib/format';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
 
@@ -222,7 +238,9 @@
 		}
 	}
 
-	function handleBlockInput(block, text) {
+	function handleBlockInput(block, payload) {
+		const text = payload.content;
+		const html = payload.html;
 		recordTextSnapshot(block.id);
 		// Typing "/" in an empty block opens the slash menu; the query is
 		// whatever follows. Code blocks are exempt, slashes are normal there.
@@ -244,18 +262,198 @@
 			// same key would be replaced by the next keystroke's content-only save.
 			block.type = 'bullet';
 			block.content = trigger.content;
-			updateBlock(block.id, { type: 'bullet', content: trigger.content });
+			block.html = plainTextToHtml(trigger.content);
+			updateBlock(block.id, { type: 'bullet', content: trigger.content, html: plainTextToHtml(trigger.content) });
 			return;
 		}
 		if (trigger?.kind === 'tag') {
 			// Drop the "#" and open the tag picker anchored to this block.
 			block.content = '';
-			updateBlock(block.id, { content: '' });
+			block.html = '';
+			updateBlock(block.id, { content: '', html: '' });
 			tagPickerFor = { type: 'block', id: block.id };
 			return;
 		}
 		block.content = text;
-		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text }));
+		block.html = html;
+		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text, html }));
+	}
+
+	// Convert a block to a different type (e.g. heading) via the format engine's
+	// planner, which decides which fields change.
+	async function setBlockType(block, nextType) {
+		const changes = planBlockType(block, nextType);
+		Object.assign(block, changes);
+		await updateBlock(block.id, changes);
+	}
+
+	// --- Floating formatting toolbar (spec: toolbar wiring) ---
+	// Tracks the live DOM selection and derives what the toolbar should show:
+	// its position, which marks/heading are active, and which commands make
+	// sense for the current selection. Rebuilt from scratch on every selection
+	// change so the toolbar's own $derived state reacts to it.
+	let toolbar = $state(null); // { rect, active, enabled, blockId, color, linkUrl }
+	// Sequence counter to make repeated Ctrl/Cmd+K requests unique (Svelte 5 $effect
+	// reactive dependency must change for the effect to re-run on the second press).
+	let linkRequestSeq = 0;
+
+	function editableFor(node) {
+		let el = node?.nodeType === 1 ? node : node?.parentNode;
+		while (el && !(el.classList && el.classList.contains('block-editable'))) el = el.parentNode;
+		return el;
+	}
+
+	function refreshToolbar() {
+		// The link popover autofocuses its URL input (and any future popover
+		// content lives inside the toolbar's own DOM too). That focus change
+		// fires selectionchange with a collapsed, unrelated selection — without
+		// this guard we'd immediately null the toolbar out from under the user,
+		// closing the popover they just opened. Leave existing state alone while
+		// focus sits inside the toolbar itself.
+		if (toolbar && document.activeElement?.closest('[data-copynotes-toolbar]')) {
+			return;
+		}
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) { toolbar = null; return; }
+		const range = sel.getRangeAt(0);
+		const startEditable = editableFor(range.startContainer);
+		const endEditable = editableFor(range.endContainer);
+		if (!startEditable) { toolbar = null; return; }
+		// Show on a real selection, or when the caret sits inside formatted text.
+		const marks = activeFormatsFor(range.startContainer, startEditable);
+		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color;
+		if (sel.isCollapsed && !hasMark) { toolbar = null; return; }
+
+		const row = startEditable.closest('[data-block-id]');
+		const block = blocks.find((b) => b.id === row?.dataset.blockId);
+		if (!block) { toolbar = null; return; }
+		const spansBlocks = startEditable !== endEditable;
+
+		toolbar = {
+			rect: range.getBoundingClientRect(),
+			// Commands dispatched from a popover (the link editor) fire after DOM
+			// focus has moved into that popover's own input, which collapses
+			// window.getSelection() away from this range. Keep a clone so the
+			// command handler can restore it before mutating the DOM.
+			savedRange: range.cloneRange(),
+			blockId: block.id,
+			color: marks.color,
+			linkUrl: currentLinkHref(range),
+			active: {
+				...marks,
+				h1: block.type === 'heading1', h2: block.type === 'heading2',
+				h3: block.type === 'heading3', normal: block.type === 'text'
+			},
+			enabled: commandsForSelection({ blockType: block.type, spansBlocks })
+		};
+	}
+
+	// Ctrl/Cmd+K from a block with no toolbar visible: rebuild the toolbar from
+	// the current selection, then request its link panel open. If there is no
+	// usable selection/caret in a rich block (toolbar stays null), do nothing —
+	// a link needs something to attach it to.
+	function handleRequestLink() {
+		refreshToolbar();
+		if (toolbar) {
+			linkRequestSeq += 1;
+			toolbar = { ...toolbar, requestPanel: { panel: 'link', seq: linkRequestSeq } };
+		}
+	}
+
+	function currentLinkHref(range) {
+		let el = range.startContainer;
+		el = el.nodeType === 1 ? el : el.parentNode;
+		while (el && !(el.classList && el.classList.contains('block-editable'))) {
+			if (el.tagName?.toLowerCase() === 'a') return el.getAttribute('href') ?? '';
+			el = el.parentNode;
+		}
+		return '';
+	}
+
+	$effect(() => {
+		document.addEventListener('selectionchange', refreshToolbar);
+		return () => document.removeEventListener('selectionchange', refreshToolbar);
+	});
+
+	// Commands mutate the contenteditable DOM directly (execCommand / manual DOM
+	// wraps), so the affected block's state is stale afterwards — re-read its
+	// innerHTML and persist it.
+	//
+	// sanitizeHtml can normalize the markup (e.g. execCommand's <b> becomes
+	// <strong>), so the sanitized string usually differs from the raw DOM.
+	// BlockRow's own sync effect compares block.html against the live
+	// el.innerHTML and overwrites the DOM the moment they diverge — which would
+	// otherwise replace the very nodes the current selection points at,
+	// silently collapsing it a tick later. Apply the sanitized HTML to the DOM
+	// ourselves (so that later comparison is a no-op) and restore the selection
+	// by character offset, which survives the node replacement.
+	function persistActiveBlock() {
+		const row = document.querySelector(`[data-block-id="${toolbar?.blockId}"] .block-editable`);
+		if (!row) return;
+		const block = blocks.find((b) => b.id === toolbar.blockId);
+		if (!block) return;
+		const sel = window.getSelection();
+		let start = null;
+		let end = null;
+		if (sel && sel.rangeCount > 0) {
+			const range = sel.getRangeAt(0);
+			if (row.contains(range.startContainer) && row.contains(range.endContainer)) {
+				start = textOffset(row, range.startContainer, range.startOffset);
+				end = textOffset(row, range.endContainer, range.endOffset);
+			}
+		}
+		const html = sanitizeHtml(row.innerHTML);
+		if (row.innerHTML !== html) {
+			row.innerHTML = html;
+			if (start !== null && end !== null) {
+				const restored = rangeFromTextOffsets(row, start, end);
+				sel.removeAllRanges();
+				sel.addRange(restored);
+			}
+		}
+		block.html = html;
+		block.content = htmlToPlainText(html);
+		updateBlock(block.id, { html: block.html, content: block.content });
+	}
+
+	// Popover-dispatched commands (currently just the link editor's Save/Remove
+	// buttons) fire after focus already moved into the popover's own input, so
+	// window.getSelection() no longer points at the text the toolbar was opened
+	// for. Re-apply the range captured when the toolbar last refreshed before
+	// any command that reads the live selection.
+	function restoreSavedSelection() {
+		if (!toolbar?.savedRange) return;
+		const sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(toolbar.savedRange);
+	}
+
+	async function handleToolbarCommand(name, arg) {
+		const block = blocks.find((b) => b.id === toolbar?.blockId);
+		if (!block) return;
+		restoreSavedSelection();
+		switch (name) {
+			case 'h1': return void setBlockType(block, 'heading1');
+			case 'h2': return void setBlockType(block, 'heading2');
+			case 'h3': return void setBlockType(block, 'heading3');
+			case 'normal': return void setBlockType(block, 'text');
+			case 'bold': applyInline('bold'); break;
+			case 'italic': applyInline('italic'); break;
+			case 'underline': applyInline('underline'); break;
+			case 'strike': applyInline('strikethrough'); break;
+			case 'code': toggleCode(); break;
+			case 'color': applyColor(arg); break;
+			case 'link': if (!applyLink(arg)) return; break;
+			case 'removeLink': removeLink(); break;
+			case 'clear': document.execCommand('removeFormat'); break;
+			case 'copyText': {
+				const text = window.getSelection()?.toString() ?? '';
+				if (text && navigator.clipboard) await navigator.clipboard.writeText(text);
+				return;
+			}
+		}
+		persistActiveBlock();
+		refreshToolbar();
 	}
 
 	function handleNoteInput(block, text) {
@@ -315,7 +513,12 @@
 			const first = parsed[0];
 			block.type = first.type;
 			block.content = first.content;
-			const changes = { type: first.type, content: first.content };
+			block.html = first.html ?? plainTextToHtml(first.content);
+			const changes = {
+				type: first.type,
+				content: first.content,
+				html: first.html ?? plainTextToHtml(first.content)
+			};
 			if (first.type === 'todo') {
 				block.checked = first.checked;
 				changes.checked = first.checked;
@@ -780,7 +983,8 @@
 		cancelPending(`block:${row.id}`);
 		if (hasChildren) {
 			row.content = '';
-			await updateBlock(row.id, { content: '' });
+			row.html = '';
+			await updateBlock(row.id, { content: '', html: '' });
 		} else {
 			await softDeleteBlock(row.id);
 			blocks = blocks.filter((block) => block.id !== row.id);
@@ -810,6 +1014,16 @@
 			return;
 		}
 		const row = blocks.find((block) => block.id === slash.blockId);
+		if (row && HEADING_TYPES.includes(command.id)) {
+			// Strip the "/query" text, then convert the type. Headings are a type
+			// change, not an insert, so no new block is created.
+			row.content = '';
+			row.html = '';
+			await updateBlock(row.id, { content: '', html: '' });
+			await setBlockType(row, command.id);
+			slash = null;
+			return;
+		}
 		if (command.id === 'snippet') {
 			// Switch the menu into snippet-picker mode; the block keeps its "/"
 			// so typing keeps filtering the snippet list.
@@ -832,7 +1046,8 @@
 		}
 		row.type = command.id;
 		row.content = '';
-		const changes = { type: command.id, content: '' };
+		row.html = '';
+		const changes = { type: command.id, content: '', html: '' };
 		if (command.id === 'todo') {
 			row.checked = false;
 			changes.checked = false;
@@ -959,6 +1174,7 @@
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
+					onRequestLink={handleRequestLink}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
@@ -967,4 +1183,16 @@
 			{/each}
 		</div>
 	</div>
+	{#if toolbar}
+		<FloatingFormattingToolbar
+			rect={toolbar.rect}
+			active={toolbar.active}
+			enabled={toolbar.enabled}
+			currentColor={toolbar.color}
+			currentLinkUrl={toolbar.linkUrl}
+			requestPanel={toolbar.requestPanel ?? null}
+			onCommand={handleToolbarCommand}
+			onClose={() => (toolbar = null)}
+		/>
+	{/if}
 {/if}

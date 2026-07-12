@@ -4,6 +4,9 @@
 
 export const SLASH_COMMANDS = [
 	{ id: 'text', label: 'Texto', keywords: ['text', 'texto', 'parrafo', 'párrafo'] },
+	{ id: 'heading1', label: 'Título 1', keywords: ['h1', 'titulo', 'título', 'heading', 'encabezado'] },
+	{ id: 'heading2', label: 'Título 2', keywords: ['h2', 'titulo', 'título', 'heading', 'subtitulo'] },
+	{ id: 'heading3', label: 'Título 3', keywords: ['h3', 'titulo', 'título', 'heading'] },
 	{ id: 'bullet', label: 'Viñeta', keywords: ['bullet', 'viñeta', 'vineta', 'lista'] },
 	{ id: 'todo', label: 'Tarea', keywords: ['todo', 'tarea', 'check', 'checkbox'] },
 	{ id: 'code', label: 'Código', keywords: ['code', 'codigo', 'código'] },
