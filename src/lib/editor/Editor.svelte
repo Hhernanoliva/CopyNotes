@@ -292,6 +292,9 @@
 	// sense for the current selection. Rebuilt from scratch on every selection
 	// change so the toolbar's own $derived state reacts to it.
 	let toolbar = $state(null); // { rect, active, enabled, blockId, color, linkUrl }
+	// Sequence counter to make repeated Ctrl/Cmd+K requests unique (Svelte 5 $effect
+	// reactive dependency must change for the effect to re-run on the second press).
+	let linkRequestSeq = 0;
 
 	function editableFor(node) {
 		let el = node?.nodeType === 1 ? node : node?.parentNode;
@@ -350,7 +353,10 @@
 	// a link needs something to attach it to.
 	function handleRequestLink() {
 		refreshToolbar();
-		if (toolbar) toolbar = { ...toolbar, requestPanel: 'link' };
+		if (toolbar) {
+			linkRequestSeq += 1;
+			toolbar = { ...toolbar, requestPanel: { panel: 'link', seq: linkRequestSeq } };
+		}
 	}
 
 	function currentLinkHref(range) {

@@ -21,8 +21,10 @@
 	// Ctrl/Cmd+K fired from a block with no toolbar visible: Editor rebuilds the
 	// toolbar and tags it with a one-shot requestPanel. Sync that external
 	// intent into this component's own panel state once when it arrives.
+	// requestPanel is { panel: 'link', seq: <number> } to ensure the effect
+	// re-runs even on repeated presses (the seq value changes each time).
 	$effect(() => {
-		if (requestPanel) openPanel = requestPanel;
+		if (requestPanel) openPanel = requestPanel.panel;
 	});
 
 	// Position above the selection; flip below when there is no room. Runs after
