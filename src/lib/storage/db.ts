@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import { plainTextToHtml } from '$lib/format';
 
 // Schema strings only declare indexes; records can hold more fields.
 // Soft-deleted rows stay in the tables and are filtered out by the repositories.
@@ -23,6 +24,6 @@ db.version(2)
 			.table('blocks')
 			.toCollection()
 			.modify((block) => {
-				if (block.html === undefined) block.html = block.content ?? '';
+				if (block.html === undefined) block.html = plainTextToHtml(block.content ?? '');
 			});
 	});

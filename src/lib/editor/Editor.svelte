@@ -56,6 +56,7 @@
 	import {
 		sanitizeHtml,
 		htmlToPlainText,
+		plainTextToHtml,
 		planBlockType,
 		HEADING_TYPES,
 		activeFormatsFor,
@@ -512,8 +513,12 @@
 			const first = parsed[0];
 			block.type = first.type;
 			block.content = first.content;
-			block.html = first.html ?? first.content;
-			const changes = { type: first.type, content: first.content, html: first.html ?? first.content };
+			block.html = first.html ?? plainTextToHtml(first.content);
+			const changes = {
+				type: first.type,
+				content: first.content,
+				html: first.html ?? plainTextToHtml(first.content)
+			};
 			if (first.type === 'todo') {
 				block.checked = first.checked;
 				changes.checked = first.checked;

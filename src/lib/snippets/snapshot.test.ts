@@ -8,6 +8,7 @@ function block(fields) {
 		parentBlockId: fields.parentBlockId ?? null,
 		type: fields.type ?? 'text',
 		content: fields.content ?? '',
+		html: fields.html,
 		order: fields.order ?? 0,
 		collapsed: fields.collapsed ?? false,
 		checked: fields.checked ?? false,
@@ -22,6 +23,7 @@ describe('snapshotFromBlocks', () => {
 		expect(snapshot).toEqual({
 			type: 'todo',
 			content: 'Llamar cliente',
+			html: '',
 			checked: true,
 			note: '',
 			children: []
@@ -40,6 +42,7 @@ describe('snapshotFromBlocks', () => {
 		expect(snapshot.children[0].children[0]).toEqual({
 			type: 'todo',
 			content: 'Nieto',
+			html: '',
 			checked: false,
 			note: '',
 			children: []
@@ -112,5 +115,21 @@ describe('snapshot captures block notes', () => {
 		const blocks = [block({ id: 'root', type: 'bullet', content: 'Padre', note: 'una aclaración' })];
 		const snapshot = snapshotFromBlocks(blocks, 'root');
 		expect(snapshot.note).toBe('una aclaración');
+	});
+});
+
+describe('snapshot captures block html', () => {
+	it('carries the real sanitized html through, when present', () => {
+		const blocks = [
+			block({ id: 'root', type: 'text', content: 'hola', html: '<strong>hola</strong>' })
+		];
+		const snapshot = snapshotFromBlocks(blocks, 'root');
+		expect(snapshot.html).toBe('<strong>hola</strong>');
+	});
+
+	it('defaults html to an empty string when the block has none', () => {
+		const blocks = [block({ id: 'root', type: 'text', content: 'x' })];
+		const snapshot = snapshotFromBlocks(blocks, 'root');
+		expect(snapshot.html).toBe('');
 	});
 });

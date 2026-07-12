@@ -72,3 +72,15 @@ export function htmlToPlainText(html) {
 	holder.innerHTML = html ?? '';
 	return holder.textContent ?? '';
 }
+
+// Escape plain text into safe HTML for the innerHTML render sink. Literal
+// markup a user typed (or pasted as plain text) becomes visible text, never
+// executable nodes. Newlines become <br> to preserve soft line breaks.
+export function plainTextToHtml(text) {
+	const escaped = (text ?? '')
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;');
+	return escaped.split('\n').join('<br>');
+}

@@ -8,7 +8,6 @@
 	import { tooltip } from '$lib/actions/tooltip';
 	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
-	import { HEADING_TYPES } from '$lib/format';
 
 	let {
 		block,
@@ -72,7 +71,8 @@
 		if (isRich) {
 			const html = block.html ?? '';
 			if (html !== '') {
-				if (el.innerHTML !== html) el.innerHTML = html;
+				const safe = sanitizeHtml(html);
+				if (el.innerHTML !== safe) el.innerHTML = safe;
 			} else if (el.textContent !== (block.content ?? '')) {
 				el.textContent = block.content ?? '';
 			}

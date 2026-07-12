@@ -4,6 +4,7 @@
 // independent. Pure logic — the editor applies the plan through storage.
 
 import { planInsertAfter, sortByOrder } from '../blocks/ordering';
+import { plainTextToHtml } from '$lib/format';
 
 export function planSnippetInsertion(blocks, snippet, options) {
 	const { noteId, afterId = null, createId } = options;
@@ -19,7 +20,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 	const rootNode = snippet.blockSnapshot ?? {
 		type: 'text',
 		content: snippet.content,
-		html: snippet.html ?? snippet.content,
+		html: snippet.html ?? plainTextToHtml(snippet.content),
 		checked: false,
 		children: []
 	};
@@ -33,7 +34,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 			parentBlockId: parentId,
 			type: node.type,
 			content: node.content,
-			html: node.html ?? node.content,
+			html: node.html ?? plainTextToHtml(node.content),
 			order: nodeOrder,
 			collapsed: false,
 			checked: node.checked ?? false,

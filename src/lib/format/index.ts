@@ -1,4 +1,4 @@
-export { sanitizeHtml, htmlToPlainText } from './sanitize';
+export { sanitizeHtml, htmlToPlainText, plainTextToHtml } from './sanitize';
 export { normalizeUrl } from './url';
 export { activeFormatsFor } from './active';
 export { commandsForSelection } from './safety';

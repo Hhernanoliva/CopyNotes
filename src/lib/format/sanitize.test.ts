@@ -1,6 +1,6 @@
 // @vitest environment=jsdom
 import { describe, test, expect } from 'vitest';
-import { sanitizeHtml, htmlToPlainText } from './sanitize';
+import { sanitizeHtml, htmlToPlainText, plainTextToHtml } from './sanitize';
 
 describe('sanitizeHtml', () => {
 	test('keeps allowed inline tags', () => {
@@ -41,5 +41,21 @@ describe('sanitizeHtml', () => {
 describe('htmlToPlainText', () => {
 	test('returns textContent', () => {
 		expect(htmlToPlainText('<strong>a</strong> b')).toBe('a b');
+	});
+});
+
+describe('plainTextToHtml', () => {
+	test('escapes literal markup instead of letting it parse as HTML', () => {
+		expect(plainTextToHtml('<img src=x onerror=alert(1)>')).toBe(
+			'&lt;img src=x onerror=alert(1)&gt;'
+		);
+	});
+
+	test('escapes ampersands', () => {
+		expect(plainTextToHtml('a & b')).toContain('&amp;');
+	});
+
+	test('turns newlines into <br>', () => {
+		expect(plainTextToHtml('l1\nl2')).toBe('l1<br>l2');
 	});
 });

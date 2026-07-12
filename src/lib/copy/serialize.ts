@@ -17,6 +17,7 @@ export function treeToNode(tree, tagsById = {}) {
 	return {
 		type: tree.block.type,
 		content: tree.block.content ?? '',
+		html: tree.block.html ?? '',
 		checked: tree.block.checked ?? false,
 		note: tree.block.note ?? '',
 		tags: (tagsById[tree.block.id] ?? []).map((tag) => tag.name),
