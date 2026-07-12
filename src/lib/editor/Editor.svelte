@@ -51,7 +51,20 @@
 	import { parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
-	import { sanitizeHtml, htmlToPlainText, planBlockType, HEADING_TYPES } from '$lib/format';
+	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
+	import {
+		sanitizeHtml,
+		htmlToPlainText,
+		planBlockType,
+		HEADING_TYPES,
+		activeFormatsFor,
+		commandsForSelection,
+		applyInline,
+		toggleCode,
+		applyColor,
+		applyLink,
+		removeLink
+	} from '$lib/format';
 
 	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
 
@@ -270,6 +283,199 @@
 		const changes = planBlockType(block, nextType);
 		Object.assign(block, changes);
 		await updateBlock(block.id, changes);
+	}
+
+	// --- Floating formatting toolbar (spec: toolbar wiring) ---
+	// Tracks the live DOM selection and derives what the toolbar should show:
+	// its position, which marks/heading are active, and which commands make
+	// sense for the current selection. Rebuilt from scratch on every selection
+	// change so the toolbar's own $derived state reacts to it.
+	let toolbar = $state(null); // { rect, active, enabled, blockId, color, linkUrl }
+
+	function editableFor(node) {
+		let el = node?.nodeType === 1 ? node : node?.parentNode;
+		while (el && !(el.classList && el.classList.contains('block-editable'))) el = el.parentNode;
+		return el;
+	}
+
+	function refreshToolbar() {
+		// The link popover autofocuses its URL input (and any future popover
+		// content lives inside the toolbar's own DOM too). That focus change
+		// fires selectionchange with a collapsed, unrelated selection — without
+		// this guard we'd immediately null the toolbar out from under the user,
+		// closing the popover they just opened. Leave existing state alone while
+		// focus sits inside the toolbar itself.
+		if (toolbar && document.activeElement?.closest('[role="toolbar"][aria-label="Formato de texto"]')) {
+			return;
+		}
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0) { toolbar = null; return; }
+		const range = sel.getRangeAt(0);
+		const startEditable = editableFor(range.startContainer);
+		const endEditable = editableFor(range.endContainer);
+		if (!startEditable) { toolbar = null; return; }
+		// Show on a real selection, or when the caret sits inside formatted text.
+		const marks = activeFormatsFor(range.startContainer, startEditable);
+		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color;
+		if (sel.isCollapsed && !hasMark) { toolbar = null; return; }
+
+		const row = startEditable.closest('[data-block-id]');
+		const block = blocks.find((b) => b.id === row?.dataset.blockId);
+		if (!block) { toolbar = null; return; }
+		const spansBlocks = startEditable !== endEditable;
+
+		toolbar = {
+			rect: range.getBoundingClientRect(),
+			// Commands dispatched from a popover (the link editor) fire after DOM
+			// focus has moved into that popover's own input, which collapses
+			// window.getSelection() away from this range. Keep a clone so the
+			// command handler can restore it before mutating the DOM.
+			savedRange: range.cloneRange(),
+			blockId: block.id,
+			color: marks.color,
+			linkUrl: currentLinkHref(range),
+			active: {
+				...marks,
+				h1: block.type === 'heading1', h2: block.type === 'heading2',
+				h3: block.type === 'heading3', normal: block.type === 'text'
+			},
+			enabled: commandsForSelection({ blockType: block.type, spansBlocks })
+		};
+	}
+
+	function currentLinkHref(range) {
+		let el = range.startContainer;
+		el = el.nodeType === 1 ? el : el.parentNode;
+		while (el && !(el.classList && el.classList.contains('block-editable'))) {
+			if (el.tagName?.toLowerCase() === 'a') return el.getAttribute('href') ?? '';
+			el = el.parentNode;
+		}
+		return '';
+	}
+
+	$effect(() => {
+		document.addEventListener('selectionchange', refreshToolbar);
+		return () => document.removeEventListener('selectionchange', refreshToolbar);
+	});
+
+	// Count characters from the start of `root`'s text content up to
+	// (node, offset), so a selection can be re-anchored by character position
+	// instead of by node identity (nodes get replaced below).
+	function textOffset(root, node, offset) {
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		let total = 0;
+		let current;
+		while ((current = walker.nextNode())) {
+			if (current === node) return total + offset;
+			total += current.textContent.length;
+		}
+		return total;
+	}
+
+	// Inverse of textOffset: walk root's text nodes to build a Range spanning
+	// [start, end) characters.
+	function rangeFromTextOffsets(root, start, end) {
+		const range = document.createRange();
+		const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+		let total = 0;
+		let startSet = false;
+		let current;
+		while ((current = walker.nextNode())) {
+			const len = current.textContent.length;
+			if (!startSet && total + len >= start) {
+				range.setStart(current, start - total);
+				startSet = true;
+			}
+			if (startSet && total + len >= end) {
+				range.setEnd(current, end - total);
+				return range;
+			}
+			total += len;
+		}
+		range.selectNodeContents(root);
+		range.collapse(false);
+		return range;
+	}
+
+	// Commands mutate the contenteditable DOM directly (execCommand / manual DOM
+	// wraps), so the affected block's state is stale afterwards — re-read its
+	// innerHTML and persist it.
+	//
+	// sanitizeHtml can normalize the markup (e.g. execCommand's <b> becomes
+	// <strong>), so the sanitized string usually differs from the raw DOM.
+	// BlockRow's own sync effect compares block.html against the live
+	// el.innerHTML and overwrites the DOM the moment they diverge — which would
+	// otherwise replace the very nodes the current selection points at,
+	// silently collapsing it a tick later. Apply the sanitized HTML to the DOM
+	// ourselves (so that later comparison is a no-op) and restore the selection
+	// by character offset, which survives the node replacement.
+	function persistActiveBlock() {
+		const row = document.querySelector(`[data-block-id="${toolbar?.blockId}"] .block-editable`);
+		if (!row) return;
+		const block = blocks.find((b) => b.id === toolbar.blockId);
+		if (!block) return;
+		const sel = window.getSelection();
+		let start = null;
+		let end = null;
+		if (sel && sel.rangeCount > 0) {
+			const range = sel.getRangeAt(0);
+			if (row.contains(range.startContainer) && row.contains(range.endContainer)) {
+				start = textOffset(row, range.startContainer, range.startOffset);
+				end = textOffset(row, range.endContainer, range.endOffset);
+			}
+		}
+		const html = sanitizeHtml(row.innerHTML);
+		if (row.innerHTML !== html) {
+			row.innerHTML = html;
+			if (start !== null && end !== null) {
+				const restored = rangeFromTextOffsets(row, start, end);
+				sel.removeAllRanges();
+				sel.addRange(restored);
+			}
+		}
+		block.html = html;
+		block.content = htmlToPlainText(html);
+		updateBlock(block.id, { html: block.html, content: block.content });
+	}
+
+	// Popover-dispatched commands (currently just the link editor's Save/Remove
+	// buttons) fire after focus already moved into the popover's own input, so
+	// window.getSelection() no longer points at the text the toolbar was opened
+	// for. Re-apply the range captured when the toolbar last refreshed before
+	// any command that reads the live selection.
+	function restoreSavedSelection() {
+		if (!toolbar?.savedRange) return;
+		const sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(toolbar.savedRange);
+	}
+
+	async function handleToolbarCommand(name, arg) {
+		const block = blocks.find((b) => b.id === toolbar?.blockId);
+		if (!block) return;
+		restoreSavedSelection();
+		switch (name) {
+			case 'h1': return void setBlockType(block, 'heading1');
+			case 'h2': return void setBlockType(block, 'heading2');
+			case 'h3': return void setBlockType(block, 'heading3');
+			case 'normal': return void setBlockType(block, 'text');
+			case 'bold': applyInline('bold'); break;
+			case 'italic': applyInline('italic'); break;
+			case 'underline': applyInline('underline'); break;
+			case 'strike': applyInline('strikethrough'); break;
+			case 'code': toggleCode(); break;
+			case 'color': applyColor(arg); break;
+			case 'link': if (!applyLink(arg)) return; break;
+			case 'removeLink': removeLink(); break;
+			case 'clear': document.execCommand('removeFormat'); break;
+			case 'copyText': {
+				const text = window.getSelection()?.toString() ?? '';
+				if (text) await navigator.clipboard.writeText(text);
+				return;
+			}
+		}
+		persistActiveBlock();
+		refreshToolbar();
 	}
 
 	function handleNoteInput(block, text) {
@@ -994,4 +1200,15 @@
 			{/each}
 		</div>
 	</div>
+	{#if toolbar}
+		<FloatingFormattingToolbar
+			rect={toolbar.rect}
+			active={toolbar.active}
+			enabled={toolbar.enabled}
+			currentColor={toolbar.color}
+			currentLinkUrl={toolbar.linkUrl}
+			onCommand={handleToolbarCommand}
+			onClose={() => (toolbar = null)}
+		/>
+	{/if}
 {/if}
