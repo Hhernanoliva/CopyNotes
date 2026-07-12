@@ -344,6 +344,15 @@
 		};
 	}
 
+	// Ctrl/Cmd+K from a block with no toolbar visible: rebuild the toolbar from
+	// the current selection, then request its link panel open. If there is no
+	// usable selection/caret in a rich block (toolbar stays null), do nothing —
+	// a link needs something to attach it to.
+	function handleRequestLink() {
+		refreshToolbar();
+		if (toolbar) toolbar = { ...toolbar, requestPanel: 'link' };
+	}
+
 	function currentLinkHref(range) {
 		let el = range.startContainer;
 		el = el.nodeType === 1 ? el : el.parentNode;
@@ -1154,6 +1163,7 @@
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
+					onRequestLink={handleRequestLink}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
@@ -1169,6 +1179,7 @@
 			enabled={toolbar.enabled}
 			currentColor={toolbar.color}
 			currentLinkUrl={toolbar.linkUrl}
+			requestPanel={toolbar.requestPanel ?? null}
 			onCommand={handleToolbarCommand}
 			onClose={() => (toolbar = null)}
 		/>

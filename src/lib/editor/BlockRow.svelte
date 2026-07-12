@@ -7,7 +7,7 @@
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
-	import { sanitizeHtml, htmlToPlainText } from '$lib/format';
+	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
 	import { HEADING_TYPES } from '$lib/format';
 
 	let {
@@ -49,7 +49,8 @@
 		onFocusHandled,
 		onVerticalArrow,
 		onPasteLines,
-		onPasteBlocks
+		onPasteBlocks,
+		onRequestLink
 	} = $props();
 
 	let el = $state();
@@ -137,6 +138,28 @@
 			event.preventDefault();
 			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
 			return;
+		}
+		// Inline formatting shortcuts work even when the floating toolbar is not
+		// visible; only b/i/u/shift+s/k are claimed, everything else (copy,
+		// paste, select-all, undo, Ctrl/Cmd+Enter…) falls through untouched.
+		if (isRich && (event.metaKey || event.ctrlKey)) {
+			const key = event.key.toLowerCase();
+			let cmd = null;
+			if (key === 'b') cmd = 'bold';
+			else if (key === 'i') cmd = 'italic';
+			else if (key === 'u') cmd = 'underline';
+			else if (key === 's' && event.shiftKey) cmd = 'strikethrough';
+			if (cmd) {
+				event.preventDefault();
+				applyInline(cmd);
+				handleInput();
+				return;
+			}
+			if (key === 'k') {
+				event.preventDefault();
+				onRequestLink?.(block);
+				return;
+			}
 		}
 		// Ctrl/Cmd+Enter adds/edits the gray note (Workflowy-style).
 		if (

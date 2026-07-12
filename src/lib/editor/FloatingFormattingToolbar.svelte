@@ -4,10 +4,26 @@
 	import LinkEditorPopover from './LinkEditorPopover.svelte';
 	import TextColorPopover from './TextColorPopover.svelte';
 
-	let { rect, active, enabled, currentColor = null, currentLinkUrl = '', onCommand, onClose } = $props();
+	let {
+		rect,
+		active,
+		enabled,
+		currentColor = null,
+		currentLinkUrl = '',
+		requestPanel = null,
+		onCommand,
+		onClose
+	} = $props();
 
 	let el = $state();
 	let openPanel = $state(null); // 'link' | 'color' | 'more' | null
+
+	// Ctrl/Cmd+K fired from a block with no toolbar visible: Editor rebuilds the
+	// toolbar and tags it with a one-shot requestPanel. Sync that external
+	// intent into this component's own panel state once when it arrives.
+	$effect(() => {
+		if (requestPanel) openPanel = requestPanel;
+	});
 
 	// Position above the selection; flip below when there is no room. Runs after
 	// layout so the toolbar's own size is known.

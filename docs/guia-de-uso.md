@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-11 (arreglos de edición spec 019; pegado interno conserva tipos, código, separador, etiquetas y anidado).
+Última actualización: 2026-07-12 (atajos de teclado para negrita/cursiva/subrayado/tachado/enlace, funcionan sin la barra flotante a la vista).
 
 ## Lo básico
 
@@ -68,6 +68,22 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
+
+### Negrita, cursiva, subrayado, tachado y enlaces
+
+Seleccioná un pedazo de texto adentro de un renglón (no en código ni en el separador) y aplicá formato con el teclado — **no hace falta que esté a la vista ninguna barra flotante**, funciona igual:
+
+| Atajo | Qué hace |
+|---|---|
+| **Ctrl/Cmd+B** | Negrita |
+| **Ctrl/Cmd+I** | Cursiva |
+| **Ctrl/Cmd+U** | Subrayado |
+| **Ctrl/Cmd+Shift+S** | Tachado |
+| **Ctrl/Cmd+K** | Agregar/editar un enlace en el texto seleccionado |
+
+Si seleccionás texto con el mouse, además aparece una barrita flotante encima con estos mismos botones (y otras opciones: títulos, color, código en línea). Los atajos de teclado son un camino más rápido al mismo resultado y funcionan sin tocar el mouse.
+
+> Si tenés texto seleccionado adentro de un renglón, **Ctrl/Cmd+K** agrega un enlace ahí en vez de abrir el buscador general (ver "Buscar en todo" más abajo).
 
 ### Pegar varias líneas
 
@@ -228,7 +244,7 @@ El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
 Arriba, en la barra de la app, hay una **lupa** (atajos: **Cmd/Ctrl+K** o **Cmd/Ctrl+F**). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
 
 - **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador.
-- **Cmd/Ctrl+K** abre la búsqueda vacía.
+- **Cmd/Ctrl+K** abre la búsqueda vacía — salvo que tengas texto seleccionado adentro de un renglón, en cuyo caso agrega un enlace ahí (ver "Negrita, cursiva, subrayado, tachado y enlaces" más arriba).
 
 ### Cómo funciona
 
