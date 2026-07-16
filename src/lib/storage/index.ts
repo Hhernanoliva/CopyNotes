@@ -13,7 +13,8 @@ export {
 	softDeleteBlock,
 	softDeleteBlocks,
 	applyInsertionPlan,
-	listAllBlocks
+	listAllBlocks,
+	listDatedBlocks
 } from './blocks';
 export {
 	createSnippet,

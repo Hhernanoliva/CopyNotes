@@ -10,7 +10,8 @@ import {
 	listChildBlocks,
 	softDeleteBlock,
 	softDeleteBlocks,
-	updateBlock
+	updateBlock,
+	listDatedBlocks
 } from './blocks';
 import { createNote } from './notes';
 
@@ -155,5 +156,34 @@ describe('html field', () => {
 		const saved = await getBlock(block.id);
 		expect(saved.html).toBe('<strong>hola</strong>');
 		expect(saved.content).toBe('hola');
+	});
+});
+
+describe('dueDate (spec 021)', () => {
+	it('createBlock stores dueDate and defaults it to null', async () => {
+		const note = await createNote({ title: 'Agenda' });
+		const dated = await createBlock({ noteId: note.id, content: 'a', dueDate: '2026-07-22' });
+		const plain = await createBlock({ noteId: note.id, content: 'b' });
+		expect(dated.dueDate).toBe('2026-07-22');
+		expect(plain.dueDate).toBeNull();
+	});
+
+	it('listDatedBlocks returns live dated blocks ascending, skipping deleted and undated', async () => {
+		const note = await createNote({ title: 'Agenda' });
+		const late = await createBlock({ noteId: note.id, content: 'late', dueDate: '2026-08-01' });
+		const early = await createBlock({ noteId: note.id, content: 'early', dueDate: '2026-07-01' });
+		await createBlock({ noteId: note.id, content: 'undated' });
+		const gone = await createBlock({ noteId: note.id, content: 'gone', dueDate: '2026-07-15' });
+		await softDeleteBlock(gone.id);
+		const rows = await listDatedBlocks();
+		expect(rows.map((row) => row.id)).toEqual([early.id, late.id]);
+	});
+
+	it('clearing dueDate removes the block from the dated index', async () => {
+		const note = await createNote({ title: 'Agenda' });
+		const block = await createBlock({ noteId: note.id, content: 'x', dueDate: '2026-07-22' });
+		await updateBlock(block.id, { dueDate: null });
+		const rows = await listDatedBlocks();
+		expect(rows.find((row) => row.id === block.id)).toBeUndefined();
 	});
 });
