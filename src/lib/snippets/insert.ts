@@ -38,6 +38,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 			order: nodeOrder,
 			collapsed: false,
 			codeCollapsed: node.codeCollapsed ?? false,
+			dueDate: node.dueDate ?? null,
 			checked: node.checked ?? false,
 			note: node.note ?? ''
 		});

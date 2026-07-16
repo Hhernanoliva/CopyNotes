@@ -17,6 +17,7 @@ describe('treeToNode', () => {
 			html: '',
 			checked: false,
 			codeCollapsed: false,
+			dueDate: null,
 			note: 'nota',
 			tags: ['trabajo'],
 			children: [
@@ -26,6 +27,7 @@ describe('treeToNode', () => {
 					html: '',
 					checked: true,
 					codeCollapsed: false,
+					dueDate: null,
 					note: '',
 					tags: [],
 					children: []
@@ -50,6 +52,13 @@ describe('treeToNode', () => {
 	it('carries codeCollapsed so a pasted long code block keeps its preview state', () => {
 		expect(treeToNode(tree({ id: 'a', type: 'code', content: 'x', codeCollapsed: true })).codeCollapsed).toBe(true);
 		expect(treeToNode(tree({ id: 'b', type: 'text', content: 'y' })).codeCollapsed).toBe(false);
+	});
+
+	it('treeToNode carries dueDate (spec 021)', () => {
+		const t = tree({ id: 'b1', type: 'text', content: 'a', dueDate: '2026-07-22' });
+		expect(treeToNode(t).dueDate).toBe('2026-07-22');
+		const bare = tree({ id: 'b2', type: 'text', content: 'a' });
+		expect(treeToNode(bare).dueDate).toBeNull();
 	});
 });
 

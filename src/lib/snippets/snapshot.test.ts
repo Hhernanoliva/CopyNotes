@@ -12,6 +12,7 @@ function block(fields) {
 		order: fields.order ?? 0,
 		collapsed: fields.collapsed ?? false,
 		checked: fields.checked ?? false,
+		dueDate: fields.dueDate ?? null,
 		note: fields.note ?? ''
 	};
 }
@@ -25,6 +26,7 @@ describe('snapshotFromBlocks', () => {
 			content: 'Llamar cliente',
 			html: '',
 			checked: true,
+			dueDate: null,
 			note: '',
 			children: []
 		});
@@ -44,6 +46,7 @@ describe('snapshotFromBlocks', () => {
 			content: 'Nieto',
 			html: '',
 			checked: false,
+			dueDate: null,
 			note: '',
 			children: []
 		});
@@ -131,5 +134,11 @@ describe('snapshot captures block html', () => {
 		const blocks = [block({ id: 'root', type: 'text', content: 'x' })];
 		const snapshot = snapshotFromBlocks(blocks, 'root');
 		expect(snapshot.html).toBe('');
+	});
+
+	it('snapshotFromBlocks carries dueDate (spec 021)', () => {
+		const blocks = [block({ id: 'a', type: 'text', content: 'x', dueDate: '2026-07-22' })];
+		const snapshot = snapshotFromBlocks(blocks, 'a');
+		expect(snapshot.dueDate).toBe('2026-07-22');
 	});
 });

@@ -20,6 +20,7 @@ export function treeToNode(tree, tagsById = {}) {
 		html: tree.block.html ?? '',
 		checked: tree.block.checked ?? false,
 		codeCollapsed: tree.block.codeCollapsed ?? false,
+		dueDate: tree.block.dueDate ?? null,
 		note: tree.block.note ?? '',
 		tags: (tagsById[tree.block.id] ?? []).map((tag) => tag.name),
 		children: tree.children.map((child) => treeToNode(child, tagsById))
