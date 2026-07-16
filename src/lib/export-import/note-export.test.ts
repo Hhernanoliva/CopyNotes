@@ -237,3 +237,25 @@ describe('inline formatting in export', () => {
 		expect(noteToMarkdown(note, blocks)).toContain('sin formato');
 	});
 })
+
+describe('date suffix (spec 021)', () => {
+	const note = { title: 'Agenda' };
+	it('markdown appends the date to list items and paragraphs', () => {
+		const blocks = [
+			{ id: 'b1', noteId: 'n1', parentBlockId: null, type: 'todo', content: 'pagar', order: 0, checked: false, dueDate: '2026-07-22' }
+		];
+		expect(noteToMarkdown(note, blocks)).toContain('- [ ] pagar — 📅 22/07/2026');
+	});
+	it('markdown puts the code date after the closing fence', () => {
+		const blocks = [
+			{ id: 'b1', noteId: 'n1', parentBlockId: null, type: 'code', content: 'let a = 1;', order: 0, checked: false, dueDate: '2026-07-22' }
+		];
+		expect(noteToMarkdown(note, blocks)).toContain('```\n📅 22/07/2026');
+	});
+	it('html export appends the date after the content', () => {
+		const blocks = [
+			{ id: 'b1', noteId: 'n1', parentBlockId: null, type: 'text', content: 'pagar', order: 0, checked: false, dueDate: '2026-07-22' }
+		];
+		expect(noteToHtml(note, blocks)).toContain('pagar — 📅 22/07/2026');
+	});
+});

@@ -4,6 +4,7 @@
 
 import { sortByOrder } from '../blocks/ordering';
 import { HEADING_LEVELS } from '../format/blocktype';
+import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
 
 export function buildCopyTree(blocks, rootId, withChildren) {
 	const root = blocks.find((block) => block.id === rootId);
@@ -38,6 +39,10 @@ function plainLines(node, depth) {
 	else if (HEADING_LEVELS[block.type])
 		lines = hangingLines(indent, '#'.repeat(HEADING_LEVELS[block.type]) + ' ', block.content);
 	else lines = block.content.split('\n').map((line) => indent + line);
+	if (isValidDueDate(block.dueDate)) {
+		if (block.type === 'code') lines.push(indent + '📅 ' + exportLabel(block.dueDate));
+		else lines[lines.length - 1] += dateSuffix(block);
+	}
 	// The secondary note sits one indent deeper, right under the block.
 	if (block.note) lines = lines.concat(block.note.split('\n').map((line) => indent + '  ' + line));
 	for (const child of node.children) lines = lines.concat(plainLines(child, depth + 1));
@@ -74,11 +79,12 @@ function inlineHtml(block) {
 
 function htmlContent(block) {
 	if (block.type === 'separator') return '<hr>';
+	const date = escapeHtml(dateSuffix(block));
 	const level = HEADING_LEVELS[block.type];
-	if (level) return `<h${level}>` + inlineHtml(block) + `</h${level}>` + noteHtml(block);
-	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
-	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block) + noteHtml(block);
-	return inlineHtml(block) + noteHtml(block);
+	if (level) return `<h${level}>` + inlineHtml(block) + `</h${level}>` + date + noteHtml(block);
+	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + date + noteHtml(block);
+	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block) + date + noteHtml(block);
+	return inlineHtml(block) + date + noteHtml(block);
 }
 
 function htmlNode(node) {
@@ -89,7 +95,7 @@ export function formatHtml(tree) {
 	const { block } = tree;
 	// A lone text/code/separator block pastes as its natural element, not a list.
 	if (tree.children.length === 0 && block.type !== 'bullet' && block.type !== 'todo') {
-		if (block.type === 'text') return '<p>' + inlineHtml(block) + noteHtml(block) + '</p>';
+		if (block.type === 'text') return '<p>' + inlineHtml(block) + escapeHtml(dateSuffix(block)) + noteHtml(block) + '</p>';
 		return htmlContent(block);
 	}
 	return '<ul>' + htmlNode(tree) + '</ul>';
