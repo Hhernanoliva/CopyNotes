@@ -70,7 +70,14 @@
 		removeLink
 	} from '$lib/format';
 
-	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
+	let {
+		noteId,
+		initialFocusBlockId = null,
+		onNoteUpdated,
+		onSaveStateChange,
+		onSnippetsChanged,
+		onTagsChanged
+	} = $props();
 
 	let note = $state(null);
 	let blocks = $state([]);
@@ -207,8 +214,15 @@
 			activeBlockId = null;
 			history.reset();
 			lastTextBlockId = null;
+			const jumpingToBlock =
+				initialFocusBlockId && loadedBlocks.some((block) => block.id === initialFocusBlockId);
+			if (jumpingToBlock) {
+				focusBlockId = initialFocusBlockId;
+			}
 			await refreshTags();
-			if (note && note.title === '' && titleEl) {
+			// An empty title only grabs focus when we did not land here to jump to a
+			// specific block (spec 021 Slice B) — the Agenda's request wins.
+			if (note && note.title === '' && titleEl && !jumpingToBlock) {
 				titleEl.focus();
 			}
 		})();

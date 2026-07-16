@@ -22,3 +22,21 @@ Si la fecha ya pasó y el renglón no es una tarea marcada como hecha, la etique
 ## Al copiar o exportar
 
 Cuando copiás un renglón con fecha (o lo exportás en un respaldo), la fecha viaja como texto al final de la línea, con el formato día/mes/año — por ejemplo «Comprar regalo — 📅 12/08/2026» — así nunca se pierde aunque el destino no entienda el formato interno de CopyNotes.
+
+## La pestaña Agenda
+
+En la barra lateral, junto a "Notas" y "Snippets", hay una pestaña **Agenda**. Ahí aparecen todos los renglones con fecha de todas tus notas, agrupados por cuándo vencen:
+
+- **Vencidas** (en rojo, arriba de todo) — ya pasó la fecha y la tarea sigue sin marcar como hecha.
+- **Hoy**
+- **Mañana**
+- **Esta semana** — el resto de los días hasta el domingo.
+- **Más adelante** — todo lo que queda para más allá de esta semana.
+
+Cada ítem muestra el texto del renglón, el nombre de la nota a la que pertenece y su fecha. Tocá un ítem para ir directo a ese renglón, en su nota — el editor se abre con el renglón ya enfocado.
+
+Si el renglón es una tarea, podés marcarla o desmarcarla directamente desde la Agenda, tocando su casilla, sin tener que entrar a la nota. Las tareas marcadas se ven tachadas.
+
+Arriba de la lista hay un interruptor, **Ocultar completadas**: si lo activás, las tareas ya marcadas como hechas desaparecen de la Agenda (siguen existiendo en la nota, solo se ocultan acá). Queda recordado la próxima vez que abrís la Agenda.
+
+Si todavía no le pusiste fecha a nada, la Agenda te recuerda cómo hacerlo: escribiendo `/fecha` en cualquier renglón.

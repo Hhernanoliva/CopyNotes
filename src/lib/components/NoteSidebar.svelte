@@ -11,6 +11,7 @@
 	} from '@lucide/svelte';
 	import TagPicker from './TagPicker.svelte';
 	import TagChips from './TagChips.svelte';
+	import AgendaPanel from './AgendaPanel.svelte';
 
 	let {
 		notes,
@@ -34,12 +35,15 @@
 		onRenameTag,
 		onDeleteTag,
 		onSnippetTagPick,
-		onSnippetUntag
+		onSnippetUntag,
+		onOpenBlock,
+		onDataChanged
 	} = $props();
 
 	const VIEWS = [
 		{ id: 'notes', label: 'Notas' },
 		{ id: 'snippets', label: 'Snippets' },
+		{ id: 'agenda', label: 'Agenda' },
 		{ id: 'tags', label: 'Etiquetas' }
 	];
 
@@ -107,7 +111,7 @@
 	function handlePlus() {
 		if (view === 'notes') onCreate();
 		else if (view === 'snippets') onNewSnippet();
-		else creatingTag = !creatingTag;
+		else if (view === 'tags') creatingTag = !creatingTag;
 	}
 
 	async function submitNewTag() {
@@ -160,19 +164,21 @@
 					</button>
 				{/each}
 			</div>
-			<button
-				type="button"
-				onclick={handlePlus}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
-				aria-label={view === 'notes'
-					? 'Nueva nota'
-					: view === 'snippets'
-						? 'Nuevo snippet'
-						: 'Nueva etiqueta'}
-				title={view === 'notes' ? 'Nueva nota' : view === 'snippets' ? 'Nuevo snippet' : 'Nueva etiqueta'}
-			>
-				<Plus size={18} aria-hidden="true" />
-			</button>
+			{#if view !== 'agenda'}
+				<button
+					type="button"
+					onclick={handlePlus}
+					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+					aria-label={view === 'notes'
+						? 'Nueva nota'
+						: view === 'snippets'
+							? 'Nuevo snippet'
+							: 'Nueva etiqueta'}
+					title={view === 'notes' ? 'Nueva nota' : view === 'snippets' ? 'Nuevo snippet' : 'Nueva etiqueta'}
+				>
+					<Plus size={18} aria-hidden="true" />
+				</button>
+			{/if}
 		</div>
 
 		{#if view === 'notes'}
@@ -300,6 +306,8 @@
 					</ul>
 				{/if}
 			</section>
+		{:else if view === 'agenda'}
+			<AgendaPanel onOpen={onOpenBlock} {onDataChanged} />
 		{:else}
 			<section aria-label="Etiquetas" class="flex-1 overflow-y-auto overscroll-contain p-2">
 				{#if creatingTag}

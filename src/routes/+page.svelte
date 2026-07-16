@@ -54,6 +54,8 @@
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
+	// Block to focus once the editor (re)loads, set by the Agenda's jump-to-block.
+	let pendingFocusBlockId = $state(null);
 
 	// Favorites first, same ordering as the /snippet menu.
 	const sortedSnippets = $derived(filterSnippets(snippets, ''));
@@ -103,9 +105,18 @@
 	});
 
 	function selectNote(id) {
+		pendingFocusBlockId = null;
 		currentNoteId = id;
 		setLastOpenedNoteId(id);
 		if (!isDesktop()) sidebarOpen = false;
+	}
+
+	function openFromAgenda(noteId, blockId) {
+		// Remount the editor even when the note is already open so the focus
+		// request applies (the editor is keyed on noteId + dataVersion).
+		dataVersion++;
+		selectNote(noteId);
+		pendingFocusBlockId = blockId;
 	}
 
 	function isTypingTarget(target) {
@@ -302,6 +313,8 @@
 		onDeleteTag={deleteTag}
 		onSnippetTagPick={snippetTagPick}
 		onSnippetUntag={snippetUntag}
+		onOpenBlock={openFromAgenda}
+		onDataChanged={handleDataChanged}
 	/>
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
@@ -379,6 +392,7 @@
 					<Editor
 						bind:this={editorRef}
 						noteId={currentNoteId}
+						initialFocusBlockId={pendingFocusBlockId}
 						onNoteUpdated={handleNoteUpdated}
 						onSaveStateChange={(state) => (saveState = state)}
 						onSnippetsChanged={refreshSnippets}
