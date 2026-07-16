@@ -4,7 +4,7 @@ import { SLASH_COMMANDS, filterCommands, moveSelection } from './slash';
 describe('SLASH_COMMANDS', () => {
 	it('offers the block types from spec 003 plus /snippet from spec 005', () => {
 		const ids = SLASH_COMMANDS.map((command) => command.id);
-		expect(ids).toEqual(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'code', 'separator', 'snippet']);
+		expect(ids).toEqual(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'date', 'code', 'separator', 'snippet']);
 	});
 });
 
@@ -41,6 +41,12 @@ describe('filterCommands', () => {
 	it('filters headings by h2', () => {
 		const ids = filterCommands('h2').map((c) => c.id);
 		expect(ids).toContain('heading2');
+	});
+
+	it('offers Fecha and finds it by keyword (spec 021)', () => {
+		expect(SLASH_COMMANDS.some((command) => command.id === 'date')).toBe(true);
+		expect(filterCommands('fech').map((command) => command.id)).toContain('date');
+		expect(filterCommands('agenda').map((command) => command.id)).toContain('date');
 	});
 });
 

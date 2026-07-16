@@ -7,10 +7,12 @@
 	import { tick } from 'svelte';
 	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
+	import DatePanel from './DatePanel.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { badgeLabel, isOverdue, todayString } from '$lib/dates';
 	import {
 		CLIPBOARD_FORMAT,
 		deserializeForest,
@@ -63,7 +65,12 @@
 		onPasteLines,
 		onPasteBlocks,
 		onPasteCode,
-		onRequestLink
+		onRequestLink,
+		datePanelOpen = false,
+		onDateBadge,
+		onDatePick,
+		onDateRemove,
+		onDatePanelClose
 	} = $props();
 
 	let el = $state();
@@ -86,6 +93,10 @@
 	const isLongCode = $derived(codeLineCount > 12);
 	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
 	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
+
+	const today = todayString();
+	const dueLabel = $derived(block.dueDate ? badgeLabel(block.dueDate, today) : '');
+	const overdue = $derived(isOverdue(block, today));
 
 	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
 	// "/query" text). While the user types they always match, so the caret is
@@ -527,6 +538,17 @@
 		</div>
 	{/if}
 
+	{#if block.dueDate && block.type !== 'separator'}
+		<button
+			type="button"
+			aria-label="Cambiar fecha"
+			use:tooltip={'Cambiar o quitar fecha'}
+			onmousedown={(event) => event.preventDefault()}
+			onclick={() => onDateBadge(block)}
+			class="{overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-7 shrink-0 items-center gap-1 self-center rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
+		>📅 {dueLabel}</button>
+	{/if}
+
 	{#if tags.length > 0}
 		<div
 			class="mt-1 flex w-full basis-full flex-wrap items-center gap-1 {block.type === 'todo'
@@ -584,6 +606,17 @@
 			onSelect={onSlashSelect}
 			emptyLabel={slashEmptyLabel}
 		/>
+	{/if}
+
+	{#if datePanelOpen}
+		<div class="absolute top-full left-8 z-10 mt-1">
+			<DatePanel
+				hasDate={!!block.dueDate}
+				onPick={(day) => onDatePick(block, day)}
+				onRemove={() => onDateRemove(block)}
+				onClose={() => onDatePanelClose(block)}
+			/>
+		</div>
 	{/if}
 
 	{#if tagPickerOpen}

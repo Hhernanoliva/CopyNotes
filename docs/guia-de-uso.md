@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-16 (la guía se reorganizó en archivos por tema; el contenido es el mismo).
+Última actualización: 2026-07-16 (se agregó la guía de fechas y agenda).
 
 ## Temas
 
@@ -17,6 +17,7 @@ Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. 
 9. [Etiquetas](guia/09-etiquetas.md) — etiquetar notas, renglones y snippets; administrar
 10. [Buscar](guia/10-buscar.md) — búsqueda con Cmd/Ctrl+K, filtro por etiquetas
 11. [Respaldo](guia/11-respaldo.md) — exportar, importar, reemplazar todo
+12. [Fechas y agenda](guia/12-fechas-y-agenda.md) — /fecha, atajos Hoy/Mañana/Próxima semana, cambiar o quitar la fecha
 
 ## Regla para el equipo
 
