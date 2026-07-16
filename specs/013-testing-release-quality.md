@@ -96,3 +96,7 @@ Use Playwright for:
 ## Agent Notes
 
 Do not call a feature complete just because it appears on screen. It must survive reloads, preserve data, and respect the product decisions in `AGENT.md`.
+
+## Convention Update (2026-07-11, Hernan's decision)
+
+The project has NO component-test infrastructure: Testing Library was never added and stays out. The convention is pure Vitest for logic + Playwright for critical flows (e2e/ suite). Where this spec says "Testing Library", cover that behavior with a Playwright check or a pure-logic Vitest test instead.

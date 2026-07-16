@@ -129,3 +129,7 @@ UI-independent logic with Vitest coverage.
 ## Agent Notes
 
 Do not make block hierarchy depend on visual DOM order only. The hierarchy must be represented in data so export, search, copy, sync, and MCP can understand it later.
+
+## Reordering Must Preserve Identity (from AGENT.md)
+
+Any reorder mechanism (Alt+arrows today, drag and drop if added later) must preserve: nested child blocks, tags attached to moved blocks, todo checked state, and snippet identity when the moved block was saved as a snippet. Keep reordering logic separate from rendering so editor changes never force a rewrite of hierarchy operations.

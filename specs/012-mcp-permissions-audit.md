@@ -104,3 +104,10 @@ Future tests should include:
 ## Agent Notes
 
 Agent control is a trust feature. The user must always be able to understand and stop what agents are doing.
+
+## Detail Absorbed From AGENT.md (2026-07-16)
+
+- **Review/proposal mode (future):** the action model must leave room for a mode where an agent's change is representable as *pending* until the user accepts, rejects, or edits it — useful for large rewrites, bulk task creation, broad reordering. Not required for the first MCP phase; permissions + confirmations may come first, but do not make proposals impossible.
+- **Session rule:** default is simple — a new agent session starts every time an agent connects (e.g. "Codex worked on Plan App v1 from 15:00 to 15:20"). Grouping can improve later.
+- **Presets are shortcuts, not hard limits:** advanced users can still customize read scopes, write scopes, confirmation rules, and private-note access per agent. Limited write (selected notes / selected tags / an agent-approved area) is probably the safest real-world default.
+- **Privacy source of truth:** the internal privacy flag/policy rules, never the `#private` tag text alone — the tag is only a UI shortcut.

@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "claude-seo@agricidaniel-seo": false,
+    "vercel@claude-plugins-official": false,
+    "ui-ux-pro-max@ui-ux-pro-max-skill": false,
+    "impeccable@impeccable": false,
+    "warp@claude-code-warp": false
+  }
+}

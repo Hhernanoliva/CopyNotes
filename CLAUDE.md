@@ -7,7 +7,7 @@
 
 ## User Guide Rule
 
-`docs/guia-de-uso.md` is the user-facing feature guide, in plain Spanish. Every user-visible feature or behavior change must be documented there **in the same commit that implements it** — what the user sees and how to use it, no technical jargon. Update its "Última actualización" date too. Specs describe intent for builders; the guide describes usage for people.
+The user-facing feature guide, in plain Spanish, lives in `docs/guia/` (one file per topic; index at `docs/guia-de-uso.md`). Every user-visible feature or behavior change must be documented **in the same commit that implements it** — edit only the topic file it touches; create a new topic file (and index entry) if none fits. Update the index's "Última actualización" date too. What the user sees and how to use it, no technical jargon. Specs describe intent for builders; the guide describes usage for people.
 
 ## Design Tokens: Quiet Ink → shadcn-svelte
 
