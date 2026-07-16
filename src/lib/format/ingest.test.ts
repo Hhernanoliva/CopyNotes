@@ -165,6 +165,19 @@ describe('sanitizeBackupData', () => {
 		expect(clean.blocks[0].dueDate).toBeNull();
 		expect(clean.blocks[1].dueDate).toBe('2026-07-22');
 	});
+
+	it('nulls a calendar-impossible dueDate the format-only schema let through', () => {
+		const clean = sanitizeBackupData(
+			data({
+				blocks: [
+					{ id: 'b1', type: 'text', content: 'a', dueDate: '2026-02-30' },
+					{ id: 'b2', type: 'text', content: 'b', dueDate: '2026-07-22' }
+				]
+			})
+		);
+		expect(clean.blocks[0].dueDate).toBeNull();
+		expect(clean.blocks[1].dueDate).toBe('2026-07-22');
+	});
 });
 
 describe('normalizeSnapshotNode', () => {

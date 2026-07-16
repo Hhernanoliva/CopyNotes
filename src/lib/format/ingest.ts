@@ -55,6 +55,10 @@ export function sanitizeBackupData(data) {
 			if (typeof block.html === 'string') clean = { ...clean, html: sanitizeHtml(block.html) };
 			// A separator must never carry a date, even from a doctored backup.
 			if (block.type === 'separator' && block.dueDate != null) clean = { ...clean, dueDate: null };
+			// Schema validation is format-only (isoDate accepts 2026-02-30); apply
+			// the same calendar-day rule the clipboard/snapshot gate uses.
+			else if (block.dueDate != null && !isValidDueDate(block.dueDate))
+				clean = { ...clean, dueDate: null };
 			return clean;
 		}),
 		snippets: data.snippets.map((snippet) => {
