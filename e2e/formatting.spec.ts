@@ -82,6 +82,35 @@ test('converting to H2 changes the block and survives a reload without adding an
 	await expect(page.locator('main [role="textbox"]')).toHaveCount(blocksBefore);
 });
 
+test('a Shift+Enter soft line break survives reload and copies as a real newline', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: salto suave');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('uno', { delay: 25 });
+	await page.keyboard.press('Shift+Enter');
+	await page.keyboard.type('dos', { delay: 25 });
+	// The break may live in the DOM as \n or <br>; what matters is the text.
+	await expect.poll(() => first.evaluate((el) => el.innerText.trim())).toBe('uno\ndos');
+	await page.waitForTimeout(700); // let autosave flush
+
+	await page.reload();
+	await expect(title(page)).toHaveValue('Formato E2E: salto suave');
+	const restored = page.locator('main [role="textbox"]').first();
+	await expect.poll(() => restored.evaluate((el) => el.innerText.trim())).toBe('uno\ndos');
+
+	const row = page.locator('main .group').first();
+	await row.hover();
+	await row.getByRole('button', { name: 'Copiar bloque' }).click();
+	await expect
+		.poll(async () => page.evaluate(() => navigator.clipboard.readText()))
+		.toBe('uno\ndos');
+});
+
 test('regression guard: the copy block button still works after formatting changes', async ({
 	page
 }) => {

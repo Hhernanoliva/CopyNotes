@@ -42,6 +42,20 @@ describe('htmlToPlainText', () => {
 	test('returns textContent', () => {
 		expect(htmlToPlainText('<strong>a</strong> b')).toBe('a b');
 	});
+
+	test('keeps <br> as a newline', () => {
+		expect(htmlToPlainText('a<br>b')).toBe('a\nb');
+	});
+
+	test('keeps a <br> inside inline formatting as a newline', () => {
+		expect(htmlToPlainText('<strong>a<br>b</strong>')).toBe('a\nb');
+	});
+
+	test('is the inverse of plainTextToHtml', () => {
+		for (const text of ['a\nb', 'uno\n\ndos', '<x> & "y"', 'plano']) {
+			expect(htmlToPlainText(plainTextToHtml(text))).toBe(text);
+		}
+	});
 });
 
 describe('plainTextToHtml', () => {

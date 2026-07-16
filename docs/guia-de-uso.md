@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-16 (doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos).
+Última actualización: 2026-07-16 (doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos; los saltos de línea dentro de un renglón ya no se pierden al buscar, copiar ni exportar).
 
 ## Lo básico
 
@@ -65,7 +65,7 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 | Tecla | Qué hace |
 |---|---|
 | **Enter** | Renglón nuevo, del mismo tipo que el actual |
-| **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea |
+| **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea. El salto se conserva al buscar, copiar y exportar |
 | **Ctrl/Cmd+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |

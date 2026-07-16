@@ -67,9 +67,14 @@ function appendClean(node, target) {
 	target.appendChild(el);
 }
 
+// Inverse of plainTextToHtml: <br> is a soft line break, so it must come back
+// as \n or search, copy, and export silently lose the break the user sees.
 export function htmlToPlainText(html) {
 	const holder = document.createElement('div');
 	holder.innerHTML = html ?? '';
+	for (const br of Array.from(holder.querySelectorAll('br'))) {
+		br.replaceWith(document.createTextNode('\n'));
+	}
 	return holder.textContent ?? '';
 }
 

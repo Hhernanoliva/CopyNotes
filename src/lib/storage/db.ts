@@ -1,5 +1,5 @@
 import Dexie from 'dexie';
-import { plainTextToHtml } from '$lib/format';
+import { htmlToPlainText, plainTextToHtml } from '$lib/format';
 
 // Schema strings only declare indexes; records can hold more fields.
 // Soft-deleted rows stay in the tables and are filtered out by the repositories.
@@ -27,3 +27,17 @@ db.version(2)
 				if (block.html === undefined) block.html = plainTextToHtml(block.content ?? '');
 			});
 	});
+
+// Before this version, the plain-text projection dropped <br> soft line
+// breaks, so stored content disagrees with what the block shows. Recompute
+// it once for every block whose html carries a <br>.
+db.version(3).upgrade(async (tx) => {
+	await tx
+		.table('blocks')
+		.toCollection()
+		.modify((block) => {
+			if (typeof block.html === 'string' && block.html.includes('<br')) {
+				block.content = htmlToPlainText(block.html);
+			}
+		});
+});
