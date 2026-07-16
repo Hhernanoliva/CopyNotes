@@ -225,4 +225,66 @@ describe('validateBackup', () => {
 		expect(result.warnings.length).toBeGreaterThan(0);
 		expect(result.backup.counts.notes).toBe(1);
 	});
+
+	it('accepts a block with a string html field', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ html: '<strong>Hola</strong>' })] })
+		);
+		expect(result.ok).toBe(true);
+	});
+
+	it('rejects a block whose html is not a string', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ html: { evil: true } })] })
+		);
+		expect(result.ok).toBe(false);
+	});
+
+	function makeSnippet(overrides = {}) {
+		return {
+			id: 'snip_1',
+			name: 'Firma',
+			content: 'Saludos',
+			isFavorite: false,
+			createdAt: iso,
+			updatedAt: iso,
+			deletedAt: null,
+			...overrides
+		};
+	}
+
+	it('accepts a snippet without blockSnapshot (old backups)', () => {
+		const result = validateBackup(makeBackup({ snippets: [makeSnippet()] }));
+		expect(result.ok).toBe(true);
+	});
+
+	it('accepts a snippet with a nested blockSnapshot', () => {
+		const snapshot = {
+			type: 'bullet',
+			content: 'padre',
+			html: 'padre',
+			checked: false,
+			note: '',
+			children: [{ type: 'todo', content: 'hijo', html: 'hijo', checked: true, note: '', children: [] }]
+		};
+		const result = validateBackup(
+			makeBackup({ snippets: [makeSnippet({ blockSnapshot: snapshot })] })
+		);
+		expect(result.ok).toBe(true);
+	});
+
+	it('rejects a blockSnapshot that is not an object', () => {
+		const result = validateBackup(
+			makeBackup({ snippets: [makeSnippet({ blockSnapshot: 'texto suelto' })] })
+		);
+		expect(result.ok).toBe(false);
+	});
+
+	it('rejects a blockSnapshot node whose children is not an array', () => {
+		const snapshot = { type: 'text', content: 'x', children: 'nope' };
+		const result = validateBackup(
+			makeBackup({ snippets: [makeSnippet({ blockSnapshot: snapshot })] })
+		);
+		expect(result.ok).toBe(false);
+	});
 });

@@ -28,6 +28,12 @@ describe('sanitizeHtml', () => {
 		expect(sanitizeHtml('<span class="evil">a</span>')).toBe('a');
 	});
 
+	test('unwraps fmt-color classes outside the approved palette', () => {
+		expect(sanitizeHtml('<span class="fmt-color-evil">a</span>')).toBe('a');
+		expect(sanitizeHtml('<span class="fmt-color-amber">a</span>'))
+			.toBe('<span class="fmt-color-amber">a</span>');
+	});
+
 	test('normalizes links and forces safe target/rel', () => {
 		expect(sanitizeHtml('<a href="example.com">x</a>'))
 			.toBe('<a href="https://example.com/" target="_blank" rel="noopener noreferrer">x</a>');

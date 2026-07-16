@@ -17,7 +17,7 @@
 		normalizeNewlines,
 		recallCopy
 	} from '$lib/copy/serialize';
-	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
+	import { sanitizeHtml, htmlToPlainText, applyInline, normalizeForest } from '$lib/format';
 	import { planNoteExit } from './note';
 	import { textOffset } from './selection-offsets';
 
@@ -333,8 +333,10 @@
 		}
 		// Prefer CopyNotes' own content: the custom clipboard format when the
 		// browser delivers it, else the localStorage buffer matched by exact text.
+		// Any page can write our clipboard format, so the payload goes through
+		// the ingest gate: shape repaired, html sanitized (see format/ingest.ts).
 		const payload = event.clipboardData?.getData(CLIPBOARD_FORMAT) || recallCopy(text);
-		const forest = deserializeForest(payload);
+		const forest = normalizeForest(deserializeForest(payload));
 		if (forest) {
 			event.preventDefault();
 			onPasteBlocks?.(block, forest);

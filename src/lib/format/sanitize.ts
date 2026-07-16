@@ -1,10 +1,27 @@
 import { normalizeUrl } from './url';
+import { TEXT_COLORS } from './colors';
+
+// ── CONTRACT: the inline-format allow-list ─────────────────────────────────
+// This file is the single definition of what inline HTML CopyNotes accepts.
+// Every write boundary (editing, internal paste, backup import, snippet
+// insertion via format/ingest.ts) and the render sink funnel through
+// sanitizeHtml. When adding a NEW inline format, update ALL of:
+//   1. RENAME / ALLOWED below (and attribute handling in appendClean)
+//   2. TEXT_COLORS in colors.ts if it is a new color
+//   3. htmlInlineToMarkdown in inline-markdown.ts (Markdown export/copy)
+//   4. the toolbar/commands in format/commands.ts
+// Anything not listed here is silently unwrapped to its text content — text
+// is never lost, only the unknown decoration.
+// ────────────────────────────────────────────────────────────────────────────
 
 // Tag rename map for legacy → canonical.
 const RENAME = { b: 'strong', i: 'em', strike: 's' };
 // Tags kept as-is (canonical names).
 const ALLOWED = new Set(['strong', 'em', 'u', 's', 'code', 'a', 'span', 'br']);
-const COLOR_PREFIX = 'fmt-color-';
+// Only the approved palette, not any fmt-color-* string.
+const COLOR_CLASSES = new Set(
+	TEXT_COLORS.map((color) => color.className).filter(Boolean)
+);
 
 // Sanitize a dirty HTML string down to CopyNotes' inline subset. Anything not
 // on the allow-list is unwrapped to its text content. Runs in the browser and
@@ -55,7 +72,7 @@ function appendClean(node, target) {
 		el.setAttribute('rel', 'noopener noreferrer');
 	} else if (tag === 'span') {
 		const cls = node.getAttribute('class') ?? '';
-		const color = cls.split(/\s+/).find((c) => c.startsWith(COLOR_PREFIX));
+		const color = cls.split(/\s+/).find((c) => COLOR_CLASSES.has(c));
 		if (!color) {
 			for (const child of Array.from(node.childNodes)) appendClean(child, target);
 			return;

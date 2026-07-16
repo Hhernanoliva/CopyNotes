@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-16 (el formato del texto —negrita, cursiva, enlaces, colores— ahora viaja al copiar bloques a otras apps y al exportar la nota en HTML y Markdown; doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos; los saltos de línea dentro de un renglón ya no se pierden al buscar, copiar ni exportar).
+Última actualización: 2026-07-16 (filtro de seguridad al importar respaldos y pegar contenido: lo dañado o peligroso se limpia sin perder texto; el formato del texto —negrita, cursiva, enlaces, colores— ahora viaja al copiar bloques a otras apps y al exportar la nota en HTML y Markdown; doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos; los saltos de línea dentro de un renglón ya no se pierden al buscar, copiar ni exportar).
 
 ## Lo básico
 
@@ -335,7 +335,7 @@ Todo funciona sin internet.
 ### Importar
 
 1. Tocá **Elegir archivo de respaldo…** y seleccioná un archivo JSON de CopyNotes.
-2. La app lo revisa primero. Si el archivo está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo.
+2. La app lo revisa primero. Si el archivo está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo. Además, todo el formato de texto que venga en el archivo pasa por un filtro de seguridad: lo que no es de CopyNotes (por ejemplo, código escondido en un archivo manipulado) se descarta y el texto queda intacto. Lo mismo pasa al pegar contenido copiado: si viene dañado o con algo raro, se limpia sin romper el pegado.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
 

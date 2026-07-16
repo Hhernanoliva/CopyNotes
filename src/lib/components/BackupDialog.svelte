@@ -13,6 +13,7 @@
 		readFileAsText,
 		validateBackup
 	} from '$lib/export-import';
+	import { sanitizeBackupData } from '$lib/format';
 	import {
 		applyMergePlan,
 		dumpAllTables,
@@ -82,8 +83,12 @@
 			toast.error(result.errors[0] ?? 'El archivo no es un respaldo válido.');
 			return;
 		}
-		const plan = planMerge(local, result.backup.data);
-		review = { fileName: file.name, backup: result.backup, warnings: result.warnings, plan };
+		// Ingest gate: clean every html field once, here, so both import paths
+		// (merge and replace-all) only ever see sanitized markup. Idempotent for
+		// backups the app itself exported.
+		const backup = { ...result.backup, data: sanitizeBackupData(result.backup.data) };
+		const plan = planMerge(local, backup.data);
+		review = { fileName: file.name, backup, warnings: result.warnings, plan };
 		step = 'reviewing';
 	}
 

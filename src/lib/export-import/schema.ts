@@ -4,6 +4,7 @@
 // Nothing here touches storage — validation must never mutate local data.
 
 import * as v from 'valibot';
+import { BLOCK_TYPES } from '../format/blocktype';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
 // Version 2 added the heading block types; the record shapes are otherwise
@@ -26,8 +27,11 @@ const blockSchema = v.looseObject({
 	id: v.string(),
 	noteId: v.string(),
 	parentBlockId: v.nullable(v.string()),
-	type: v.picklist(['text', 'bullet', 'todo', 'code', 'separator', 'heading1', 'heading2', 'heading3']),
+	type: v.picklist(BLOCK_TYPES),
 	content: v.string(),
+	// Shape check only — the inline html is sanitized at apply time by the
+	// ingest gate (format/ingest.ts) before anything reaches storage.
+	html: v.optional(v.string()),
 	order: v.number(),
 	collapsed: v.boolean(),
 	codeCollapsed: v.optional(v.boolean()),
@@ -38,10 +42,24 @@ const blockSchema = v.looseObject({
 	deletedAt: nullableTimestamp
 });
 
+// A snippet's saved block tree (id-free nodes, same shape the clipboard
+// format uses). Recursive, so it needs v.lazy.
+const snapshotNodeSchema = v.looseObject({
+	type: v.picklist(BLOCK_TYPES),
+	content: v.string(),
+	html: v.optional(v.string()),
+	checked: v.optional(v.boolean()),
+	codeCollapsed: v.optional(v.boolean()),
+	note: v.optional(v.string()),
+	children: v.array(v.lazy(() => snapshotNodeSchema))
+});
+
 const snippetSchema = v.looseObject({
 	id: v.string(),
 	name: v.string(),
 	content: v.string(),
+	html: v.optional(v.string()),
+	blockSnapshot: v.nullish(snapshotNodeSchema),
 	isFavorite: v.boolean(),
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
