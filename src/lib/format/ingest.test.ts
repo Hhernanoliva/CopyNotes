@@ -8,6 +8,7 @@ function node(overrides = {}) {
 		html: 'hola',
 		checked: false,
 		codeCollapsed: false,
+		dueDate: null,
 		note: '',
 		tags: [],
 		children: [],
@@ -85,6 +86,19 @@ describe('normalizeForest', () => {
 		]);
 		expect(clean[0].children).toHaveLength(1);
 		expect(clean[0].children[0].html).toBe('xhijo');
+	});
+});
+
+describe('dueDate ingest (spec 021)', () => {
+	it('keeps a valid dueDate', () => {
+		const forest = normalizeForest([{ type: 'text', content: 'a', dueDate: '2026-07-22', children: [] }]);
+		expect(forest[0].dueDate).toBe('2026-07-22');
+	});
+	it('drops malformed dueDate values', () => {
+		for (const bad of ['22/07/2026', '2026-02-30', 42, {}, null]) {
+			const forest = normalizeForest([{ type: 'text', content: 'a', dueDate: bad, children: [] }]);
+			expect(forest[0].dueDate).toBeNull();
+		}
 	});
 });
 

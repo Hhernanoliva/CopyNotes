@@ -39,7 +39,7 @@ The backup should use this structure:
 ```json
 {
   "format": "copynotes.backup",
-  "formatVersion": 1,
+  "formatVersion": 3,
   "app": {
     "name": "CopyNotes",
     "version": "0.1.0"
@@ -150,6 +150,8 @@ Optional fields:
 
 - `codeCollapsed` — whether a long code block is showing its 6-line preview.
   Missing values from older backups are treated as `false`.
+- `dueDate` — optional `YYYY-MM-DD` date for the Agenda (spec 021). Missing
+  or `null` means the block has no date. Added in `formatVersion` 3.
 
 Notes:
 
@@ -289,7 +291,7 @@ Settings should only include safe preferences. Do not export sensitive browser i
 ```json
 {
   "format": "copynotes.backup",
-  "formatVersion": 1,
+  "formatVersion": 3,
   "app": {
     "name": "CopyNotes",
     "version": "0.1.0"

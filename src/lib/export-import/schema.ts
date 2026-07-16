@@ -7,10 +7,10 @@ import * as v from 'valibot';
 import { BLOCK_TYPES } from '../format/blocktype';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
-// Version 2 added the heading block types; the record shapes are otherwise
-// identical, so version 1 backups import with no migration step.
-export const SUPPORTED_VERSIONS = [1, 2];
-export const CURRENT_VERSION = 2;
+// Version 2 added the heading block types; version 3 added the optional block
+// dueDate. Shapes are otherwise identical, so 1 and 2 import with no migration.
+export const SUPPORTED_VERSIONS = [1, 2, 3];
+export const CURRENT_VERSION = 3;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -36,6 +36,7 @@ const blockSchema = v.looseObject({
 	collapsed: v.boolean(),
 	codeCollapsed: v.optional(v.boolean()),
 	checked: v.boolean(),
+	dueDate: v.optional(v.nullable(v.pipe(v.string(), v.isoDate()))),
 	note: v.optional(v.string()),
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
@@ -50,6 +51,7 @@ const snapshotNodeSchema = v.looseObject({
 	html: v.optional(v.string()),
 	checked: v.optional(v.boolean()),
 	codeCollapsed: v.optional(v.boolean()),
+	dueDate: v.optional(v.nullable(v.pipe(v.string(), v.isoDate()))),
 	note: v.optional(v.string()),
 	children: v.array(v.lazy(() => snapshotNodeSchema))
 });

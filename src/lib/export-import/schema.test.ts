@@ -287,4 +287,29 @@ describe('validateBackup', () => {
 		);
 		expect(result.ok).toBe(false);
 	});
+
+	describe('formatVersion 3 / dueDate (spec 021)', () => {
+		it('accepts version 3 with and without dueDate', () => {
+			const backup = makeBackup(
+				{ notes: [makeNote()], blocks: [makeBlock()] },
+				{ formatVersion: 3 }
+			);
+			backup.data.blocks[0].dueDate = '2026-07-22';
+			expect(validateBackup(backup).ok).toBe(true);
+			delete backup.data.blocks[0].dueDate;
+			expect(validateBackup(backup).ok).toBe(true);
+		});
+		it('rejects a malformed dueDate', () => {
+			const backup = makeBackup(
+				{ notes: [makeNote()], blocks: [makeBlock()] },
+				{ formatVersion: 3 }
+			);
+			backup.data.blocks[0].dueDate = '22/07/2026';
+			expect(validateBackup(backup).ok).toBe(false);
+		});
+		it('still rejects unsupported future versions', () => {
+			const backup = makeBackup({}, { formatVersion: 4 });
+			expect(validateBackup(backup).ok).toBe(false);
+		});
+	});
 });

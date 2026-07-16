@@ -10,6 +10,7 @@
 
 import { sanitizeHtml } from './sanitize';
 import { BLOCK_TYPES } from './blocktype';
+import { isValidDueDate } from '$lib/dates';
 
 function normalizeNode(raw) {
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
@@ -19,6 +20,7 @@ function normalizeNode(raw) {
 		html: typeof raw.html === 'string' ? sanitizeHtml(raw.html) : '',
 		checked: Boolean(raw.checked),
 		codeCollapsed: Boolean(raw.codeCollapsed),
+		dueDate: isValidDueDate(raw.dueDate) ? raw.dueDate : null,
 		note: typeof raw.note === 'string' ? raw.note : '',
 		tags: Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === 'string') : [],
 		children: Array.isArray(raw.children)
