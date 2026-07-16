@@ -9,6 +9,8 @@ Escribí `/fecha` en cualquier renglón (o buscalo con `/agenda`, `/hoy`, `/venc
 - **Próxima semana**
 - **Elegir día** — un selector de calendario para cualquier fecha.
 
+El panel se maneja también con el teclado: las flechas ↑ y ↓ recorren las opciones, Enter elige la marcada y Escape cierra sin cambiar nada.
+
 Al elegir una, el renglón queda con una etiqueta con un calendario (📅) y el día, por ejemplo «📅 hoy», «📅 mañana» o «📅 12 ago». El texto que hayas escrito después de `/fecha` se borra, porque la fecha es un dato del renglón, no parte del texto.
 
 ## Cambiar o quitar la fecha
@@ -25,7 +27,7 @@ Cuando copiás un renglón con fecha (o lo exportás en un respaldo), la fecha v
 
 ## La pestaña Agenda
 
-En la barra lateral, junto a "Notas" y "Snippets", hay una pestaña **Agenda**. Ahí aparecen todos los renglones con fecha de todas tus notas, agrupados por cuándo vencen:
+En la barra lateral, junto a "Notas" y "Snippets", está la pestaña **Agenda** (el ícono de calendario — cada pestaña muestra su ícono, y la que está activa muestra además su nombre). Ahí aparecen todos los renglones con fecha de todas tus notas, agrupados por cuándo vencen:
 
 - **Vencidas** (en rojo, arriba de todo) — ya pasó la fecha y la tarea sigue sin marcar como hecha.
 - **Hoy**

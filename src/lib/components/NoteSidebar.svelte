@@ -1,6 +1,9 @@
 <script>
 	import {
+		Bookmark,
+		CalendarDays,
 		DatabaseBackup,
+		FileText,
 		Plus,
 		Star,
 		Trash2,
@@ -40,11 +43,14 @@
 		onDataChanged
 	} = $props();
 
+	// Four tabs no longer fit as full labels in the 270px sidebar; each shows
+	// its icon and only the ACTIVE one adds its name (aria-label keeps the
+	// accessible name stable for all of them).
 	const VIEWS = [
-		{ id: 'notes', label: 'Notas' },
-		{ id: 'snippets', label: 'Snippets' },
-		{ id: 'agenda', label: 'Agenda' },
-		{ id: 'tags', label: 'Etiquetas' }
+		{ id: 'notes', label: 'Notas', icon: FileText },
+		{ id: 'snippets', label: 'Snippets', icon: Bookmark },
+		{ id: 'agenda', label: 'Agenda', icon: CalendarDays },
+		{ id: 'tags', label: 'Etiquetas', icon: Tag }
 	];
 
 	// Local UI state: inline tag creation/rename and which snippet has the
@@ -151,16 +157,22 @@
 		<div class="flex h-12 shrink-0 items-center justify-between border-b px-3">
 			<div class="bg-muted flex rounded-md p-0.5" role="group" aria-label="Sección de la barra lateral">
 				{#each VIEWS as option (option.id)}
+					{@const Icon = option.icon}
 					<button
 						type="button"
 						aria-pressed={view === option.id}
+						aria-label={option.label}
+						title={view === option.id ? undefined : option.label}
 						onclick={() => (view = option.id)}
-						class="focus-visible:ring-ring rounded-[5px] px-2 py-1 text-xs font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none max-md:px-3 max-md:py-2 {view ===
+						class="focus-visible:ring-ring flex items-center gap-1.5 rounded-[5px] px-2 py-1 text-xs font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none max-md:px-3 max-md:py-2 {view ===
 						option.id
 							? 'bg-background text-foreground shadow-sm'
 							: 'text-muted-foreground hover:text-foreground'}"
 					>
-						{option.label}
+						<Icon size={15} aria-hidden="true" class="shrink-0" />
+						{#if view === option.id}
+							<span>{option.label}</span>
+						{/if}
 					</button>
 				{/each}
 			</div>

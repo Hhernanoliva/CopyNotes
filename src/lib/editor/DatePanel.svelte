@@ -4,11 +4,23 @@
 	let { hasDate = false, onPick, onRemove, onClose } = $props();
 
 	let firstEl = $state();
+	let panelEl = $state();
 	$effect(() => { firstEl?.focus(); });
 
 	function pickQuick(option) { onPick(resolveQuickOption(option, todayString())); }
 	function keydown(e) {
-		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
+		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+		// Inside the date input the arrows edit the date segments — leave them alone.
+		if (document.activeElement?.tagName === 'INPUT') return;
+		// Roving focus through the panel's options; stop the editor's own
+		// arrow navigation from moving the caret behind the open panel.
+		e.preventDefault();
+		e.stopPropagation();
+		const items = [...panelEl.querySelectorAll('button, input')];
+		const index = items.indexOf(document.activeElement);
+		const delta = e.key === 'ArrowDown' ? 1 : -1;
+		items[(index + delta + items.length) % items.length]?.focus();
 	}
 
 	const restOptions = [
@@ -19,6 +31,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
+	bind:this={panelEl}
 	role="dialog"
 	aria-label="Fecha del renglón"
 	tabindex="-1"

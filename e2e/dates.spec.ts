@@ -30,6 +30,32 @@ test('slash date assigns a persistent badge', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveCount(0);
 });
 
+// The date panel is fully keyboard-driven: arrows rove the options, Enter picks.
+test('date panel navigates with arrow keys', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.keyboard.press('Enter');
+
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Hoy' })).toBeFocused();
+
+	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('ArrowDown');
+	await expect(page.getByRole('button', { name: 'Próxima semana' })).toBeFocused();
+	await page.keyboard.press('ArrowUp');
+	await expect(page.getByRole('button', { name: 'Mañana' })).toBeFocused();
+
+	await page.keyboard.press('Enter');
+	await expect(panel).not.toBeVisible();
+	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveText(/mañana/);
+});
+
 // Spec 021 Slice B: the Agenda lists dated blocks and jumps to them.
 test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 	await page.goto('/');
