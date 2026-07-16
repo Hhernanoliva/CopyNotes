@@ -77,4 +77,12 @@ test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 
 	await page.getByRole('checkbox', { name: 'Ocultar completadas' }).click();
 	await expect(page.getByRole('region', { name: 'Hoy' })).toHaveCount(0);
+
+	// The toggle itself must stay visible even when it hides every item —
+	// otherwise there's no way to turn it back off.
+	const hideToggle = page.getByRole('checkbox', { name: 'Ocultar completadas' });
+	await expect(hideToggle).toBeVisible();
+
+	await hideToggle.click();
+	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toBeVisible();
 });
