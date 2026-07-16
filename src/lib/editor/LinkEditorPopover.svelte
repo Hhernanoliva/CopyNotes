@@ -1,5 +1,8 @@
 <script>
 	let { initialUrl = '', onSave, onRemove, onClose } = $props();
+	// El popover se monta de nuevo en cada apertura ({#if} en FloatingFormattingToolbar),
+	// así que capturar solo el valor inicial es intencional.
+	// svelte-ignore state_referenced_locally
 	let url = $state(initialUrl);
 	let input = $state();
 	$effect(() => { input?.focus(); });
