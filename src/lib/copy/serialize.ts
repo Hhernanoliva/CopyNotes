@@ -19,6 +19,7 @@ export function treeToNode(tree, tagsById = {}) {
 		content: tree.block.content ?? '',
 		html: tree.block.html ?? '',
 		checked: tree.block.checked ?? false,
+		codeCollapsed: tree.block.codeCollapsed ?? false,
 		note: tree.block.note ?? '',
 		tags: (tagsById[tree.block.id] ?? []).map((tag) => tag.name),
 		children: tree.children.map((child) => treeToNode(child, tagsById))
@@ -43,15 +44,16 @@ export function serializeForest(forest) {
 // so it is a no-op server-side and never throws.
 const STORE_KEY = 'copynotes:clipboard';
 
-// Compare on normalised line endings: some platforms rewrite \n to \r\n on the
-// clipboard, which would break an exact text match.
-function normalize(text) {
+// Normalise line endings to \n: some platforms rewrite \n to \r\n on the
+// clipboard, which would break an exact text match. Shared with everything
+// that counts or compares clipboard/code lines.
+export function normalizeNewlines(text) {
 	return (text ?? '').replace(/\r\n?/g, '\n');
 }
 
 export function rememberCopy(text, payload) {
 	try {
-		localStorage.setItem(STORE_KEY, JSON.stringify({ text: normalize(text), payload }));
+		localStorage.setItem(STORE_KEY, JSON.stringify({ text: normalizeNewlines(text), payload }));
 	} catch {
 		// localStorage unavailable (SSR, privacy mode) — the custom format and
 		// line parser still cover paste.
@@ -63,7 +65,7 @@ export function recallCopy(text) {
 		const raw = localStorage.getItem(STORE_KEY);
 		if (!raw) return null;
 		const stored = JSON.parse(raw);
-		return stored && stored.text === normalize(text) ? stored.payload : null;
+		return stored && stored.text === normalizeNewlines(text) ? stored.payload : null;
 	} catch {
 		return null;
 	}

@@ -6,11 +6,217 @@ import { test, expect } from '@playwright/test';
 
 const title = (page) => page.getByLabel('Título de la nota');
 
+async function pasteText(locator, text) {
+	await locator.evaluate((element, value) => {
+		const data = new DataTransfer();
+		data.setData('text/plain', value);
+		element.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+		);
+	}, text);
+}
+
 test('first run seeds an editable demo note', async ({ page }) => {
 	await page.goto('/');
 	await expect(title(page)).toHaveValue(/Bienvenido a CopyNotes/);
 	await expect(page.locator('main [role="textbox"]').first()).toBeVisible();
 	await expect(page.locator('[role="checkbox"]').first()).toBeVisible();
+});
+
+test('the tag shortcut restores # on cancel and consumes it after assigning a tag', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('#');
+
+	const picker = page.getByRole('combobox', { name: 'Buscar o crear etiqueta' });
+	await expect(picker).toBeVisible();
+	await expect(first).toHaveText('');
+	await page.keyboard.press('Escape');
+	await expect(picker).toBeHidden();
+	await expect(first).toHaveText('#');
+
+	await first.fill('');
+	await page.keyboard.type('#');
+	await picker.fill('proyecto');
+	await page.keyboard.press('Enter');
+	await page.keyboard.press('Escape');
+
+	await expect(first).toHaveText('');
+	await expect(page.getByRole('button', { name: 'Quitar etiqueta proyecto' })).toBeVisible();
+
+	// Dismissing with a click outside must also give the "#" back, not eat it.
+	await page.keyboard.type('#');
+	await expect(picker).toBeVisible();
+	await title(page).click();
+	await expect(picker).toBeHidden();
+	await expect(first).toHaveText('#');
+});
+
+test('the slash menu groups headings and shows every block type without scrolling', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/');
+
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeVisible();
+	await expect(page.getByRole('option', { name: 'Snippet' })).toBeVisible();
+
+	const headings = [
+		page.getByRole('option', { name: 'Título 1' }),
+		page.getByRole('option', { name: 'Título 2' }),
+		page.getByRole('option', { name: 'Título 3' })
+	];
+	const headingTops = await Promise.all(
+		headings.map(async (heading) => Math.round((await heading.boundingBox()).y))
+	);
+	expect(new Set(headingTops).size).toBe(1);
+	expect(await menu.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBeTruthy();
+});
+
+test('code paste keeps whitespace, scrolls horizontally and remembers collapse', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.press('Control+Enter');
+	const blockNote = page.getByRole('textbox', { name: 'Nota del bloque' });
+	await page.keyboard.type('Nota retenida');
+	await page.keyboard.press('Escape');
+	await page.keyboard.type('/code');
+	await page.getByRole('option', { name: 'Código' }).click();
+
+	const raw = [
+		'function render(items) {',
+		'\tconst result = [];',
+		'',
+		'\tfor (const item of items) {',
+		'\t\tresult.push({',
+		'\t\t\tid: item.id,',
+		'\t\t\tlabel: item.label,',
+		'\t\t\tactive: item.active',
+		'\t\t});',
+		'\t}',
+		'',
+		'\treturn result;',
+		'}',
+		'const output = render(items);',
+		'console.log(output);'
+	].join('\n');
+	await pasteText(first, raw);
+
+	const code = page.locator('main [role="textbox"].block-editable--code');
+	await expect.poll(() => code.evaluate((element) => element.innerText)).toBe(raw);
+	const styles = await code.evaluate((element) => {
+		const computed = getComputedStyle(element);
+		return { whiteSpace: computed.whiteSpace, tabSize: computed.tabSize, overflowX: computed.overflowX };
+	});
+	expect(styles).toEqual({ whiteSpace: 'pre', tabSize: '4', overflowX: 'auto' });
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo visible');
+	await page.keyboard.press('Tab');
+	await expect(page.getByText('Hijo visible', { exact: true })).toBeVisible();
+
+	await page.getByRole('button', { name: /Contraer código/ }).click();
+	await expect(code).toHaveCount(0);
+	const preview = page.getByLabel('Vista previa de código');
+	await expect.poll(() => preview.evaluate((element) => element.innerText)).toBe(raw.split('\n').slice(0, 6).join('\n'));
+	await expect(page.getByText('Hijo visible', { exact: true })).toBeVisible();
+	const codeToggle = page.getByRole('button', { name: /Ver código completo/ });
+	await blockNote.click();
+	await page.keyboard.press('Escape');
+	await expect(codeToggle).toBeFocused();
+	await page.keyboard.press('Control+c');
+	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe(`${raw}\n  Nota retenida`);
+
+	// The collapse control behaves like any block surface: Enter makes a new
+	// block instead of re-toggling the preview, and the preview stays collapsed.
+	await codeToggle.focus();
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // wait for the new block to mount and take focus
+	await page.keyboard.type('Renglón nuevo');
+	await expect(page.getByText('Renglón nuevo', { exact: true })).toBeVisible();
+	await expect(page.getByLabel('Vista previa de código')).toBeVisible();
+
+	await page.waitForTimeout(700); // let the pasted content autosave before reload
+	await page.reload();
+	await expect(page.getByRole('button', { name: /Ver código completo/ })).toBeVisible();
+	await expect(page.getByText('Hijo visible', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: /Ver código completo/ }).click();
+	await expect.poll(() => page.locator('main .block-editable--code').evaluate((element) => element.innerText)).toBe(raw);
+});
+
+test('multi-line code is detected without turning prose or lists into code', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	const source = 'const total = items.length;\n\tconsole.log(total);';
+	await first.click();
+	await pasteText(first, source);
+	await expect(page.locator('main .block-editable--code')).toHaveCount(1);
+	await expect.poll(() => page.locator('main .block-editable--code').evaluate((element) => element.innerText)).toBe(source);
+
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // wait for the new sibling block to mount
+	const last = page.locator('main [data-block-id] .block-editable').last();
+	await pasteText(last, '- comprar pan\n- llamar a Clara');
+	await expect(page.locator('main .block-editable--code')).toHaveCount(1);
+	await expect(page.locator('main [aria-label="Viñeta"]')).toHaveCount(2);
+
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const prose = page.locator('main [data-block-id] .block-editable').first();
+	await pasteText(prose, 'Create a new note\nUpdate the title\nDelete the draft');
+	await expect(page.locator('main .block-editable--code')).toHaveCount(0);
+});
+
+test('code paste replaces a DOM selection without corrupting line breaks', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/code');
+	await page.getByRole('option', { name: 'Código' }).click();
+	await first.evaluate((element) => {
+		element.innerHTML = 'abc<br>def';
+		const text = element.childNodes[2];
+		const range = document.createRange();
+		range.setStart(text, 0);
+		range.setEnd(text, 1);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+		const data = new DataTransfer();
+		data.setData('text/plain', 'X');
+		element.dispatchEvent(
+			new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+		);
+	});
+	await expect.poll(() => first.evaluate((element) => element.innerText)).toBe('abc\nXef');
+});
+
+test('a reload right after typing keeps the last keystrokes', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Persistencia rápida');
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('último renglón');
+
+	// No waiting: the reload lands inside the 500ms save debounce on purpose.
+	await page.reload();
+	await expect(title(page)).toHaveValue('Persistencia rápida');
+	await expect(page.locator('main [data-block-id] .block-editable').first()).toHaveText(
+		'último renglón'
+	);
 });
 
 test('create a note, nest a bullet, and it survives a reload', async ({ page }) => {

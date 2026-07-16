@@ -37,6 +37,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 			html: node.html ?? plainTextToHtml(node.content),
 			order: nodeOrder,
 			collapsed: false,
+			codeCollapsed: node.codeCollapsed ?? false,
 			checked: node.checked ?? false,
 			note: node.note ?? ''
 		});

@@ -92,6 +92,17 @@ When todos are nested under todos, checked state cascades both ways:
 Status: implemented 2026-07-10 in `src/lib/blocks/cascade.ts` as pure,
 UI-independent logic with Vitest coverage.
 
+## Literal Code Paste And Preview Collapse (decided 2026-07-15)
+
+- Code blocks insert `text/plain` from the clipboard directly and read rendered
+  text with `innerText`, preserving spaces, tabs, blank lines and line breaks.
+- Code uses literal whitespace, tabs rendered at 4 spaces, and horizontal scroll
+  instead of wrapping long lines.
+- Code longer than 12 lines offers a separate preview collapse. Collapsed mode
+  shows the first 6 lines and persists in `codeCollapsed`; it must not reuse the
+  outline's `collapsed` field or hide nested child blocks.
+- No syntax-highlighting or editor dependency is added.
+
 ## Acceptance Criteria
 
 - Writing feels fast and does not require opening many panels.
@@ -99,6 +110,8 @@ UI-independent logic with Vitest coverage.
 - Drag and drop does not corrupt ordering or parent-child relationships.
 - Collapse/expand hides and shows child blocks predictably.
 - Slash command menu is discoverable and keyboard-friendly.
+- Code paste preserves whitespace exactly and long-code preview collapse does
+  not affect child visibility.
 - The editor code is separated from pure block hierarchy logic.
 - The app remains prepared to integrate TipTap, Lexical, or another editor later if needed.
 

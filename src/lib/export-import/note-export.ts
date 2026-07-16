@@ -25,6 +25,11 @@ function noteLines(block, indent) {
 	return block.note.split('\n').map((line) => indent + '  ' + line);
 }
 
+function markdownCodeFence(content) {
+	const longest = Math.max(0, ...(content.match(/`+/g) ?? []).map((run) => run.length));
+	return '`'.repeat(Math.max(3, longest + 1));
+}
+
 function markdownListLines(node, depth) {
 	const { block } = node;
 	const indent = '  '.repeat(depth);
@@ -32,7 +37,10 @@ function markdownListLines(node, depth) {
 	if (block.type === 'bullet') lines = [indent + '- ' + block.content];
 	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${block.content}`];
 	else if (block.type === 'separator') lines = [indent + '---'];
-	else lines = block.content.split('\n').map((line) => indent + line);
+	else if (block.type === 'code') {
+		const fence = markdownCodeFence(block.content);
+		lines = [fence, ...block.content.split('\n'), fence].map((line) => indent + line);
+	} else lines = block.content.split('\n').map((line) => indent + line);
 	lines = lines.concat(noteLines(block, indent));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, depth + 1));
 	return lines;
@@ -43,7 +51,10 @@ function markdownRootChunk(node) {
 	if (block.type === 'bullet' || block.type === 'todo') return markdownListLines(node, 0).join('\n');
 	let lines;
 	if (block.type === 'separator') lines = ['---'];
-	else if (block.type === 'code') lines = ['```', block.content, '```'];
+	else if (block.type === 'code') {
+		const fence = markdownCodeFence(block.content);
+		lines = [fence, block.content, fence];
+	}
 	else lines = [block.content];
 	lines = lines.concat(noteLines(block, ''));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, 1));

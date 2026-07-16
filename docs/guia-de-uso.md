@@ -2,12 +2,12 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-12 (sección completa "Dar formato al texto": barra flotante, títulos, negrita/cursiva/subrayado/tachado/código, enlaces, colores y "Más opciones").
+Última actualización: 2026-07-16 (editor móvil más compacto; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`).
 
 ## Lo básico
 
 - **Tus notas viven en este dispositivo.** No hay cuenta ni nube: todo se guarda automáticamente en el navegador.
-- **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar.
+- **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar. Aunque cierres la pestaña o recargues justo después de escribir, las últimas teclas no se pierden: quedan anotadas y se aplican al volver a abrir.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 - **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.
@@ -22,6 +22,7 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 
 - **Lista de notas a pantalla casi completa.** En el celular, el botón de panel (arriba a la izquierda) abre la lista de notas como un panel grande que cubre casi toda la pantalla, con un fondo oscuro detrás. Tocás afuera o la tecla Escape para cerrarla.
 - **Botones siempre visibles.** En pantallas táctiles, los botones de cada snippet y etiqueta (favorito, insertar, etiquetar, renombrar, borrar) se ven siempre, sin necesidad de pasar el mouse.
+- **Más lugar para cada renglón.** El editor deja menos espacio vacío alrededor del texto. Al tocar un renglón, los botones para copiar y abrir más acciones aparecen uno debajo del otro a la derecha, para ocupar menos ancho.
 - **Navegación con teclado.** Mientras el panel está abierto en el teléfono, el foco del teclado se queda dentro y vuelve al botón que lo abrió al cerrarlo.
 
 ## La primera vez
@@ -47,16 +48,18 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 - **Texto** — renglón común.
 - **Viñeta** — punto de lista, estilo Workflowy.
 - **Tarea** — casilla para tildar; al tildarla el texto queda tachado.
-- **Código** — fondo gris y letra de máquina, para pegar código o comandos.
+- **Código** — fondo gris y letra de máquina, para pegar código o comandos sin perder líneas ni sangría.
 - **Separador** — línea horizontal para dividir secciones.
 
 ### Cómo cambiar el tipo
 
-- Escribí **`/`** al inicio de un renglón vacío: se abre un menú con los tipos. Filtrá escribiendo (ej. `/ta` para Tarea), movete con **↑ ↓**, elegí con **Enter**, cancelá con **Escape**.
+- Escribí **`/`** al inicio de un renglón vacío: se abre un menú amplio con los tipos. **H1, H2 y H3 comparten una sola fila** para dejar más opciones a la vista. Filtrá escribiendo (ej. `/ta` para Tarea), movete con **↑ ↓**, elegí con **Enter** y cancelá con **Escape**.
 - Atajo escrito: **`- `** o **`* `** (guion o asterisco, y espacio) al inicio de un renglón de texto lo convierte en viñeta.
 - Atajo escrito para etiquetar: escribí **`#`** en un renglón y se abre el selector de etiquetas de ese renglón (el `#` no queda escrito, es solo el gatillo).
 
 ## Escribir y organizar
+
+- **Más espacio para escribir.** La columna del editor ocupa hasta el 95% del espacio disponible en pantallas grandes y el 100% en celulares.
 
 | Tecla | Qué hace |
 |---|---|
@@ -77,8 +80,16 @@ Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…)
 
 - Cada línea que pegás se vuelve un renglón.
 - **Reconoce viñetas y tareas** por cómo empieza la línea: `- `, `* ` o `• ` → viñeta; `[ ]` o `[x]` → tarea (con su tilde). El resto queda como texto.
-- Las **líneas en blanco se ignoran** (no dejan renglones vacíos).
+- En texto y listas, las **líneas en blanco se ignoran** (no dejan renglones vacíos). Dentro de un bloque de código sí se conservan.
 - Pegar **una sola línea** funciona normal, se inserta donde está el cursor.
+
+### Pegar y contraer código
+
+- Si pegás varias líneas en un renglón vacío y CopyNotes encuentra señales claras de código, las convierte automáticamente en **un solo bloque de código**. Si no está seguro, las deja como texto para no cambiarte el contenido por error.
+- También podés elegir **Código** con `/codigo` antes de pegar. En ese bloque se conservan los espacios, las tabulaciones, las líneas vacías y los saltos de línea tal como vienen del portapapeles.
+- Las líneas largas no se parten: desplazate horizontalmente dentro del bloque para verlas completas. Una tabulación se muestra con el ancho de 4 espacios.
+- Cuando el código supera las 12 líneas aparece un control debajo. Tocá **Contraer código** para dejar una vista de las primeras 6 líneas, o **Ver código completo** para abrirlo otra vez. CopyNotes recuerda esa elección al recargar la nota, y también al copiar el bloque y pegarlo en otra parte de CopyNotes.
+- Con el teclado, ese control se comporta como cualquier renglón: **Enter** crea un renglón nuevo debajo, **Tab** lo anida, **Alt+↑/↓** lo mueve y las flechas te llevan al renglón vecino. Para abrir o contraer el código desde el teclado usá la **barra espaciadora**.
 
 **Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes y los pegás en otra parte de CopyNotes, se pegan **igualitos**: viñetas, tareas (con su tildado), **código**, **separadores**, **etiquetas** y el **anidado**. Cuando pegás en otra app, sale como texto normal.
 
@@ -263,7 +274,7 @@ Al lado del título, al pasar el mouse, aparece un **icono de etiqueta**. Al toc
 
 ### Etiquetar un renglón
 
-Al pasar el mouse por un renglón, tocá los **tres puntitos ⋯** y elegí **Etiquetar** (o el atajo: escribir `#` en el renglón). Mismo buscador. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
+Al pasar el mouse por un renglón, tocá los **tres puntitos ⋯** y elegí **Etiquetar** (o el atajo: escribir `#` en el renglón). El `#` se oculta mientras está abierto el buscador: si elegís o creás una etiqueta, se usa como atajo y no queda en el texto; si cerrás el buscador sin elegir ninguna (con **Escape** o un click afuera), vuelve al renglón como carácter común. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
 
 ### Etiquetar un snippet
 
@@ -313,7 +324,7 @@ Tus notas viven en el navegador de este dispositivo. Si borrás los datos del na
 ### Exportar
 
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
-- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar.
+- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista.
 - **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas y niveles de verdad.
 
 Todo funciona sin internet.

@@ -2,6 +2,7 @@
 export { db } from './db';
 export { createId, now } from './ids';
 export { createNote, getNote, listNotes, updateNote, softDeleteNote } from './notes';
+export { writeJournal, clearJournal, replayJournal } from './journal';
 export {
 	createBlock,
 	putBlock,

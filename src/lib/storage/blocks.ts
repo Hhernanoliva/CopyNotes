@@ -12,6 +12,7 @@ export async function createBlock(fields) {
 		content = '',
 		html,
 		collapsed = false,
+		codeCollapsed = false,
 		checked = false,
 		note = ''
 	} = fields;
@@ -30,6 +31,7 @@ export async function createBlock(fields) {
 		html: html ?? plainTextToHtml(content),
 		order,
 		collapsed,
+		codeCollapsed,
 		checked,
 		note,
 		createdAt: timestamp,

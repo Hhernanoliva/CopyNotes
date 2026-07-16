@@ -21,6 +21,7 @@
 		listTags,
 		listTagsForMany,
 		renameTag,
+		replayJournal,
 		setDemoNoteCreated,
 		setHasCompletedOnboarding,
 		setLastOpenedNoteId,
@@ -65,6 +66,9 @@
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
+			// Writes the previous page journaled while dying (reload/close inside
+			// the save debounce) must land before anything reads.
+			await replayJournal();
 			let [rows, lastId, snippetRows] = await Promise.all([
 				listNotes(),
 				getLastOpenedNoteId(),
@@ -148,6 +152,10 @@
 	}
 
 	async function newNote() {
+		// Leave the current note synchronously: creating the new one hits the
+		// database, and anything typed meanwhile would land on the note that is
+		// still on screen (e.g. its title renames the old note).
+		currentNoteId = null;
 		const note = await createNote();
 		await createBlock({ noteId: note.id, type: 'text' });
 		notes = [note, ...notes];
@@ -358,7 +366,10 @@
 
 		<main id="contenido-principal" tabindex="-1" class="flex-1 overflow-y-auto focus-visible:outline-none">
 			{#if loading}
-				<div class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14" aria-hidden="true">
+				<div
+					class="mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14"
+					aria-hidden="true"
+				>
 					<div class="bg-muted h-10 w-2/3 animate-pulse rounded-md"></div>
 					<div class="bg-muted mt-8 h-5 w-full animate-pulse rounded-md"></div>
 					<div class="bg-muted mt-3 h-5 w-5/6 animate-pulse rounded-md"></div>

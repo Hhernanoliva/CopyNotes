@@ -55,6 +55,30 @@ describe('noteToMarkdown', () => {
 		);
 	});
 
+	it('fences code blocks nested under a bullet', () => {
+		const blocks = [
+			block('a', { type: 'bullet', content: 'Padre', order: 0 }),
+			block('b', {
+				type: 'code',
+				content: 'const x = 1;\nconsole.log(x);',
+				parentBlockId: 'a',
+				order: 0
+			})
+		];
+		expect(noteToMarkdown(note, blocks)).toContain(
+			'- Padre\n  ```\n  const x = 1;\n  console.log(x);\n  ```'
+		);
+	});
+
+	it('uses a longer fence when code already contains Markdown fences', () => {
+		const blocks = [
+			block('a', { type: 'code', content: '```js\nconst ready = true;\n```', order: 0 })
+		];
+		expect(noteToMarkdown(note, blocks)).toContain(
+			'````\n```js\nconst ready = true;\n```\n````'
+		);
+	});
+
 	it('keeps collapsed children in the export', () => {
 		const blocks = [
 			block('a', { content: 'Padre', collapsed: true, order: 0 }),

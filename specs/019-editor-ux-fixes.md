@@ -155,6 +155,10 @@ each forest root). External paste has no such payload and falls back to the line
 parser below. Pure serialize/deserialize in `copy/serialize.ts` under Vitest.
 
 **Behaviour (external text):**
+- Extension approved 2026-07-15: when the current block is empty and a
+  conservative detector finds clear multi-line code signals, preserve the whole
+  clipboard text as one `code` block. Prose, bullets, todos and uncertain input
+  continue through the normal line parser below.
 - Add a `paste` handler on the block editable. If the clipboard's plain text has
   **no** newline → let the browser paste inline (normal single-line paste).
 - If it has newlines → `preventDefault`, then:
@@ -246,7 +250,8 @@ simpler/safer than replicating per-keystroke native undo.
   note; plain Enter still makes a new block. Soft breaks survive reload and copy
   cleanly to plain text and HTML.
 - Multi-line paste yields one block per non-empty line, with bullets and todos
-  recognised; single-line paste stays inline.
+  recognised; clearly detected code stays in one literal code block; single-line
+  paste stays inline.
 - Undo/Redo reverse and replay text and structural changes for the current note,
   persist correctly to storage, and restore focus. Switching notes resets
   history without corrupting either note.

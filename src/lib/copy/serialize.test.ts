@@ -16,10 +16,20 @@ describe('treeToNode', () => {
 			content: 'padre',
 			html: '',
 			checked: false,
+			codeCollapsed: false,
 			note: 'nota',
 			tags: ['trabajo'],
 			children: [
-				{ type: 'todo', content: 'hijo', html: '', checked: true, note: '', tags: [], children: [] }
+				{
+					type: 'todo',
+					content: 'hijo',
+					html: '',
+					checked: true,
+					codeCollapsed: false,
+					note: '',
+					tags: [],
+					children: []
+				}
 			]
 		});
 	});
@@ -35,6 +45,11 @@ describe('treeToNode', () => {
 
 	it('defaults html to an empty string when the block has none', () => {
 		expect(treeToNode(tree({ id: 'a', type: 'text', content: 'x' })).html).toBe('');
+	});
+
+	it('carries codeCollapsed so a pasted long code block keeps its preview state', () => {
+		expect(treeToNode(tree({ id: 'a', type: 'code', content: 'x', codeCollapsed: true })).codeCollapsed).toBe(true);
+		expect(treeToNode(tree({ id: 'b', type: 'text', content: 'y' })).codeCollapsed).toBe(false);
 	});
 });
 

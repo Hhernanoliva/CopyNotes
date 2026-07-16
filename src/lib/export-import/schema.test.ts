@@ -61,6 +61,17 @@ function makeBackup(data = {}, overrides = {}) {
 }
 
 describe('validateBackup', () => {
+	it('keeps the long-code preview state in a valid backup', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote()],
+				blocks: [makeBlock({ type: 'code', codeCollapsed: true })]
+			})
+		);
+		expect(result.ok).toBe(true);
+		expect(result.backup.data.blocks[0].codeCollapsed).toBe(true);
+	});
+
 	it('accepts a valid backup with nested blocks, tags, and settings', () => {
 		const backup = makeBackup({
 			notes: [makeNote()],

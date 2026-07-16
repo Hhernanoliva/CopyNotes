@@ -1,3 +1,8 @@
+<script module>
+	// Shared across every row; an Intl formatter is expensive to build.
+	const codeLineFormatter = new Intl.NumberFormat('es');
+</script>
+
 <script>
 	import { tick } from 'svelte';
 	import { ChevronRight, Check, Copy } from '@lucide/svelte';
@@ -6,7 +11,12 @@
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { CLIPBOARD_FORMAT, deserializeForest, recallCopy } from '$lib/copy/serialize';
+	import {
+		CLIPBOARD_FORMAT,
+		deserializeForest,
+		normalizeNewlines,
+		recallCopy
+	} from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
 
 	let {
@@ -28,6 +38,7 @@
 		onMoveUp,
 		onMoveDown,
 		onToggleCollapsed,
+		onToggleCodeCollapsed,
 		onToggleChecked,
 		onCopy,
 		onSaveSnippet,
@@ -49,11 +60,13 @@
 		onVerticalArrow,
 		onPasteLines,
 		onPasteBlocks,
+		onPasteCode,
 		onRequestLink
 	} = $props();
 
 	let el = $state();
 	let noteEl = $state();
+	let codeToggleEl = $state();
 	// The secondary note editor shows once it has content or the user is adding
 	// one via Shift+Enter (editor UX pass, slice B).
 	let showNote = $state(false);
@@ -62,6 +75,15 @@
 	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
 	// literal plain text (code needs exact whitespace, separator has no content).
 	const isRich = $derived(block.type !== 'code' && block.type !== 'separator');
+	const codeLines = $derived(
+		block.type === 'code' && (block.content ?? '') !== ''
+			? normalizeNewlines(block.content).split('\n')
+			: []
+	);
+	const codeLineCount = $derived(codeLines.length);
+	const isLongCode = $derived(codeLineCount > 12);
+	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
+	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
 
 	// Sync DOM only when state and DOM diverge (e.g. slash command strips the
 	// "/query" text). While the user types they always match, so the caret is
@@ -76,7 +98,7 @@
 			} else if (el.textContent !== (block.content ?? '')) {
 				el.textContent = block.content ?? '';
 			}
-		} else if (el.textContent !== block.content) {
+		} else if (el.innerText !== (block.content ?? '')) {
 			el.textContent = block.content;
 		}
 	});
@@ -102,17 +124,33 @@
 		onNoteInput(block, noteEl.textContent);
 	}
 
+	// The one definition of this block's focus target: the editable when it is
+	// rendered, else the collapsed-code toggle. caretToEnd also parks the caret
+	// at the end of the content.
+	function focusBlockSurface(caretToEnd = false) {
+		if (!el) {
+			codeToggleEl?.focus();
+			return;
+		}
+		el.focus();
+		if (caretToEnd && block.type !== 'separator') {
+			const selection = window.getSelection();
+			selection.selectAllChildren(el);
+			selection.collapseToEnd();
+		}
+	}
+
 	function handleNoteKeydown(event) {
 		if (event.key === 'Backspace' && noteEl.textContent === '') {
 			event.preventDefault();
 			onNoteInput(block, '');
 			showNote = false;
-			el.focus();
+			focusBlockSurface();
 			return;
 		}
 		if (event.key === 'Escape') {
 			event.preventDefault();
-			el.focus();
+			focusBlockSurface();
 		}
 	}
 
@@ -122,15 +160,10 @@
 	}
 
 	$effect(() => {
-		if (focused && el) {
-			el.focus();
-			if (block.type !== 'separator') {
-				const selection = window.getSelection();
-				selection.selectAllChildren(el);
-				selection.collapseToEnd();
-			}
-			onFocusHandled();
-		}
+		if (!focused) return;
+		if (!el && !codeToggleEl) return;
+		focusBlockSurface(true);
+		onFocusHandled();
 	});
 
 	function handleKeydown(event) {
@@ -180,10 +213,27 @@
 			handleInput();
 			return;
 		}
+		if (handleSurfaceKeys(event)) return;
+		if (event.key === 'Backspace' && (block.type === 'separator' || el.textContent === '')) {
+			event.preventDefault();
+			onBackspaceEmpty(block);
+		}
+	}
+
+	// Block-level keys shared by every focusable surface of the row (the
+	// editable, the separator, the collapsed-code toggle): Enter makes a new
+	// block, Tab indents, bare arrows navigate, Alt+arrows move the block.
+	function handleSurfaceKeys(event) {
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			event.preventDefault();
 			onEnter(block);
-			return;
+			return true;
+		}
+		if (event.key === 'Tab') {
+			event.preventDefault();
+			if (event.shiftKey) onOutdent(block);
+			else onIndent(block);
+			return true;
 		}
 		// Bare Up/Down cross to the neighbour block when the caret is at this
 		// block's visual edge (Editor decides); otherwise the browser moves the
@@ -197,48 +247,69 @@
 		) {
 			const direction = event.key === 'ArrowDown' ? 1 : -1;
 			if (onVerticalArrow?.(block, direction)) event.preventDefault();
-			return;
-		}
-		if (event.key === 'Tab') {
-			event.preventDefault();
-			if (event.shiftKey) onOutdent(block);
-			else onIndent(block);
-			return;
+			return true;
 		}
 		if (event.altKey && event.key === 'ArrowUp') {
 			event.preventDefault();
 			onMoveUp(block);
-			return;
+			return true;
 		}
 		if (event.altKey && event.key === 'ArrowDown') {
 			event.preventDefault();
 			onMoveDown(block);
-			return;
+			return true;
 		}
-		if (event.key === 'Backspace' && (block.type === 'separator' || el.textContent === '')) {
-			event.preventDefault();
-			onBackspaceEmpty(block);
-		}
+		return false;
 	}
 
 	function handleInput() {
+		let consumed = false;
 		if (isRich) {
 			const html = sanitizeHtml(el.innerHTML);
-			onInput(block, { html, content: htmlToPlainText(html) });
+			consumed = onInput(block, { html, content: htmlToPlainText(html) }) === true;
 		} else {
-			onInput(block, { html: el.textContent, content: el.textContent });
+			const text = el.innerText;
+			consumed = onInput(block, { html: text, content: text }) === true;
 		}
+		// Typed triggers such as "#" are commands, not content. The block may
+		// already be empty in state, so clear the live editable explicitly.
+		if (consumed) el.replaceChildren();
 	}
 
 	// Paste handling, in priority order:
 	// 1. CopyNotes' own copied content (hidden marker in the HTML) → rebuild the
 	//    exact blocks, types and nesting included.
-	// 2. External multi-line text → split into blocks, recognising bullets/todos.
-	// 3. A single line → let the browser paste it inline.
-	// Code blocks keep the browser's literal paste in every case.
+	// 2. External text that clearly looks like code → one literal code block.
+	// 3. Other multi-line text → split into blocks, recognising bullets/todos.
+	// 4. A single line → let the browser paste it inline.
+	// Code blocks always insert the raw clipboard text themselves so browser-made
+	// line wrappers cannot eat line breaks when the block is read back.
+	function insertCodeText(text) {
+		const selection = window.getSelection();
+		let range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+		if (!range || !el.contains(range.startContainer) || !el.contains(range.endContainer)) {
+			range = document.createRange();
+			range.selectNodeContents(el);
+			range.collapse(false);
+		}
+		range.deleteContents();
+		const inserted = document.createTextNode(text);
+		range.insertNode(inserted);
+		range.setStartAfter(inserted);
+		range.collapse(true);
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+		handleInput();
+	}
+
 	function handlePaste(event) {
-		if (block.type === 'code') return;
 		const text = event.clipboardData?.getData('text/plain') ?? '';
+		if (block.type === 'code') {
+			if (text === '') return;
+			event.preventDefault();
+			insertCodeText(text);
+			return;
+		}
 		// Prefer CopyNotes' own content: the custom clipboard format when the
 		// browser delivers it, else the localStorage buffer matched by exact text.
 		const payload = event.clipboardData?.getData(CLIPBOARD_FORMAT) || recallCopy(text);
@@ -250,6 +321,7 @@
 		}
 		if (!text.includes('\n')) return;
 		event.preventDefault();
+		if ((block.content ?? '') === '' && onPasteCode?.(block, text)) return;
 		onPasteLines?.(block, text);
 	}
 
@@ -266,13 +338,7 @@
 
 	// Return the caret to this block after a transient menu closes.
 	function focusContent() {
-		if (!el) return;
-		el.focus();
-		if (block.type !== 'separator') {
-			const selection = window.getSelection();
-			selection.selectAllChildren(el);
-			selection.collapseToEnd();
-		}
+		focusBlockSurface(true);
 	}
 
 	const ariaLabels = {
@@ -287,7 +353,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-block-id={block.id}
-	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-2 {selected
+	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-10 md:pr-2 {selected
 		? 'bg-primary/10'
 		: ''}"
 	style="padding-left: {depth * 1.5}rem"
@@ -347,6 +413,7 @@
 			bind:this={el}
 			role="separator"
 			tabindex="0"
+			data-block-surface
 			aria-label="Separador"
 			onkeydown={handleKeydown}
 			onmousedown={handleMousedown}
@@ -357,33 +424,68 @@
 		</div>
 	{:else}
 		<div class="flex min-w-0 flex-1 flex-col">
-			<div
-				bind:this={el}
-				contenteditable={isRich ? 'true' : 'plaintext-only'}
-				role="textbox"
-				tabindex="0"
-				aria-multiline="true"
-				aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
-				aria-haspopup="listbox"
-				aria-controls={slashOpen ? 'slash-menu' : undefined}
-				aria-activedescendant={slashOpen && slashCommands[slashIndex]
-					? `slash-option-${slashCommands[slashIndex].id}`
-					: undefined}
-				data-placeholder={placeholder}
-				onkeydown={handleKeydown}
-				oninput={handleInput}
-				onpaste={handlePaste}
-				onmousedown={handleMousedown}
-				onfocus={() => onActive(block)}
-				class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
-				'code'
-					? 'bg-muted rounded-md px-3 py-1 font-mono text-sm whitespace-pre-wrap'
-					: 'text-base'} {block.type === 'todo' && block.checked
-					? 'text-muted-foreground line-through'
-					: ''} {block.type === 'heading1' ? 'block-editable--h1' : ''} {block.type === 'heading2'
-					? 'block-editable--h2'
-					: ''} {block.type === 'heading3' ? 'block-editable--h3' : ''}"
-			></div>
+			{#if codeCollapsed}
+				<pre
+					id={`code-content-${block.id}`}
+					aria-label="Vista previa de código"
+					translate="no"
+					class="block-editable--code bg-muted min-h-7 w-full min-w-0 overflow-hidden rounded-t-md px-3 py-2 font-mono text-sm leading-6"
+				>{codePreview}</pre>
+			{:else}
+				<div
+					bind:this={el}
+					id={block.type === 'code' ? `code-content-${block.id}` : undefined}
+					contenteditable={isRich ? 'true' : 'plaintext-only'}
+					role="textbox"
+					tabindex="0"
+					data-block-surface
+					aria-multiline="true"
+					aria-label={ariaLabels[block.type] ?? 'Bloque de texto'}
+					aria-haspopup="listbox"
+					aria-controls={slashOpen ? 'slash-menu' : undefined}
+					aria-activedescendant={slashOpen && slashCommands[slashIndex]
+						? `slash-option-${slashCommands[slashIndex].id}`
+						: undefined}
+					data-placeholder={placeholder}
+					spellcheck={block.type === 'code' ? false : undefined}
+					autocapitalize={block.type === 'code' ? 'off' : undefined}
+					translate={block.type === 'code' ? 'no' : undefined}
+					onkeydown={handleKeydown}
+					oninput={handleInput}
+					onpaste={handlePaste}
+					onmousedown={handleMousedown}
+					onfocus={() => onActive(block)}
+					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
+					'code'
+						? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-6 ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
+						: 'text-base'} {block.type === 'todo' && block.checked
+						? 'text-muted-foreground line-through'
+						: ''} {block.type === 'heading1' ? 'block-editable--h1' : ''} {block.type === 'heading2'
+						? 'block-editable--h2'
+						: ''} {block.type === 'heading3' ? 'block-editable--h3' : ''}"
+				></div>
+			{/if}
+			{#if isLongCode}
+				<button
+					bind:this={codeToggleEl}
+					type="button"
+					data-block-surface
+					onclick={() => onToggleCodeCollapsed(block)}
+					onkeydown={handleSurfaceKeys}
+					onfocus={() => onActive(block)}
+					aria-controls={`code-content-${block.id}`}
+					aria-expanded={!codeCollapsed}
+					class="bg-muted text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-11 w-full items-center gap-2 rounded-b-md border-t px-3 text-xs transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+				>
+					<ChevronRight
+						size={13}
+						aria-hidden="true"
+						class="transition-transform duration-(--motion-fast) {codeCollapsed ? '' : 'rotate-90'}"
+					/>
+					<span>{codeCollapsed ? 'Ver código completo' : 'Contraer código'}</span>
+					<span class="ml-auto tabular-nums">{codeLineFormatter.format(codeLineCount)} líneas</span>
+				</button>
+			{/if}
 			{#if noteVisible}
 				<div
 					bind:this={noteEl}
@@ -412,7 +514,7 @@
 	     menu (editor UX pass). Hidden until hover/keyboard focus so the page
 	     stays quiet. mousedown+preventDefault keeps the caret in the block. -->
 	<div
-		class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100"
+		class="pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
 	>
 		<button
 			type="button"
@@ -461,4 +563,14 @@
 		color: var(--text-faint);
 		pointer-events: none;
 	}
+
+	.block-editable--code {
+		overflow-x: auto;
+		overflow-y: hidden;
+		white-space: pre;
+		overflow-wrap: normal;
+		word-break: normal;
+		tab-size: 4;
+	}
+
 </style>

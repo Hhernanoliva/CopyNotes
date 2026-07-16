@@ -176,8 +176,14 @@
 	--motion-overlay: 240ms;
 	--motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 	--editor-indent: 1.5rem;
-	--editor-max-width: 44rem;
+	--editor-max-width: 95%;
 	--touch-target: 2.75rem; /* 44px minimum */
+}
+
+@media (max-width: 47.999rem) {
+	:root {
+		--editor-max-width: 100%;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {

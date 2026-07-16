@@ -111,6 +111,7 @@ Optional or prepared fields:
   "content": "Write a reusable intro",
   "order": 1000,
   "collapsed": false,
+  "codeCollapsed": false,
   "checked": false,
   "createdAt": "2026-07-09T19:01:00.000Z",
   "updatedAt": "2026-07-09T19:15:00.000Z",
@@ -145,11 +146,18 @@ Required fields:
 - `updatedAt`
 - `deletedAt`
 
+Optional fields:
+
+- `codeCollapsed` — whether a long code block is showing its 6-line preview.
+  Missing values from older backups are treated as `false`.
+
 Notes:
 
 - `parentBlockId` is `null` for top-level blocks.
 - `order` should leave space between siblings, such as `1000`, `2000`, `3000`, so inserting between blocks is easier.
 - `checked` should be `false` for non-todo blocks.
+- `codeCollapsed` is independent from `collapsed`; previewing long code must not
+  hide nested child blocks.
 - `content` can be an empty string for separators.
 
 ### Snippet

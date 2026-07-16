@@ -28,6 +28,7 @@ describe('blocks repository', () => {
 		expect(first.order).toBe(0);
 		expect(second.order).toBe(1);
 		expect(first.collapsed).toBe(false);
+		expect(first.codeCollapsed).toBe(false);
 		expect(first.checked).toBe(false);
 	});
 

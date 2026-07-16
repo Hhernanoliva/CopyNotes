@@ -44,12 +44,28 @@ describe('planSnippetInsertion', () => {
 				html: 'Hola equipo',
 				order: 1,
 				collapsed: false,
+				codeCollapsed: false,
 				checked: false,
 				note: ''
 			}
 		]);
 		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);
 		expect(plan.focusId).toBe('new-0');
+	});
+
+	it('preserves codeCollapsed from the snapshot and defaults it to false', () => {
+		const blocks = [existingBlock('a', 0)];
+		const codeSnippet = {
+			name: 'Code',
+			content: 'x',
+			blockSnapshot: { type: 'code', content: 'x', codeCollapsed: true, children: [] }
+		};
+		const plan = planSnippetInsertion(blocks, codeSnippet, {
+			noteId: 'note-1',
+			afterId: 'a',
+			createId: counterIds()
+		});
+		expect(plan.newBlocks[0].codeCollapsed).toBe(true);
 	});
 
 	it('backfills html from content when the snippet/snapshot has no html', () => {

@@ -16,7 +16,9 @@
 		softDeleteBlocks,
 		unassignTag,
 		updateBlock,
-		updateNote
+		updateNote,
+		writeJournal,
+		clearJournal
 	} from '$lib/storage';
 	import {
 		selectionRange,
@@ -48,7 +50,7 @@
 	import { toast } from 'svelte-sonner';
 	import { filterCommands, moveSelection } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
-	import { parsePastedLines } from './paste';
+	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
 	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
@@ -119,18 +121,25 @@
 	});
 
 	// Debounced writes per entity; flushed on unmount so nothing is lost
-	// when the user switches notes quickly.
+	// when the user switches notes quickly. Each entry also carries a plain
+	// journal payload ({ table, id, changes }) because the last-chance path
+	// below cannot run the async save closures.
 	const pending = new Map();
 
-	function scheduleSave(key, save) {
+	function scheduleSave(key, save, journal) {
 		onSaveStateChange('saving');
 		const existing = pending.get(key);
 		if (existing) clearTimeout(existing.timer);
+		// The entry leaves the map only after its write really finished, so the
+		// journal still covers a save that is in flight when the page dies (the
+		// browser discards unfinished IndexedDB writes on unload). The identity
+		// check protects a newer entry that replaced this one meanwhile.
 		const entry = {
 			save,
+			journal,
 			timer: setTimeout(async () => {
-				pending.delete(key);
 				await save();
+				if (pending.get(key) === entry) pending.delete(key);
 				if (pending.size === 0) onSaveStateChange('saved');
 			}, 500)
 		};
@@ -138,18 +147,56 @@
 	}
 
 	function flushPending() {
+		const saves = [];
 		for (const [key, entry] of pending) {
 			clearTimeout(entry.timer);
-			entry.save();
-			pending.delete(key);
+			// Saves are plain field updates, so re-running one that the timer
+			// already started is harmless.
+			saves.push(
+				entry.save().then(() => {
+					if (pending.get(key) === entry) pending.delete(key);
+				})
+			);
 		}
+		return Promise.all(saves);
+	}
+
+	function persistJournal() {
+		writeJournal([...pending.values()].map((entry) => entry.journal).filter(Boolean));
 	}
 
 	$effect(() => () => flushPending());
 
+	// A reload/close/navigation never unmounts the component, so the unmount
+	// flush above cannot run — and IndexedDB writes started while the page
+	// unloads are discarded by the browser anyway. The journal in localStorage
+	// is synchronous, survives unload, and is replayed on the next boot. A
+	// hidden tab may later be killed without pagehide (mobile), so it journals
+	// too, then clears once its flushed saves have really landed.
+	$effect(() => {
+		const journalOnPageHide = () => persistJournal();
+		const flushWhenHidden = async () => {
+			if (document.visibilityState !== 'hidden') return;
+			persistJournal();
+			await flushPending();
+			clearJournal();
+		};
+		window.addEventListener('pagehide', journalOnPageHide);
+		document.addEventListener('visibilitychange', flushWhenHidden);
+		return () => {
+			window.removeEventListener('pagehide', journalOnPageHide);
+			document.removeEventListener('visibilitychange', flushWhenHidden);
+		};
+	});
+
 	$effect(() => {
 		const id = noteId;
 		let cancelled = false;
+		// Hide the previous note while the next one loads. Leaving its rows and
+		// title visible lets fast typing land edits on the wrong note (the load
+		// window widens under I/O contention — caught by the e2e suite).
+		note = null;
+		blocks = [];
 		(async () => {
 			const [loadedNote, loadedBlocks] = await Promise.all([getNote(id), listBlocksByNote(id)]);
 			if (cancelled) return;
@@ -225,10 +272,14 @@
 	function handleTitleInput(event) {
 		const title = event.currentTarget.value;
 		note.title = title;
-		scheduleSave(`title:${note.id}`, async () => {
-			await updateNote(note.id, { title });
-			onNoteUpdated(note.id, { title });
-		});
+		scheduleSave(
+			`title:${note.id}`,
+			async () => {
+				await updateNote(note.id, { title });
+				onNoteUpdated(note.id, { title });
+			},
+			{ table: 'notes', id: note.id, changes: { title } }
+		);
 	}
 
 	function handleTitleKeydown(event) {
@@ -268,15 +319,20 @@
 		}
 		if (trigger?.kind === 'tag') {
 			// Drop the "#" and open the tag picker anchored to this block.
+			cancelPending(`block:${block.id}`);
 			block.content = '';
 			block.html = '';
 			updateBlock(block.id, { content: '', html: '' });
-			tagPickerFor = { type: 'block', id: block.id };
-			return;
+			tagPickerFor = { type: 'block', id: block.id, restoreHash: true };
+			return true;
 		}
 		block.content = text;
 		block.html = html;
-		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text, html }));
+		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text, html }), {
+			table: 'blocks',
+			id: block.id,
+			changes: { content: text, html }
+		});
 	}
 
 	// Convert a block to a different type (e.g. heading) via the format engine's
@@ -459,7 +515,11 @@
 	function handleNoteInput(block, text) {
 		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
-		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }));
+		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }), {
+			table: 'blocks',
+			id: block.id,
+			changes: { note: text }
+		});
 	}
 
 	// A new block keeps list-like types going; code and separators hand
@@ -543,6 +603,30 @@
 			afterId = created.id;
 		}
 		focusBlockId = afterId;
+	}
+
+	// An external multi-line paste with clear syntax signals becomes one literal
+	// code block. The detector is intentionally conservative: returning false
+	// hands the same text back to the normal multi-line parser.
+	function handlePasteCode(block, text) {
+		if (!looksLikeCodePaste(text)) return false;
+		recordSnapshot();
+		cancelPending(`block:${block.id}`);
+		if (slash?.blockId === block.id) slash = null;
+		block.type = 'code';
+		block.content = text;
+		block.html = text;
+		block.checked = false;
+		block.codeCollapsed = false;
+		updateBlock(block.id, {
+			type: 'code',
+			content: text,
+			html: text,
+			checked: false,
+			codeCollapsed: false
+		});
+		focusBlockId = block.id;
+		return true;
 	}
 
 	// Paste of CopyNotes' own copied content: rebuild the exact blocks (types,
@@ -656,6 +740,12 @@
 		await updateBlock(block.id, { collapsed: block.collapsed });
 	}
 
+	async function handleToggleCodeCollapsed(block) {
+		recordSnapshot();
+		block.codeCollapsed = !(block.codeCollapsed ?? false);
+		await updateBlock(block.id, { codeCollapsed: block.codeCollapsed });
+	}
+
 	async function handleCopy(block, withChildren) {
 		const tree = buildCopyTree(blocks, block.id, withChildren);
 		try {
@@ -746,9 +836,7 @@
 		const neighborId = neighborVisibleId(blocks, block.id, direction);
 		if (!neighborId) return false;
 		const x = caretColumnX();
-		const el = document.querySelector(
-			`[data-block-id="${neighborId}"] [contenteditable], [data-block-id="${neighborId}"] [role="separator"]`
-		);
+		const el = document.querySelector(`[data-block-id="${neighborId}"] [data-block-surface]`);
 		if (!(el instanceof HTMLElement)) return false;
 		el.focus();
 		if (el.getAttribute('contenteditable') !== null) {
@@ -833,16 +921,25 @@
 		event.preventDefault();
 		event.stopPropagation();
 	}
+	// Every focusable block surface (editable, separator, collapsed-code toggle)
+	// carries data-block-surface, so new block controls only need the attribute.
+	// isContentEditable stays so the note editable keeps undo/copy handling.
+	function isBlockKeyboardTarget(target) {
+		return (
+			target instanceof HTMLElement &&
+			(target.isContentEditable || target.hasAttribute('data-block-surface'))
+		);
+	}
 	function handleSelectionKeys(event) {
-		// Undo/redo win over everything, but only inside a block editable — the
-		// note title is a plain <input> and keeps its own native undo.
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+		// Undo/redo win over everything inside a block or its collapsed-code
+		// control. The note title is a plain <input> and keeps native undo.
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && isBlockKeyboardTarget(event.target)) {
 			claim(event);
 			if (event.shiftKey) restore(history.redo(currentSnapshot()));
 			else restore(history.undo(currentSnapshot()));
 			return;
 		}
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y' && event.target instanceof HTMLElement && event.target.isContentEditable) {
+		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y' && isBlockKeyboardTarget(event.target)) {
 			claim(event);
 			restore(history.redo(currentSnapshot()));
 			return;
@@ -859,12 +956,13 @@
 			(event.metaKey || event.ctrlKey) &&
 			event.key.toLowerCase() === 'c' &&
 			!hasSelection &&
-			event.target instanceof HTMLElement &&
-			(event.target.isContentEditable || event.target.getAttribute('role') === 'separator')
+			isBlockKeyboardTarget(event.target)
 		) {
 			const sel = window.getSelection();
 			const activeBlock = activeBlockId && blocks.find((block) => block.id === activeBlockId);
-			if ((!sel || sel.isCollapsed) && activeBlock) {
+			const wholeBlockControl =
+				!event.target.isContentEditable && event.target.hasAttribute('data-block-surface');
+			if ((wholeBlockControl || !sel || sel.isCollapsed) && activeBlock) {
 				claim(event);
 				handleCopy(activeBlock, false);
 			}
@@ -918,9 +1016,19 @@
 
 	// Closing a picker must hand focus back to where the user was, otherwise
 	// Escape drops the caret to <body> and they have to click back in.
+	// Any close without a pick (Escape, click outside) returns the typed "#";
+	// handleTagPick clears restoreHash the moment a tag is confirmed.
 	function closeTagPicker() {
 		const target = tagPickerFor;
 		tagPickerFor = null;
+		if (target?.type === 'block' && target.restoreHash) {
+			const block = blocks.find((row) => row.id === target.id);
+			if (block) {
+				block.content = '#';
+				block.html = plainTextToHtml('#');
+				updateBlock(block.id, { content: block.content, html: block.html });
+			}
+		}
 		if (target?.type === 'block') focusBlockId = target.id;
 		else if (target?.type === 'note') titleEl?.focus();
 	}
@@ -930,6 +1038,9 @@
 	async function handleTagPick(option) {
 		const target = tagPickerFor;
 		if (!target) return;
+		// Enter/click confirms the choice immediately. Do not let a quick Escape
+		// restore "#" while the local database finishes creating the tag.
+		if (target.restoreHash) tagPickerFor = { ...target, restoreHash: false };
 		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
 		if (!tag) return;
 		if (option.kind === 'tag' && option.assigned) {
@@ -1081,7 +1192,7 @@
 {#if note}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="mx-auto w-full max-w-(--editor-max-width) px-6 py-10 md:py-14 {dragging
+		class="mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14 {dragging
 			? 'select-none'
 			: ''}"
 		onkeydowncapture={handleSelectionKeys}
@@ -1150,6 +1261,7 @@
 					onMoveUp={handleMoveUp}
 					onMoveDown={handleMoveDown}
 					onToggleCollapsed={handleToggleCollapsed}
+					onToggleCodeCollapsed={handleToggleCodeCollapsed}
 					onToggleChecked={handleToggleChecked}
 					onCopy={handleCopy}
 					onSaveSnippet={handleSaveSnippet}
@@ -1174,6 +1286,7 @@
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
+					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
 					onFocusHandled={() => (focusBlockId = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
