@@ -11,7 +11,10 @@ export const AGENDA_GROUPS = [
 	{ id: 'later', label: 'Más adelante' }
 ];
 
-// "Esta semana" ends next Sunday (inclusive). getDay(): 0 = Sunday.
+// "Esta semana" ends on the CURRENT week's Sunday (inclusive). getDay():
+// 0 = Sunday. On Saturday (7-dow)%7 is 1 and on Sunday it is 0, so the 'week'
+// bucket is empty on weekends BY DESIGN (product decision 2026-07-16):
+// "Esta semana" never shows next week's days — those belong to "Más adelante".
 function weekEnd(today) {
 	const [y, m, d] = today.split('-').map(Number);
 	const dow = new Date(y, m - 1, d).getDay();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupForAgenda } from './agenda';
+import { AGENDA_GROUPS, groupForAgenda } from './agenda';
 
 // 2026-07-16 is a Thursday; the week ends Sunday 2026-07-19.
 const TODAY = '2026-07-16';
@@ -48,5 +48,29 @@ describe('groupForAgenda', () => {
 	it('labels are the Spanish group names', () => {
 		const groups = groupForAgenda([block('overdue', '2026-07-10')], TODAY);
 		expect(groups[0].label).toBe('Vencidas');
+	});
+	it('exposes all five Spanish labels in order', () => {
+		expect(AGENDA_GROUPS.map((group) => group.label)).toEqual([
+			'Vencidas',
+			'Hoy',
+			'Mañana',
+			'Esta semana',
+			'Más adelante'
+		]);
+	});
+	// Product decision 2026-07-16: on weekends "Esta semana" is empty by
+	// design — next week's days always land in "Más adelante".
+	it('on Saturday, days past tomorrow are "later" and no week group shows', () => {
+		const saturday = '2026-07-18';
+		const groups = groupForAgenda(
+			[block('sunday', '2026-07-19'), block('tuesday', '2026-07-21')],
+			saturday
+		);
+		expect(groups.map((group) => group.id)).toEqual(['tomorrow', 'later']);
+	});
+	it('on Sunday, next week is "later"', () => {
+		const sunday = '2026-07-19';
+		const groups = groupForAgenda([block('tuesday', '2026-07-21')], sunday);
+		expect(groups.map((group) => group.id)).toEqual(['later']);
 	});
 });

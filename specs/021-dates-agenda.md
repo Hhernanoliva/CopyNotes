@@ -45,7 +45,9 @@ cheapest of the three flavors already mapped in the ingest-gate contract
   1. **Vencidas** (date < today; excludes checked todos) — danger tone, top.
   2. **Hoy**
   3. **Mañana**
-  4. **Esta semana** (day after tomorrow → next Sunday, local time)
+  4. **Esta semana** (day after tomorrow → the current week's Sunday, local
+     time; empty on weekends by design — next week's days belong to Más
+     adelante, decided 2026-07-16)
   5. **Más adelante** (everything after, ascending)
 - Each item shows: block text (plain `content`, first line is enough), the
   todo checkbox when the block is a todo, and the source note title.
