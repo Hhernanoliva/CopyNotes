@@ -152,6 +152,17 @@ Prototype both if needed:
 
 TipTap, Lexical, ProseMirror, and CodeMirror are legitimate tools, but they are too heavy as the default MVP editor choice. CopyNotes should start with a custom block editor while keeping boundaries clean enough to adopt a richer editor later if users need it.
 
+**Decision reaffirmed twice** (this spec, and again before spec 019 after exploring TipTap/Lexical with Hernan — "Camino A"). The custom editor's known limits (per-block inline formatting, block-level selection across rows, manual caret handling) are accepted trade-offs, not defects. "The code is complex" is not, by itself, a reason to migrate.
+
+**When to revisit — migrate only if one of these becomes a real requirement:**
+
+- Character-level real-time collaboration: two users typing inside the *same block* simultaneously (Google Docs style). This is the primary trigger. Block-level collaboration (two users editing different blocks of the same note) does NOT require an editor migration — the block model syncs per row; the hard part there is the sync backend, not the editor. (Hernan flagged multiplayer as a future interest, 2026-07-16.)
+- Selecting and formatting text across multiple blocks in one gesture, as a product requirement.
+- High-fidelity rich paste from Word/Docs (complex nested formatting) as a product requirement.
+- Persistent, user-reported editing breakage on Safari/mobile/IME that patching costs more than migrating.
+
+If a trigger fires, the migration is contained by design: blocks, storage, copy/export, and the sanitize contract live outside the editor; what gets replaced is the in-row editing surface.
+
 ### Markdown And HTML Libraries
 
 The MVP exports Markdown and HTML from structured blocks. It does not import Markdown or HTML. Therefore, parser/converter libraries should wait until import or richer rendering becomes a real product requirement.
