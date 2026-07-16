@@ -82,7 +82,10 @@ function htmlContent(block) {
 	const date = escapeHtml(dateSuffix(block));
 	const level = HEADING_LEVELS[block.type];
 	if (level) return `<h${level}>` + inlineHtml(block) + `</h${level}>` + date + noteHtml(block);
-	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + date + noteHtml(block);
+	if (block.type === 'code') {
+		const codeDate = isValidDueDate(block.dueDate) ? escapeHtml(' 📅 ' + exportLabel(block.dueDate)) : '';
+		return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
+	}
 	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block) + date + noteHtml(block);
 	return inlineHtml(block) + date + noteHtml(block);
 }

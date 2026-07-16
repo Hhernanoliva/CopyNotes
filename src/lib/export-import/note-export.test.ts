@@ -258,4 +258,12 @@ describe('date suffix (spec 021)', () => {
 		];
 		expect(noteToHtml(note, blocks)).toContain('pagar — 📅 22/07/2026');
 	});
+	it('html export gives a code block a dash-free date after the closing tag', () => {
+		const blocks = [
+			{ id: 'b1', noteId: 'n1', parentBlockId: null, type: 'code', content: 'let a = 1;', order: 0, checked: false, dueDate: '2026-07-22' }
+		];
+		const html = noteToHtml(note, blocks);
+		expect(html).toContain('</code></pre> 📅 22/07/2026');
+		expect(html).not.toContain(' — 📅');
+	});
 });

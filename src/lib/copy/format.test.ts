@@ -281,6 +281,14 @@ describe('date suffix (spec 021)', () => {
 	it('html appends the date after the inline content', () => {
 		expect(formatHtml(dated('text'))).toBe('<p>pagar — 📅 22/07/2026</p>');
 	});
+	it('html gives a code block a dash-free date after the closing tag', () => {
+		const html = formatHtml(dated('code', { content: 'let a = 1;' }));
+		expect(html).toContain('</code></pre> 📅 22/07/2026');
+		expect(html).not.toContain(' — 📅');
+	});
+	it('html appends the date to a todo', () => {
+		expect(formatHtml(dated('todo'))).toContain('pagar — 📅 22/07/2026');
+	});
 	it('undated blocks are untouched', () => {
 		const tree = { block: { id: 'b1', type: 'text', content: 'pagar', checked: false }, children: [] };
 		expect(formatPlainText(tree)).toBe('pagar');

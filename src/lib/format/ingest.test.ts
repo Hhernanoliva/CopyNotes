@@ -100,6 +100,10 @@ describe('dueDate ingest (spec 021)', () => {
 			expect(forest[0].dueDate).toBeNull();
 		}
 	});
+	it('strips a dueDate from a separator node', () => {
+		const forest = normalizeForest([node({ type: 'separator', dueDate: '2026-07-22' })]);
+		expect(forest[0].dueDate).toBeNull();
+	});
 });
 
 describe('sanitizeBackupData', () => {
@@ -147,6 +151,19 @@ describe('sanitizeBackupData', () => {
 	it('does not touch the other tables', () => {
 		const input = data({ notes: [{ id: 'n1', title: 'T' }] });
 		expect(sanitizeBackupData(input).notes).toEqual(input.notes);
+	});
+
+	it('strips a dueDate from a separator block but keeps it on others', () => {
+		const clean = sanitizeBackupData(
+			data({
+				blocks: [
+					{ id: 'b1', type: 'separator', dueDate: '2026-07-22' },
+					{ id: 'b2', type: 'text', content: 'a', dueDate: '2026-07-22' }
+				]
+			})
+		);
+		expect(clean.blocks[0].dueDate).toBeNull();
+		expect(clean.blocks[1].dueDate).toBe('2026-07-22');
 	});
 });
 

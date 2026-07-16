@@ -136,7 +136,10 @@ function htmlListItem(node) {
 	let content;
 	if (block.type === 'separator') content = '<hr>';
 	else if (HEADING_LEVELS[block.type]) content = headingHtml(block) + date + noteHtml(block);
-	else if (block.type === 'code') content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + date + noteHtml(block);
+	else if (block.type === 'code') {
+		const codeDate = isValidDueDate(block.dueDate) ? escapeHtml(' 📅 ' + exportLabel(block.dueDate)) : '';
+		content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
+	}
 	else if (block.type === 'todo') content = todoMark(block) + ' ' + inlineHtml(block) + date + noteHtml(block);
 	else content = inlineHtml(block) + date + noteHtml(block);
 	const children =
@@ -151,7 +154,10 @@ function htmlRootChunk(node) {
 	let element;
 	if (block.type === 'separator') element = '<hr>';
 	else if (HEADING_LEVELS[block.type]) element = headingHtml(block) + date + noteHtml(block);
-	else if (block.type === 'code') element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + date + noteHtml(block);
+	else if (block.type === 'code') {
+		const codeDate = isValidDueDate(block.dueDate) ? escapeHtml(' 📅 ' + exportLabel(block.dueDate)) : '';
+		element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
+	}
 	else element = '<p>' + inlineHtml(block) + date + noteHtml(block) + '</p>';
 	if (node.children.length > 0) {
 		element += '<ul>' + node.children.map(htmlListItem).join('') + '</ul>';
