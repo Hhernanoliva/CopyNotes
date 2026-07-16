@@ -26,6 +26,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 18. `018-backup-json-format.md`
 19. `019-editor-ux-fixes.md`
 20. `020-inline-formatting-toolbar.md`
+21. `021-dates-agenda.md`
 
 ## Required Sections For Specs
 
