@@ -11,7 +11,9 @@ import {
 	setHasCompletedOnboarding,
 	setLastOpenedNoteId,
 	setSetting,
-	setTheme
+	setTheme,
+	getAgendaHideCompleted,
+	setAgendaHideCompleted
 } from './settings';
 
 beforeEach(async () => {
@@ -51,5 +53,11 @@ describe('settings repository', () => {
 		expect(await getDemoNoteCreated()).toBe(false);
 		await setDemoNoteCreated(true);
 		expect(await getDemoNoteCreated()).toBe(true);
+	});
+
+	it('agendaHideCompleted round-trips and defaults to false (spec 021)', async () => {
+		expect(await getAgendaHideCompleted()).toBe(false);
+		await setAgendaHideCompleted(true);
+		expect(await getAgendaHideCompleted()).toBe(true);
 	});
 });

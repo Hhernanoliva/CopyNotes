@@ -50,5 +50,7 @@ export {
 	getLastOpenedNoteId,
 	setLastOpenedNoteId,
 	getDemoNoteCreated,
-	setDemoNoteCreated
+	setDemoNoteCreated,
+	getAgendaHideCompleted,
+	setAgendaHideCompleted
 } from './settings';

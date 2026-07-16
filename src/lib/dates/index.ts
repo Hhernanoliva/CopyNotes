@@ -8,3 +8,4 @@ export {
 	resolveQuickOption,
 	todayString
 } from './core';
+export { AGENDA_GROUPS, groupForAgenda } from './agenda';
