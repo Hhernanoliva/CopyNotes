@@ -5,10 +5,19 @@
 
 import { sortByOrder } from '../blocks/ordering';
 import { HEADING_LEVELS } from '../format/blocktype';
+import { htmlInlineToMarkdown } from '../format/inline-markdown';
+
+// Inline formatting (bold, links, colors) lives in block.html; blocks without
+// one (old data) fall back to their plain content. Markdown gets the html
+// translated to its own syntax; what Markdown can't express (underline,
+// colors) degrades to plain text.
+function inlineMarkdown(block) {
+	return block.html ? htmlInlineToMarkdown(block.html) : block.content;
+}
 
 // Markdown headings are single-line; soft breaks inside a heading flatten to spaces.
 function markdownHeading(block) {
-	return '#'.repeat(HEADING_LEVELS[block.type]) + ' ' + block.content.split('\n').join(' ');
+	return '#'.repeat(HEADING_LEVELS[block.type]) + ' ' + inlineMarkdown(block).split('\n').join(' ');
 }
 
 function buildForest(blocks) {
@@ -40,14 +49,14 @@ function markdownListLines(node, depth) {
 	const { block } = node;
 	const indent = '  '.repeat(depth);
 	let lines;
-	if (block.type === 'bullet') lines = [indent + '- ' + block.content];
-	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${block.content}`];
+	if (block.type === 'bullet') lines = [indent + '- ' + inlineMarkdown(block)];
+	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${inlineMarkdown(block)}`];
 	else if (block.type === 'separator') lines = [indent + '---'];
 	else if (HEADING_LEVELS[block.type]) lines = [indent + markdownHeading(block)];
 	else if (block.type === 'code') {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, ...block.content.split('\n'), fence].map((line) => indent + line);
-	} else lines = block.content.split('\n').map((line) => indent + line);
+	} else lines = inlineMarkdown(block).split('\n').map((line) => indent + line);
 	lines = lines.concat(noteLines(block, indent));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, depth + 1));
 	return lines;
@@ -63,7 +72,7 @@ function markdownRootChunk(node) {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, block.content, fence];
 	}
-	else lines = [block.content];
+	else lines = [inlineMarkdown(block)];
 	lines = lines.concat(noteLines(block, ''));
 	for (const child of node.children) lines = lines.concat(markdownListLines(child, 1));
 	return lines.join('\n');
@@ -102,9 +111,14 @@ function noteHtml(block) {
 	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
 }
 
+// The stored inline html keeps bold/links/colors; fall back to escaped content.
+function inlineHtml(block) {
+	return block.html || escapeHtml(block.content);
+}
+
 function headingHtml(block) {
 	const level = HEADING_LEVELS[block.type];
-	return `<h${level}>` + escapeHtml(block.content) + `</h${level}>`;
+	return `<h${level}>` + inlineHtml(block) + `</h${level}>`;
 }
 
 function htmlListItem(node) {
@@ -113,8 +127,8 @@ function htmlListItem(node) {
 	if (block.type === 'separator') content = '<hr>';
 	else if (HEADING_LEVELS[block.type]) content = headingHtml(block) + noteHtml(block);
 	else if (block.type === 'code') content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
-	else if (block.type === 'todo') content = todoMark(block) + ' ' + escapeHtml(block.content) + noteHtml(block);
-	else content = escapeHtml(block.content) + noteHtml(block);
+	else if (block.type === 'todo') content = todoMark(block) + ' ' + inlineHtml(block) + noteHtml(block);
+	else content = inlineHtml(block) + noteHtml(block);
 	const children =
 		node.children.length > 0 ? '<ul>' + node.children.map(htmlListItem).join('') + '</ul>' : '';
 	return '<li>' + content + children + '</li>';
@@ -127,7 +141,7 @@ function htmlRootChunk(node) {
 	if (block.type === 'separator') element = '<hr>';
 	else if (HEADING_LEVELS[block.type]) element = headingHtml(block) + noteHtml(block);
 	else if (block.type === 'code') element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
-	else element = '<p>' + escapeHtml(block.content) + noteHtml(block) + '</p>';
+	else element = '<p>' + inlineHtml(block) + noteHtml(block) + '</p>';
 	if (node.children.length > 0) {
 		element += '<ul>' + node.children.map(htmlListItem).join('') + '</ul>';
 	}

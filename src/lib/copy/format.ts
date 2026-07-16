@@ -66,18 +66,19 @@ function noteHtml(block) {
 	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
 }
 
-// Soft line breaks inside content become <br> so pasted HTML keeps them.
-function inlineHtml(content) {
-	return content.split('\n').map(escapeHtml).join('<br>');
+// The stored inline html keeps bold/links/colors; blocks without one (old
+// data) fall back to escaped content with soft breaks as <br>.
+function inlineHtml(block) {
+	return block.html || block.content.split('\n').map(escapeHtml).join('<br>');
 }
 
 function htmlContent(block) {
 	if (block.type === 'separator') return '<hr>';
 	const level = HEADING_LEVELS[block.type];
-	if (level) return `<h${level}>` + inlineHtml(block.content) + `</h${level}>` + noteHtml(block);
+	if (level) return `<h${level}>` + inlineHtml(block) + `</h${level}>` + noteHtml(block);
 	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
-	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block.content) + noteHtml(block);
-	return inlineHtml(block.content) + noteHtml(block);
+	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block) + noteHtml(block);
+	return inlineHtml(block) + noteHtml(block);
 }
 
 function htmlNode(node) {
@@ -88,7 +89,7 @@ export function formatHtml(tree) {
 	const { block } = tree;
 	// A lone text/code/separator block pastes as its natural element, not a list.
 	if (tree.children.length === 0 && block.type !== 'bullet' && block.type !== 'todo') {
-		if (block.type === 'text') return '<p>' + inlineHtml(block.content) + noteHtml(block) + '</p>';
+		if (block.type === 'text') return '<p>' + inlineHtml(block) + noteHtml(block) + '</p>';
 		return htmlContent(block);
 	}
 	return '<ul>' + htmlNode(tree) + '</ul>';

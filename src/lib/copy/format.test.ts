@@ -221,3 +221,43 @@ describe('heading blocks', () => {
 		expect(formatPlainText(buildCopyTree(blocks, 'a', true))).toBe('## Detalle\n  - idea');
 	});
 });
+
+describe('inline formatting in HTML copy', () => {
+	it('uses the stored inline html so bold survives an external paste', () => {
+		const blocks = [
+			block('a', 'text', 'hola mundo', null, 0, { html: '<strong>hola</strong> mundo' })
+		];
+		expect(formatHtml(buildCopyTree(blocks, 'a', false))).toBe(
+			'<p><strong>hola</strong> mundo</p>'
+		);
+	});
+
+	it('keeps links and colors inside bullets', () => {
+		const html = '<a href="https://x.com">ver</a> <span class="fmt-color-red">rojo</span>';
+		const blocks = [block('a', 'bullet', 'ver rojo', null, 0, { html })];
+		expect(formatHtml(buildCopyTree(blocks, 'a', false))).toBe(`<ul><li>${html}</li></ul>`);
+	});
+
+	it('keeps inline formatting inside headings', () => {
+		const blocks = [
+			block('a', 'heading2', 'muy fino', null, 0, { html: '<em>muy</em> fino' })
+		];
+		expect(formatHtml(buildCopyTree(blocks, 'a', false))).toBe('<h2><em>muy</em> fino</h2>');
+	});
+
+	it('falls back to escaped content when a block has no stored html', () => {
+		const blocks = [block('a', 'text', 'a <b> & "c"')];
+		expect(formatHtml(buildCopyTree(blocks, 'a', false))).toBe(
+			'<p>a &lt;b&gt; &amp; &quot;c&quot;</p>'
+		);
+	});
+
+	it('keeps code blocks literal, ignoring stored html', () => {
+		const blocks = [
+			block('a', 'code', 'const x = 1;', null, 0, { html: '<strong>const x = 1;</strong>' })
+		];
+		expect(formatHtml(buildCopyTree(blocks, 'a', false))).toBe(
+			'<pre><code>const x = 1;</code></pre>'
+		);
+	});
+});

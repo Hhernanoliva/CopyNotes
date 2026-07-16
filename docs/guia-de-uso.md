@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-16 (doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos; los saltos de línea dentro de un renglón ya no se pierden al buscar, copiar ni exportar).
+Última actualización: 2026-07-16 (el formato del texto —negrita, cursiva, enlaces, colores— ahora viaja al copiar bloques a otras apps y al exportar la nota en HTML y Markdown; doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos; los saltos de línea dentro de un renglón ya no se pierden al buscar, copiar ni exportar).
 
 ## Lo básico
 
@@ -230,7 +230,7 @@ Al pasar el mouse por un renglón (o llegar con el teclado) aparecen botones a l
 Después pegás donde quieras:
 
 - En apps simples (Notas, un mail sin formato): llega como texto con sangría legible; las tareas se ven como `[x]` (hecha) o `[ ]` (pendiente).
-- En editores con formato (Google Docs, Notion, Gmail): llega como lista con viñetas y niveles de verdad.
+- En editores con formato (Google Docs, Notion, Gmail): llega como lista con viñetas y niveles de verdad, **y con el formato del texto**: negrita, cursiva, subrayado, tachado, colores y enlaces viajan con el bloque.
 - Los bloques de código mantienen sus líneas tal cual.
 - **Pegado dentro de CopyNotes:** vuelve igualito, con tipo, tildado, código, separadores, etiquetas y anidado (ver "Pegar varias líneas").
 
@@ -325,8 +325,8 @@ Tus notas viven en el navegador de este dispositivo. Si borrás los datos del na
 ### Exportar
 
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
-- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`).
-- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad.
+- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`). La negrita, cursiva, tachado y enlaces salen en formato Markdown (`**negrita**`, `[enlace](dirección)`); el subrayado y los colores no existen en Markdown, así que ese texto sale normal.
+- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad, y con el formato del texto completo: negrita, cursiva, subrayado, tachado, colores y enlaces.
 
 Lo mismo vale al **copiar** un bloque de título: pega como título real en apps con formato, y con su marca `#` como texto plano.
 

@@ -187,3 +187,53 @@ describe('block notes in export', () => {
 		expect(noteToHtml({ id: 'note_1', title: 'T' }, blocks)).toContain('Comprar<br>en el super');
 	});
 })
+
+describe('inline formatting in export', () => {
+	it('HTML export uses the stored inline html so bold and links survive', () => {
+		const html = '<strong>hola</strong> <a href="https://x.com">ver</a>';
+		const blocks = [block('a', { type: 'text', content: 'hola ver', html })];
+		expect(noteToHtml(note, blocks)).toContain('<p>' + html + '</p>');
+	});
+
+	it('HTML export keeps formatting inside headings', () => {
+		const blocks = [block('a', { type: 'heading2', content: 'muy fino', html: '<em>muy</em> fino' })];
+		expect(noteToHtml(note, blocks)).toContain('<h2><em>muy</em> fino</h2>');
+	});
+
+	it('HTML export escapes content when a block has no stored html', () => {
+		const blocks = [block('a', { type: 'text', content: 'a <b> & "c"' })];
+		expect(noteToHtml(note, blocks)).toContain('<p>a &lt;b&gt; &amp; &quot;c&quot;</p>');
+	});
+
+	it('HTML export keeps code blocks literal, ignoring stored html', () => {
+		const blocks = [block('a', { type: 'code', content: 'const x = 1;', html: '<strong>x</strong>' })];
+		expect(noteToHtml(note, blocks)).toContain('<pre><code>const x = 1;</code></pre>');
+	});
+
+	it('Markdown export converts bold and links to Markdown syntax', () => {
+		const html = '<strong>hola</strong> <a href="https://x.com">ver</a>';
+		const blocks = [block('a', { type: 'bullet', content: 'hola ver', html })];
+		expect(noteToMarkdown(note, blocks)).toContain('- **hola** [ver](https://x.com)');
+	});
+
+	it('Markdown export converts formatting inside headings', () => {
+		const blocks = [block('a', { type: 'heading2', content: 'muy fino', html: '<em>muy</em> fino' })];
+		expect(noteToMarkdown(note, blocks)).toContain('## *muy* fino');
+	});
+
+	it('Markdown export drops colors and underline, keeping the text', () => {
+		const html = '<span class="fmt-color-red">rojo</span> <u>raya</u>';
+		const blocks = [block('a', { type: 'text', content: 'rojo raya', html })];
+		expect(noteToMarkdown(note, blocks)).toContain('rojo raya');
+	});
+
+	it('Markdown export keeps code blocks raw, ignoring stored html', () => {
+		const blocks = [block('a', { type: 'code', content: 'const x = 1;', html: '<strong>x</strong>' })];
+		expect(noteToMarkdown(note, blocks)).toContain('```\nconst x = 1;\n```');
+	});
+
+	it('Markdown export uses raw content when a block has no stored html', () => {
+		const blocks = [block('a', { type: 'text', content: 'sin formato' })];
+		expect(noteToMarkdown(note, blocks)).toContain('sin formato');
+	});
+})
