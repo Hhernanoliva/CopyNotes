@@ -79,6 +79,26 @@ describe('noteToMarkdown', () => {
 		);
 	});
 
+	it('renders heading blocks with their # level', () => {
+		const blocks = [
+			block('a', { type: 'heading1', content: 'Resumen', order: 0 }),
+			block('b', { type: 'text', content: 'Hola', order: 1 }),
+			block('c', { type: 'heading2', content: 'Detalle', order: 2 }),
+			block('d', { type: 'heading3', content: 'Fino', order: 3 })
+		];
+		expect(noteToMarkdown(note, blocks)).toBe(
+			['# Plan de viaje', '', '# Resumen', '', 'Hola', '', '## Detalle', '', '### Fino'].join('\n')
+		);
+	});
+
+	it('renders a heading nested under a bullet with its # marker', () => {
+		const blocks = [
+			block('a', { type: 'bullet', content: 'Padre', order: 0 }),
+			block('b', { type: 'heading2', content: 'Sección', parentBlockId: 'a', order: 0 })
+		];
+		expect(noteToMarkdown(note, blocks)).toContain('- Padre\n  ## Sección');
+	});
+
 	it('keeps collapsed children in the export', () => {
 		const blocks = [
 			block('a', { content: 'Padre', collapsed: true, order: 0 }),
@@ -110,6 +130,25 @@ describe('noteToHtml', () => {
 		expect(noteToHtml(note, blocks)).toBe(
 			'<h1>Plan de viaje</h1><p>Hola</p><hr><pre><code>x &lt; y</code></pre>'
 		);
+	});
+
+	it('renders heading blocks as h1/h2/h3 elements', () => {
+		const blocks = [
+			block('a', { type: 'heading1', content: 'Resumen', order: 0 }),
+			block('b', { type: 'heading2', content: 'Detalle', order: 1 }),
+			block('c', { type: 'heading3', content: 'Fino', order: 2 })
+		];
+		expect(noteToHtml(note, blocks)).toBe(
+			'<h1>Plan de viaje</h1><h1>Resumen</h1><h2>Detalle</h2><h3>Fino</h3>'
+		);
+	});
+
+	it('renders a heading inside a list item and escapes its content', () => {
+		const blocks = [
+			block('a', { content: 'Padre', order: 0 }),
+			block('b', { type: 'heading2', content: 'a<b>', parentBlockId: 'a', order: 0 })
+		];
+		expect(noteToHtml(note, blocks)).toContain('<li><h2>a&lt;b&gt;</h2></li>');
 	});
 
 	it('escapes HTML in title and content', () => {

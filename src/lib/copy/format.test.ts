@@ -189,3 +189,35 @@ describe('soft line breaks inside a block', () => {
 		expect(formatHtml(tree)).toBe('<p>uno<br>dos</p>');
 	});
 });
+
+describe('heading blocks', () => {
+	it('copies a heading as plain text with its # marker', () => {
+		expect(formatPlainText(buildCopyTree([block('a', 'heading1', 'Resumen')], 'a', false))).toBe(
+			'# Resumen'
+		);
+		expect(formatPlainText(buildCopyTree([block('a', 'heading2', 'Detalle')], 'a', false))).toBe(
+			'## Detalle'
+		);
+		expect(formatPlainText(buildCopyTree([block('a', 'heading3', 'Fino')], 'a', false))).toBe(
+			'### Fino'
+		);
+	});
+
+	it('copies a lone heading as its HTML element', () => {
+		expect(formatHtml(buildCopyTree([block('a', 'heading2', 'Detalle')], 'a', false))).toBe(
+			'<h2>Detalle</h2>'
+		);
+	});
+
+	it('copies a heading with children as a list keeping the heading element', () => {
+		const blocks = [block('a', 'heading2', 'Detalle'), block('b', 'bullet', 'idea', 'a')];
+		expect(formatHtml(buildCopyTree(blocks, 'a', true))).toBe(
+			'<ul><li><h2>Detalle</h2><ul><li>idea</li></ul></li></ul>'
+		);
+	});
+
+	it('copies heading children indented under it in plain text', () => {
+		const blocks = [block('a', 'heading2', 'Detalle'), block('b', 'bullet', 'idea', 'a')];
+		expect(formatPlainText(buildCopyTree(blocks, 'a', true))).toBe('## Detalle\n  - idea');
+	});
+});

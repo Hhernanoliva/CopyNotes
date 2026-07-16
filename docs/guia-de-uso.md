@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez que se agrega una funcionalidad nueva.
 
-Última actualización: 2026-07-16 (editor móvil más compacto; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`).
+Última actualización: 2026-07-16 (doble Enter para salir de la nota gris; botón visible de copiar con subniveles; etiquetas y editor móvil más compactos; columna de escritura más amplia; pegado fiel, detección automática y colapso de bloques de código; menú `/` y atajo `#`; los respaldos ahora incluyen los títulos).
 
 ## Lo básico
 
@@ -23,6 +23,7 @@ Todo lo que podés hacer en CopyNotes hoy. Este documento se actualiza cada vez 
 - **Lista de notas a pantalla casi completa.** En el celular, el botón de panel (arriba a la izquierda) abre la lista de notas como un panel grande que cubre casi toda la pantalla, con un fondo oscuro detrás. Tocás afuera o la tecla Escape para cerrarla.
 - **Botones siempre visibles.** En pantallas táctiles, los botones de cada snippet y etiqueta (favorito, insertar, etiquetar, renombrar, borrar) se ven siempre, sin necesidad de pasar el mouse.
 - **Más lugar para cada renglón.** El editor deja menos espacio vacío alrededor del texto. Al tocar un renglón, los botones para copiar y abrir más acciones aparecen uno debajo del otro a la derecha, para ocupar menos ancho.
+- **Etiquetas sin achicar el texto.** Las etiquetas de un renglón se acomodan debajo del contenido y se ordenan horizontalmente. Si agregás muchas, pasan a otra fila sin quitarle ancho a lo que escribiste.
 - **Navegación con teclado.** Mientras el panel está abierto en el teléfono, el foco del teclado se queda dentro y vuelve al botón que lo abrió al cerrarlo.
 
 ## La primera vez
@@ -177,8 +178,8 @@ Todo lo que aplicás con la barra (negrita, títulos, enlaces, colores, etc.) se
 
 Cada renglón puede tener una **nota**: un texto secundario, gris y más chico, pegado debajo, para aclaraciones o detalles que no querés que ensucien la línea principal.
 
-- **Agregar/editar:** parado en un renglón, apretá **Ctrl/Cmd+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas.
-- **Salir de la nota:** clic en otro lado, o **Escape** para volver al renglón.
+- **Agregar/editar:** parado en un renglón, apretá **Ctrl/Cmd+Enter**. Se abre la nota justo abajo y escribís ahí. Puede tener varias líneas (un Enter hace una línea nueva dentro de la nota).
+- **Salir de la nota:** apretá **Enter dos veces seguidas** y seguís escribiendo en un renglón nuevo, abajo de todo, como si nada. También podés hacer clic en otro lado, o **Escape** para volver al renglón.
 - **Borrar la nota:** con la nota vacía, apretá **Backspace**: desaparece y volvés al renglón. Una nota vacía que perdés el foco también se esconde sola.
 - La nota **viaja con el renglón**: se guarda, se copia (como sub-línea debajo) y se exporta en Markdown y HTML.
 
@@ -218,11 +219,11 @@ Cuando anidás tareas adentro de tareas:
 
 ## Copiar bloques
 
-Al pasar el mouse por un renglón (o llegar con el teclado) aparecen dos botones a la derecha:
+Al pasar el mouse por un renglón (o llegar con el teclado) aparecen botones a la derecha:
 
 - **Copiar bloque** (icono de dos hojas, siempre a la vista): copia solo ese renglón.
+- **Copiar con subniveles** (icono de dos hojas con un **+**): aparece al lado del anterior **solo cuando el renglón tiene hijos anidados**; copia el renglón con todo lo anidado adentro, aunque esté colapsado.
 - **Más acciones** (los tres puntitos **⋯**): abre un menú chico con el resto de las acciones del renglón:
-  - **Copiar con subniveles**: aparece si el renglón tiene hijos; copia el renglón con todo lo anidado adentro, aunque esté colapsado.
   - **Guardar como snippet**.
   - **Etiquetar** (atajo: escribir `#` en el renglón).
 
@@ -324,8 +325,10 @@ Tus notas viven en el navegador de este dispositivo. Si borrás los datos del na
 ### Exportar
 
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
-- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista.
-- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas y niveles de verdad.
+- **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`).
+- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad.
+
+Lo mismo vale al **copiar** un bloque de título: pega como título real en apps con formato, y con su marca `#` como texto plano.
 
 Todo funciona sin internet.
 
@@ -335,6 +338,8 @@ Todo funciona sin internet.
 2. La app lo revisa primero. Si el archivo está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
+
+Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).
 
 ### Reemplazar todo (con cuidado)
 

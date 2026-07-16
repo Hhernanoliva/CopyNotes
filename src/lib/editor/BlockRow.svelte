@@ -5,7 +5,7 @@
 
 <script>
 	import { tick } from 'svelte';
-	import { ChevronRight, Check, Copy } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
 	import SlashMenu from './SlashMenu.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -18,6 +18,8 @@
 		recallCopy
 	} from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, applyInline } from '$lib/format';
+	import { planNoteExit } from './note';
+	import { textOffset } from './selection-offsets';
 
 	let {
 		block,
@@ -141,6 +143,25 @@
 	}
 
 	function handleNoteKeydown(event) {
+		// Double Enter leaves the note: the second Enter lands on an empty line,
+		// so the empty line is dropped and a fresh text block opens below.
+		if (event.key === 'Enter' && !event.shiftKey) {
+			const selection = window.getSelection();
+			if (selection && selection.rangeCount > 0) {
+				const range = selection.getRangeAt(0);
+				const start = textOffset(noteEl, range.startContainer, range.startOffset);
+				const end = textOffset(noteEl, range.endContainer, range.endOffset);
+				const plan = planNoteExit(noteEl.textContent, start, end);
+				if (plan) {
+					event.preventDefault();
+					noteEl.textContent = plan.text;
+					onNoteInput(block, plan.text);
+					if (plan.text === '') showNote = false;
+					onEnter(block, 'text');
+					return;
+				}
+			}
+		}
 		if (event.key === 'Backspace' && noteEl.textContent === '') {
 			event.preventDefault();
 			onNoteInput(block, '');
@@ -353,7 +374,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-block-id={block.id}
-	class="group relative flex items-start gap-1 rounded-md py-0.5 pr-10 md:pr-2 {selected
+	class="group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
 		? 'bg-primary/10'
 		: ''}"
 	style="padding-left: {depth * 1.5}rem"
@@ -505,14 +526,21 @@
 	{/if}
 
 	{#if tags.length > 0}
-		<div class="flex max-w-[40%] shrink-0 flex-wrap items-center gap-1 self-center">
+		<div
+			class="mt-1 flex w-full basis-full flex-wrap items-center gap-1 {block.type === 'todo'
+				? 'pl-[3.25rem]'
+				: block.type === 'bullet'
+					? 'pl-[2.125rem]'
+					: 'pl-6'} md:mt-0 md:w-auto md:max-w-[40%] md:basis-auto md:shrink-0 md:self-center md:pl-0"
+		>
 			<TagChips {tags} onRemove={(tag) => onUntag(block, tag)} />
 		</div>
 	{/if}
 
-	<!-- Line actions: Copy stays visible, everything else lives in the 3-dots
-	     menu (editor UX pass). Hidden until hover/keyboard focus so the page
-	     stays quiet. mousedown+preventDefault keeps the caret in the block. -->
+	<!-- Line actions: the copy buttons stay visible (copy-with-children only on
+	     parents), everything else lives in the 3-dots menu (editor UX pass).
+	     Hidden until hover/keyboard focus so the page stays quiet.
+	     mousedown+preventDefault keeps the caret in the block. -->
 	<div
 		class="pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
 	>
@@ -526,10 +554,20 @@
 		>
 			<Copy size={14} aria-hidden="true" />
 		</button>
+		{#if hasChildren}
+			<button
+				type="button"
+				aria-label="Copiar con subniveles"
+				use:tooltip={'Copiar con subniveles'}
+				onmousedown={(event) => event.preventDefault()}
+				onclick={() => onCopy(block, true)}
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<CopyPlus size={14} aria-hidden="true" />
+			</button>
+		{/if}
 		{#if block.type !== 'separator'}
 			<BlockActionsMenu
-				{hasChildren}
-				onCopyWithChildren={() => onCopy(block, true)}
 				onSaveSnippet={() => onSaveSnippet(block)}
 				onTag={() => onTag(block)}
 				onDismiss={focusContent}

@@ -3,6 +3,7 @@
 // Collapsed state is visual only — descendants are always included.
 
 import { sortByOrder } from '../blocks/ordering';
+import { HEADING_LEVELS } from '../format/blocktype';
 
 export function buildCopyTree(blocks, rootId, withChildren) {
 	const root = blocks.find((block) => block.id === rootId);
@@ -34,6 +35,8 @@ function plainLines(node, depth) {
 	if (block.type === 'separator') lines = [indent + '---'];
 	else if (block.type === 'bullet') lines = hangingLines(indent, '- ', block.content);
 	else if (block.type === 'todo') lines = hangingLines(indent, `- ${todoMark(block)} `, block.content);
+	else if (HEADING_LEVELS[block.type])
+		lines = hangingLines(indent, '#'.repeat(HEADING_LEVELS[block.type]) + ' ', block.content);
 	else lines = block.content.split('\n').map((line) => indent + line);
 	// The secondary note sits one indent deeper, right under the block.
 	if (block.note) lines = lines.concat(block.note.split('\n').map((line) => indent + '  ' + line));
@@ -70,6 +73,8 @@ function inlineHtml(content) {
 
 function htmlContent(block) {
 	if (block.type === 'separator') return '<hr>';
+	const level = HEADING_LEVELS[block.type];
+	if (level) return `<h${level}>` + inlineHtml(block.content) + `</h${level}>` + noteHtml(block);
 	if (block.type === 'code') return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
 	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block.content) + noteHtml(block);
 	return inlineHtml(block.content) + noteHtml(block);

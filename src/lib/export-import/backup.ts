@@ -1,7 +1,7 @@
 // Builds the backup object defined in specs/018. Pure: table data comes in,
 // the storage layer decides what to read (full dump including soft-deleted).
 
-import { SUPPORTED_FORMAT } from './schema';
+import { CURRENT_VERSION, SUPPORTED_FORMAT } from './schema';
 
 const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'settings'];
 
@@ -11,7 +11,7 @@ export function buildBackup(tables, meta) {
 	const counts = Object.fromEntries(TABLES.map((table) => [table, data[table].length]));
 	return {
 		format: SUPPORTED_FORMAT,
-		formatVersion: 1,
+		formatVersion: CURRENT_VERSION,
 		app: { name: 'CopyNotes', version: appVersion },
 		exportedAt,
 		exportedBy: { source: 'pwa' },

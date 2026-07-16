@@ -6,7 +6,10 @@
 import * as v from 'valibot';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
-export const SUPPORTED_VERSIONS = [1];
+// Version 2 added the heading block types; the record shapes are otherwise
+// identical, so version 1 backups import with no migration step.
+export const SUPPORTED_VERSIONS = [1, 2];
+export const CURRENT_VERSION = 2;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -23,7 +26,7 @@ const blockSchema = v.looseObject({
 	id: v.string(),
 	noteId: v.string(),
 	parentBlockId: v.nullable(v.string()),
-	type: v.picklist(['text', 'bullet', 'todo', 'code', 'separator']),
+	type: v.picklist(['text', 'bullet', 'todo', 'code', 'separator', 'heading1', 'heading2', 'heading3']),
 	content: v.string(),
 	order: v.number(),
 	collapsed: v.boolean(),

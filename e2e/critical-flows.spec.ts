@@ -436,3 +436,56 @@ test('the app still works offline after the first visit', async ({ page, context
 	await expect(title(page)).toHaveValue(/Bienvenido/);
 	await context.setOffline(false);
 });
+
+test('double Enter leaves the block note and opens a new normal line', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-surface]').first();
+	await first.click();
+	await page.keyboard.type('Línea principal');
+	await page.keyboard.press('Control+Enter');
+	const blockNote = page.getByRole('textbox', { name: 'Nota del bloque' });
+	await expect(blockNote).toBeFocused();
+	await page.keyboard.type('una nota');
+	await page.keyboard.press('Enter');
+	await page.keyboard.press('Enter');
+
+	// The note keeps its text (no trailing blank line) and a fresh block below
+	// takes the focus.
+	await expect(blockNote).toHaveText('una nota');
+	const surfaces = page.locator('main [data-block-surface]');
+	await expect(surfaces).toHaveCount(2);
+	await expect(surfaces.nth(1)).toBeFocused();
+	await page.keyboard.type('sigo escribiendo');
+	await expect(surfaces.nth(1)).toHaveText('sigo escribiendo');
+});
+
+test('a parent block shows a second button that copies it with its children', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-surface]').first();
+	await first.click();
+	await page.keyboard.type('Padre');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo');
+	await page.keyboard.press('Tab');
+	await page.waitForTimeout(150);
+
+	const rows = page.locator('main .group');
+	await rows.first().hover();
+	const copyAll = rows.first().getByRole('button', { name: 'Copiar con subniveles' });
+	await expect(copyAll).toBeVisible();
+	await copyAll.click();
+	await expect
+		.poll(async () => page.evaluate(() => navigator.clipboard.readText()))
+		.toContain('Padre');
+	expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Hijo');
+
+	// A block without children only offers the plain copy button.
+	await rows.nth(1).hover();
+	await expect(rows.nth(1).getByRole('button', { name: 'Copiar bloque' })).toBeVisible();
+	await expect(rows.nth(1).getByRole('button', { name: 'Copiar con subniveles' })).toHaveCount(0);
+});

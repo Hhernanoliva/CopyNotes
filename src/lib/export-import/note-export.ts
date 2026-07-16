@@ -4,6 +4,12 @@
 // Collapsed state is visual only — children always export.
 
 import { sortByOrder } from '../blocks/ordering';
+import { HEADING_LEVELS } from '../format/blocktype';
+
+// Markdown headings are single-line; soft breaks inside a heading flatten to spaces.
+function markdownHeading(block) {
+	return '#'.repeat(HEADING_LEVELS[block.type]) + ' ' + block.content.split('\n').join(' ');
+}
 
 function buildForest(blocks) {
 	function children(parentId) {
@@ -37,6 +43,7 @@ function markdownListLines(node, depth) {
 	if (block.type === 'bullet') lines = [indent + '- ' + block.content];
 	else if (block.type === 'todo') lines = [`${indent}- ${todoMark(block)} ${block.content}`];
 	else if (block.type === 'separator') lines = [indent + '---'];
+	else if (HEADING_LEVELS[block.type]) lines = [indent + markdownHeading(block)];
 	else if (block.type === 'code') {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, ...block.content.split('\n'), fence].map((line) => indent + line);
@@ -51,6 +58,7 @@ function markdownRootChunk(node) {
 	if (block.type === 'bullet' || block.type === 'todo') return markdownListLines(node, 0).join('\n');
 	let lines;
 	if (block.type === 'separator') lines = ['---'];
+	else if (HEADING_LEVELS[block.type]) lines = [markdownHeading(block)];
 	else if (block.type === 'code') {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, block.content, fence];
@@ -94,10 +102,16 @@ function noteHtml(block) {
 	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
 }
 
+function headingHtml(block) {
+	const level = HEADING_LEVELS[block.type];
+	return `<h${level}>` + escapeHtml(block.content) + `</h${level}>`;
+}
+
 function htmlListItem(node) {
 	const { block } = node;
 	let content;
 	if (block.type === 'separator') content = '<hr>';
+	else if (HEADING_LEVELS[block.type]) content = headingHtml(block) + noteHtml(block);
 	else if (block.type === 'code') content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
 	else if (block.type === 'todo') content = todoMark(block) + ' ' + escapeHtml(block.content) + noteHtml(block);
 	else content = escapeHtml(block.content) + noteHtml(block);
@@ -111,6 +125,7 @@ function htmlRootChunk(node) {
 	if (block.type === 'bullet' || block.type === 'todo') return htmlListItem(node);
 	let element;
 	if (block.type === 'separator') element = '<hr>';
+	else if (HEADING_LEVELS[block.type]) element = headingHtml(block) + noteHtml(block);
 	else if (block.type === 'code') element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + noteHtml(block);
 	else element = '<p>' + escapeHtml(block.content) + noteHtml(block) + '</p>';
 	if (node.children.length > 0) {

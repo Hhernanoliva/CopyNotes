@@ -1,12 +1,12 @@
 <script>
-	import { MoreHorizontal, CopyPlus, BookmarkPlus, Tag } from '@lucide/svelte';
+	import { MoreHorizontal, BookmarkPlus, Tag } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 
-	// The 3-dots menu holding every block action except the always-visible Copy
-	// (editor UX pass). Each item shows its typed quick key when it has one.
-	// onDismiss returns focus to the block when the menu closes without handing
-	// focus to another surface (Escape, click-away, copy/snippet).
-	let { hasChildren = false, onCopyWithChildren, onSaveSnippet, onTag, onDismiss } = $props();
+	// The 3-dots menu holding every block action except the always-visible copy
+	// buttons (editor UX pass). Each item shows its typed quick key when it has
+	// one. onDismiss returns focus to the block when the menu closes without
+	// handing focus to another surface (Escape, click-away, snippet).
+	let { onSaveSnippet, onTag, onDismiss } = $props();
 
 	let open = $state(false);
 	let rootEl = $state();
@@ -63,18 +63,6 @@
 			aria-label="Acciones del bloque"
 			class="bg-popover border-border absolute top-full right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-md"
 		>
-			{#if hasChildren}
-				<button
-					type="button"
-					role="menuitem"
-					onmousedown={(event) => event.preventDefault()}
-					onclick={() => run(onCopyWithChildren)}
-					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
-				>
-					<CopyPlus size={15} aria-hidden="true" />
-					<span class="flex-1">Copiar con subniveles</span>
-				</button>
-			{/if}
 			<button
 				type="button"
 				role="menuitem"

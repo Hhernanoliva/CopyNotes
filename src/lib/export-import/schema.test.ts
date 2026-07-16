@@ -120,6 +120,32 @@ describe('validateBackup', () => {
 		expect(validateBackup(backup).ok).toBe(false);
 	});
 
+	it('accepts heading blocks of the three levels', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote()],
+				blocks: [
+					makeBlock({ type: 'heading1' }),
+					makeBlock({ id: 'block_2', type: 'heading2' }),
+					makeBlock({ id: 'block_3', type: 'heading3' })
+				]
+			})
+		);
+		expect(result.ok).toBe(true);
+	});
+
+	it('accepts formatVersion 2 backups', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()] }, { formatVersion: 2 })
+		);
+		expect(result.ok).toBe(true);
+	});
+
+	it('still accepts formatVersion 1 backups', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()] }, { formatVersion: 1 }));
+		expect(result.ok).toBe(true);
+	});
+
 	it('rejects a block with an unknown type', () => {
 		const result = validateBackup(
 			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ type: 'heading' })] })
