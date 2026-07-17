@@ -2,7 +2,7 @@
 
 ## Etiquetas
 
-Las etiquetas te ayudan a agrupar y encontrar cosas sin carpetas. Podés etiquetar **notas**, **renglones sueltos** y **snippets**, y una misma etiqueta sirve en los tres lados.
+Las etiquetas te ayudan a agrupar y encontrar cosas sin carpetas. Podés etiquetar **notas** y **renglones sueltos**, y una misma etiqueta sirve en los dos lados.
 
 ### Etiquetar una nota
 
@@ -12,16 +12,12 @@ Al lado del título, al pasar el mouse, aparece un **icono de etiqueta**. Al toc
 
 Al pasar el mouse por un renglón, tocá los **tres puntitos ⋯** y elegí **Etiquetar** (o el atajo: escribir `#` en el renglón). El `#` se oculta mientras está abierto el buscador: si elegís o creás una etiqueta, se usa como atajo y no queda en el texto; si cerrás el buscador sin elegir ninguna (con **Escape** o un click afuera), vuelve al renglón como carácter común. Los chips del renglón aparecen al final de la línea, chiquitos y discretos.
 
-### Etiquetar un snippet
-
-En la pestaña Snippets, cada fila tiene también su botón de etiqueta. Los chips se ven debajo del nombre del snippet.
-
 ### Administrar etiquetas (pestaña Etiquetas)
 
 El conmutador de la barra lateral ahora tiene tres pestañas: **Notas | Snippets | Etiquetas**. En Etiquetas ves la lista completa, alfabética. Al pasar el mouse por una:
 
 - **Lápiz** — renombrar ahí mismo (Enter guarda, Escape cancela). Si el nombre nuevo ya existe, avisa y no cambia nada.
-- **Tachito** — borrarla (recuperable, como todo). Desaparece de todas las notas, renglones y snippets donde estaba.
+- **Tachito** — borrarla (recuperable, como todo). Desaparece de todas las notas y renglones donde estaba.
 
 El **+** de arriba crea una etiqueta nueva sin salir de la pestaña.
 

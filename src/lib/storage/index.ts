@@ -39,6 +39,8 @@ export {
 	listAssignmentsForTag,
 	listAllAssignments
 } from './tags';
+export { createFolder, listFolders, updateFolder, deleteFolderKeepContents } from './folders';
+export { applySidebarUpdates, shiftRootDown, ensureSidebarOrder } from './organize';
 export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 export {
 	getSetting,

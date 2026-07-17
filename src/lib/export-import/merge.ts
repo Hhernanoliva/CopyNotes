@@ -59,21 +59,28 @@ export function planMerge(local, incoming, options = undefined) {
 	const blockRemap = new Map();
 	const tagRemap = new Map();
 	const snippetRemap = new Map();
+	const folderRemap = new Map();
 
 	const notes = planTable(local.notes, incoming.notes, noteRemap, createId);
 	const blocks = planTable(local.blocks, incoming.blocks, blockRemap, createId);
 	const snippets = planTable(local.snippets, incoming.snippets, snippetRemap, createId);
 	const tags = planTable(local.tags, incoming.tags, tagRemap, createId);
+	const folders = planTable(local.folders ?? [], incoming.folders ?? [], folderRemap, createId);
 
 	const toNote = mapped(noteRemap);
 	const toBlock = mapped(blockRemap);
+	const toFolder = mapped(folderRemap);
 	for (const row of blocks.inserts) {
 		row.noteId = toNote(row.noteId);
 		row.parentBlockId = toBlock(row.parentBlockId);
 	}
+	for (const row of notes.inserts) {
+		if (row.folderId) row.folderId = toFolder(row.folderId);
+	}
 	for (const row of snippets.inserts) {
 		if (row.sourceNoteId) row.sourceNoteId = toNote(row.sourceNoteId);
 		if (row.sourceBlockId) row.sourceBlockId = toBlock(row.sourceBlockId);
+		if (row.folderId) row.folderId = toFolder(row.folderId);
 	}
 
 	const targetRemaps = { note: toNote, block: toBlock, snippet: mapped(snippetRemap) };
@@ -100,7 +107,7 @@ export function planMerge(local, incoming, options = undefined) {
 		(row) => !localSettingKeys.has(row.key)
 	);
 
-	const tables = { notes, blocks, snippets, tags, tagAssignments: assignments };
+	const tables = { notes, blocks, snippets, tags, folders, tagAssignments: assignments };
 	const entries = Object.entries(tables);
 	const inserts = Object.fromEntries(entries.map(([name, table]) => [name, table.inserts]));
 	const conflicts = entries.reduce((total, [, table]) => total + table.conflicts, 0);

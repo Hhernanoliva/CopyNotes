@@ -15,9 +15,16 @@ El snippet guardado es una **copia independiente**: si después editás o borrá
 
 Arriba de la barra lateral hay un conmutador **Notas | Snippets**. En la pestaña Snippets ves todos tus snippets, con su nombre y un adelanto del contenido. Al pasar el mouse por uno aparecen sus acciones:
 
-- **Estrella** — lo marca como favorito. Los favoritos van siempre primero en la lista y en el menú de insertar. La estrella queda visible y rellena.
-- **Insertar en la nota** (flecha hacia abajo) — mete el snippet en la nota abierta, debajo del renglón donde estabas escribiendo.
+- **Estrella** — lo marca como favorito. Los favoritos aparecen primero en el menú que se abre al escribir `/` en la nota. La estrella queda visible y rellena.
 - **Borrar** (tachito) — lo saca de la lista. Como todo en CopyNotes, es borrado recuperable, no destrucción.
+
+Para **meter un snippet en una nota** ya no hace falta un botón acá: se inserta desde la nota escribiendo **`/`** (ver "Insertar un snippet mientras escribís" abajo).
+
+### Cambiarle el nombre a un snippet
+
+Tocá el **nombre del snippet** en la lista y se vuelve editable ahí mismo (como renombrar un archivo en la compu). **Enter** guarda, **Escape** cancela; si lo dejás vacío, se queda con el nombre que tenía.
+
+Cuando guardás un snippet desde un renglón, arranca con las primeras palabras como nombre; con este click le ponés el que te sirva para reconocerlo.
 
 ### Insertar un snippet mientras escribís
 

@@ -55,6 +55,7 @@ The backup should use this structure:
     "snippets": 0,
     "tags": 0,
     "tagAssignments": 0,
+    "folders": 0,
     "settings": 0
   },
   "data": {
@@ -63,10 +64,22 @@ The backup should use this structure:
     "snippets": [],
     "tags": [],
     "tagAssignments": [],
+    "folders": [],
     "settings": []
   }
 }
 ```
+
+> **`formatVersion` 4 (spec 022):** adds the `folders` array (see the Folder
+> entity below) plus the optional `sortOrder` (integer ≥ 0) on notes,
+> snippets and tags and the optional nullable `folderId` on notes and
+> snippets. These organization fields are **best-effort on import**: a
+> `sortOrder` that is not a non-negative integer is dropped, and a `folderId`
+> that points at no folder — or a folder of the wrong `kind` — is set to
+> `null` (the item lands in the root list). Such a drop produces a warning,
+> never a rejection. Older backups (versions 1–3) carry no folders; on import
+> they get a `sortOrder` assigned from their previous visible order
+> (`ensureSidebarOrder`). `SUPPORTED_VERSIONS = [1, 2, 3, 4]`.
 
 ## Data Entities
 
@@ -262,6 +275,36 @@ Required fields:
 - `tagId`
 - `targetType`
 - `targetId`
+- `createdAt`
+- `updatedAt`
+- `deletedAt`
+
+### Folder (formatVersion 4, spec 022)
+
+Sidebar folders for organizing notes and snippets. One level only (a folder
+never contains another folder). Membership is stored on the item via
+`folderId`; ordering (of folders and loose items together) via `sortOrder`.
+
+```json
+{
+  "id": "folder_123",
+  "kind": "note",
+  "name": "Trabajo",
+  "sortOrder": 0,
+  "collapsed": false,
+  "createdAt": "2026-07-17T10:00:00.000Z",
+  "updatedAt": "2026-07-17T10:00:00.000Z",
+  "deletedAt": null
+}
+```
+
+Required fields:
+
+- `id`
+- `kind` — `"note"` or `"snippet"`
+- `name`
+- `sortOrder` — integer ≥ 0
+- `collapsed` — boolean
 - `createdAt`
 - `updatedAt`
 - `deletedAt`

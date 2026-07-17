@@ -3,7 +3,7 @@
 
 import { CURRENT_VERSION, SUPPORTED_FORMAT } from './schema';
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'settings'];
+const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
 
 export function buildBackup(tables, meta) {
 	const { appVersion, exportedAt } = meta;

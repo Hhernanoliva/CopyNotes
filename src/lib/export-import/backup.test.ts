@@ -18,7 +18,7 @@ describe('buildBackup', () => {
 			{ appVersion: '0.0.1', exportedAt: iso }
 		);
 		expect(backup.format).toBe('copynotes.backup');
-		expect(backup.formatVersion).toBe(3);
+		expect(backup.formatVersion).toBe(4);
 		expect(backup.app).toEqual({ name: 'CopyNotes', version: '0.0.1' });
 		expect(backup.exportedAt).toBe(iso);
 		expect(backup.counts.notes).toBe(1);
@@ -31,6 +31,12 @@ describe('buildBackup', () => {
 		expect(backup.data.blocks).toEqual([]);
 		expect(backup.counts.blocks).toBe(0);
 		expect(validateBackup(backup).ok).toBe(true);
+	});
+
+	it('includes an empty folders table and its count (spec 022)', () => {
+		const backup = buildBackup({}, { appVersion: '0.0.1', exportedAt: iso });
+		expect(backup.data.folders).toEqual([]);
+		expect(backup.counts.folders).toBe(0);
 	});
 });
 

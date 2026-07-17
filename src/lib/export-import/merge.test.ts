@@ -178,4 +178,37 @@ describe('planMerge', () => {
 		expect(plan.summary.tags.added).toBe(1);
 		expect(plan.summary.remapped).toBe(false);
 	});
+
+	describe('folders (spec 022)', () => {
+		function folder(id, overrides = {}) {
+			return {
+				id,
+				kind: 'note',
+				name: 'Trabajo',
+				sortOrder: 0,
+				collapsed: false,
+				createdAt: iso,
+				updatedAt: iso,
+				deletedAt: null,
+				...overrides
+			};
+		}
+
+		it('inserts new folders and remaps folderId on conflicted folder ids', () => {
+			const local = { ...emptyTables(), folders: [folder('f1', { name: 'Distinto' })] };
+			const incoming = {
+				...emptyTables(),
+				folders: [folder('f1')],
+				notes: [note('n1', { folderId: 'f1', sortOrder: 0 })]
+			};
+			const plan = planMerge(local, incoming, { createId: () => 'fresh' });
+			expect(plan.inserts.folders).toEqual([{ ...folder('f1'), id: 'fresh' }]);
+			expect(plan.inserts.notes[0].folderId).toBe('fresh');
+		});
+
+		it('merging a v3 backup (no folders key) plans no folder inserts', () => {
+			const plan = planMerge(emptyTables(), { ...emptyTables(), folders: undefined });
+			expect(plan.inserts.folders).toEqual([]);
+		});
+	});
 });

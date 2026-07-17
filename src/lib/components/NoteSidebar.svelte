@@ -2,25 +2,28 @@
 	import {
 		Bookmark,
 		CalendarDays,
+		ChevronRight,
 		DatabaseBackup,
 		FileText,
+		Folder,
+		FolderPlus,
 		Plus,
 		Star,
 		Trash2,
-		ArrowDownToLine,
 		FileDown,
 		Pencil,
 		Tag
 	} from '@lucide/svelte';
-	import TagPicker from './TagPicker.svelte';
-	import TagChips from './TagChips.svelte';
 	import AgendaPanel from './AgendaPanel.svelte';
+	import { sidebarDragList } from './dnd';
+	import { buildSidebarTree } from '$lib/organize';
 
 	let {
 		notes,
 		snippets = [],
 		tags = [],
-		snippetTags = {},
+		noteFolders = [],
+		snippetFolders = [],
 		currentNoteId,
 		open,
 		view = $bindable('notes'),
@@ -31,17 +34,23 @@
 		onDeleteNote,
 		onNewSnippet,
 		onToggleFavorite,
-		onInsertSnippet,
+		onRenameSnippet,
 		onDeleteSnippet,
 		onExportSnippets,
 		onCreateTag,
 		onRenameTag,
 		onDeleteTag,
-		onSnippetTagPick,
-		onSnippetUntag,
+		onReorder,
+		onCreateFolder,
+		onRenameFolder,
+		onToggleFolder,
+		onDeleteFolder,
 		onOpenBlock,
 		onDataChanged
 	} = $props();
+
+	const noteTree = $derived(buildSidebarTree(notes, noteFolders));
+	const snippetTree = $derived(buildSidebarTree(snippets, snippetFolders));
 
 	// Four tabs no longer fit as full labels in the 270px sidebar; each shows
 	// its icon and only the ACTIVE one adds its name (aria-label keeps the
@@ -59,7 +68,10 @@
 	let newTagName = $state('');
 	let editingTagId = $state(null);
 	let editingValue = $state('');
-	let tagPickerSnippetId = $state(null);
+	let editingSnippetId = $state(null);
+	let editingSnippetValue = $state('');
+	let editingFolderId = $state(null);
+	let editingFolderValue = $state('');
 
 	let asideEl = $state();
 
@@ -120,6 +132,25 @@
 		else if (view === 'tags') creatingTag = !creatingTag;
 	}
 
+	async function createFolderFromMenu() {
+		const folder = await onCreateFolder(view, 'Carpeta nueva');
+		if (folder) startFolderRename(folder);
+	}
+
+	function startFolderRename(folder) {
+		editingFolderId = folder.id;
+		editingFolderValue = folder.name;
+	}
+
+	async function submitFolderRename(folder) {
+		// Same guard as snippets: Escape nulls the id first, so the blur it
+		// triggers must not save the discarded text.
+		if (editingFolderId !== folder.id) return;
+		editingFolderId = null;
+		const value = editingFolderValue.trim();
+		if (value && value !== folder.name) await onRenameFolder(folder, value);
+	}
+
 	async function submitNewTag() {
 		if (newTagName.trim()) await onCreateTag(newTagName);
 		newTagName = '';
@@ -131,6 +162,21 @@
 		editingValue = tag.name;
 	}
 
+	function startSnippetRename(snippet) {
+		editingSnippetId = snippet.id;
+		editingSnippetValue = snippet.name;
+	}
+
+	async function submitSnippetRename(snippet) {
+		// Escape sets editingSnippetId to null first; the blur it triggers then
+		// lands here and must NOT save the discarded text. Enter runs this once
+		// while still editing; the follow-up blur is a no-op for the same reason.
+		if (editingSnippetId !== snippet.id) return;
+		editingSnippetId = null;
+		const value = editingSnippetValue.trim();
+		if (value && value !== snippet.name) await onRenameSnippet(snippet, value);
+	}
+
 	async function submitRename(tag) {
 		const value = editingValue;
 		editingTagId = null;
@@ -139,6 +185,179 @@
 </script>
 
 <svelte:window onkeydown={handleWindowKeydown} />
+
+{#snippet noteRow(note, nested)}
+	<li
+		data-drag-id={note.id}
+		data-drag-folder-id={note.folderId ?? ''}
+		class="group hover:bg-accent flex items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast) {nested
+			? 'pl-5'
+			: ''} {currentNoteId === note.id ? 'bg-accent' : ''}"
+	>
+		<button
+			type="button"
+			onclick={() => onSelect(note.id)}
+			aria-current={currentNoteId === note.id ? 'page' : undefined}
+			class="focus-visible:ring-ring flex min-h-(--touch-target) min-w-0 flex-1 items-center rounded-md px-2 text-left text-sm focus-visible:ring-2 focus-visible:outline-none md:min-h-9 {currentNoteId ===
+			note.id
+				? 'text-foreground'
+				: 'text-muted-foreground'}"
+		>
+			{#if note.title}
+				<span class="truncate">{note.title}</span>
+			{:else}
+				<span class="text-faint">Sin título</span>
+			{/if}
+		</button>
+		<button
+			type="button"
+			aria-label="Borrar nota {note.title || 'sin título'}"
+			title="Borrar nota"
+			onclick={() => onDeleteNote(note.id)}
+			class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
+		>
+			<Trash2 size={14} aria-hidden="true" />
+		</button>
+	</li>
+{/snippet}
+
+{#snippet snippetRow(snippet, nested)}
+	<li
+		data-drag-id={snippet.id}
+		data-drag-folder-id={snippet.folderId ?? ''}
+		class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast) {nested
+			? 'pl-5'
+			: ''}"
+	>
+		<div class="flex items-center gap-1">
+			<div class="min-w-0 flex-1">
+				{#if editingSnippetId === snippet.id}
+					<form
+						onsubmit={(event) => {
+							event.preventDefault();
+							submitSnippetRename(snippet);
+						}}
+					>
+						<!-- svelte-ignore a11y_autofocus — the user just chose to rename. -->
+						<input
+							bind:value={editingSnippetValue}
+							aria-label="Nuevo nombre del snippet"
+							autocomplete="off"
+							autofocus
+							onkeydown={(event) => {
+								if (event.key === 'Escape') editingSnippetId = null;
+							}}
+							onblur={() => submitSnippetRename(snippet)}
+							class="border-border focus-visible:ring-ring min-h-7 w-full rounded-md border bg-transparent px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+						/>
+					</form>
+				{:else}
+					<button
+						type="button"
+						aria-label="Renombrar snippet {snippet.name}"
+						title="Renombrar"
+						onclick={() => startSnippetRename(snippet)}
+						class="focus-visible:ring-ring block w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none"
+					>
+						<p class="truncate text-sm">{snippet.name}</p>
+						{#if firstLine(snippet.content) && firstLine(snippet.content) !== snippet.name}
+							<p class="text-faint truncate text-xs">{firstLine(snippet.content)}</p>
+						{/if}
+					</button>
+				{/if}
+			</div>
+			<div class="flex shrink-0 items-center">
+				<button
+					type="button"
+					aria-label={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+					aria-pressed={snippet.isFavorite}
+					title={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
+					onclick={() => onToggleFavorite(snippet)}
+					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {snippet.isFavorite
+						? 'text-foreground opacity-100'
+						: 'opacity-0 max-md:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'}"
+				>
+					<Star size={14} aria-hidden="true" class={snippet.isFavorite ? 'fill-current' : ''} />
+				</button>
+				<button
+					type="button"
+					aria-label="Borrar snippet"
+					title="Borrar snippet"
+					onclick={() => onDeleteSnippet(snippet)}
+					class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+				>
+					<Trash2 size={14} aria-hidden="true" />
+				</button>
+			</div>
+		</div>
+	</li>
+{/snippet}
+
+{#snippet folderRow(node, viewName)}
+	<li
+		data-drag-id={node.folder.id}
+		data-drag-is-folder="true"
+		data-drag-open-folder={!node.folder.collapsed}
+		class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast)"
+	>
+		<button
+			type="button"
+			aria-expanded={!node.folder.collapsed}
+			aria-label="{node.folder.collapsed ? 'Abrir' : 'Cerrar'} carpeta {node.folder.name}"
+			onclick={() => onToggleFolder(node.folder)}
+			class="text-muted-foreground focus-visible:ring-ring flex min-h-9 flex-none items-center rounded-md px-1 focus-visible:ring-2 focus-visible:outline-none"
+		>
+			<ChevronRight
+				size={14}
+				aria-hidden="true"
+				class="transition-transform duration-(--motion-fast) {node.folder.collapsed ? '' : 'rotate-90'}"
+			/>
+			<Folder size={14} aria-hidden="true" class="ml-1" />
+		</button>
+		{#if editingFolderId === node.folder.id}
+			<form
+				class="flex-1"
+				onsubmit={(event) => {
+					event.preventDefault();
+					submitFolderRename(node.folder);
+				}}
+			>
+				<!-- svelte-ignore a11y_autofocus — the user just chose to rename. -->
+				<input
+					bind:value={editingFolderValue}
+					aria-label="Nuevo nombre de la carpeta"
+					autocomplete="off"
+					autofocus
+					onkeydown={(event) => {
+						if (event.key === 'Escape') editingFolderId = null;
+					}}
+					onblur={() => submitFolderRename(node.folder)}
+					class="border-border focus-visible:ring-ring min-h-7 w-full rounded-md border bg-transparent px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+				/>
+			</form>
+		{:else}
+			<button
+				type="button"
+				aria-label="Renombrar carpeta {node.folder.name}"
+				title="Renombrar"
+				onclick={() => startFolderRename(node.folder)}
+				class="focus-visible:ring-ring min-w-0 flex-1 truncate rounded-sm text-left text-sm font-bold focus-visible:ring-2 focus-visible:outline-none"
+			>
+				{node.folder.name}
+				<span class="text-faint font-normal">({node.children.length})</span>
+			</button>
+			<button
+				type="button"
+				aria-label="Borrar carpeta {node.folder.name}"
+				title="Borrar carpeta (el contenido vuelve a la lista)"
+				onclick={() => onDeleteFolder(viewName, node.folder)}
+				class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
+			>
+				<Trash2 size={14} aria-hidden="true" />
+			</button>
+		{/if}
+	</li>
+{/snippet}
 
 {#if open}
 	<!-- Mobile backdrop; the sidebar is a near full-screen panel below md -->
@@ -177,143 +396,88 @@
 				{/each}
 			</div>
 			{#if view !== 'agenda'}
-				<button
-					type="button"
-					onclick={handlePlus}
-					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
-					aria-label={view === 'notes'
-						? 'Nueva nota'
-						: view === 'snippets'
-							? 'Nuevo snippet'
-							: 'Nueva etiqueta'}
-					title={view === 'notes' ? 'Nueva nota' : view === 'snippets' ? 'Nuevo snippet' : 'Nueva etiqueta'}
-				>
-					<Plus size={18} aria-hidden="true" />
-				</button>
+				<div class="flex items-center">
+					{#if view === 'notes' || view === 'snippets'}
+						<button
+							type="button"
+							onclick={createFolderFromMenu}
+							class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+							aria-label={view === 'notes' ? 'Nueva carpeta de notas' : 'Nueva carpeta de snippets'}
+							title="Nueva carpeta"
+						>
+							<FolderPlus size={18} aria-hidden="true" />
+						</button>
+					{/if}
+					<button
+						type="button"
+						onclick={handlePlus}
+						class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+						aria-label={view === 'notes'
+							? 'Nueva nota'
+							: view === 'snippets'
+								? 'Nuevo snippet'
+								: 'Nueva etiqueta'}
+						title={view === 'notes' ? 'Nueva nota' : view === 'snippets' ? 'Nuevo snippet' : 'Nueva etiqueta'}
+					>
+						<Plus size={18} aria-hidden="true" />
+					</button>
+				</div>
 			{/if}
 		</div>
 
 		{#if view === 'notes'}
 			<nav aria-label="Lista de notas" class="flex-1 overflow-y-auto overscroll-contain p-2">
-				{#if notes.length === 0}
+				{#if noteTree.length === 0}
 					<p class="text-faint px-2 py-3 text-sm">Todavía no hay notas.</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
-						{#each notes as note (note.id)}
-							<li
-								class="group hover:bg-accent flex items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast) {currentNoteId ===
-								note.id
-									? 'bg-accent'
-									: ''}"
-							>
-								<button
-									type="button"
-									onclick={() => onSelect(note.id)}
-									aria-current={currentNoteId === note.id ? 'page' : undefined}
-									class="focus-visible:ring-ring flex min-h-(--touch-target) min-w-0 flex-1 items-center rounded-md px-2 text-left text-sm focus-visible:ring-2 focus-visible:outline-none md:min-h-9 {currentNoteId ===
-									note.id
-										? 'text-foreground'
-										: 'text-muted-foreground'}"
-								>
-									{#if note.title}
-										<span class="truncate">{note.title}</span>
-									{:else}
-										<span class="text-faint">Sin título</span>
-									{/if}
-								</button>
-								<button
-									type="button"
-									aria-label="Borrar nota {note.title || 'sin título'}"
-									title="Borrar nota"
-									onclick={() => onDeleteNote(note.id)}
-									class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
-								>
-									<Trash2 size={14} aria-hidden="true" />
-								</button>
-							</li>
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('notes', id, target),
+							canDropInto: (draggedId) => !noteFolders.some((folder) => folder.id === draggedId)
+						}))}
+					>
+						{#each noteTree as node (node.kind === 'folder' ? node.folder.id : node.item.id)}
+							{#if node.kind === 'folder'}
+								{@render folderRow(node, 'notes')}
+								{#if !node.folder.collapsed}
+									{#each node.children as note (note.id)}
+										{@render noteRow(note, true)}
+									{/each}
+								{/if}
+							{:else}
+								{@render noteRow(node.item, false)}
+							{/if}
 						{/each}
 					</ul>
 				{/if}
 			</nav>
 		{:else if view === 'snippets'}
 			<section aria-label="Biblioteca de snippets" class="flex-1 overflow-y-auto overscroll-contain p-2">
-				{#if snippets.length === 0}
+				{#if snippetTree.length === 0}
 					<p class="text-faint px-2 py-3 text-sm">
 						Todavía no guardaste snippets. Pasá el mouse por un bloque de tu nota y tocá el
 						marcador para guardar el primero.
 					</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
-						{#each snippets as snippet (snippet.id)}
-							<li class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast)">
-								<div class="flex items-center gap-1">
-									<div class="min-w-0 flex-1">
-										<p class="truncate text-sm">{snippet.name}</p>
-										{#if firstLine(snippet.content) && firstLine(snippet.content) !== snippet.name}
-											<p class="text-faint truncate text-xs">{firstLine(snippet.content)}</p>
-										{/if}
-									</div>
-									<div class="flex shrink-0 items-center">
-										<button
-											type="button"
-											aria-label={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
-											aria-pressed={snippet.isFavorite}
-											title={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
-											onclick={() => onToggleFavorite(snippet)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {snippet.isFavorite
-												? 'text-foreground opacity-100'
-												: 'opacity-0 max-md:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'}"
-										>
-											<Star size={14} aria-hidden="true" class={snippet.isFavorite ? 'fill-current' : ''} />
-										</button>
-										<button
-											type="button"
-											aria-label="Insertar en la nota"
-											title="Insertar en la nota"
-											onclick={() => onInsertSnippet(snippet)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<ArrowDownToLine size={14} aria-hidden="true" />
-										</button>
-										<button
-											type="button"
-											aria-label="Etiquetar snippet"
-											title="Etiquetar snippet"
-											aria-expanded={tagPickerSnippetId === snippet.id}
-											onclick={() =>
-												(tagPickerSnippetId = tagPickerSnippetId === snippet.id ? null : snippet.id)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<Tag size={14} aria-hidden="true" />
-										</button>
-										<button
-											type="button"
-											aria-label="Borrar snippet"
-											title="Borrar snippet"
-											onclick={() => onDeleteSnippet(snippet)}
-											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<Trash2 size={14} aria-hidden="true" />
-										</button>
-									</div>
-								</div>
-								{#if (snippetTags[snippet.id] ?? []).length > 0}
-									<div class="mt-1 flex flex-wrap items-center gap-1">
-										<TagChips
-											tags={snippetTags[snippet.id]}
-											onRemove={(tag) => onSnippetUntag(snippet, tag)}
-										/>
-									</div>
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('snippets', id, target),
+							canDropInto: (draggedId) => !snippetFolders.some((folder) => folder.id === draggedId)
+						}))}
+					>
+						{#each snippetTree as node (node.kind === 'folder' ? node.folder.id : node.item.id)}
+							{#if node.kind === 'folder'}
+								{@render folderRow(node, 'snippets')}
+								{#if !node.folder.collapsed}
+									{#each node.children as snippet (snippet.id)}
+										{@render snippetRow(snippet, true)}
+									{/each}
 								{/if}
-								{#if tagPickerSnippetId === snippet.id}
-									<TagPicker
-										{tags}
-										assignedIds={(snippetTags[snippet.id] ?? []).map((tag) => tag.id)}
-										onPick={(option) => onSnippetTagPick(snippet, option)}
-										onClose={() => (tagPickerSnippetId = null)}
-									/>
-								{/if}
-							</li>
+							{:else}
+								{@render snippetRow(node.item, false)}
+							{/if}
 						{/each}
 					</ul>
 				{/if}
@@ -353,9 +517,18 @@
 						"+ etiqueta".
 					</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('tags', id, target),
+							canDropInto: () => false
+						}))}
+					>
 						{#each tags as tag (tag.id)}
-							<li class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-(--motion-fast)">
+							<li
+								data-drag-id={tag.id}
+								class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-(--motion-fast)"
+							>
 								{#if editingTagId === tag.id}
 									<form
 										onsubmit={(event) => {
@@ -431,3 +604,15 @@
 		</div>
 	</aside>
 {/if}
+
+<style>
+	/* Drag feedback: attribute-driven, toggled by sidebarDragList (dnd.ts). */
+	:global([data-dragging='true']) {
+		opacity: 0.4;
+	}
+	:global([data-drag-over-folder='true']) {
+		outline: 2px solid var(--ring);
+		outline-offset: -2px;
+		border-radius: 6px;
+	}
+</style>

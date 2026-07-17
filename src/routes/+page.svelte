@@ -10,16 +10,18 @@
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
-		assignTag,
+		applySidebarUpdates,
 		createBlock,
+		createFolder,
 		createNote,
+		deleteFolderKeepContents,
 		findOrCreateTag,
 		getDemoNoteCreated,
 		getLastOpenedNoteId,
+		listFolders,
 		listNotes,
 		listSnippets,
 		listTags,
-		listTagsForMany,
 		renameTag,
 		replayJournal,
 		setDemoNoteCreated,
@@ -29,11 +31,11 @@
 		softDeleteNote,
 		softDeleteSnippet,
 		softDeleteTag,
-		unassignTag,
+		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
+	import { planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
-	import { filterSnippets } from '$lib/snippets';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 	import { tooltip } from '$lib/actions/tooltip';
 
@@ -50,15 +52,14 @@
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
-	let snippetTagsMap = $state({});
+	let noteFolders = $state([]);
+	let snippetFolders = $state([]);
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
 	// Block to focus once the editor (re)loads, set by the Agenda's jump-to-block.
 	let pendingFocusBlockId = $state(null);
 
-	// Favorites first, same ordering as the /snippet menu.
-	const sortedSnippets = $derived(filterSnippets(snippets, ''));
 	const currentTheme = $derived(mode.current === 'light' ? 'light' : 'dark');
 
 	function isDesktop() {
@@ -93,6 +94,7 @@
 			notes = rows;
 			snippets = snippetRows;
 			await refreshTags();
+			await refreshFolders();
 			const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
 			const current = last ?? rows[0];
 			currentNoteId = current ? current.id : null;
@@ -169,7 +171,9 @@
 		currentNoteId = null;
 		const note = await createNote();
 		await createBlock({ noteId: note.id, type: 'text' });
-		notes = [note, ...notes];
+		// createNote shifted every other note's sortOrder; re-read so the
+		// in-memory list matches storage instead of guessing the new order.
+		notes = await listNotes();
 		selectNote(note.id);
 	}
 
@@ -196,6 +200,7 @@
 			currentNoteId = rows[0]?.id ?? null;
 		}
 		await refreshSnippets();
+		await refreshFolders();
 		dataVersion += 1;
 	}
 
@@ -206,10 +211,6 @@
 
 	async function refreshTags() {
 		tags = await listTags();
-		snippetTagsMap = await listTagsForMany(
-			'snippet',
-			snippets.map((snippet) => snippet.id)
-		);
 	}
 
 	async function createTagFromSidebar(name) {
@@ -235,38 +236,136 @@
 		toast.success('Etiqueta borrada');
 	}
 
-	async function snippetTagPick(snippet, option) {
-		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
-		if (!tag) return;
-		const assigned = (snippetTagsMap[snippet.id] ?? []).some((row) => row.id === tag.id);
-		if (assigned) await unassignTag(tag.id, 'snippet', snippet.id);
-		else await assignTag(tag.id, 'snippet', snippet.id);
-		await refreshTags();
-	}
-
-	async function snippetUntag(snippet, tag) {
-		await unassignTag(tag.id, 'snippet', snippet.id);
-		await refreshTags();
-	}
-
 	async function toggleFavorite(snippet) {
 		await updateSnippet(snippet.id, { isFavorite: !snippet.isFavorite });
 		await refreshSnippets();
+	}
+
+	async function renameSnippetFromSidebar(snippet, name) {
+		await updateSnippet(snippet.id, { name });
+		await refreshSnippets();
+	}
+
+	async function refreshFolders() {
+		noteFolders = await listFolders('note');
+		snippetFolders = await listFolders('snippet');
+	}
+
+	async function createFolderFromSidebar(view, name) {
+		const folder = await createFolder(view === 'notes' ? 'note' : 'snippet', name);
+		await refreshFolders();
+		if (view === 'notes') notes = await listNotes();
+		else snippets = await listSnippets();
+		return folder;
+	}
+
+	async function renameFolderFromSidebar(folder, name) {
+		await updateFolder(folder.id, { name });
+		await refreshFolders();
+	}
+
+	async function toggleFolderFromSidebar(folder) {
+		await updateFolder(folder.id, { collapsed: !folder.collapsed });
+		await refreshFolders();
+	}
+
+	async function deleteFolderFromSidebar(view, folder) {
+		const kindItems = view === 'notes' ? notes : snippets;
+		const folderRows = view === 'notes' ? noteFolders : snippetFolders;
+		const table = view === 'notes' ? 'notes' : 'snippets';
+		const rootContainer = [
+			...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+			...kindItems
+				.filter((item) => (item.folderId ?? null) === null)
+				.map((item) => ({ id: item.id, sortOrder: item.sortOrder }))
+		];
+		const contents = kindItems.filter((item) => item.folderId === folder.id);
+		const { updates } = planFolderDelete(rootContainer, $state.snapshot(contents), folder.id);
+		// Root renumbering may touch folder rows and item rows: split by id.
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		const itemUpdates = updates.filter((update) => !folderIds.has(update.id));
+		const folderUpdates = updates.filter((update) => folderIds.has(update.id));
+		await deleteFolderKeepContents(folder.id, { [table]: itemUpdates });
+		await applySidebarUpdates('folders', folderUpdates);
+		await refreshFolders();
+		if (view === 'notes') notes = await listNotes();
+		else snippets = await listSnippets();
+		toast.success('Carpeta borrada; su contenido volvió a la lista');
+	}
+
+	async function reorderSidebar(view, draggedId, target) {
+		// Tags are a single flat list with no folders.
+		if (view === 'tags') {
+			if (target.type !== 'insert') return;
+			await applySidebarUpdates(
+				'tags',
+				planReorder($state.snapshot(tags), draggedId, target.index).updates
+			);
+			tags = await listTags();
+			return;
+		}
+
+		const isNotes = view === 'notes';
+		const items = isNotes ? notes : snippets;
+		const folderRows = isNotes ? noteFolders : snippetFolders;
+		const table = isNotes ? 'notes' : 'snippets';
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		const draggedIsFolder = folderIds.has(draggedId);
+
+		// Root container mixes folders and loose items in one sortOrder sequence.
+		const rootContainer = $state.snapshot([
+			...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+			...items.filter((item) => (item.folderId ?? null) === null)
+		]);
+		const containerOf = (folderId) =>
+			folderId === null
+				? rootContainer
+				: $state.snapshot(items.filter((item) => item.folderId === folderId));
+
+		let updates = [];
+		if (target.type === 'into-folder') {
+			if (draggedIsFolder) return; // never nest folders
+			const dragged = items.find((item) => item.id === draggedId);
+			if ((dragged?.folderId ?? null) === target.folderId) return;
+			updates = planMoveToContainer(
+				containerOf(dragged?.folderId ?? null),
+				containerOf(target.folderId),
+				draggedId,
+				0,
+				target.folderId
+			).updates;
+		} else {
+			if (draggedIsFolder && target.container !== null) return; // folders live at root
+			const dragged = draggedIsFolder ? null : items.find((item) => item.id === draggedId);
+			const sourceFolder = dragged?.folderId ?? null;
+			if (sourceFolder === (target.container ?? null)) {
+				updates = planReorder(containerOf(sourceFolder), draggedId, target.index).updates;
+			} else {
+				updates = planMoveToContainer(
+					containerOf(sourceFolder),
+					containerOf(target.container ?? null),
+					draggedId,
+					target.index,
+					target.container ?? null
+				).updates;
+			}
+		}
+
+		// Root renumbering can touch folder rows and item rows: route each
+		// update to its table (folder updates never carry folderId).
+		const folderUpdates = updates.filter((update) => folderIds.has(update.id));
+		const itemUpdates = updates.filter((update) => !folderIds.has(update.id));
+		await applySidebarUpdates(table, itemUpdates);
+		await applySidebarUpdates('folders', folderUpdates);
+		await refreshFolders();
+		if (isNotes) notes = await listNotes();
+		else snippets = await listSnippets();
 	}
 
 	async function deleteSnippet(snippet) {
 		await softDeleteSnippet(snippet.id);
 		await refreshSnippets();
 		toast.success('Snippet borrado');
-	}
-
-	async function insertSnippet(snippet) {
-		if (!currentNoteId || !editorRef) {
-			toast.error('Abrí una nota primero para insertar el snippet.');
-			return;
-		}
-		await editorRef.insertSnippet(snippet);
-		if (!isDesktop()) sidebarOpen = false;
 	}
 
 	function exportSnippets() {
@@ -292,9 +391,10 @@
 <div class="flex h-svh overflow-hidden">
 	<NoteSidebar
 		{notes}
-		snippets={sortedSnippets}
+		{snippets}
 		{tags}
-		snippetTags={snippetTagsMap}
+		{noteFolders}
+		{snippetFolders}
 		{currentNoteId}
 		open={sidebarOpen}
 		bind:view={sidebarView}
@@ -305,14 +405,17 @@
 		onDeleteNote={deleteNote}
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
-		onInsertSnippet={insertSnippet}
+		onRenameSnippet={renameSnippetFromSidebar}
+		onReorder={reorderSidebar}
+		onCreateFolder={createFolderFromSidebar}
+		onRenameFolder={renameFolderFromSidebar}
+		onToggleFolder={toggleFolderFromSidebar}
+		onDeleteFolder={deleteFolderFromSidebar}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
 		onCreateTag={createTagFromSidebar}
 		onRenameTag={renameTagFromSidebar}
 		onDeleteTag={deleteTag}
-		onSnippetTagPick={snippetTagPick}
-		onSnippetUntag={snippetUntag}
 		onOpenBlock={openFromAgenda}
 		onDataChanged={handleDataChanged}
 	/>

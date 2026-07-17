@@ -17,6 +17,7 @@
 	import {
 		applyMergePlan,
 		dumpAllTables,
+		ensureSidebarOrder,
 		getNote,
 		listBlocksByNote,
 		replaceAllTables
@@ -97,6 +98,9 @@
 		try {
 			// $state proxies can't be structured-cloned into IndexedDB.
 			await applyMergePlan($state.snapshot(review.plan));
+			// Imported rows may carry gaps or no order (older backups): make the
+			// manual sidebar order gapless again from their previous visible order.
+			await ensureSidebarOrder();
 			toast.success('Respaldo importado. Tus datos actuales quedaron intactos.');
 			finishImport();
 		} catch {
@@ -111,6 +115,7 @@
 		try {
 			const data = $state.snapshot(review.backup.data);
 			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
+			await ensureSidebarOrder();
 			toast.success('Respaldo restaurado desde cero.');
 			finishImport();
 		} catch {

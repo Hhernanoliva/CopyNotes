@@ -375,7 +375,12 @@ test('save a block as a snippet and find it in the Snippets view', async ({ page
 	await expect(page.getByText('Snippet guardado')).toBeVisible();
 
 	await page.getByRole('button', { name: 'Snippets' }).click();
-	await expect(page.getByRole('button', { name: 'Insertar en la nota' }).first()).toBeAttached();
+	// The saved snippet shows in the library; snippets are inserted from the
+	// note with the / menu, so the row itself only keeps favorite + delete.
+	const library = page.getByRole('region', { name: 'Biblioteca de snippets' });
+	await expect(library.getByRole('button', { name: 'Borrar snippet' }).first()).toBeAttached();
+	await expect(page.getByRole('button', { name: 'Insertar en la nota' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Etiquetar snippet' })).toHaveCount(0);
 });
 
 test('search finds a block by its text', async ({ page }) => {

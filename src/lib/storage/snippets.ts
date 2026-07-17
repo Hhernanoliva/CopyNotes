@@ -1,5 +1,7 @@
 import { db } from './db';
 import { createId, now } from './ids';
+import { sortBySidebarOrder } from '../organize';
+import { shiftRootDown } from './organize';
 
 const snippets = db.table('snippets');
 
@@ -12,6 +14,7 @@ export async function createSnippet(fields) {
 		sourceBlockId = null,
 		isFavorite = false
 	} = fields ?? {};
+	await shiftRootDown('snippet');
 	const timestamp = now();
 	const snippet = {
 		id: createId(),
@@ -21,6 +24,8 @@ export async function createSnippet(fields) {
 		sourceNoteId,
 		sourceBlockId,
 		isFavorite,
+		sortOrder: 0,
+		folderId: null,
 		createdAt: timestamp,
 		updatedAt: timestamp,
 		deletedAt: null
@@ -37,7 +42,7 @@ export async function getSnippet(id) {
 
 export async function listSnippets() {
 	const rows = await snippets.filter((snippet) => !snippet.deletedAt).toArray();
-	return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+	return sortBySidebarOrder(rows);
 }
 
 export async function listFavoriteSnippets() {

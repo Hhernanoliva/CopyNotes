@@ -8,9 +8,11 @@ import { BLOCK_TYPES } from '../format/blocktype';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
 // Version 2 added the heading block types; version 3 added the optional block
-// dueDate. Shapes are otherwise identical, so 1 and 2 import with no migration.
-export const SUPPORTED_VERSIONS = [1, 2, 3];
-export const CURRENT_VERSION = 3;
+// dueDate; version 4 (spec 022) added the folders table plus the optional
+// sortOrder/folderId organization fields. Shapes are otherwise identical, so
+// older versions import with no migration.
+export const SUPPORTED_VERSIONS = [1, 2, 3, 4];
+export const CURRENT_VERSION = 4;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -76,6 +78,17 @@ const tagSchema = v.looseObject({
 	deletedAt: nullableTimestamp
 });
 
+const folderSchema = v.looseObject({
+	id: v.string(),
+	kind: v.picklist(['note', 'snippet']),
+	name: v.string(),
+	sortOrder: v.number(),
+	collapsed: v.boolean(),
+	createdAt: isoTimestamp,
+	updatedAt: isoTimestamp,
+	deletedAt: nullableTimestamp
+});
+
 const tagAssignmentSchema = v.looseObject({
 	id: v.string(),
 	tagId: v.string(),
@@ -103,9 +116,44 @@ const backupSchema = v.looseObject({
 		snippets: v.array(snippetSchema),
 		tags: v.array(tagSchema),
 		tagAssignments: v.array(tagAssignmentSchema),
+		folders: v.optional(v.array(folderSchema), []),
 		settings: v.array(settingSchema)
 	})
 });
+
+// Organization fields (spec 022) are best-effort: a bad sortOrder or a
+// folderId pointing nowhere must not sink a whole backup. Normalize in place
+// after shape validation (looseObject lets these through unchecked, so this
+// pass is the actual gate). Returns true when something was dropped.
+function normalizeOrganization(data) {
+	let touched = false;
+	const dropOrder = (row) => {
+		if (row.sortOrder !== undefined && (!Number.isInteger(row.sortOrder) || row.sortOrder < 0)) {
+			delete row.sortOrder;
+			touched = true;
+		}
+	};
+	const folderIdsByKind = { note: new Set(), snippet: new Set() };
+	for (const folder of data.folders) {
+		dropOrder(folder);
+		folderIdsByKind[folder.kind].add(folder.id);
+	}
+	const fixItems = (rows, kind) => {
+		for (const row of rows) {
+			dropOrder(row);
+			if (row.folderId !== undefined && row.folderId !== null) {
+				if (typeof row.folderId !== 'string' || !folderIdsByKind[kind].has(row.folderId)) {
+					row.folderId = null;
+					touched = true;
+				}
+			}
+		}
+	};
+	fixItems(data.notes, 'note');
+	fixItems(data.snippets, 'snippet');
+	for (const tag of data.tags) dropOrder(tag);
+	return touched;
+}
 
 function formatIssues(issues) {
 	return issues.map((issue) => {
@@ -140,7 +188,7 @@ function referenceErrors(data, existing) {
 	return errors;
 }
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'settings'];
+const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
 
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
@@ -176,12 +224,18 @@ export function validateBackup(raw, existingIds = undefined) {
 		return { ok: false, errors: refErrors, warnings: [] };
 	}
 	const warnings = [];
+	if (normalizeOrganization(backup.data)) {
+		warnings.push(
+			'Se descartaron datos de orden o carpeta inválidos; esos elementos quedan en la lista general.'
+		);
+	}
 	const counts = {
 		notes: backup.data.notes.length,
 		blocks: backup.data.blocks.length,
 		snippets: backup.data.snippets.length,
 		tags: backup.data.tags.length,
 		tagAssignments: backup.data.tagAssignments.length,
+		folders: backup.data.folders.length,
 		settings: backup.data.settings.length
 	};
 	for (const table of TABLES) {
