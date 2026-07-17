@@ -48,3 +48,33 @@ db.version(3).upgrade(async (tx) => {
 db.version(4).stores({
 	blocks: 'id, noteId, parentBlockId, dueDate'
 });
+
+// v5 (spec 022): manual sidebar order + folders. Every live note/snippet/tag
+// gets an initial sortOrder matching the order the sidebar showed before
+// (notes/snippets: updatedAt desc; tags: alphabetical); notes/snippets start
+// at the root (folderId null). Deleted rows are ordered after the live ones
+// so a future restore cannot collide with the live sequence.
+db.version(5)
+	.stores({
+		folders: 'id, kind'
+	})
+	.upgrade(async (tx) => {
+		const byRecency = (a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '');
+		const byName = (a, b) => (a.name ?? '').localeCompare(b.name ?? '');
+		const migrate = async (name, compare, withFolder) => {
+			const rows = await tx.table(name).toArray();
+			const live = rows.filter((row) => !row.deletedAt).sort(compare);
+			const dead = rows.filter((row) => row.deletedAt).sort(compare);
+			await Promise.all(
+				[...live, ...dead].map((row, index) =>
+					tx.table(name).update(row.id, {
+						sortOrder: index,
+						...(withFolder && row.folderId === undefined ? { folderId: null } : {})
+					})
+				)
+			);
+		};
+		await migrate('notes', byRecency, true);
+		await migrate('snippets', byRecency, true);
+		await migrate('tags', byName, false);
+	});

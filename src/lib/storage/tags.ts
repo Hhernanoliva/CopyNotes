@@ -1,17 +1,21 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { normalizeTagName, tagNamesMatch } from '../tags/names';
+import { sortBySidebarOrder } from '../organize';
+import { shiftRootDown } from './organize';
 
 const tags = db.table('tags');
 const tagAssignments = db.table('tagAssignments');
 
 export async function createTag(fields) {
 	const { name, color = null } = fields;
+	await shiftRootDown('tag');
 	const timestamp = now();
 	const tag = {
 		id: createId(),
 		name,
 		color,
+		sortOrder: 0,
 		createdAt: timestamp,
 		updatedAt: timestamp,
 		deletedAt: null
@@ -50,7 +54,7 @@ export async function getTag(id) {
 
 export async function listTags() {
 	const rows = await tags.filter((tag) => !tag.deletedAt).toArray();
-	return rows.sort((a, b) => a.name.localeCompare(b.name));
+	return sortBySidebarOrder(rows);
 }
 
 export async function updateTag(id, changes) {

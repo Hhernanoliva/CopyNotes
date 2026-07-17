@@ -1,13 +1,18 @@
 import { db } from './db';
 import { createId, now } from './ids';
+import { sortBySidebarOrder } from '../organize';
+import { shiftRootDown } from './organize';
 
 const notes = db.table('notes');
 
 export async function createNote({ title = '' } = {}) {
+	await shiftRootDown('note');
 	const timestamp = now();
 	const note = {
 		id: createId(),
 		title,
+		sortOrder: 0,
+		folderId: null,
 		createdAt: timestamp,
 		updatedAt: timestamp,
 		deletedAt: null
@@ -24,7 +29,7 @@ export async function getNote(id) {
 
 export async function listNotes() {
 	const rows = await notes.filter((note) => !note.deletedAt).toArray();
-	return rows.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+	return sortBySidebarOrder(rows);
 }
 
 export async function updateNote(id, changes) {
