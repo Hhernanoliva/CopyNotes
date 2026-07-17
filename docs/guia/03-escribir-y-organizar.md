@@ -17,6 +17,19 @@
 
 > **Negrita, cursiva, títulos, enlaces y colores:** todo el detalle está en la sección "Dar formato al texto" más abajo. Como resumen rápido: los atajos **Ctrl/Cmd+B/I/U/Shift+S/K** funcionan aunque no se vea ninguna barra flotante en pantalla.
 
+### Mover renglones arrastrando
+
+Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mouse o con el dedo:
+
+- **Mantené presionado** sobre el renglón un instante (hasta que se "despegue" y aparezca una etiqueta de que lo estás moviendo). Sin soltar, llevalo a donde quieras.
+- Una **línea fina** te va mostrando dónde va a caer.
+- Si lo movés **hacia la derecha**, queda **dentro** del renglón de arriba (como sub-punto). Hacia la **izquierda**, **sale** hacia afuera. Así podés anidar o desanidar sin usar Tab.
+- El renglón se lleva **todos sus hijos**. Si tenías **varios renglones seleccionados**, se mueven todos juntos.
+- Para **cancelar**, soltá fuera de la lista o apretá **Escape**: no se mueve nada.
+- Un **clic rápido** sigue sirviendo para poner el cursor y editar; solo se arrastra si mantenés presionado.
+
+Un solo **Ctrl/Cmd+Z** deshace todo el movimiento.
+
 ### Pegar varias líneas
 
 Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…), CopyNotes lo **separa en renglones** en vez de meter todo en uno solo.

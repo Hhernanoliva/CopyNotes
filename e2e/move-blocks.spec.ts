@@ -49,3 +49,74 @@ test('Alt+Arrow moves a line out of its parent in both directions', async ({ pag
 	await page.reload();
 	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Padre', 'Hijo 2']);
 });
+
+// Drag-to-reorder-and-nest: long-press a line (~350ms hold), then drag. A
+// quick drag is text-selection, not a move. Dragging right nests the line.
+
+const HOLD = 450; // exceed the controller's 350ms long-press
+
+// Seed three root lines A / B / C, top to bottom.
+async function seedABC(page) {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('A');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('B');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('C');
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'B', 'C']);
+}
+
+test('drag a line to reorder it above the first', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const cBox = await rows.nth(2).boundingBox();
+	const aBox = await rows.nth(0).boundingBox();
+
+	await page.mouse.move(cBox.x + 40, cBox.y + cBox.height / 2);
+	await page.mouse.down();
+	await page.waitForTimeout(HOLD); // long-press arms the drag
+	// drag up to just above the first line's midpoint, at root depth (left)
+	await page.mouse.move(aBox.x + 40, aBox.y + 2, { steps: 10 });
+	await page.mouse.up();
+
+	await expect.poll(() => blockTexts(page)).toEqual(['C', 'A', 'B']);
+});
+
+test('a quick drag selects text and does not move the line', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const cBox = await rows.nth(2).boundingBox();
+	const aBox = await rows.nth(0).boundingBox();
+
+	await page.mouse.move(cBox.x + 40, cBox.y + cBox.height / 2);
+	await page.mouse.down();
+	// move immediately, no hold: this is text-selection, arming cancels
+	await page.mouse.move(aBox.x + 40, aBox.y + 2, { steps: 10 });
+	await page.mouse.up();
+
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'B', 'C']);
+});
+
+test('dragging right nests the line under the previous one', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const bBox = await rows.nth(1).boundingBox();
+	const aBox = await rows.nth(0).boundingBox();
+
+	// long-press B, drag into the gap right below A and to the right -> child of A
+	await page.mouse.move(bBox.x + 40, bBox.y + bBox.height / 2);
+	await page.mouse.down();
+	await page.waitForTimeout(HOLD);
+	await page.mouse.move(aBox.x + 40 + 30, aBox.y + aBox.height - 2, { steps: 10 });
+	await page.mouse.up();
+
+	// order unchanged, but B is now indented under A
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'B', 'C']);
+	const bRow = page.locator('main [data-block-id]', { hasText: 'B' });
+	await expect(bRow).not.toHaveCSS('padding-left', '0px');
+});

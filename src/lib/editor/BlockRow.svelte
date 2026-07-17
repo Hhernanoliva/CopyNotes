@@ -51,6 +51,7 @@
 		onShiftSelect,
 		onPlainMousedown,
 		onDragOver,
+		onDragHold,
 		tags = [],
 		allTags = [],
 		tagPickerOpen = false,
@@ -414,6 +415,7 @@
 		: ''}"
 	style="padding-left: {depth * 1.5}rem"
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
+	onpointerdown={(event) => onDragHold?.(block.id, event)}
 >
 	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
 		{#if hasChildren}
