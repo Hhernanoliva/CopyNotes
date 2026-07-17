@@ -12,7 +12,7 @@
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { badgeLabel, isOverdue, todayString } from '$lib/dates';
+	import { badgeLabel, currentDay, isOverdue } from '$lib/dates';
 	import {
 		CLIPBOARD_FORMAT,
 		deserializeForest,
@@ -94,7 +94,7 @@
 	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
 	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
 
-	const today = todayString();
+	const today = $derived(currentDay());
 	const dueLabel = $derived(block.dueDate ? badgeLabel(block.dueDate, today) : '');
 	const overdue = $derived(isOverdue(block, today));
 

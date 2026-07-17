@@ -1,6 +1,6 @@
 <script>
 	import { Check } from '@lucide/svelte';
-	import { badgeLabel, groupForAgenda, todayString } from '$lib/dates';
+	import { badgeLabel, currentDay, groupForAgenda } from '$lib/dates';
 	import {
 		getAgendaHideCompleted,
 		listDatedBlocks,
@@ -11,19 +11,23 @@
 
 	let { onOpen, onDataChanged } = $props();
 
-	let groups = $state([]);
+	let blocks = $state([]);
 	let titles = $state({});
 	let hideCompleted = $state(false);
 	let loaded = $state(false);
 
+	// Regroups automatically when the day rolls over at midnight — currentDay()
+	// is reactive, so no reload or storage re-read is needed.
+	const groups = $derived(loaded ? groupForAgenda(blocks, currentDay()) : []);
+
 	async function refresh() {
-		const [blocks, notes, hide] = await Promise.all([
+		const [dated, notes, hide] = await Promise.all([
 			listDatedBlocks(),
 			listNotes(),
 			getAgendaHideCompleted()
 		]);
 		titles = Object.fromEntries(notes.map((note) => [note.id, note.title]));
-		groups = groupForAgenda(blocks, todayString());
+		blocks = dated;
 		hideCompleted = hide;
 		loaded = true;
 	}
@@ -136,7 +140,7 @@
 											{firstLine(item)}
 										</span>
 										<span class="text-faint truncate text-xs">
-											{titles[item.noteId] || 'Sin título'} · 📅 {badgeLabel(item.dueDate, todayString())}
+											{titles[item.noteId] || 'Sin título'} · 📅 {badgeLabel(item.dueDate, currentDay())}
 										</span>
 									</button>
 								</li>
