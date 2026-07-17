@@ -21,6 +21,10 @@ Tocá la etiqueta 📅 del renglón para volver a abrir el mismo panel: ahí pod
 
 Si la fecha ya pasó y el renglón no es una tarea marcada como hecha, la etiqueta se ve en rojo para llamar la atención.
 
+## Se actualiza solo al cambiar el día
+
+Si dejás CopyNotes abierto y pasa la medianoche, las fechas se acomodan **solas**, sin que recargues ni vuelvas a abrir la nota: lo que era «mañana» pasa a decir «hoy», lo que vence ese día aparece como vencido, y la Agenda reordena sus grupos en el momento. También se pone al día apenas volvés a la app si la computadora estuvo dormida durante la noche.
+
 ## Al copiar o exportar
 
 Cuando copiás un renglón con fecha (o lo exportás en un respaldo), la fecha viaja como texto al final de la línea, con el formato día/mes/año — por ejemplo «Comprar regalo — 📅 12/08/2026» — así nunca se pierde aunque el destino no entienda el formato interno de CopyNotes.

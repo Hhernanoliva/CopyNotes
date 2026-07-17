@@ -5,6 +5,7 @@
 	import { ModeWatcher, mode, setMode } from 'mode-watcher';
 	import { Toaster } from 'svelte-sonner';
 	import { getTheme } from '$lib/storage';
+	import { startTodayClock } from '$lib/dates';
 	import { browserThemeColors } from '$lib/theme/browser-colors';
 	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
 	import InstallPrompt from '$lib/pwa/InstallPrompt.svelte';
@@ -26,6 +27,10 @@
 			cancelled = true;
 		};
 	});
+
+	// App-wide day clock: rolls date labels and the Agenda over at midnight
+	// without a reload. Cleanup clears the timer and listeners.
+	$effect(() => startTodayClock());
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>

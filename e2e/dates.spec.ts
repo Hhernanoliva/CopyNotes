@@ -30,6 +30,31 @@ test('slash date assigns a persistent badge', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveCount(0);
 });
 
+// Spec 021 follow-up: the app open across midnight must roll date labels over
+// on its own, without a reload. Playwright's clock mock lets us cross midnight
+// deterministically: a block dated "tomorrow" must relabel to "today".
+test('date badge rolls from mañana to hoy at midnight without reload', async ({ page }) => {
+	// Freeze the clock 30s before local midnight, BEFORE the app boots so its
+	// day clock reads the mocked time.
+	await page.clock.install({ time: new Date(2026, 6, 16, 23, 59, 30) });
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	await page.getByRole('button', { name: 'Mañana' }).click();
+
+	const badge = page.getByRole('button', { name: 'Cambiar fecha' });
+	await expect(badge).toHaveText(/mañana/);
+
+	// Advance past midnight (30s to the boundary + the clock's 1s cushion).
+	await page.clock.fastForward(60_000);
+	await expect(badge).toHaveText(/hoy/);
+});
+
 // The date panel is fully keyboard-driven: arrows rove the options, Enter picks.
 test('date panel navigates with arrow keys', async ({ page }) => {
 	await page.goto('/');
