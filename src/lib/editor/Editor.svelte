@@ -48,7 +48,7 @@
 	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
-	import { filterCommands, moveSelection } from './slash';
+	import { filterCommands, moveSelection, nextSlashState } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
@@ -59,6 +59,7 @@
 		sanitizeHtml,
 		htmlToPlainText,
 		plainTextToHtml,
+		removePlainTextRange,
 		planBlockType,
 		HEADING_TYPES,
 		activeFormatsFor,
@@ -82,15 +83,23 @@
 	let note = $state(null);
 	let blocks = $state([]);
 	let focusBlockId = $state(null);
+	// Plain-text caret offset to restore when focusBlockId lands (or null for
+	// caret-at-end). Set by slash-menu flows so the caret returns to where the
+	// "/" was typed; cleared together with focusBlockId in onFocusHandled.
+	let focusCaret = $state(null);
 	// Last block the user touched; snippet insertion from the sidebar lands here.
 	let activeBlockId = $state(null);
 	let titleEl = $state();
-	// Slash menu state: which block it is anchored to, the text typed after
-	// "/", and the highlighted option. mode 'snippets' means /snippet was
-	// chosen and the menu now lists saved snippets instead of block types.
+	// Slash menu state: which block it is anchored to, the plain-text offset of
+	// the "/" (anchor), the text typed after it, and the highlighted option.
+	// mode 'snippets' means /snippet was chosen and the menu now lists saved
+	// snippets instead of block types.
 	let slash = $state(null);
 	// Which block's date panel is open (spec 021 Slice A), or null.
 	let datePanelFor = $state(null);
+	// Caret offset to restore after the date panel closes, when it was opened
+	// via /fecha (null = caret at the end, e.g. opened from the badge).
+	let datePanelCaret = null;
 	// Tag state: all live tags (for the picker), the note's tags, tags per
 	// block id, and which target has the picker open ('note' or a block id).
 	let allTags = $state([]);
@@ -309,15 +318,24 @@
 		const text = payload.content;
 		const html = payload.html;
 		recordTextSnapshot(block.id);
-		// Typing "/" in an empty block opens the slash menu; the query is
-		// whatever follows. Code blocks are exempt, slashes are normal there.
-		if (block.type !== 'code' && text.startsWith('/')) {
-			// Keep the snippet-picker mode alive while the user narrows the query.
-			if (slash && slash.blockId === block.id && slash.mode === 'snippets') {
-				slash.query = text.slice(1);
+		// Typing "/" anywhere in the block opens the slash menu; what follows up
+		// to the caret is the query. Code blocks are exempt, slashes are normal
+		// there. The snippet-picker mode survives while the user narrows the
+		// query, because only the query changes — the anchor stays put.
+		if (block.type !== 'code') {
+			const prev = slash && slash.blockId === block.id ? { anchor: slash.anchor, query: slash.query } : null;
+			const next = nextSlashState(prev, {
+				prevText: block.content ?? '',
+				text,
+				caret: payload.caret ?? null
+			});
+			if (next && prev) {
+				slash.query = next.query;
 				slash.index = 0;
-			} else {
-				slash = { blockId: block.id, query: text.slice(1), index: 0, mode: 'commands' };
+			} else if (next) {
+				slash = { blockId: block.id, anchor: next.anchor, query: next.query, index: 0, mode: 'commands' };
+			} else if (slash && slash.blockId === block.id) {
+				slash = null;
 			}
 		} else if (slash && slash.blockId === block.id) {
 			slash = null;
@@ -1099,22 +1117,37 @@
 		focusBlockId = plan.focusId;
 	}
 
+	// Remove the "/query" span from a row's plain content and html, preserving
+	// the surrounding inline formatting. keepSlash leaves the "/" itself in
+	// place (snippet-picker mode keeps filtering off it).
+	function strippedSlashFields(row, anchor, query, keepSlash = false) {
+		const start = anchor + (keepSlash ? 1 : 0);
+		const end = anchor + 1 + query.length;
+		const plain = row.content ?? '';
+		const content = plain.slice(0, start) + plain.slice(end);
+		const html =
+			(row.html ?? '') !== '' ? removePlainTextRange(row.html, start, end) : plainTextToHtml(content);
+		return { content, html };
+	}
+
 	async function applySnippetPick(snippet) {
 		const row = blocks.find((block) => block.id === slash.blockId);
+		const stripped = row ? strippedSlashFields(row, slash.anchor, slash.query) : null;
 		slash = null;
 		if (!row) return;
 		await insertSnippetBlocks(snippet, row.id);
-		// The "/…" row only existed to open the picker. Drop it — unless it has
-		// children, in which case deleting it would orphan them.
+		// The "/…" span only existed to drive the picker. Strip it; when nothing
+		// remains and the row has no children, drop the row entirely (deleting a
+		// parent would orphan its children).
 		const hasChildren = blocks.some((block) => (block.parentBlockId ?? null) === row.id);
 		cancelPending(`block:${row.id}`);
-		if (hasChildren) {
-			row.content = '';
-			row.html = '';
-			await updateBlock(row.id, { content: '', html: '' });
-		} else {
+		if (stripped.content === '' && !hasChildren) {
 			await softDeleteBlock(row.id);
 			blocks = blocks.filter((block) => block.id !== row.id);
+		} else {
+			row.content = stripped.content;
+			row.html = stripped.html;
+			await updateBlock(row.id, { content: stripped.content, html: stripped.html });
 		}
 	}
 
@@ -1141,57 +1174,71 @@
 			return;
 		}
 		const row = blocks.find((block) => block.id === slash.blockId);
-		if (row && HEADING_TYPES.includes(command.id)) {
-			// Strip the "/query" text, then convert the type. Headings are a type
-			// change, not an insert, so no new block is created.
-			row.content = '';
-			row.html = '';
-			await updateBlock(row.id, { content: '', html: '' });
-			await setBlockType(row, command.id);
+		if (!row) {
 			slash = null;
 			return;
 		}
+		const anchor = slash.anchor;
+		// The last keystroke of "/query" left a debounced content save behind;
+		// fired later it would re-write the text this command strips.
+		cancelPending(`block:${row.id}`);
 		if (command.id === 'snippet') {
 			// Switch the menu into snippet-picker mode; the block keeps its "/"
 			// so typing keeps filtering the snippet list.
 			const snippets = await listSnippets();
-			slash = { blockId: slash.blockId, query: '', index: 0, mode: 'snippets', snippets };
-			if (row) {
-				row.content = '/';
-				focusBlockId = row.id;
-			}
+			const kept = strippedSlashFields(row, anchor, slash.query, true);
+			row.content = kept.content;
+			row.html = kept.html;
+			await updateBlock(row.id, { content: kept.content, html: kept.html });
+			slash = { blockId: slash.blockId, anchor, query: '', index: 0, mode: 'snippets', snippets };
+			focusBlockId = row.id;
+			focusCaret = anchor + 1;
+			return;
+		}
+		// Strip the "/query" span; whatever the user had typed around it stays,
+		// and the caret goes back to where the "/" was.
+		const stripped = strippedSlashFields(row, anchor, slash.query);
+		slash = null;
+		row.content = stripped.content;
+		row.html = stripped.html;
+		await updateBlock(row.id, { content: stripped.content, html: stripped.html });
+		if (HEADING_TYPES.includes(command.id)) {
+			// Headings are a type change, not an insert, so no new block is created.
+			await setBlockType(row, command.id);
+			focusBlockId = row.id;
+			focusCaret = anchor;
 			return;
 		}
 		if (command.id === 'date') {
-			slash = null;
-			if (!row) return;
-			// Strip the "/query" text; the block keeps its type — a date is a
-			// field, not a block type.
-			row.content = '';
-			row.html = '';
-			await updateBlock(row.id, { content: '', html: '' });
+			// The block keeps its type — a date is a field, not a block type.
 			datePanelFor = row.id;
+			datePanelCaret = anchor;
 			return;
 		}
-		slash = null;
-		if (!row) return;
 		if (command.id === 'separator') {
-			row.type = 'separator';
-			row.content = '';
-			await updateBlock(row.id, { type: 'separator', content: '' });
-			await handleEnter(row, 'text');
+			if (stripped.content === '') {
+				row.type = 'separator';
+				await updateBlock(row.id, { type: 'separator' });
+				await handleEnter(row, 'text');
+				return;
+			}
+			// The block has real text: keep it and insert the separator below,
+			// followed by the empty text block the empty-block flow also leaves.
+			await handleEnter(row, 'separator');
+			const separator = blocks.find((block) => block.id === focusBlockId);
+			if (separator) await handleEnter(separator, 'text');
 			return;
 		}
 		row.type = command.id;
-		row.content = '';
-		row.html = '';
-		const changes = { type: command.id, content: '', html: '' };
+		if (command.id === 'code') row.html = row.content;
+		const changes = { type: command.id, html: row.html };
 		if (command.id === 'todo') {
 			row.checked = false;
 			changes.checked = false;
 		}
 		await updateBlock(row.id, changes);
 		focusBlockId = row.id;
+		focusCaret = anchor;
 	}
 
 	async function handleDatePick(block, day) {
@@ -1201,6 +1248,8 @@
 		// Structural change: persist immediately, never debounced.
 		await updateBlock(block.id, { dueDate: day });
 		focusBlockId = block.id;
+		focusCaret = datePanelCaret;
+		datePanelCaret = null;
 	}
 
 	async function handleDateRemove(block) {
@@ -1209,6 +1258,8 @@
 		block.dueDate = null;
 		await updateBlock(block.id, { dueDate: null });
 		focusBlockId = block.id;
+		focusCaret = datePanelCaret;
+		datePanelCaret = null;
 	}
 
 	function handleSlashKey(key) {
@@ -1332,12 +1383,22 @@
 					onPasteBlocks={handlePasteBlocks}
 					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
-					onFocusHandled={() => (focusBlockId = null)}
+					focusCaret={focusBlockId === row.block.id ? focusCaret : null}
+					onFocusHandled={() => {
+						focusBlockId = null;
+						focusCaret = null;
+					}}
 					datePanelOpen={datePanelFor === row.block.id}
-					onDateBadge={(block) => (datePanelFor = datePanelFor === block.id ? null : block.id)}
+					onDateBadge={(block) => {
+						datePanelCaret = null;
+						datePanelFor = datePanelFor === block.id ? null : block.id;
+					}}
 					onDatePick={handleDatePick}
 					onDateRemove={handleDateRemove}
-					onDatePanelClose={() => (datePanelFor = null)}
+					onDatePanelClose={() => {
+						datePanelFor = null;
+						datePanelCaret = null;
+					}}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
 						: 'Sin resultados'}

@@ -91,10 +91,9 @@ test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 
-	// Make the first block a todo, give it today's date, then type its text —
-	// in that order, because picking "Tarea"/"Fecha" from the slash menu clears
-	// whatever the block held (the slash query), so typing the real content has
-	// to come last.
+	// Make the first block a todo, give it today's date, then type its text.
+	// Picking "Tarea"/"Fecha" from the slash menu strips only the "/query"
+	// span, so on this empty block each pick leaves it empty again.
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.type('/tarea');

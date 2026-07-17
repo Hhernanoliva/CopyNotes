@@ -113,6 +113,105 @@ function locate(textNodes, target, mode) {
 	return { node: last, offset: last.textContent.length };
 }
 
+// ── Plain-text variants: <br> counts as one character ──────────────────────
+// htmlToPlainText turns <br> into "\n", so offsets into a block's plain
+// `content` only line up with the DOM when soft line breaks are counted too.
+// These variants mirror textOffset/rangeFromTextOffsets under that rule; the
+// slash menu uses them to anchor "/" and to park the caret after a command.
+
+// Text nodes and <br> elements of root, in document order, each with the
+// number of plain-text characters it contributes.
+function plainUnits(root) {
+	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+	const units = [];
+	let node;
+	while ((node = walker.nextNode())) {
+		if (node.nodeType === 3) units.push({ node, length: node.textContent.length, isText: true });
+		else if (node.tagName === 'BR') units.push({ node, length: 1, isText: false });
+	}
+	return units;
+}
+
+export function plainTextOffset(root, node, offset) {
+	if (!root || !node) return 0;
+	const units = plainUnits(root);
+	const total = units.reduce((sum, unit) => sum + unit.length, 0);
+	try {
+		if (node.nodeType === 3) {
+			let sum = 0;
+			for (const unit of units) {
+				if (unit.node === node) return clamp(sum + offset, 0, total);
+				sum += unit.length;
+			}
+			return clamp(sum + offset, 0, total);
+		}
+		if (node.nodeType === 1) {
+			// Element-anchored boundary: caret sits before childNodes[offset], or at
+			// the end of `node` when offset === childNodes.length (see textOffset).
+			const children = node.childNodes;
+			const boundaryChild = offset < children.length ? children[offset] : null;
+			let sum = 0;
+			for (const unit of units) {
+				if (boundaryChild) {
+					if (unit.node === boundaryChild) break;
+					if (boundaryChild.compareDocumentPosition(unit.node) & Node.DOCUMENT_POSITION_FOLLOWING)
+						break;
+					sum += unit.length;
+				} else {
+					if (node.contains(unit.node)) {
+						sum += unit.length;
+						continue;
+					}
+					if (node.compareDocumentPosition(unit.node) & Node.DOCUMENT_POSITION_FOLLOWING) break;
+					sum += unit.length;
+				}
+			}
+			return clamp(sum, 0, total);
+		}
+	} catch {
+		return clamp(total, 0, total);
+	}
+	return clamp(total, 0, total);
+}
+
+// Collapsed Range at a plain-text offset (br-aware). Never throws — falls
+// back to a range collapsed at the start of root.
+export function rangeAtPlainOffset(root, target) {
+	const range = document.createRange();
+	if (!root) return range;
+	try {
+		const units = plainUnits(root);
+		if (units.length === 0) {
+			range.selectNodeContents(root);
+			range.collapse(true);
+			return range;
+		}
+		const total = units.reduce((sum, unit) => sum + unit.length, 0);
+		let remaining = clamp(target, 0, total);
+		for (const unit of units) {
+			if (remaining <= unit.length) {
+				if (unit.isText) range.setStart(unit.node, remaining);
+				else if (remaining === 0) range.setStartBefore(unit.node);
+				else range.setStartAfter(unit.node);
+				range.collapse(true);
+				return range;
+			}
+			remaining -= unit.length;
+		}
+		range.selectNodeContents(root);
+		range.collapse(false);
+		return range;
+	} catch {
+		try {
+			range.selectNodeContents(root);
+			range.collapse(true);
+		} catch {
+			// root itself unusable; return the collapsed range as-is.
+		}
+		return range;
+	}
+}
+
 // Inverse of textOffset: walk root's text nodes to build a Range spanning
 // [startOffset, endOffset) characters. Never throws — falls back to a range
 // collapsed inside root when the DOM can't satisfy the request.

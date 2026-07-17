@@ -1,5 +1,10 @@
 import { test, expect } from 'vitest';
-import { textOffset, rangeFromTextOffsets } from './selection-offsets';
+import {
+	textOffset,
+	rangeFromTextOffsets,
+	plainTextOffset,
+	rangeAtPlainOffset
+} from './selection-offsets';
 
 function build(html) {
 	const root = document.createElement('div');
@@ -75,5 +80,51 @@ test('empty root falls back to a collapsed range without throwing', () => {
 	const root = build('');
 	expect(() => rangeFromTextOffsets(root, 0, 0)).not.toThrow();
 	const range = rangeFromTextOffsets(root, 0, 0);
+	expect(range.collapsed).toBe(true);
+});
+
+// plainTextOffset / rangeAtPlainOffset count <br> as one character ('\n'),
+// matching htmlToPlainText's view of a rich block.
+
+test('plainTextOffset matches textOffset when there are no <br>', () => {
+	const root = build('before <strong>bold</strong> after');
+	const boldText = root.querySelector('strong').firstChild;
+	expect(plainTextOffset(root, boldText, 2)).toBe(9);
+});
+
+test('plainTextOffset counts a <br> as one character', () => {
+	const root = build('hola<br>mundo');
+	const mundo = root.childNodes[2];
+	// "hola"(4) + br(1) + 2 = 7
+	expect(plainTextOffset(root, mundo, 2)).toBe(7);
+});
+
+test('plainTextOffset handles an element-anchored boundary after a <br>', () => {
+	const root = build('hola<br>mundo');
+	// Caret anchored on root right before childNodes[2] ("mundo"): after the br.
+	expect(plainTextOffset(root, root, 2)).toBe(5);
+	// End of every child.
+	expect(plainTextOffset(root, root, root.childNodes.length)).toBe(10);
+});
+
+test('rangeAtPlainOffset lands inside the text after a <br>', () => {
+	const root = build('hola<br>mundo');
+	const range = rangeAtPlainOffset(root, 7);
+	expect(range.collapsed).toBe(true);
+	expect(range.startContainer).toBe(root.childNodes[2]);
+	expect(range.startOffset).toBe(2);
+});
+
+test('rangeAtPlainOffset round-trips with plainTextOffset across formatting', () => {
+	const root = build('a<strong>bc</strong><br><em>de</em>f');
+	for (const offset of [0, 1, 2, 3, 4, 5, 6, 7]) {
+		const range = rangeAtPlainOffset(root, offset);
+		expect(plainTextOffset(root, range.startContainer, range.startOffset)).toBe(offset);
+	}
+});
+
+test('rangeAtPlainOffset on an empty root returns a collapsed range', () => {
+	const root = build('');
+	const range = rangeAtPlainOffset(root, 3);
 	expect(range.collapsed).toBe(true);
 });
