@@ -34,7 +34,7 @@
 		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
-	import { planFolderDelete, planReorder } from '$lib/organize';
+	import { planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -294,29 +294,72 @@
 	}
 
 	async function reorderSidebar(view, draggedId, target) {
-		// Folder targets arrive in slice C; slice B only reorders within the root.
-		if (target.type !== 'insert' || target.container !== null) return;
-		if (view === 'notes') {
-			const container = notes.filter((note) => (note.folderId ?? null) === null);
-			await applySidebarUpdates(
-				'notes',
-				planReorder($state.snapshot(container), draggedId, target.index).updates
-			);
-			notes = await listNotes();
-		} else if (view === 'snippets') {
-			const container = snippets.filter((snippet) => (snippet.folderId ?? null) === null);
-			await applySidebarUpdates(
-				'snippets',
-				planReorder($state.snapshot(container), draggedId, target.index).updates
-			);
-			snippets = await listSnippets();
-		} else if (view === 'tags') {
+		// Tags are a single flat list with no folders.
+		if (view === 'tags') {
+			if (target.type !== 'insert') return;
 			await applySidebarUpdates(
 				'tags',
 				planReorder($state.snapshot(tags), draggedId, target.index).updates
 			);
 			tags = await listTags();
+			return;
 		}
+
+		const isNotes = view === 'notes';
+		const items = isNotes ? notes : snippets;
+		const folderRows = isNotes ? noteFolders : snippetFolders;
+		const table = isNotes ? 'notes' : 'snippets';
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		const draggedIsFolder = folderIds.has(draggedId);
+
+		// Root container mixes folders and loose items in one sortOrder sequence.
+		const rootContainer = $state.snapshot([
+			...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+			...items.filter((item) => (item.folderId ?? null) === null)
+		]);
+		const containerOf = (folderId) =>
+			folderId === null
+				? rootContainer
+				: $state.snapshot(items.filter((item) => item.folderId === folderId));
+
+		let updates = [];
+		if (target.type === 'into-folder') {
+			if (draggedIsFolder) return; // never nest folders
+			const dragged = items.find((item) => item.id === draggedId);
+			if ((dragged?.folderId ?? null) === target.folderId) return;
+			updates = planMoveToContainer(
+				containerOf(dragged?.folderId ?? null),
+				containerOf(target.folderId),
+				draggedId,
+				0,
+				target.folderId
+			).updates;
+		} else {
+			if (draggedIsFolder && target.container !== null) return; // folders live at root
+			const dragged = draggedIsFolder ? null : items.find((item) => item.id === draggedId);
+			const sourceFolder = dragged?.folderId ?? null;
+			if (sourceFolder === (target.container ?? null)) {
+				updates = planReorder(containerOf(sourceFolder), draggedId, target.index).updates;
+			} else {
+				updates = planMoveToContainer(
+					containerOf(sourceFolder),
+					containerOf(target.container ?? null),
+					draggedId,
+					target.index,
+					target.container ?? null
+				).updates;
+			}
+		}
+
+		// Root renumbering can touch folder rows and item rows: route each
+		// update to its table (folder updates never carry folderId).
+		const folderUpdates = updates.filter((update) => folderIds.has(update.id));
+		const itemUpdates = updates.filter((update) => !folderIds.has(update.id));
+		await applySidebarUpdates(table, itemUpdates);
+		await applySidebarUpdates('folders', folderUpdates);
+		await refreshFolders();
+		if (isNotes) notes = await listNotes();
+		else snippets = await listSnippets();
 	}
 
 	async function deleteSnippet(snippet) {

@@ -77,3 +77,45 @@ test('notes can be dragged into a manual order that survives reload', async ({ p
 	await page.reload();
 	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);
 });
+
+// Slice C: folders — file a snippet by dragging, collapse persists, delete restores.
+
+test('folders: file a snippet by dragging, collapse persists, delete restores contents', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Snippets' }).click();
+	for (const text of ['Alfa', 'Beta']) {
+		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
+		await page.getByRole('textbox', { name: 'Texto', exact: true }).fill(text);
+		await page.getByRole('button', { name: 'Guardar snippet' }).click();
+		await expect(page.getByText('Snippet guardado')).toBeVisible();
+	}
+	// Create a folder with the dedicated folder button; it opens in rename mode.
+	await page.getByRole('button', { name: 'Nueva carpeta de snippets' }).click();
+	const folderInput = page.getByLabel('Nuevo nombre de la carpeta');
+	await folderInput.fill('Clientes');
+	await folderInput.press('Enter');
+	await expect(page.getByRole('button', { name: 'Renombrar carpeta Clientes' })).toBeVisible();
+
+	// Drag "Beta" onto the folder row (its middle band files it inside).
+	const library = page.getByRole('region', { name: 'Biblioteca de snippets' });
+	await dragRowTo(
+		page,
+		library.getByRole('button', { name: 'Renombrar snippet Beta' }),
+		page.getByRole('button', { name: 'Renombrar carpeta Clientes' })
+	);
+	await expect(page.getByRole('button', { name: 'Renombrar carpeta Clientes' })).toContainText('(1)');
+
+	// Collapse; Beta hides; reload keeps it collapsed.
+	await page.getByRole('button', { name: 'Cerrar carpeta Clientes' }).click();
+	await expect(library.getByRole('button', { name: 'Renombrar snippet Beta' })).toBeHidden();
+	await page.reload();
+	await page.getByRole('button', { name: 'Snippets' }).click();
+	await expect(page.getByRole('button', { name: 'Abrir carpeta Clientes' })).toBeVisible();
+
+	// Delete the folder: Beta returns to the root list.
+	await page.getByRole('button', { name: 'Borrar carpeta Clientes' }).click();
+	await expect(page.getByText('Carpeta borrada; su contenido volvió a la lista')).toBeVisible();
+	await expect(library.getByRole('button', { name: 'Renombrar snippet Beta' })).toBeVisible();
+});
