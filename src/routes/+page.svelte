@@ -12,10 +12,13 @@
 	import {
 		applySidebarUpdates,
 		createBlock,
+		createFolder,
 		createNote,
+		deleteFolderKeepContents,
 		findOrCreateTag,
 		getDemoNoteCreated,
 		getLastOpenedNoteId,
+		listFolders,
 		listNotes,
 		listSnippets,
 		listTags,
@@ -28,9 +31,10 @@
 		softDeleteNote,
 		softDeleteSnippet,
 		softDeleteTag,
+		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
-	import { planReorder } from '$lib/organize';
+	import { planFolderDelete, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -48,6 +52,8 @@
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
+	let noteFolders = $state([]);
+	let snippetFolders = $state([]);
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
@@ -88,6 +94,7 @@
 			notes = rows;
 			snippets = snippetRows;
 			await refreshTags();
+			await refreshFolders();
 			const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
 			const current = last ?? rows[0];
 			currentNoteId = current ? current.id : null;
@@ -193,6 +200,7 @@
 			currentNoteId = rows[0]?.id ?? null;
 		}
 		await refreshSnippets();
+		await refreshFolders();
 		dataVersion += 1;
 	}
 
@@ -236,6 +244,53 @@
 	async function renameSnippetFromSidebar(snippet, name) {
 		await updateSnippet(snippet.id, { name });
 		await refreshSnippets();
+	}
+
+	async function refreshFolders() {
+		noteFolders = await listFolders('note');
+		snippetFolders = await listFolders('snippet');
+	}
+
+	async function createFolderFromSidebar(view, name) {
+		const folder = await createFolder(view === 'notes' ? 'note' : 'snippet', name);
+		await refreshFolders();
+		if (view === 'notes') notes = await listNotes();
+		else snippets = await listSnippets();
+		return folder;
+	}
+
+	async function renameFolderFromSidebar(folder, name) {
+		await updateFolder(folder.id, { name });
+		await refreshFolders();
+	}
+
+	async function toggleFolderFromSidebar(folder) {
+		await updateFolder(folder.id, { collapsed: !folder.collapsed });
+		await refreshFolders();
+	}
+
+	async function deleteFolderFromSidebar(view, folder) {
+		const kindItems = view === 'notes' ? notes : snippets;
+		const folderRows = view === 'notes' ? noteFolders : snippetFolders;
+		const table = view === 'notes' ? 'notes' : 'snippets';
+		const rootContainer = [
+			...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+			...kindItems
+				.filter((item) => (item.folderId ?? null) === null)
+				.map((item) => ({ id: item.id, sortOrder: item.sortOrder }))
+		];
+		const contents = kindItems.filter((item) => item.folderId === folder.id);
+		const { updates } = planFolderDelete(rootContainer, $state.snapshot(contents), folder.id);
+		// Root renumbering may touch folder rows and item rows: split by id.
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		const itemUpdates = updates.filter((update) => !folderIds.has(update.id));
+		const folderUpdates = updates.filter((update) => folderIds.has(update.id));
+		await deleteFolderKeepContents(folder.id, { [table]: itemUpdates });
+		await applySidebarUpdates('folders', folderUpdates);
+		await refreshFolders();
+		if (view === 'notes') notes = await listNotes();
+		else snippets = await listSnippets();
+		toast.success('Carpeta borrada; su contenido volvió a la lista');
 	}
 
 	async function reorderSidebar(view, draggedId, target) {
@@ -295,6 +350,8 @@
 		{notes}
 		{snippets}
 		{tags}
+		{noteFolders}
+		{snippetFolders}
 		{currentNoteId}
 		open={sidebarOpen}
 		bind:view={sidebarView}
@@ -307,6 +364,10 @@
 		onToggleFavorite={toggleFavorite}
 		onRenameSnippet={renameSnippetFromSidebar}
 		onReorder={reorderSidebar}
+		onCreateFolder={createFolderFromSidebar}
+		onRenameFolder={renameFolderFromSidebar}
+		onToggleFolder={toggleFolderFromSidebar}
+		onDeleteFolder={deleteFolderFromSidebar}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
 		onCreateTag={createTagFromSidebar}
