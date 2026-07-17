@@ -119,3 +119,46 @@ test('folders: file a snippet by dragging, collapse persists, delete restores co
 	await expect(page.getByText('Carpeta borrada; su contenido volvió a la lista')).toBeVisible();
 	await expect(library.getByRole('button', { name: 'Renombrar snippet Beta' })).toBeVisible();
 });
+
+test('backup roundtrip keeps folders and membership', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Snippets' }).click();
+	for (const text of ['Alfa', 'Beta']) {
+		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
+		await page.getByRole('textbox', { name: 'Texto', exact: true }).fill(text);
+		await page.getByRole('button', { name: 'Guardar snippet' }).click();
+		await expect(page.getByText('Snippet guardado')).toBeVisible();
+	}
+	await page.getByRole('button', { name: 'Nueva carpeta de snippets' }).click();
+	const folderInput = page.getByLabel('Nuevo nombre de la carpeta');
+	await folderInput.fill('Clientes');
+	await folderInput.press('Enter');
+
+	const library = page.getByRole('region', { name: 'Biblioteca de snippets' });
+	await dragRowTo(
+		page,
+		library.getByRole('button', { name: 'Renombrar snippet Beta' }),
+		page.getByRole('button', { name: 'Renombrar carpeta Clientes' })
+	);
+	await expect(page.getByRole('button', { name: 'Renombrar carpeta Clientes' })).toContainText('(1)');
+
+	// Export the current state to a file.
+	await page.getByRole('button', { name: 'Respaldo' }).click();
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: /Descargar respaldo completo/ }).click()
+	]);
+	const path = await download.path();
+
+	// Replace everything from that file: a full wipe + restore proves the
+	// folders and membership survived the JSON roundtrip.
+	await page.getByLabel('Archivo de respaldo de CopyNotes').setInputFiles(path);
+	await page.getByRole('button', { name: 'Reemplazar todo…' }).click();
+	await page.getByRole('button', { name: 'Sí, borrar lo actual y reemplazar' }).click();
+	await expect(page.getByText('Respaldo restaurado desde cero.')).toBeVisible();
+
+	await page.getByRole('button', { name: 'Snippets', exact: true }).click();
+	await expect(page.getByRole('button', { name: 'Renombrar carpeta Clientes' })).toContainText('(1)');
+	await expect(library.getByRole('button', { name: 'Renombrar snippet Beta' })).toBeVisible();
+	await expect(library.getByRole('button', { name: 'Renombrar snippet Alfa' })).toBeVisible();
+});

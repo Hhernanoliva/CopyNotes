@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-17 (orden manual arrastrando en Notas/Snippets/Etiquetas; snippets se insertan con `/` y se renombran con click; se quitaron insertar y etiquetar del snippet).
+Última actualización: 2026-07-17 (orden manual arrastrando y carpetas en Notas/Snippets; snippets se insertan con `/` y se renombran con click; se quitaron insertar y etiquetar del snippet).
 
 ## Temas
 
