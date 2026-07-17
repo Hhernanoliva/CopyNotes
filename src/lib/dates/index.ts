@@ -5,6 +5,7 @@ export {
 	exportLabel,
 	isOverdue,
 	isValidDueDate,
+	msUntilNextMidnight,
 	resolveQuickOption,
 	todayString
 } from './core';

@@ -31,6 +31,15 @@ export function todayString(now = new Date()) {
 	return toDayString(now);
 }
 
+// Milliseconds from `now` until the next LOCAL midnight (00:00 of tomorrow).
+// Used to schedule the "day changed" tick so date labels and the Agenda
+// refresh exactly when the calendar day rolls over. At exactly midnight the
+// next boundary is a full day away, so the result is always > 0.
+export function msUntilNextMidnight(now = new Date()) {
+	const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+	return nextMidnight.getTime() - now.getTime();
+}
+
 function toLocalDate(day) {
 	const p = parts(day);
 	return new Date(p.y, p.m - 1, p.d);

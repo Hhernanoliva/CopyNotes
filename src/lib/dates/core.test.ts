@@ -6,6 +6,7 @@ import {
 	exportLabel,
 	isOverdue,
 	isValidDueDate,
+	msUntilNextMidnight,
 	resolveQuickOption,
 	todayString
 } from './core';
@@ -26,6 +27,22 @@ describe('isValidDueDate', () => {
 describe('todayString', () => {
 	it('formats the local day, zero-padded', () => {
 		expect(todayString(new Date(2026, 0, 5))).toBe('2026-01-05');
+	});
+});
+
+describe('msUntilNextMidnight', () => {
+	it('returns the ms left until the next local midnight', () => {
+		// 23:00:00.000 → 1 hour to midnight.
+		expect(msUntilNextMidnight(new Date(2026, 0, 5, 23, 0, 0, 0))).toBe(60 * 60 * 1000);
+		// 12:00:00.000 → 12 hours to midnight.
+		expect(msUntilNextMidnight(new Date(2026, 0, 5, 12, 0, 0, 0))).toBe(12 * 60 * 60 * 1000);
+	});
+	it('counts a full day from exactly midnight (never zero)', () => {
+		expect(msUntilNextMidnight(new Date(2026, 0, 5, 0, 0, 0, 0))).toBe(24 * 60 * 60 * 1000);
+	});
+	it('accounts for sub-second time so the timer lands on the day boundary', () => {
+		// 23:59:59.500 → half a second left.
+		expect(msUntilNextMidnight(new Date(2026, 0, 5, 23, 59, 59, 500))).toBe(500);
 	});
 });
 
