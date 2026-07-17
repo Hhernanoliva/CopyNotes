@@ -41,3 +41,10 @@ db.version(3).upgrade(async (tx) => {
 			}
 		});
 });
+
+// v4 (spec 021): index dueDate so the Agenda lists dated blocks without a
+// table scan. No upgrade body: blocks without a dueDate (or with null, not a
+// valid IndexedDB key) simply stay out of the index.
+db.version(4).stores({
+	blocks: 'id, noteId, parentBlockId, dueDate'
+});

@@ -8,6 +8,7 @@ function node(overrides = {}) {
 		html: 'hola',
 		checked: false,
 		codeCollapsed: false,
+		dueDate: null,
 		note: '',
 		tags: [],
 		children: [],
@@ -88,6 +89,23 @@ describe('normalizeForest', () => {
 	});
 });
 
+describe('dueDate ingest (spec 021)', () => {
+	it('keeps a valid dueDate', () => {
+		const forest = normalizeForest([{ type: 'text', content: 'a', dueDate: '2026-07-22', children: [] }]);
+		expect(forest[0].dueDate).toBe('2026-07-22');
+	});
+	it('drops malformed dueDate values', () => {
+		for (const bad of ['22/07/2026', '2026-02-30', 42, {}, null]) {
+			const forest = normalizeForest([{ type: 'text', content: 'a', dueDate: bad, children: [] }]);
+			expect(forest[0].dueDate).toBeNull();
+		}
+	});
+	it('strips a dueDate from a separator node', () => {
+		const forest = normalizeForest([node({ type: 'separator', dueDate: '2026-07-22' })]);
+		expect(forest[0].dueDate).toBeNull();
+	});
+});
+
 describe('sanitizeBackupData', () => {
 	const data = (overrides = {}) => ({
 		notes: [],
@@ -133,6 +151,32 @@ describe('sanitizeBackupData', () => {
 	it('does not touch the other tables', () => {
 		const input = data({ notes: [{ id: 'n1', title: 'T' }] });
 		expect(sanitizeBackupData(input).notes).toEqual(input.notes);
+	});
+
+	it('strips a dueDate from a separator block but keeps it on others', () => {
+		const clean = sanitizeBackupData(
+			data({
+				blocks: [
+					{ id: 'b1', type: 'separator', dueDate: '2026-07-22' },
+					{ id: 'b2', type: 'text', content: 'a', dueDate: '2026-07-22' }
+				]
+			})
+		);
+		expect(clean.blocks[0].dueDate).toBeNull();
+		expect(clean.blocks[1].dueDate).toBe('2026-07-22');
+	});
+
+	it('nulls a calendar-impossible dueDate the format-only schema let through', () => {
+		const clean = sanitizeBackupData(
+			data({
+				blocks: [
+					{ id: 'b1', type: 'text', content: 'a', dueDate: '2026-02-30' },
+					{ id: 'b2', type: 'text', content: 'b', dueDate: '2026-07-22' }
+				]
+			})
+		);
+		expect(clean.blocks[0].dueDate).toBeNull();
+		expect(clean.blocks[1].dueDate).toBe('2026-07-22');
 	});
 });
 

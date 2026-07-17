@@ -26,6 +26,7 @@ export function snapshotFromBlocks(blocks, rootId) {
 			content: block.content,
 			html: block.html ?? '',
 			checked: block.checked,
+			dueDate: block.dueDate ?? null,
 			note: block.note ?? '',
 			children: children.map(node)
 		};

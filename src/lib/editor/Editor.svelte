@@ -70,7 +70,14 @@
 		removeLink
 	} from '$lib/format';
 
-	let { noteId, onNoteUpdated, onSaveStateChange, onSnippetsChanged, onTagsChanged } = $props();
+	let {
+		noteId,
+		initialFocusBlockId = null,
+		onNoteUpdated,
+		onSaveStateChange,
+		onSnippetsChanged,
+		onTagsChanged
+	} = $props();
 
 	let note = $state(null);
 	let blocks = $state([]);
@@ -82,6 +89,8 @@
 	// "/", and the highlighted option. mode 'snippets' means /snippet was
 	// chosen and the menu now lists saved snippets instead of block types.
 	let slash = $state(null);
+	// Which block's date panel is open (spec 021 Slice A), or null.
+	let datePanelFor = $state(null);
 	// Tag state: all live tags (for the picker), the note's tags, tags per
 	// block id, and which target has the picker open ('note' or a block id).
 	let allTags = $state([]);
@@ -205,8 +214,15 @@
 			activeBlockId = null;
 			history.reset();
 			lastTextBlockId = null;
+			const jumpingToBlock =
+				initialFocusBlockId && loadedBlocks.some((block) => block.id === initialFocusBlockId);
+			if (jumpingToBlock) {
+				focusBlockId = initialFocusBlockId;
+			}
 			await refreshTags();
-			if (note && note.title === '' && titleEl) {
+			// An empty title only grabs focus when we did not land here to jump to a
+			// specific block (spec 021 Slice B) — the Agenda's request wins.
+			if (note && note.title === '' && titleEl && !jumpingToBlock) {
 				titleEl.focus();
 			}
 		})();
@@ -1146,6 +1162,17 @@
 			}
 			return;
 		}
+		if (command.id === 'date') {
+			slash = null;
+			if (!row) return;
+			// Strip the "/query" text; the block keeps its type — a date is a
+			// field, not a block type.
+			row.content = '';
+			row.html = '';
+			await updateBlock(row.id, { content: '', html: '' });
+			datePanelFor = row.id;
+			return;
+		}
 		slash = null;
 		if (!row) return;
 		if (command.id === 'separator') {
@@ -1165,6 +1192,23 @@
 		}
 		await updateBlock(row.id, changes);
 		focusBlockId = row.id;
+	}
+
+	async function handleDatePick(block, day) {
+		datePanelFor = null;
+		recordSnapshot();
+		block.dueDate = day;
+		// Structural change: persist immediately, never debounced.
+		await updateBlock(block.id, { dueDate: day });
+		focusBlockId = block.id;
+	}
+
+	async function handleDateRemove(block) {
+		datePanelFor = null;
+		recordSnapshot();
+		block.dueDate = null;
+		await updateBlock(block.id, { dueDate: null });
+		focusBlockId = block.id;
 	}
 
 	function handleSlashKey(key) {
@@ -1289,6 +1333,11 @@
 					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
 					onFocusHandled={() => (focusBlockId = null)}
+					datePanelOpen={datePanelFor === row.block.id}
+					onDateBadge={(block) => (datePanelFor = datePanelFor === block.id ? null : block.id)}
+					onDatePick={handleDatePick}
+					onDateRemove={handleDateRemove}
+					onDatePanelClose={() => (datePanelFor = null)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
 						: 'Sin resultados'}

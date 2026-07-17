@@ -45,6 +45,7 @@ describe('planSnippetInsertion', () => {
 				order: 1,
 				collapsed: false,
 				codeCollapsed: false,
+				dueDate: null,
 				checked: false,
 				note: ''
 			}
@@ -128,5 +129,11 @@ describe('planSnippetInsertion', () => {
 		expect(plan.newBlocks[0].parentBlockId).toBe('parent');
 		expect(plan.newBlocks[0].order).toBe(1);
 		expect(plan.updates).toEqual([{ id: 'child2', order: 2 }]);
+	});
+
+	it('materialized snippet blocks carry dueDate (spec 021)', () => {
+		const snippet = { blockSnapshot: { type: 'todo', content: 'pagar', dueDate: '2026-07-22', checked: false, children: [] } };
+		const plan = planSnippetInsertion([], snippet, { noteId: 'n1', createId: () => 'x1' });
+		expect(plan.newBlocks[0].dueDate).toBe('2026-07-22');
 	});
 });

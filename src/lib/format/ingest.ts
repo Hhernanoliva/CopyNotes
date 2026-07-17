@@ -10,15 +10,19 @@
 
 import { sanitizeHtml } from './sanitize';
 import { BLOCK_TYPES } from './blocktype';
+import { isValidDueDate } from '$lib/dates';
 
 function normalizeNode(raw) {
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+	const type = BLOCK_TYPES.includes(raw.type) ? raw.type : 'text';
 	return {
-		type: BLOCK_TYPES.includes(raw.type) ? raw.type : 'text',
+		type,
 		content: typeof raw.content === 'string' ? raw.content : '',
 		html: typeof raw.html === 'string' ? sanitizeHtml(raw.html) : '',
 		checked: Boolean(raw.checked),
 		codeCollapsed: Boolean(raw.codeCollapsed),
+		// Separators never carry a date; everything else keeps a valid one.
+		dueDate: type === 'separator' ? null : isValidDueDate(raw.dueDate) ? raw.dueDate : null,
 		note: typeof raw.note === 'string' ? raw.note : '',
 		tags: Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === 'string') : [],
 		children: Array.isArray(raw.children)
@@ -46,9 +50,17 @@ export function normalizeSnapshotNode(node) {
 export function sanitizeBackupData(data) {
 	return {
 		...data,
-		blocks: data.blocks.map((block) =>
-			typeof block.html === 'string' ? { ...block, html: sanitizeHtml(block.html) } : block
-		),
+		blocks: data.blocks.map((block) => {
+			let clean = block;
+			if (typeof block.html === 'string') clean = { ...clean, html: sanitizeHtml(block.html) };
+			// A separator must never carry a date, even from a doctored backup.
+			if (block.type === 'separator' && block.dueDate != null) clean = { ...clean, dueDate: null };
+			// Schema validation is format-only (isoDate accepts 2026-02-30); apply
+			// the same calendar-day rule the clipboard/snapshot gate uses.
+			else if (block.dueDate != null && !isValidDueDate(block.dueDate))
+				clean = { ...clean, dueDate: null };
+			return clean;
+		}),
 		snippets: data.snippets.map((snippet) => {
 			const clean = { ...snippet };
 			if (typeof snippet.html === 'string') clean.html = sanitizeHtml(snippet.html);

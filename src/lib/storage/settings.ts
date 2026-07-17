@@ -45,3 +45,12 @@ export async function getDemoNoteCreated() {
 export function setDemoNoteCreated(value) {
 	return setSetting('demoNoteCreated', value === true);
 }
+
+// Agenda: whether completed todos are hidden from the list (spec 021).
+export async function getAgendaHideCompleted() {
+	return (await getSetting('agendaHideCompleted')) === true;
+}
+
+export function setAgendaHideCompleted(value) {
+	return setSetting('agendaHideCompleted', value === true);
+}

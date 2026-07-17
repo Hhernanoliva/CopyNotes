@@ -261,3 +261,36 @@ describe('inline formatting in HTML copy', () => {
 		);
 	});
 });
+
+describe('date suffix (spec 021)', () => {
+	const dated = (type, extra = {}) => ({
+		block: { id: 'b1', type, content: 'pagar', checked: false, dueDate: '2026-07-22', ...extra },
+		children: []
+	});
+	it('plain text appends the date to the last content line', () => {
+		expect(formatPlainText(dated('todo'))).toBe('- [ ] pagar — 📅 22/07/2026');
+	});
+	it('plain text puts the date after soft-break lines, before the note', () => {
+		const tree = dated('bullet', { content: 'uno\ndos', note: 'gris' });
+		expect(formatPlainText(tree)).toBe('- uno\n  dos — 📅 22/07/2026\n  gris');
+	});
+	it('plain text gives code its own date line', () => {
+		const tree = dated('code', { content: 'let a = 1;' });
+		expect(formatPlainText(tree)).toBe('let a = 1;\n📅 22/07/2026');
+	});
+	it('html appends the date after the inline content', () => {
+		expect(formatHtml(dated('text'))).toBe('<p>pagar — 📅 22/07/2026</p>');
+	});
+	it('html gives a code block a dash-free date after the closing tag', () => {
+		const html = formatHtml(dated('code', { content: 'let a = 1;' }));
+		expect(html).toContain('</code></pre> 📅 22/07/2026');
+		expect(html).not.toContain(' — 📅');
+	});
+	it('html appends the date to a todo', () => {
+		expect(formatHtml(dated('todo'))).toContain('pagar — 📅 22/07/2026');
+	});
+	it('undated blocks are untouched', () => {
+		const tree = { block: { id: 'b1', type: 'text', content: 'pagar', checked: false }, children: [] };
+		expect(formatPlainText(tree)).toBe('pagar');
+	});
+});

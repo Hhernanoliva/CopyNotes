@@ -1,5 +1,5 @@
 <script>
-	import { Type, List, SquareCheck, Code, Minus, Bookmark, Star } from '@lucide/svelte';
+	import { Type, List, SquareCheck, Code, Minus, Bookmark, Star, CalendarDays } from '@lucide/svelte';
 
 	let { commands, selectedIndex, onSelect, emptyLabel = 'Sin resultados' } = $props();
 
@@ -22,6 +22,7 @@
 		text: Type,
 		bullet: List,
 		todo: SquareCheck,
+		date: CalendarDays,
 		code: Code,
 		separator: Minus,
 		snippet: Bookmark

@@ -13,7 +13,8 @@ export {
 	softDeleteBlock,
 	softDeleteBlocks,
 	applyInsertionPlan,
-	listAllBlocks
+	listAllBlocks,
+	listDatedBlocks
 } from './blocks';
 export {
 	createSnippet,
@@ -49,5 +50,7 @@ export {
 	getLastOpenedNoteId,
 	setLastOpenedNoteId,
 	getDemoNoteCreated,
-	setDemoNoteCreated
+	setDemoNoteCreated,
+	getAgendaHideCompleted,
+	setAgendaHideCompleted
 } from './settings';

@@ -14,7 +14,8 @@ export async function createBlock(fields) {
 		collapsed = false,
 		codeCollapsed = false,
 		checked = false,
-		note = ''
+		note = '',
+		dueDate = null
 	} = fields;
 	let { order } = fields;
 	if (order === undefined) {
@@ -34,6 +35,7 @@ export async function createBlock(fields) {
 		codeCollapsed,
 		checked,
 		note,
+		dueDate,
 		createdAt: timestamp,
 		updatedAt: timestamp,
 		deletedAt: null
@@ -114,4 +116,10 @@ export async function softDeleteBlocks(ids) {
 			await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
 		}
 	});
+}
+
+// Every live block carrying a dueDate, ascending by date — the Agenda query.
+// orderBy walks the dueDate index, so undated/null rows never appear.
+export async function listDatedBlocks() {
+	return blocks.orderBy('dueDate').filter((block) => !block.deletedAt).toArray();
 }
