@@ -70,6 +70,9 @@ test('notes can be dragged into a manual order that survives reload', async ({ p
 		-6
 	);
 	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);
+	// Dragging must not leave the row texts selected (text-selection suppressed
+	// while a drag is live).
+	expect(await page.evaluate(() => window.getSelection()?.toString() ?? '')).toBe('');
 
 	await page.reload();
 	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);

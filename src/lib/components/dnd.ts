@@ -118,6 +118,12 @@ export function sidebarDragList(getOptions) {
 
 		function startDrag(id) {
 			dragging = { id };
+			// Stop the browser from selecting the row texts the pointer sweeps
+			// over, and clear the sliver that may have begun before the drag
+			// threshold tripped.
+			document.body.style.userSelect = 'none';
+			document.body.style.webkitUserSelect = 'none';
+			window.getSelection()?.removeAllRanges();
 			rowEls()
 				.find((row) => row.dataset.dragId === id)
 				?.setAttribute('data-dragging', 'true');
@@ -128,6 +134,8 @@ export function sidebarDragList(getOptions) {
 			dragging = null;
 			clearTimeout(longPressTimer);
 			longPressTimer = null;
+			document.body.style.userSelect = '';
+			document.body.style.webkitUserSelect = '';
 			clearFeedback();
 		}
 
