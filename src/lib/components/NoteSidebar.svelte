@@ -7,20 +7,16 @@
 		Plus,
 		Star,
 		Trash2,
-		ArrowDownToLine,
 		FileDown,
 		Pencil,
 		Tag
 	} from '@lucide/svelte';
-	import TagPicker from './TagPicker.svelte';
-	import TagChips from './TagChips.svelte';
 	import AgendaPanel from './AgendaPanel.svelte';
 
 	let {
 		notes,
 		snippets = [],
 		tags = [],
-		snippetTags = {},
 		currentNoteId,
 		open,
 		view = $bindable('notes'),
@@ -31,14 +27,11 @@
 		onDeleteNote,
 		onNewSnippet,
 		onToggleFavorite,
-		onInsertSnippet,
 		onDeleteSnippet,
 		onExportSnippets,
 		onCreateTag,
 		onRenameTag,
 		onDeleteTag,
-		onSnippetTagPick,
-		onSnippetUntag,
 		onOpenBlock,
 		onDataChanged
 	} = $props();
@@ -59,7 +52,6 @@
 	let newTagName = $state('');
 	let editingTagId = $state(null);
 	let editingValue = $state('');
-	let tagPickerSnippetId = $state(null);
 
 	let asideEl = $state();
 
@@ -268,26 +260,6 @@
 										</button>
 										<button
 											type="button"
-											aria-label="Insertar en la nota"
-											title="Insertar en la nota"
-											onclick={() => onInsertSnippet(snippet)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<ArrowDownToLine size={14} aria-hidden="true" />
-										</button>
-										<button
-											type="button"
-											aria-label="Etiquetar snippet"
-											title="Etiquetar snippet"
-											aria-expanded={tagPickerSnippetId === snippet.id}
-											onclick={() =>
-												(tagPickerSnippetId = tagPickerSnippetId === snippet.id ? null : snippet.id)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
-										>
-											<Tag size={14} aria-hidden="true" />
-										</button>
-										<button
-											type="button"
 											aria-label="Borrar snippet"
 											title="Borrar snippet"
 											onclick={() => onDeleteSnippet(snippet)}
@@ -297,22 +269,6 @@
 										</button>
 									</div>
 								</div>
-								{#if (snippetTags[snippet.id] ?? []).length > 0}
-									<div class="mt-1 flex flex-wrap items-center gap-1">
-										<TagChips
-											tags={snippetTags[snippet.id]}
-											onRemove={(tag) => onSnippetUntag(snippet, tag)}
-										/>
-									</div>
-								{/if}
-								{#if tagPickerSnippetId === snippet.id}
-									<TagPicker
-										{tags}
-										assignedIds={(snippetTags[snippet.id] ?? []).map((tag) => tag.id)}
-										onPick={(option) => onSnippetTagPick(snippet, option)}
-										onClose={() => (tagPickerSnippetId = null)}
-									/>
-								{/if}
 							</li>
 						{/each}
 					</ul>

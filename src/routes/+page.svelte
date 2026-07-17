@@ -10,7 +10,6 @@
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
-		assignTag,
 		createBlock,
 		createNote,
 		findOrCreateTag,
@@ -19,7 +18,6 @@
 		listNotes,
 		listSnippets,
 		listTags,
-		listTagsForMany,
 		renameTag,
 		replayJournal,
 		setDemoNoteCreated,
@@ -29,7 +27,6 @@
 		softDeleteNote,
 		softDeleteSnippet,
 		softDeleteTag,
-		unassignTag,
 		updateSnippet
 	} from '$lib/storage';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
@@ -50,7 +47,6 @@
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
-	let snippetTagsMap = $state({});
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
@@ -206,10 +202,6 @@
 
 	async function refreshTags() {
 		tags = await listTags();
-		snippetTagsMap = await listTagsForMany(
-			'snippet',
-			snippets.map((snippet) => snippet.id)
-		);
 	}
 
 	async function createTagFromSidebar(name) {
@@ -235,20 +227,6 @@
 		toast.success('Etiqueta borrada');
 	}
 
-	async function snippetTagPick(snippet, option) {
-		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
-		if (!tag) return;
-		const assigned = (snippetTagsMap[snippet.id] ?? []).some((row) => row.id === tag.id);
-		if (assigned) await unassignTag(tag.id, 'snippet', snippet.id);
-		else await assignTag(tag.id, 'snippet', snippet.id);
-		await refreshTags();
-	}
-
-	async function snippetUntag(snippet, tag) {
-		await unassignTag(tag.id, 'snippet', snippet.id);
-		await refreshTags();
-	}
-
 	async function toggleFavorite(snippet) {
 		await updateSnippet(snippet.id, { isFavorite: !snippet.isFavorite });
 		await refreshSnippets();
@@ -258,15 +236,6 @@
 		await softDeleteSnippet(snippet.id);
 		await refreshSnippets();
 		toast.success('Snippet borrado');
-	}
-
-	async function insertSnippet(snippet) {
-		if (!currentNoteId || !editorRef) {
-			toast.error('Abrí una nota primero para insertar el snippet.');
-			return;
-		}
-		await editorRef.insertSnippet(snippet);
-		if (!isDesktop()) sidebarOpen = false;
 	}
 
 	function exportSnippets() {
@@ -294,7 +263,6 @@
 		{notes}
 		snippets={sortedSnippets}
 		{tags}
-		snippetTags={snippetTagsMap}
 		{currentNoteId}
 		open={sidebarOpen}
 		bind:view={sidebarView}
@@ -305,14 +273,11 @@
 		onDeleteNote={deleteNote}
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
-		onInsertSnippet={insertSnippet}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
 		onCreateTag={createTagFromSidebar}
 		onRenameTag={renameTagFromSidebar}
 		onDeleteTag={deleteTag}
-		onSnippetTagPick={snippetTagPick}
-		onSnippetUntag={snippetUntag}
 		onOpenBlock={openFromAgenda}
 		onDataChanged={handleDataChanged}
 	/>
