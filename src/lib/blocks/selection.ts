@@ -58,9 +58,52 @@ export function planDeleteSelection(blocks, selectedIds) {
 	return [...set];
 }
 
-// Move a contiguous run of sibling roots up or down among their siblings.
+// The whole run leaves its parent and lands as the parent's siblings: right
+// above it (direction -1) or right below its subtree (direction 1). Mirrors
+// planEscape in reorder.ts for a single block. Null at the root: the note's
+// top/bottom is the real edge.
+function planSelectionEscape(blocks, group, parentId, direction) {
+	if (parentId === null) return null;
+	const parent = blocks.find((block) => block.id === parentId);
+	if (!parent) return null;
+	const grandparent = parent.parentBlockId ?? null;
+	const parentSiblings = sortByOrder(
+		blocks.filter((block) => (block.parentBlockId ?? null) === grandparent)
+	);
+	const parentIndex = parentSiblings.findIndex((block) => block.id === parentId);
+	const updates = [];
+	if (direction < 0) {
+		group.forEach((block, k) => {
+			updates.push({ id: block.id, parentBlockId: grandparent, order: parent.order + k });
+		});
+		for (const later of parentSiblings.slice(parentIndex)) {
+			updates.push({ id: later.id, order: later.order + group.length });
+		}
+	} else {
+		group.forEach((block, k) => {
+			updates.push({ id: block.id, parentBlockId: grandparent, order: parent.order + 1 + k });
+		});
+		for (const later of parentSiblings.slice(parentIndex + 1)) {
+			updates.push({ id: later.id, order: later.order + group.length });
+		}
+	}
+	// Renumber the siblings left behind so the sequence stays gapless.
+	const groupIds = new Set(group.map((block) => block.id));
+	const remaining = sortByOrder(
+		blocks.filter(
+			(block) => (block.parentBlockId ?? null) === parentId && !groupIds.has(block.id)
+		)
+	);
+	remaining.forEach((block, index) => {
+		if (block.order !== index) updates.push({ id: block.id, order: index });
+	});
+	return { updates };
+}
+
+// Move a contiguous run of sibling roots up or down among their siblings; at
+// the parent's edge the run escapes the parent (same rule as a single block).
 // Returns null when the move is undefined: roots span parents, are not a
-// contiguous run, or are already at the edge. Subtrees follow via parentBlockId.
+// contiguous run, or sit at the note's top/bottom. Subtrees follow via parentBlockId.
 export function planMoveSelection(blocks, selectedIds, direction) {
 	const roots = selectionRoots(blocks, selectedIds);
 	if (roots.length === 0) return null;
@@ -79,11 +122,11 @@ export function planMoveSelection(blocks, selectedIds, direction) {
 
 	let reordered;
 	if (direction < 0) {
-		if (first === 0) return null;
+		if (first === 0) return planSelectionEscape(blocks, group, parent, direction);
 		const above = siblings[first - 1];
 		reordered = [...siblings.slice(0, first - 1), ...group, above, ...siblings.slice(last + 1)];
 	} else {
-		if (last === siblings.length - 1) return null;
+		if (last === siblings.length - 1) return planSelectionEscape(blocks, group, parent, direction);
 		const below = siblings[last + 1];
 		reordered = [...siblings.slice(0, first), below, ...group, ...siblings.slice(last + 2)];
 	}

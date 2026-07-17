@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-16 (se agregó la pestaña Agenda a la guía de fechas).
+Última actualización: 2026-07-16 (mover con Alt+flechas ya no se frena en el borde del padre: el renglón sale y sigue).
 
 ## Temas
 
