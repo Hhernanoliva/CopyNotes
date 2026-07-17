@@ -5,7 +5,7 @@
 
 import { db } from './db';
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'settings'];
+const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
 
 export async function dumpAllTables() {
 	const entries = await Promise.all(
@@ -18,7 +18,7 @@ export async function applyMergePlan(plan) {
 	await db.transaction('rw', TABLES, async () => {
 		for (const name of TABLES) {
 			if (name === 'settings') continue;
-			const rows = plan.inserts[name];
+			const rows = plan.inserts[name] ?? [];
 			if (rows.length > 0) await db.table(name).bulkAdd(rows);
 		}
 		for (const setting of plan.settings) {
@@ -33,7 +33,8 @@ export async function replaceAllTables(data) {
 	await db.transaction('rw', TABLES, async () => {
 		for (const name of TABLES) {
 			await db.table(name).clear();
-			if (data[name].length > 0) await db.table(name).bulkPut(data[name]);
+			const rows = data[name] ?? [];
+			if (rows.length > 0) await db.table(name).bulkPut(rows);
 		}
 	});
 }

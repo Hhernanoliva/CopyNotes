@@ -308,8 +308,69 @@ describe('validateBackup', () => {
 			expect(validateBackup(backup).ok).toBe(false);
 		});
 		it('still rejects unsupported future versions', () => {
-			const backup = makeBackup({}, { formatVersion: 4 });
+			const backup = makeBackup({}, { formatVersion: 5 });
 			expect(validateBackup(backup).ok).toBe(false);
+		});
+	});
+
+	describe('backup v4 organization fields (spec 022)', () => {
+		function makeFolder(overrides = {}) {
+			return {
+				id: 'f1',
+				kind: 'note',
+				name: 'Trabajo',
+				sortOrder: 0,
+				collapsed: false,
+				createdAt: iso,
+				updatedAt: iso,
+				deletedAt: null,
+				...overrides
+			};
+		}
+
+		it('accepts v4 with folders and organization fields', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote({ sortOrder: 0, folderId: 'f1' })],
+					folders: [makeFolder()]
+				},
+				{ formatVersion: 4 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.folders).toHaveLength(1);
+			expect(result.backup.data.notes[0].folderId).toBe('f1');
+		});
+
+		it('older backups without folders still validate and get an empty folders array', () => {
+			const result = validateBackup(makeBackup({ notes: [makeNote()] }));
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.folders).toEqual([]);
+		});
+
+		it('drops malformed sortOrder and orphan folderId instead of rejecting', () => {
+			const backup = makeBackup(
+				{ notes: [makeNote({ sortOrder: -3, folderId: 'ghost' })], folders: [] },
+				{ formatVersion: 4 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.notes[0].sortOrder).toBeUndefined();
+			expect(result.backup.data.notes[0].folderId).toBeNull();
+			expect(result.warnings.length).toBeGreaterThan(0);
+		});
+
+		it('folderId pointing at a folder of the other kind is nulled', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote({ folderId: 'f1' })],
+					folders: [makeFolder({ kind: 'snippet', name: 'X' })]
+				},
+				{ formatVersion: 4 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.notes[0].folderId).toBeNull();
 		});
 	});
 });
