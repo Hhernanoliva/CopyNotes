@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-17 (los snippets se insertan desde la nota con `/`; se quitaron los botones de insertar y etiquetar; se renombra un snippet con click en el nombre).
+Última actualización: 2026-07-17 (orden manual arrastrando en Notas/Snippets/Etiquetas; snippets se insertan con `/` y se renombran con click; se quitaron insertar y etiquetar del snippet).
 
 ## Temas
 
@@ -14,10 +14,11 @@ Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. 
 6. [Seleccionar, deshacer, colapsar](guia/06-seleccionar-deshacer-colapsar.md) — selección múltiple, deshacer/rehacer, colapsar, tareas anidadas
 7. [Copiar bloques](guia/07-copiar.md) — copiar un renglón o con subniveles, formatos
 8. [Snippets](guia/08-snippets.md) — guardar, biblioteca, insertar con /snippet, exportar
-9. [Etiquetas](guia/09-etiquetas.md) — etiquetar notas, renglones y snippets; administrar
+9. [Etiquetas](guia/09-etiquetas.md) — etiquetar notas y renglones; administrar
 10. [Buscar](guia/10-buscar.md) — búsqueda con Cmd/Ctrl+K, filtro por etiquetas
 11. [Respaldo](guia/11-respaldo.md) — exportar, importar, reemplazar todo
 12. [Fechas y agenda](guia/12-fechas-y-agenda.md) — /fecha, atajos Hoy/Mañana/Próxima semana, cambiar o quitar la fecha, pestaña Agenda
+13. [Ordenar y carpetas](guia/13-ordenar-y-carpetas.md) — arrastrar para ordenar Notas/Snippets/Etiquetas; carpetas en Notas y Snippets
 
 ## Regla para el equipo
 

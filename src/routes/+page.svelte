@@ -10,6 +10,7 @@
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
+		applySidebarUpdates,
 		createBlock,
 		createNote,
 		findOrCreateTag,
@@ -29,8 +30,8 @@
 		softDeleteTag,
 		updateSnippet
 	} from '$lib/storage';
+	import { planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
-	import { filterSnippets } from '$lib/snippets';
 	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
 	import { tooltip } from '$lib/actions/tooltip';
 
@@ -53,8 +54,6 @@
 	// Block to focus once the editor (re)loads, set by the Agenda's jump-to-block.
 	let pendingFocusBlockId = $state(null);
 
-	// Favorites first, same ordering as the /snippet menu.
-	const sortedSnippets = $derived(filterSnippets(snippets, ''));
 	const currentTheme = $derived(mode.current === 'light' ? 'light' : 'dark');
 
 	function isDesktop() {
@@ -165,7 +164,9 @@
 		currentNoteId = null;
 		const note = await createNote();
 		await createBlock({ noteId: note.id, type: 'text' });
-		notes = [note, ...notes];
+		// createNote shifted every other note's sortOrder; re-read so the
+		// in-memory list matches storage instead of guessing the new order.
+		notes = await listNotes();
 		selectNote(note.id);
 	}
 
@@ -237,6 +238,32 @@
 		await refreshSnippets();
 	}
 
+	async function reorderSidebar(view, draggedId, target) {
+		// Folder targets arrive in slice C; slice B only reorders within the root.
+		if (target.type !== 'insert' || target.container !== null) return;
+		if (view === 'notes') {
+			const container = notes.filter((note) => (note.folderId ?? null) === null);
+			await applySidebarUpdates(
+				'notes',
+				planReorder($state.snapshot(container), draggedId, target.index).updates
+			);
+			notes = await listNotes();
+		} else if (view === 'snippets') {
+			const container = snippets.filter((snippet) => (snippet.folderId ?? null) === null);
+			await applySidebarUpdates(
+				'snippets',
+				planReorder($state.snapshot(container), draggedId, target.index).updates
+			);
+			snippets = await listSnippets();
+		} else if (view === 'tags') {
+			await applySidebarUpdates(
+				'tags',
+				planReorder($state.snapshot(tags), draggedId, target.index).updates
+			);
+			tags = await listTags();
+		}
+	}
+
 	async function deleteSnippet(snippet) {
 		await softDeleteSnippet(snippet.id);
 		await refreshSnippets();
@@ -266,7 +293,7 @@
 <div class="flex h-svh overflow-hidden">
 	<NoteSidebar
 		{notes}
-		snippets={sortedSnippets}
+		{snippets}
 		{tags}
 		{currentNoteId}
 		open={sidebarOpen}
@@ -279,6 +306,7 @@
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
 		onRenameSnippet={renameSnippetFromSidebar}
+		onReorder={reorderSidebar}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
 		onCreateTag={createTagFromSidebar}

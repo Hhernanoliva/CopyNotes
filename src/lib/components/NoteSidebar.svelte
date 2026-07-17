@@ -12,6 +12,7 @@
 		Tag
 	} from '@lucide/svelte';
 	import AgendaPanel from './AgendaPanel.svelte';
+	import { sidebarDragList } from './dnd';
 
 	let {
 		notes,
@@ -33,6 +34,7 @@
 		onCreateTag,
 		onRenameTag,
 		onDeleteTag,
+		onReorder,
 		onOpenBlock,
 		onDataChanged
 	} = $props();
@@ -208,9 +210,16 @@
 				{#if notes.length === 0}
 					<p class="text-faint px-2 py-3 text-sm">Todavía no hay notas.</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('notes', id, target),
+							canDropInto: () => false
+						}))}
+					>
 						{#each notes as note (note.id)}
 							<li
+								data-drag-id={note.id}
 								class="group hover:bg-accent flex items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast) {currentNoteId ===
 								note.id
 									? 'bg-accent'
@@ -253,9 +262,18 @@
 						marcador para guardar el primero.
 					</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('snippets', id, target),
+							canDropInto: () => false
+						}))}
+					>
 						{#each snippets as snippet (snippet.id)}
-							<li class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast)">
+							<li
+								data-drag-id={snippet.id}
+								class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast)"
+							>
 								<div class="flex items-center gap-1">
 									<div class="min-w-0 flex-1">
 										{#if editingSnippetId === snippet.id}
@@ -357,9 +375,18 @@
 						"+ etiqueta".
 					</p>
 				{:else}
-					<ul class="flex flex-col gap-0.5">
+					<ul
+						class="flex flex-col gap-0.5"
+						{@attach sidebarDragList(() => ({
+							onDrop: (id, target) => onReorder('tags', id, target),
+							canDropInto: () => false
+						}))}
+					>
 						{#each tags as tag (tag.id)}
-							<li class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-(--motion-fast)">
+							<li
+								data-drag-id={tag.id}
+								class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-(--motion-fast)"
+							>
 								{#if editingTagId === tag.id}
 									<form
 										onsubmit={(event) => {
@@ -435,3 +462,15 @@
 		</div>
 	</aside>
 {/if}
+
+<style>
+	/* Drag feedback: attribute-driven, toggled by sidebarDragList (dnd.ts). */
+	:global([data-dragging='true']) {
+		opacity: 0.4;
+	}
+	:global([data-drag-over-folder='true']) {
+		outline: 2px solid var(--ring);
+		outline-offset: -2px;
+		border-radius: 6px;
+	}
+</style>

@@ -31,3 +31,46 @@ test('click on a snippet name renames it and the name survives a reload', async 
 	await page.getByRole('button', { name: 'Snippets' }).click();
 	await expect(page.getByText('Bienvenida', { exact: true })).toBeVisible();
 });
+
+// Slice B: manual order via drag & drop.
+
+async function dragRowTo(page, source, target, offsetY = 0) {
+	const src = await source.boundingBox();
+	const dst = await target.boundingBox();
+	await page.mouse.move(src.x + src.width / 2, src.y + src.height / 2);
+	await page.mouse.down();
+	// pass the 5px threshold first, then travel in steps
+	await page.mouse.move(src.x + src.width / 2, src.y + src.height / 2 + 8, { steps: 2 });
+	await page.mouse.move(dst.x + dst.width / 2, dst.y + dst.height / 2 + offsetY, { steps: 8 });
+	await page.mouse.up();
+}
+
+test('notes can be dragged into a manual order that survives reload', async ({ page }) => {
+	await page.goto('/');
+	// Three notes; each new note lands on top → visual order: C, B, A.
+	for (const title of ['Nota A', 'Nota B', 'Nota C']) {
+		await page.getByRole('button', { name: 'Nueva nota' }).click();
+		await page.getByRole('textbox', { name: 'Título de la nota' }).fill(title);
+		await page.waitForTimeout(700); // title autosave
+	}
+	const list = page.getByRole('navigation', { name: 'Lista de notas' });
+	// A seeded demo note also sits in the list; match only the notes we made.
+	// The delete button shares the title in its aria-label, so anchor the name.
+	const myNotes = () =>
+		page.getByRole('navigation', { name: 'Lista de notas' }).getByRole('button', {
+			name: /^Nota [ABC]$/
+		});
+	await expect(myNotes()).toHaveText(['Nota C', 'Nota B', 'Nota A']);
+
+	// Drag A above C (to the very top).
+	await dragRowTo(
+		page,
+		list.getByRole('button', { name: 'Nota A', exact: true }),
+		list.getByRole('button', { name: 'Nota C', exact: true }),
+		-6
+	);
+	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);
+
+	await page.reload();
+	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);
+});
