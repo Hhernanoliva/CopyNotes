@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-17 (los snippets se insertan desde la nota con `/`; se quitaron los botones de insertar y etiquetar del snippet).
+Última actualización: 2026-07-17 (los snippets se insertan desde la nota con `/`; se quitaron los botones de insertar y etiquetar; se renombra un snippet con click en el nombre).
 
 ## Temas
 

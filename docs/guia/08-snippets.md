@@ -20,6 +20,12 @@ Arriba de la barra lateral hay un conmutador **Notas | Snippets**. En la pestañ
 
 Para **meter un snippet en una nota** ya no hace falta un botón acá: se inserta desde la nota escribiendo **`/`** (ver "Insertar un snippet mientras escribís" abajo).
 
+### Cambiarle el nombre a un snippet
+
+Tocá el **nombre del snippet** en la lista y se vuelve editable ahí mismo (como renombrar un archivo en la compu). **Enter** guarda, **Escape** cancela; si lo dejás vacío, se queda con el nombre que tenía.
+
+Cuando guardás un snippet desde un renglón, arranca con las primeras palabras como nombre; con este click le ponés el que te sirva para reconocerlo.
+
 ### Insertar un snippet mientras escribís
 
 Escribí **`/snippet`** en un renglón vacío (o `/` y elegí "Snippet" del menú). El menú pasa a mostrar tus snippets guardados, favoritos primero. Seguí escribiendo para filtrar por nombre o contenido, movete con **↑ ↓** y elegí con **Enter**.

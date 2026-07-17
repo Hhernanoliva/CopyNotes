@@ -232,6 +232,11 @@
 		await refreshSnippets();
 	}
 
+	async function renameSnippetFromSidebar(snippet, name) {
+		await updateSnippet(snippet.id, { name });
+		await refreshSnippets();
+	}
+
 	async function deleteSnippet(snippet) {
 		await softDeleteSnippet(snippet.id);
 		await refreshSnippets();
@@ -273,6 +278,7 @@
 		onDeleteNote={deleteNote}
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
+		onRenameSnippet={renameSnippetFromSidebar}
 		onDeleteSnippet={deleteSnippet}
 		onExportSnippets={exportSnippets}
 		onCreateTag={createTagFromSidebar}

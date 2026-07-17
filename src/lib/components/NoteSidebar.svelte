@@ -27,6 +27,7 @@
 		onDeleteNote,
 		onNewSnippet,
 		onToggleFavorite,
+		onRenameSnippet,
 		onDeleteSnippet,
 		onExportSnippets,
 		onCreateTag,
@@ -52,6 +53,8 @@
 	let newTagName = $state('');
 	let editingTagId = $state(null);
 	let editingValue = $state('');
+	let editingSnippetId = $state(null);
+	let editingSnippetValue = $state('');
 
 	let asideEl = $state();
 
@@ -121,6 +124,21 @@
 	function startRename(tag) {
 		editingTagId = tag.id;
 		editingValue = tag.name;
+	}
+
+	function startSnippetRename(snippet) {
+		editingSnippetId = snippet.id;
+		editingSnippetValue = snippet.name;
+	}
+
+	async function submitSnippetRename(snippet) {
+		// Escape sets editingSnippetId to null first; the blur it triggers then
+		// lands here and must NOT save the discarded text. Enter runs this once
+		// while still editing; the follow-up blur is a no-op for the same reason.
+		if (editingSnippetId !== snippet.id) return;
+		editingSnippetId = null;
+		const value = editingSnippetValue.trim();
+		if (value && value !== snippet.name) await onRenameSnippet(snippet, value);
 	}
 
 	async function submitRename(tag) {
@@ -240,9 +258,39 @@
 							<li class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast)">
 								<div class="flex items-center gap-1">
 									<div class="min-w-0 flex-1">
-										<p class="truncate text-sm">{snippet.name}</p>
-										{#if firstLine(snippet.content) && firstLine(snippet.content) !== snippet.name}
-											<p class="text-faint truncate text-xs">{firstLine(snippet.content)}</p>
+										{#if editingSnippetId === snippet.id}
+											<form
+												onsubmit={(event) => {
+													event.preventDefault();
+													submitSnippetRename(snippet);
+												}}
+											>
+												<!-- svelte-ignore a11y_autofocus — the user just chose to rename. -->
+												<input
+													bind:value={editingSnippetValue}
+													aria-label="Nuevo nombre del snippet"
+													autocomplete="off"
+													autofocus
+													onkeydown={(event) => {
+														if (event.key === 'Escape') editingSnippetId = null;
+													}}
+													onblur={() => submitSnippetRename(snippet)}
+													class="border-border focus-visible:ring-ring min-h-7 w-full rounded-md border bg-transparent px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+												/>
+											</form>
+										{:else}
+											<button
+												type="button"
+												aria-label="Renombrar snippet {snippet.name}"
+												title="Renombrar"
+												onclick={() => startSnippetRename(snippet)}
+												class="focus-visible:ring-ring block w-full rounded-sm text-left focus-visible:ring-2 focus-visible:outline-none"
+											>
+												<p class="truncate text-sm">{snippet.name}</p>
+												{#if firstLine(snippet.content) && firstLine(snippet.content) !== snippet.name}
+													<p class="text-faint truncate text-xs">{firstLine(snippet.content)}</p>
+												{/if}
+											</button>
 										{/if}
 									</div>
 									<div class="flex shrink-0 items-center">
