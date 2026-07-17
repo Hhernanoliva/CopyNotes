@@ -53,6 +53,7 @@
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
+	import { createDragReorder } from './dragReorder.svelte.js';
 	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
 	import { textOffset, rangeFromTextOffsets } from './selection-offsets';
 	import {
@@ -117,6 +118,19 @@
 		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
 	);
 	const hasSelection = $derived(selectedIds.length > 1);
+	// Drag-to-reorder-and-nest controller (long-press, mouse + touch). Pure
+	// hierarchy math lives in resolveDrop/planDrop; this just applies the plan.
+	let listEl = $state();
+	const reorder = createDragReorder({
+		getBlocks: () => blocks,
+		getSelectedIds: () => (hasSelection ? selectedIds : []),
+		getListEl: () => listEl,
+		onApply: async (plan) => {
+			recordSnapshot();
+			await applyUpdates(plan.updates);
+		}
+	});
+	$effect(() => () => reorder.destroy());
 	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
 	// The block highlight is visual only; announce the count for screen readers.
 	const selectionAnnouncement = $derived(
@@ -822,6 +836,7 @@
 	// Mouse dragged into another block with the button held: grow the block
 	// selection to cover the range, and drop the native text selection.
 	function dragOver(block, buttons) {
+		if (reorder.active) return; // a block-move drag owns the pointer
 		if (!dragAnchorId || !(buttons & 1) || block.id === dragAnchorId) return;
 		dragging = true;
 		selection = { anchorId: dragAnchorId, focusId: block.id };
@@ -1336,7 +1351,13 @@
 				<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
 			</div>
 		{/if}
-		<div class="mt-6 flex flex-col">
+		<div class="relative mt-6 flex flex-col" bind:this={listEl}>
+			{#if reorder.indicator}
+				<div
+					class="pointer-events-none absolute z-10 h-0.5 bg-primary"
+					style="left: {reorder.indicator.depth * 1.5}rem; right: 0; top: {reorder.indicator.top}px;"
+				></div>
+			{/if}
 			{#each visible as row, index (row.block.id)}
 				<BlockRow
 					block={row.block}
@@ -1365,6 +1386,7 @@
 					onShiftSelect={shiftSelect}
 					onPlainMousedown={startDrag}
 					onDragOver={dragOver}
+					onDragHold={(id, event) => reorder.armFromPointer(id, event)}
 					tags={blockTagsMap[row.block.id] ?? []}
 					{allTags}
 					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
@@ -1417,5 +1439,14 @@
 			onCommand={handleToolbarCommand}
 			onClose={() => (toolbar = null)}
 		/>
+	{/if}
+	{#if reorder.ghost}
+		<div
+			class="pointer-events-none fixed z-50 rounded-md bg-card px-2 py-1 text-sm opacity-80 shadow-lg"
+			style="left: {reorder.ghost.x + 12}px; top: {reorder.ghost.y + 12}px;"
+		>
+			Moviendo {reorder.ghost.ids.length}
+			{reorder.ghost.ids.length === 1 ? 'renglón' : 'renglones'}
+		</div>
 	{/if}
 {/if}
