@@ -12,7 +12,7 @@
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
-| **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo entre sus hermanos |
+| **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo. Al llegar al borde de su padre, **sale del padre** y sigue al nivel de arriba; el límite real es el principio o el final de la nota. Funciona igual con varios renglones seleccionados |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 
 > **Negrita, cursiva, títulos, enlaces y colores:** todo el detalle está en la sección "Dar formato al texto" más abajo. Como resumen rápido: los atajos **Ctrl/Cmd+B/I/U/Shift+S/K** funcionan aunque no se vea ninguna barra flotante en pantalla.
