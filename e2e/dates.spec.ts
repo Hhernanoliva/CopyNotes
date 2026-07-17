@@ -56,6 +56,36 @@ test('date panel navigates with arrow keys', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveText(/mañana/);
 });
 
+// The panel must never get stuck: clicking anywhere outside dismisses it,
+// and the badge keeps working as a toggle (open → click badge → closed).
+test('date panel closes on outside click and badge toggle', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.keyboard.press('Enter');
+
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+
+	// Click into the note text (outside the panel): the panel must close.
+	await first.click();
+	await expect(panel).not.toBeVisible();
+
+	// Give the block a date so the badge exists, then toggle via the badge.
+	await page.keyboard.type('/fecha');
+	await page.keyboard.press('Enter');
+	await page.getByRole('button', { name: 'Hoy' }).click();
+	const badge = page.getByRole('button', { name: 'Cambiar fecha' });
+	await badge.click();
+	await expect(panel).toBeVisible();
+	await badge.click();
+	await expect(panel).not.toBeVisible();
+});
+
 // Spec 021 Slice B: the Agenda lists dated blocks and jumps to them.
 test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 	await page.goto('/');

@@ -15,7 +15,7 @@ Al elegir una, el renglón queda con una etiqueta con un calendario (📅) y el 
 
 ## Cambiar o quitar la fecha
 
-Tocá la etiqueta 📅 del renglón para volver a abrir el mismo panel: ahí podés elegir otro atajo, otro día, o tocar **Quitar fecha** para sacarla. Escape cierra el panel sin cambiar nada.
+Tocá la etiqueta 📅 del renglón para volver a abrir el mismo panel: ahí podés elegir otro atajo, otro día, o tocar **Quitar fecha** para sacarla. Para cerrar el panel sin cambiar nada, apretá Escape, hacé click en cualquier otro lado, o volvé a tocar la etiqueta.
 
 ## Fechas vencidas
 

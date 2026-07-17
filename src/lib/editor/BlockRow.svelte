@@ -544,6 +544,7 @@
 			aria-label="Cambiar fecha"
 			use:tooltip={'Cambiar o quitar fecha'}
 			onmousedown={(event) => event.preventDefault()}
+			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => onDateBadge(block)}
 			class="{overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-7 shrink-0 items-center gap-1 self-center rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
 		>📅 {dueLabel}</button>

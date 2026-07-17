@@ -7,6 +7,19 @@
 	let panelEl = $state();
 	$effect(() => { firstEl?.focus(); });
 
+	// Close when the user clicks anywhere outside the panel — otherwise a
+	// click that moves focus away leaves the panel orphaned with a dead
+	// Escape (its keydown only hears keys while focus is inside). Same
+	// pattern as TagPicker. The badge stops pointerdown propagation so its
+	// own click keeps toggling instead of close-then-reopen.
+	$effect(() => {
+		function handlePointerDown(event) {
+			if (panelEl && !panelEl.contains(event.target)) onClose();
+		}
+		document.addEventListener('pointerdown', handlePointerDown);
+		return () => document.removeEventListener('pointerdown', handlePointerDown);
+	});
+
 	function pickQuick(option) { onPick(resolveQuickOption(option, todayString())); }
 	function keydown(e) {
 		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
