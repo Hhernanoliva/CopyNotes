@@ -21,7 +21,7 @@
 	} from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, applyInline, normalizeForest } from '$lib/format';
 	import { planNoteExit } from './note';
-	import { textOffset } from './selection-offsets';
+	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
 
 	let {
 		block,
@@ -60,6 +60,7 @@
 		onTagPickerClose,
 		onSlashKey,
 		onSlashSelect,
+		focusCaret = null,
 		onFocusHandled,
 		onVerticalArrow,
 		onPasteLines,
@@ -194,7 +195,17 @@
 	$effect(() => {
 		if (!focused) return;
 		if (!el && !codeToggleEl) return;
-		focusBlockSurface(true);
+		// focusCaret is a plain-text offset to land on (slash menu returns the
+		// caret to where the "/" was); without it, park the caret at the end.
+		if (focusCaret != null && el && block.type !== 'separator') {
+			el.focus();
+			const range = rangeAtPlainOffset(el, focusCaret);
+			const selection = window.getSelection();
+			selection.removeAllRanges();
+			selection.addRange(range);
+		} else {
+			focusBlockSurface(true);
+		}
 		onFocusHandled();
 	});
 
@@ -294,14 +305,25 @@
 		return false;
 	}
 
+	// Plain-text offset of the caret inside this block's editable, or null when
+	// the selection lives elsewhere. The slash menu anchors "/" with it.
+	function caretPlainOffset() {
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		const range = selection.getRangeAt(0);
+		if (!el || !el.contains(range.startContainer)) return null;
+		return plainTextOffset(el, range.startContainer, range.startOffset);
+	}
+
 	function handleInput() {
 		let consumed = false;
+		const caret = caretPlainOffset();
 		if (isRich) {
 			const html = sanitizeHtml(el.innerHTML);
-			consumed = onInput(block, { html, content: htmlToPlainText(html) }) === true;
+			consumed = onInput(block, { html, content: htmlToPlainText(html), caret }) === true;
 		} else {
 			const text = el.innerText;
-			consumed = onInput(block, { html: text, content: text }) === true;
+			consumed = onInput(block, { html: text, content: text, caret }) === true;
 		}
 		// Typed triggers such as "#" are commands, not content. The block may
 		// already be empty in state, so clear the live editable explicitly.

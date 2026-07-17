@@ -95,6 +95,49 @@ export function htmlToPlainText(html) {
 	return holder.textContent ?? '';
 }
 
+// Remove the plain-text character range [start, end) from an inline-HTML
+// string, counting <br> as one character to mirror htmlToPlainText. Inline
+// wrappers left empty by the removal are dropped. The slash menu uses this to
+// strip "/query" typed mid-text without losing the surrounding formatting.
+export function removePlainTextRange(html, start, end) {
+	if (!html || end <= start) return html ?? '';
+	const holder = document.createElement('div');
+	holder.innerHTML = html;
+	const walker = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+	const units = [];
+	let node;
+	while ((node = walker.nextNode())) {
+		if (node.nodeType === Node.TEXT_NODE) units.push({ node, length: node.textContent.length, isText: true });
+		else if (node.tagName === 'BR') units.push({ node, length: 1, isText: false });
+	}
+	let position = 0;
+	const emptied = [];
+	for (const unit of units) {
+		const unitStart = position;
+		position += unit.length;
+		if (position <= start || unitStart >= end) continue;
+		if (!unit.isText) {
+			emptied.push(unit.node);
+			continue;
+		}
+		const from = Math.max(start - unitStart, 0);
+		const to = Math.min(end - unitStart, unit.length);
+		const value = unit.node.textContent;
+		unit.node.textContent = value.slice(0, from) + value.slice(to);
+		if (unit.node.textContent === '') emptied.push(unit.node);
+	}
+	for (const drained of emptied) {
+		let parent = drained.parentNode;
+		drained.remove();
+		while (parent && parent !== holder && parent.childNodes.length === 0) {
+			const next = parent.parentNode;
+			parent.remove();
+			parent = next;
+		}
+	}
+	return holder.innerHTML;
+}
+
 // Escape plain text into safe HTML for the innerHTML render sink. Literal
 // markup a user typed (or pasted as plain text) becomes visible text, never
 // executable nodes. Newlines become <br> to preserve soft line breaks.

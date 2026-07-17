@@ -33,3 +33,30 @@ export function moveSelection(index, delta, length) {
 	if (length <= 0) return 0;
 	return (index + delta + length) % length;
 }
+
+// Decide the slash-menu state after one input event, anywhere in the block —
+// not only when "/" is the first character. `prev` is { anchor, query } while
+// the menu is open (anchor = plain-text offset of the "/"), or null.
+// `caret` is the plain-text caret offset after the edit; null when the caller
+// could not read the selection, which falls back to the original
+// start-of-block rule so the menu still works without caret info.
+export function nextSlashState(prev, { prevText, text, caret }) {
+	if (prev) {
+		const anchor = prev.anchor;
+		if (anchor >= text.length || text[anchor] !== '/') return null;
+		const query = caret == null ? text.slice(anchor + 1) : text.slice(anchor + 1, caret);
+		if (caret != null && caret <= anchor) return null;
+		if (query.includes('\n')) return null;
+		return { anchor, query };
+	}
+	if (caret == null) {
+		if (!text.startsWith('/') || text.includes('\n')) return null;
+		return { anchor: 0, query: text.slice(1) };
+	}
+	// Open only when exactly one character was inserted and it is a "/": a
+	// paste or a deletion that leaves the caret next to an old slash is not a
+	// request to open the menu.
+	if (text.length !== (prevText ?? '').length + 1) return null;
+	if (caret < 1 || text[caret - 1] !== '/') return null;
+	return { anchor: caret - 1, query: '' };
+}

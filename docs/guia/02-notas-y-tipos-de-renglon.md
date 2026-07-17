@@ -22,6 +22,7 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 
 ### Cómo cambiar el tipo
 
-- Escribí **`/`** al inicio de un renglón vacío: se abre un menú amplio con los tipos. **H1, H2 y H3 comparten una sola fila** para dejar más opciones a la vista. Filtrá escribiendo (ej. `/ta` para Tarea), movete con **↑ ↓**, elegí con **Enter** y cancelá con **Escape**.
+- Escribí **`/`** en cualquier parte del renglón (vacío, con texto, o en medio del texto): se abre un menú amplio con los tipos. **H1, H2 y H3 comparten una sola fila** para dejar más opciones a la vista. Filtrá escribiendo (ej. `/ta` para Tarea), movete con **↑ ↓**, elegí con **Enter** y cancelá con **Escape**.
+- Al elegir una opción, lo que ya habías escrito **se conserva** (solo desaparece la `/` y lo que tipeaste para filtrar) y el cursor **vuelve al mismo lugar** donde estabas. Si cancelás con **Escape**, la `/` queda como texto normal y podés seguir escribiendo sin que el menú se reabra.
 - Atajo escrito: **`- `** o **`* `** (guion o asterisco, y espacio) al inicio de un renglón de texto lo convierte en viñeta.
 - Atajo escrito para etiquetar: escribí **`#`** en un renglón y se abre el selector de etiquetas de ese renglón (el `#` no queda escrito, es solo el gatillo).
