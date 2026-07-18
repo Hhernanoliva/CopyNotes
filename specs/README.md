@@ -28,6 +28,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 20. `020-inline-formatting-toolbar.md`
 21. `021-dates-agenda.md`
 22. `022-sidebar-organization.md`
+23. `023-mcp-fases.md`
 
 ## Required Sections For Specs
 
