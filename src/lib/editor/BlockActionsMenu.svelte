@@ -61,7 +61,7 @@
 		<div
 			role="menu"
 			aria-label="Acciones del bloque"
-			class="bg-popover border-border absolute top-full right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-md"
+			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-md"
 		>
 			<button
 				type="button"

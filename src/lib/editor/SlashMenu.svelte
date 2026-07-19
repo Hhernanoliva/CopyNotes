@@ -81,7 +81,7 @@
 	aria-label={commands.some((command) => command.kind === 'snippet')
 		? 'Snippets guardados'
 		: 'Tipos de bloque'}
-	class="bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md"
+	class="cn-pop bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md"
 >
 	{#if commands.length === 0}
 		<p class="text-muted-foreground px-2 py-1.5 text-sm">{emptyLabel}</p>

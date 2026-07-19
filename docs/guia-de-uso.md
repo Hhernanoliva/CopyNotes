@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-17 (las fechas se actualizan solas al pasar la medianoche, sin recargar; orden manual arrastrando y carpetas en Notas/Snippets; snippets se insertan con `/` y se renombran con click; se quitaron insertar y etiquetar del snippet; mover con Alt+flechas ya no se frena en el borde del padre; el menú "/" se abre en cualquier parte del renglón y el cursor vuelve a su lugar; ahora también se pueden mover y anidar renglones arrastrándolos, manteniendo presionado, con mouse o dedo).
+Última actualización: 2026-07-19 (la app ahora tiene animaciones suaves: la lista lateral entra deslizándose en el teléfono y al instante en la computadora, la estrella de favorito responde al toque, y lo que arrastrás se levanta apenas; todo respeta "Reducir movimiento" del sistema).
 
 ## Temas
 
@@ -19,6 +19,7 @@ Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. 
 11. [Respaldo](guia/11-respaldo.md) — exportar, importar, reemplazar todo
 12. [Fechas y agenda](guia/12-fechas-y-agenda.md) — /fecha, atajos Hoy/Mañana/Próxima semana, cambiar o quitar la fecha, pestaña Agenda
 13. [Ordenar y carpetas](guia/13-ordenar-y-carpetas.md) — arrastrar para ordenar Notas/Snippets/Etiquetas; carpetas en Notas y Snippets
+14. [Movimiento y animaciones](guia/14-movimiento-y-animaciones.md) — animaciones suaves de la app y cómo funciona "Reducir movimiento"
 
 ## Regla para el equipo
 

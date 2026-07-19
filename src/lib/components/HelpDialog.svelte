@@ -66,7 +66,7 @@
 	bind:this={dialogEl}
 	onclose={() => (open = false)}
 	aria-labelledby="help-title"
-	class="bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
+	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
 	<div class="bg-background sticky top-0 flex items-center justify-between border-b px-4 py-3">
 		<h2 id="help-title" class="text-sm font-bold">Ayuda y atajos</h2>

@@ -4,8 +4,10 @@
 </script>
 
 <script>
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { scale } from 'svelte/transition';
 	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
+	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
 	import DatePanel from './DatePanel.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
@@ -78,6 +80,33 @@
 	let el = $state();
 	let noteEl = $state();
 	let codeToggleEl = $state();
+
+	// Quiet Motion (spec 024, Stage 5). `ready` gates entry animations so they
+	// never fire on first render — a fresh row (note load / note switch) must
+	// appear at rest, not pop. It flips true after mount, so later state
+	// changes on a live row do animate.
+	let ready = $state(false);
+	onMount(() => {
+		ready = true;
+	});
+
+	// Copy confirmation: the copy buttons briefly swap their icon to a check.
+	// Only ever triggered by a click, so no first-render noise. Optimistic —
+	// copy almost never fails, and a failure still raises its own toast.
+	let copied = $state(false);
+	let copiedWithChildren = $state(false);
+	let copyTimer;
+	function confirmCopy(withChildren) {
+		clearTimeout(copyTimer);
+		copied = !withChildren;
+		copiedWithChildren = withChildren;
+		copyTimer = setTimeout(() => {
+			copied = false;
+			copiedWithChildren = false;
+		}, 1000);
+		onCopy(block, withChildren);
+	}
+	$effect(() => () => clearTimeout(copyTimer));
 	// The secondary note editor shows once it has content or the user is adding
 	// one via Shift+Enter (editor UX pass, slice B).
 	let showNote = $state(false);
@@ -458,7 +487,9 @@
 					: 'bg-transparent'}"
 			>
 				{#if block.checked}
-					<Check size={12} />
+					<span in:scale={{ start: 0.5, duration: ready ? motionDuration(MOTION.fast) : 0 }}>
+						<Check size={12} />
+					</span>
 				{/if}
 			</span>
 		</button>
@@ -596,23 +627,35 @@
 		<button
 			type="button"
 			aria-label="Copiar bloque"
-			use:tooltip={'Copiar bloque'}
+			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
-			onclick={() => onCopy(block, false)}
+			onclick={() => confirmCopy(false)}
 			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
-			<Copy size={14} aria-hidden="true" />
+			{#if copied}
+				<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
+					<Check size={14} aria-hidden="true" />
+				</span>
+			{:else}
+				<Copy size={14} aria-hidden="true" />
+			{/if}
 		</button>
 		{#if hasChildren}
 			<button
 				type="button"
 				aria-label="Copiar con subniveles"
-				use:tooltip={'Copiar con subniveles'}
+				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
-				onclick={() => onCopy(block, true)}
+				onclick={() => confirmCopy(true)}
 				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
-				<CopyPlus size={14} aria-hidden="true" />
+				{#if copiedWithChildren}
+					<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
+						<Check size={14} aria-hidden="true" />
+					</span>
+				{:else}
+					<CopyPlus size={14} aria-hidden="true" />
+				{/if}
 			</button>
 		{/if}
 		{#if block.type !== 'separator'}

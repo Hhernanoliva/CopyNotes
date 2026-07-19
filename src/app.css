@@ -238,6 +238,85 @@
 	opacity: 1;
 }
 
+/* Quiet Motion — modal dialogs (spec 024, Stage 3). These are native
+   <dialog>s opened with showModal(); the element is never unmounted, so
+   Svelte transitions do not apply. Animate with CSS instead: @starting-style
+   supplies the entry-from state, and transition-behavior: allow-discrete
+   lets display/overlay animate on close so the exit is visible. Entry uses
+   --motion-overlay; exit is faster (--motion-fast, from the base rule). The
+   global prefers-reduced-motion rule zeroes these durations automatically. */
+.cn-dialog {
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease),
+		overlay var(--motion-fast) var(--motion-ease) allow-discrete,
+		display var(--motion-fast) var(--motion-ease) allow-discrete;
+}
+.cn-dialog:not([open]) {
+	opacity: 0;
+	transform: translateY(4px) scale(0.98);
+}
+.cn-dialog[open] {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+	transition:
+		opacity var(--motion-overlay) var(--motion-ease),
+		transform var(--motion-overlay) var(--motion-ease),
+		overlay var(--motion-overlay) var(--motion-ease) allow-discrete,
+		display var(--motion-overlay) var(--motion-ease) allow-discrete;
+}
+@starting-style {
+	.cn-dialog[open] {
+		opacity: 0;
+		transform: translateY(4px) scale(0.98);
+	}
+}
+.cn-dialog::backdrop {
+	opacity: 0;
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		overlay var(--motion-fast) var(--motion-ease) allow-discrete,
+		display var(--motion-fast) var(--motion-ease) allow-discrete;
+}
+.cn-dialog[open]::backdrop {
+	opacity: 1;
+}
+@starting-style {
+	.cn-dialog[open]::backdrop {
+		opacity: 0;
+	}
+}
+
+/* Quiet Motion — menus & popovers (spec 024, Stage 4). Mounted via {#if},
+   so @starting-style drives an entry-only fade + 4px settle: the panel drops
+   into place from just above (all of these open below their trigger). They
+   close instantly, which reads as snappy. The formatting toolbar (.cn-toolbar)
+   appears with a minimal scale instead, already positioned (its top/left are
+   set inline before paint, and are not transitioned, so it never chases the
+   cursor). The global prefers-reduced-motion rule zeroes these durations. */
+.cn-pop {
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease);
+}
+@starting-style {
+	.cn-pop {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+.cn-toolbar {
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease);
+}
+@starting-style {
+	.cn-toolbar {
+		opacity: 0;
+		transform: scale(0.98) translateY(2px);
+	}
+}
+
 .fmt-color-amber { color: var(--fmt-color-amber); }
 .fmt-color-red { color: var(--fmt-color-red); }
 .fmt-color-green { color: var(--fmt-color-green); }

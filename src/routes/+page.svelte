@@ -3,6 +3,7 @@
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
+	import { MOTION, motionDuration } from '$lib/motion';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
@@ -465,17 +466,34 @@
 				use:tooltip={currentTheme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
 				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
 			>
-				{#if currentTheme === 'dark'}
-					<Sun size={18} aria-hidden="true" />
-				{:else}
-					<Moon size={18} aria-hidden="true" />
-				{/if}
+				<span class="relative flex size-[18px] items-center justify-center">
+					{#if currentTheme === 'dark'}
+						<span
+							class="absolute"
+							in:fade={{ duration: motionDuration(MOTION.fast) }}
+							out:fade={{ duration: motionDuration(MOTION.fast) }}
+						>
+							<Sun size={18} aria-hidden="true" />
+						</span>
+					{:else}
+						<span
+							class="absolute"
+							in:fade={{ duration: motionDuration(MOTION.fast) }}
+							out:fade={{ duration: motionDuration(MOTION.fast) }}
+						>
+							<Moon size={18} aria-hidden="true" />
+						</span>
+					{/if}
+				</span>
 			</button>
 			<span aria-live="polite" class="text-muted-foreground text-xs">
 				{#if saveState === 'saving'}
 					Guardando…
 				{:else if saveState === 'saved'}
-					<span in:fade={{ duration: 150 }}>Guardado</span>
+					<span
+						in:fade={{ duration: motionDuration(MOTION.fast) }}
+						out:fade={{ duration: motionDuration(MOTION.fast) }}>Guardado</span
+					>
 				{/if}
 			</span>
 		</header>

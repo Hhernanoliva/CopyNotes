@@ -50,7 +50,7 @@
 	tabindex="-1"
 	onkeydown={keydown}
 	onmousedown={(e) => e.stopPropagation()}
-	class="bg-popover border-border flex w-56 flex-col gap-0.5 rounded-md border p-1 shadow-lg"
+	class="cn-pop bg-popover border-border flex w-56 flex-col gap-0.5 rounded-md border p-1 shadow-lg"
 >
 	<button
 		bind:this={firstEl}

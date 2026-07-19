@@ -1,6 +1,8 @@
 <script>
 	import { toast } from 'svelte-sonner';
+	import { fade } from 'svelte/transition';
 	import { FileDown, FileUp, X } from '@lucide/svelte';
+	import { MOTION, motionDuration } from '$lib/motion';
 	import {
 		backupFileName,
 		buildBackup,
@@ -159,7 +161,7 @@
 	bind:this={dialogEl}
 	onclose={() => (open = false)}
 	aria-labelledby="backup-title"
-	class="bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
+	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
 	<div class="flex items-center justify-between border-b px-4 py-3">
 		<h2 id="backup-title" class="text-sm font-bold">Respaldo</h2>
@@ -174,7 +176,7 @@
 	</div>
 
 	{#if step === 'idle'}
-		<div class="flex flex-col gap-5 px-4 py-4">
+		<div class="flex flex-col gap-5 px-4 py-4" in:fade={{ duration: motionDuration(MOTION.fast) }}>
 			<p class="text-muted-foreground text-sm">
 				Tus notas viven en este dispositivo. Si borrás los datos del navegador o cambiás de equipo
 				sin un respaldo, se pierden. Descargá un respaldo cada tanto para quedarte tranquilo.
@@ -234,7 +236,7 @@
 			</section>
 		</div>
 	{:else if step === 'reviewing'}
-		<div class="flex flex-col gap-4 px-4 py-4">
+		<div class="flex flex-col gap-4 px-4 py-4" in:fade={{ duration: motionDuration(MOTION.fast) }}>
 			<p class="text-sm">
 				<span class="font-bold">{review.fileName}</span> es un respaldo válido de CopyNotes.
 			</p>
@@ -292,7 +294,7 @@
 			</div>
 		</div>
 	{:else if step === 'confirmingReplace'}
-		<div class="flex flex-col gap-4 px-4 py-4">
+		<div class="flex flex-col gap-4 px-4 py-4" in:fade={{ duration: motionDuration(MOTION.fast) }}>
 			<p class="text-sm font-bold">¿Reemplazar todo con este respaldo?</p>
 			<p class="text-muted-foreground text-sm">
 				Esto borra todas tus notas, etiquetas y snippets actuales y los reemplaza por el contenido

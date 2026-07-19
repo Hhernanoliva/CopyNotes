@@ -64,7 +64,7 @@
 		data-copynotes-toolbar
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
-		class="bg-popover border-border flex items-center gap-0.5 rounded-lg border p-1 shadow-xl"
+		class="cn-toolbar bg-popover border-border flex items-center gap-0.5 rounded-lg border p-1 shadow-xl"
 	>
 		{#each headings as [id, label, on]}
 			<FormattingButton {label} active={on} disabled={!enabled.blockType} onActivate={() => onCommand(id)}>
@@ -85,7 +85,7 @@
 		<div class="relative">
 			<FormattingButton label="Enlace" shortcut="Ctrl/Cmd+K" active={active.link} disabled={!enabled.link} onActivate={() => (openPanel = openPanel === 'link' ? null : 'link')}><Link size={15} /></FormattingButton>
 			{#if openPanel === 'link'}
-				<div class="absolute left-0 top-full mt-1">
+				<div class="cn-pop absolute left-0 top-full mt-1">
 					<LinkEditorPopover initialUrl={currentLinkUrl}
 						onSave={(u) => { onCommand('link', u); openPanel = null; }}
 						onRemove={() => { onCommand('removeLink'); openPanel = null; }}
@@ -97,7 +97,7 @@
 		<div class="relative">
 			<FormattingButton label="Color de texto" active={!!currentColor} disabled={!enabled.color} onActivate={() => (openPanel = openPanel === 'color' ? null : 'color')}><Palette size={15} /></FormattingButton>
 			{#if openPanel === 'color'}
-				<div class="absolute left-0 top-full mt-1">
+				<div class="cn-pop absolute left-0 top-full mt-1">
 					<TextColorPopover current={currentColor}
 						onPick={(c) => { onCommand('color', c); openPanel = null; }}
 						onClose={() => (openPanel = null)} />
@@ -108,7 +108,7 @@
 		<div class="relative">
 			<FormattingButton label="Más opciones" onActivate={() => (openPanel = openPanel === 'more' ? null : 'more')}><MoreHorizontal size={15} /></FormattingButton>
 			{#if openPanel === 'more'}
-				<div class="bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1">
+				<div class="cn-pop bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1">
 					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Quitar formato</button>
 					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Copiar texto seleccionado</button>
 				</div>
