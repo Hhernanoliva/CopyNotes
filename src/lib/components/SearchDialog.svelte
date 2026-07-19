@@ -81,7 +81,7 @@
 	bind:this={dialogEl}
 	onclose={() => (open = false)}
 	aria-label="Buscar"
-	class="bg-background text-foreground border-border mx-auto mt-[8vh] mb-auto max-h-[80svh] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
+	class="cn-dialog bg-background text-foreground border-border mx-auto mt-[8vh] mb-auto max-h-[80svh] w-[calc(100%-2rem)] max-w-xl overflow-hidden rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
 	<div class="border-border flex items-center gap-2 border-b px-3">
 		<Search size={18} aria-hidden="true" class="text-muted-foreground shrink-0" />

@@ -16,6 +16,10 @@ ni se mueve solo, y nada te retrasa al escribir.
 - **Arrastrar para ordenar**: al tomar una nota, snippet o etiqueta, se
   levanta apenas (con una sombra suave) para que se note cuál estás moviendo.
 - **Favoritos**: la estrella responde con un pequeño gesto al tocarla.
+- **Ventanas (Respaldo, Ayuda, Nuevo snippet, Buscar)**: al abrirlas, el
+  fondo se oscurece con un fundido y la ventana crece apenas hasta su
+  tamaño; al cerrarlas se van un poco más rápido. La tecla **Esc** siempre
+  cierra al instante, aunque la ventana esté recién apareciendo.
 
 ## "Reducir movimiento"
 
