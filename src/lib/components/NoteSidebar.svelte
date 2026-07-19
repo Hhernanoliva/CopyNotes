@@ -15,6 +15,7 @@
 		Tag
 	} from '@lucide/svelte';
 	import { fade, fly } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
 	import AgendaPanel from './AgendaPanel.svelte';
 	import { sidebarDragList } from './dnd';
 	import { buildSidebarTree } from '$lib/organize';
@@ -54,6 +55,46 @@
 	const noteTree = $derived(buildSidebarTree(notes, noteFolders));
 	const snippetTree = $derived(buildSidebarTree(snippets, snippetFolders));
 
+	// Flatten the folder tree into the exact sibling <li> order the DOM already
+	// renders (folder row, then its children when open, then root items). This
+	// lets each row be the single keyed child of one {#each}, which is what
+	// animate:flip requires (spec 024, Stage 6). DOM output is unchanged.
+	function flattenTree(tree) {
+		const rows = [];
+		for (const node of tree) {
+			if (node.kind === 'folder') {
+				rows.push({ kind: 'folder', id: node.folder.id, node });
+				if (!node.folder.collapsed) {
+					for (const child of node.children) {
+						rows.push({ kind: 'child', id: child.id, item: child });
+					}
+				}
+			} else {
+				rows.push({ kind: 'item', id: node.item.id, item: node.item });
+			}
+		}
+		return rows;
+	}
+	const noteRows = $derived(flattenTree(noteTree));
+	const snippetRows = $derived(flattenTree(snippetTree));
+
+	// Row class helpers. animate:flip needs the <li> to be the each's sole
+	// direct child (no {#if} wrapper), so kind-specific classes are computed
+	// here instead of branching in the template.
+	const FOLDER_LI =
+		'group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast)';
+	function noteRowClass(row) {
+		if (row.kind === 'folder') return FOLDER_LI;
+		const nested = row.kind === 'child' ? 'pl-5 ' : '';
+		const current = currentNoteId === row.item.id ? 'bg-accent' : '';
+		return `group hover:bg-accent flex items-center gap-1 rounded-md pr-1 ${nested}transition-colors duration-(--motion-fast) ${current}`;
+	}
+	function snippetRowClass(row) {
+		if (row.kind === 'folder') return FOLDER_LI;
+		const nested = row.kind === 'child' ? 'pl-5 ' : '';
+		return `group hover:bg-accent relative rounded-md px-2 py-1.5 ${nested}transition-colors duration-(--motion-fast)`;
+	}
+
 	// Four tabs no longer fit as full labels in the 270px sidebar; each shows
 	// its icon and only the ACTIVE one adds its name (aria-label keeps the
 	// accessible name stable for all of them).
@@ -87,6 +128,12 @@
 	function drawerFly() {
 		if (!isMobile()) return { duration: 0 };
 		return { x: -320, duration: motionDuration(MOTION.overlay) };
+	}
+
+	// List reorder settle (spec 024, Stage 6): rows glide to their new spot
+	// after a drop. 150–180ms; reduce-motion collapses it to instant.
+	function flipParams() {
+		return { duration: motionDuration(170) };
 	}
 
 	// Escape closes the sidebar only when it behaves as a mobile overlay.
@@ -196,15 +243,8 @@
 
 <svelte:window onkeydown={handleWindowKeydown} />
 
-{#snippet noteRow(note, nested)}
-	<li
-		data-drag-id={note.id}
-		data-drag-folder-id={note.folderId ?? ''}
-		class="group hover:bg-accent flex items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast) {nested
-			? 'pl-5'
-			: ''} {currentNoteId === note.id ? 'bg-accent' : ''}"
-	>
-		<button
+{#snippet noteRowInner(note)}
+	<button
 			type="button"
 			onclick={() => onSelect(note.id)}
 			aria-current={currentNoteId === note.id ? 'page' : undefined}
@@ -228,17 +268,9 @@
 		>
 			<Trash2 size={14} aria-hidden="true" />
 		</button>
-	</li>
 {/snippet}
 
-{#snippet snippetRow(snippet, nested)}
-	<li
-		data-drag-id={snippet.id}
-		data-drag-folder-id={snippet.folderId ?? ''}
-		class="group hover:bg-accent relative rounded-md px-2 py-1.5 transition-colors duration-(--motion-fast) {nested
-			? 'pl-5'
-			: ''}"
-	>
+{#snippet snippetRowInner(snippet)}
 		<div class="flex items-center gap-1">
 			<div class="min-w-0 flex-1">
 				{#if editingSnippetId === snippet.id}
@@ -300,16 +332,9 @@
 				</button>
 			</div>
 		</div>
-	</li>
 {/snippet}
 
-{#snippet folderRow(node, viewName)}
-	<li
-		data-drag-id={node.folder.id}
-		data-drag-is-folder="true"
-		data-drag-open-folder={!node.folder.collapsed}
-		class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md pr-1 transition-colors duration-(--motion-fast)"
-	>
+{#snippet folderRowInner(node, viewName)}
 		<button
 			type="button"
 			aria-expanded={!node.folder.collapsed}
@@ -366,7 +391,6 @@
 				<Trash2 size={14} aria-hidden="true" />
 			</button>
 		{/if}
-	</li>
 {/snippet}
 
 {#if open}
@@ -449,17 +473,21 @@
 							canDropInto: (draggedId) => !noteFolders.some((folder) => folder.id === draggedId)
 						}))}
 					>
-						{#each noteTree as node (node.kind === 'folder' ? node.folder.id : node.item.id)}
-							{#if node.kind === 'folder'}
-								{@render folderRow(node, 'notes')}
-								{#if !node.folder.collapsed}
-									{#each node.children as note (note.id)}
-										{@render noteRow(note, true)}
-									{/each}
+						{#each noteRows as row (row.id)}
+							<li
+								data-drag-id={row.kind === 'folder' ? row.node.folder.id : row.item.id}
+								data-drag-is-folder={row.kind === 'folder' ? 'true' : undefined}
+								data-drag-open-folder={row.kind === 'folder' ? !row.node.folder.collapsed : undefined}
+								data-drag-folder-id={row.kind === 'folder' ? undefined : (row.item.folderId ?? '')}
+								animate:flip={flipParams()}
+								class={noteRowClass(row)}
+							>
+								{#if row.kind === 'folder'}
+									{@render folderRowInner(row.node, 'notes')}
+								{:else}
+									{@render noteRowInner(row.item)}
 								{/if}
-							{:else}
-								{@render noteRow(node.item, false)}
-							{/if}
+							</li>
 						{/each}
 					</ul>
 				{/if}
@@ -479,17 +507,21 @@
 							canDropInto: (draggedId) => !snippetFolders.some((folder) => folder.id === draggedId)
 						}))}
 					>
-						{#each snippetTree as node (node.kind === 'folder' ? node.folder.id : node.item.id)}
-							{#if node.kind === 'folder'}
-								{@render folderRow(node, 'snippets')}
-								{#if !node.folder.collapsed}
-									{#each node.children as snippet (snippet.id)}
-										{@render snippetRow(snippet, true)}
-									{/each}
+						{#each snippetRows as row (row.id)}
+							<li
+								data-drag-id={row.kind === 'folder' ? row.node.folder.id : row.item.id}
+								data-drag-is-folder={row.kind === 'folder' ? 'true' : undefined}
+								data-drag-open-folder={row.kind === 'folder' ? !row.node.folder.collapsed : undefined}
+								data-drag-folder-id={row.kind === 'folder' ? undefined : (row.item.folderId ?? '')}
+								animate:flip={flipParams()}
+								class={snippetRowClass(row)}
+							>
+								{#if row.kind === 'folder'}
+									{@render folderRowInner(row.node, 'snippets')}
+								{:else}
+									{@render snippetRowInner(row.item)}
 								{/if}
-							{:else}
-								{@render snippetRow(node.item, false)}
-							{/if}
+							</li>
 						{/each}
 					</ul>
 				{/if}
@@ -539,6 +571,7 @@
 						{#each tags as tag (tag.id)}
 							<li
 								data-drag-id={tag.id}
+								animate:flip={flipParams()}
 								class="group hover:bg-accent flex min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-(--motion-fast)"
 							>
 								{#if editingTagId === tag.id}

@@ -14,7 +14,11 @@ ni se mueve solo, y nada te retrasa al escribir.
   que el texto y el cursor del editor nunca se muevan de lugar.
 - **Carpetas**: la flechita gira al abrir o cerrar una carpeta.
 - **Arrastrar para ordenar**: al tomar una nota, snippet o etiqueta, se
-  levanta apenas (con una sombra suave) para que se note cuál estás moviendo.
+  levanta apenas (con una sombra suave) para que se note cuál estás moviendo,
+  y al soltar, la lista se **reacomoda deslizándose** en vez de saltar. En el
+  editor, mientras arrastrás un renglón se ve una etiqueta "fantasma" que
+  aparece con un fundido; los renglones reales no se mueven hasta soltar, y el
+  cursor queda donde estaba.
 - **Favoritos**: la estrella responde con un pequeño gesto al tocarla.
 - **Ventanas (Respaldo, Ayuda, Nuevo snippet, Buscar)**: al abrirlas, el
   fondo se oscurece con un fundido y la ventana crece apenas hasta su

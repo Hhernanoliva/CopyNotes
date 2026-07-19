@@ -48,6 +48,8 @@
 	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
+	import { fade } from 'svelte/transition';
+	import { MOTION, motionDuration } from '$lib/motion';
 	import { filterCommands, moveSelection, nextSlashState } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
@@ -1447,6 +1449,7 @@
 		<div
 			class="pointer-events-none fixed z-50 rounded-md bg-card px-2 py-1 text-sm opacity-80 shadow-lg"
 			style="left: {reorder.ghost.x + 12}px; top: {reorder.ghost.y + 12}px;"
+			transition:fade={{ duration: motionDuration(MOTION.fast) }}
 		>
 			Moviendo {reorder.ghost.ids.length}
 			{reorder.ghost.ids.length === 1 ? 'renglón' : 'renglones'}
