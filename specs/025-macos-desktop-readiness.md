@@ -165,3 +165,62 @@ Data integrity outranks native polish. Do not start the Tauri scaffold while a
 backup or close can still race with pending writes. Keep this seam small: the
 future desktop shell should adapt platform capabilities, not fork the product
 logic.
+
+## Scaffold Roadmap Progress
+
+Steps 1–5 landed in commit `7b70dcd` (toolchain, frozen identifier
+`com.copynotes.app` + macOS min 13.0, `src-tauri` with `frontendDist ../build`,
+`core:default` capabilities only, close-through-`settlePendingWrites`).
+
+Steps 6–7 verified on 2026-07-19:
+
+- **Step 6 — IndexedDB across close/reopen and update.** Built the release
+  `.app`, launched it, and read the WKWebView store directly at
+  `~/Library/WebKit/com.copynotes.app/WebsiteData/.../IndexedDB/IndexedDB.sqlite3`.
+  It is the real Dexie database (`notes`, `blocks`, `folders`, `settings`,
+  `snippets`, `tags`, `tagAssignments`; schema version 50 — the full migration
+  chain executed inside WebKit). A content fingerprint of the `Records` table was
+  byte-identical before close, after a clean Apple-Event quit, and after
+  relaunch. Rebuilding the app as `0.1.1` (new binary, same frozen identifier)
+  and reopening left the fingerprint unchanged, so data survives an app update:
+  the container path is keyed by the identifier, not the binary. Schema
+  migration itself is the same bundled JS covered by the Vitest/Playwright web
+  suite; the observed v50 confirms it runs under WebKit.
+- **Step 7 — import a PWA backup.** `e2e/desktop-import.spec.ts` runs on the
+  WebKit project (Tauri's macOS engine family). One context exports a real PWA
+  backup (`exportedBy.source === 'pwa'`); a second, empty context imports it
+  through the normal Backup dialog, and the migrated note appears and survives a
+  reload. GUI-driven import in the actual `.app` needs a human click (no native
+  file dialog in this stage; the file `<input>` is used); the WebKit test is the
+  automatable faithful proxy.
+
+## Step 8 — Signing, Notarization, Distribution (deferred)
+
+Not executed: no Apple Developer account is available yet, and it is not needed
+to run the app locally (Gatekeeper allows a right-click → Open for an unsigned
+build). Do this only when the app will be handed to someone else. Requirements
+and steps:
+
+1. **Apple Developer Program membership** (USD 99/year). Note the **Team ID**.
+2. **Developer ID Application certificate** in the login keychain (created from
+   Xcode → Settings → Accounts, or the developer portal). This is for
+   distribution outside the Mac App Store.
+3. **Sign** via Tauri: set the signing identity so `tauri build` signs the
+   `.app` and `.dmg`. Either export `APPLE_SIGNING_IDENTITY="Developer ID
+   Application: <Name> (<TeamID>)"` or add it under `bundle.macOS.signingIdentity`
+   in `tauri.conf.json`. Enable the hardened runtime (Tauri does this for signed
+   builds); add an `entitlements` plist only if a capability needs it.
+4. **Notarize**: submit with `notarytool`, authenticating with either an
+   app-specific password (`APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`) or an
+   App Store Connect API key (`APPLE_API_KEY`, `APPLE_API_ISSUER`,
+   `APPLE_API_KEY_PATH`). Tauri can drive notarization during `build` when these
+   env vars are present.
+5. **Staple** the notarization ticket to the `.app`/`.dmg`
+   (`xcrun stapler staple`) so first launch works offline.
+6. **Verify** before sharing: `codesign -dv --verbose=4 CopyNotes.app`,
+   `spctl -a -vvv -t install CopyNotes.app`, and `xcrun stapler validate`.
+
+Known issue observed during step 6/7: `bundle_dmg.sh` failed on a back-to-back
+rebuild because the previous CopyNotes DMG volume was still mounted. Before a
+distribution build, ensure no `/Volumes/CopyNotes*` is mounted (`hdiutil detach`
+if needed); the `.app` bundle is unaffected.
