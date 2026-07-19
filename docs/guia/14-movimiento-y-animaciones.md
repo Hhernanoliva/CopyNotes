@@ -25,6 +25,18 @@ ni se mueve solo, y nada te retrasa al escribir.
   fundido suave y un mínimo desplazamiento, como saliendo del botón que los
   abrió. La **barra de formato** aparece ya ubicada en su lugar (no persigue
   al cursor) con un pequeño crecimiento.
+- **Copiar un renglón**: el botón de copiar cambia por un instante a una
+  tilde ✓ para confirmarte que copió (ya no aparece un aviso aparte).
+- **Tareas**: al marcar una tarea, la tilde aparece con un pequeño gesto.
+- **"Guardado"**: el aviso entra y sale con un fundido suave.
+- **Tema claro/oscuro**: el ícono del sol y la luna se cruzan con un fundido
+  al cambiar de tema.
+
+## Lo que nunca se anima
+
+Para que escribir siga siendo instantáneo, CopyNotes nunca anima el renglón
+en el que estás escribiendo, ni el cursor, ni el cambio de una nota a otra.
+El texto siempre responde al toque, sin esperas.
 
 ## "Reducir movimiento"
 

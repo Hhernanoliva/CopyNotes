@@ -802,7 +802,10 @@
 				html: formatHtml(tree),
 				custom: serializeForest([treeToNode(tree, blockTagsMap)])
 			});
-			toast.success('Copiado');
+			// The copy button confirms locally by swapping its icon to a check
+			// (BlockRow), so no toast here — avoids a redundant double signal
+			// (spec 024, Stages 5 & 7). Selection copy keeps its toast: many
+			// blocks, no single icon to flip.
 		} catch {
 			toast.error('No se pudo copiar. Probá de nuevo.');
 		}
