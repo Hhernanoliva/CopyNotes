@@ -3,6 +3,7 @@
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
+	import { MOTION, motionDuration } from '$lib/motion';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
@@ -475,7 +476,7 @@
 				{#if saveState === 'saving'}
 					Guardando…
 				{:else if saveState === 'saved'}
-					<span in:fade={{ duration: 150 }}>Guardado</span>
+					<span in:fade={{ duration: motionDuration(MOTION.fast) }}>Guardado</span>
 				{/if}
 			</span>
 		</header>

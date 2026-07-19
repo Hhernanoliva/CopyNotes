@@ -1,6 +1,7 @@
 <script>
 	import { Download, X } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
+	import { MOTION, OFFSET, motionDuration } from '$lib/motion';
 
 	// A discreet, dismissible install suggestion. The browser fires
 	// `beforeinstallprompt` only when the app actually qualifies for install;
@@ -54,7 +55,7 @@
 
 {#if visible}
 	<div
-		transition:fly={{ y: 16, duration: 200 }}
+		transition:fly={{ y: OFFSET.lg, duration: motionDuration(MOTION.overlay) }}
 		class="border-border bg-popover text-popover-foreground fixed bottom-4 left-4 z-40 flex max-w-[min(20rem,calc(100vw-2rem))] items-center gap-3 rounded-lg border p-3 shadow-lg"
 		role="dialog"
 		aria-label="Instalar CopyNotes"

@@ -1328,7 +1328,7 @@
 					onclick={() =>
 						(tagPickerFor = tagPickerFor?.type === 'note' ? null : { type: 'note', id: note.id })}
 					aria-expanded={tagPickerFor?.type === 'note'}
-					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-8 items-center justify-center rounded-md transition-all duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {tagPickerFor?.type ===
+					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-8 items-center justify-center rounded-md transition-[color,opacity] duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {tagPickerFor?.type ===
 						'note' || noteTags.length > 0
 						? 'opacity-100'
 						: 'opacity-0 group-hover/title:opacity-100 group-focus-within/title:opacity-100'}"
