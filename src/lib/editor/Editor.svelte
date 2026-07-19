@@ -81,7 +81,8 @@
 		onNoteUpdated,
 		onSaveStateChange,
 		onSnippetsChanged,
-		onTagsChanged
+		onTagsChanged,
+		onDatesChanged
 	} = $props();
 
 	let note = $state(null);
@@ -483,9 +484,30 @@
 		return '';
 	}
 
+	// Show the toolbar a short beat after the selection settles, so it does not
+	// flash while the user is still dragging out a selection. Hiding stays
+	// instant: while the toolbar is up we refresh right away (a collapse nulls it
+	// at once); only the first appearance from a hidden state is delayed.
+	const TOOLBAR_SHOW_DELAY = 300;
+	let toolbarTimer = null;
+	function scheduleToolbar() {
+		clearTimeout(toolbarTimer);
+		if (toolbar) {
+			refreshToolbar();
+			return;
+		}
+		toolbarTimer = setTimeout(() => {
+			toolbarTimer = null;
+			refreshToolbar();
+		}, TOOLBAR_SHOW_DELAY);
+	}
+
 	$effect(() => {
-		document.addEventListener('selectionchange', refreshToolbar);
-		return () => document.removeEventListener('selectionchange', refreshToolbar);
+		document.addEventListener('selectionchange', scheduleToolbar);
+		return () => {
+			clearTimeout(toolbarTimer);
+			document.removeEventListener('selectionchange', scheduleToolbar);
+		};
 	});
 
 	// Commands mutate the contenteditable DOM directly (execCommand / manual DOM
@@ -1274,6 +1296,7 @@
 		block.dueDate = day;
 		// Structural change: persist immediately, never debounced.
 		await updateBlock(block.id, { dueDate: day });
+		onDatesChanged?.(); // let an open Agenda refresh live
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
 		datePanelCaret = null;
@@ -1284,6 +1307,7 @@
 		recordSnapshot();
 		block.dueDate = null;
 		await updateBlock(block.id, { dueDate: null });
+		onDatesChanged?.(); // let an open Agenda refresh live
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
 		datePanelCaret = null;

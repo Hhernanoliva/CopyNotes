@@ -49,7 +49,8 @@
 		onToggleFolder,
 		onDeleteFolder,
 		onOpenBlock,
-		onDataChanged
+		onDataChanged,
+		agendaVersion = 0
 	} = $props();
 
 	const noteTree = $derived(buildSidebarTree(notes, noteFolders));
@@ -527,7 +528,7 @@
 				{/if}
 			</section>
 		{:else if view === 'agenda'}
-			<AgendaPanel onOpen={onOpenBlock} {onDataChanged} />
+			<AgendaPanel onOpen={onOpenBlock} {onDataChanged} version={agendaVersion} />
 		{:else}
 			<section aria-label="Etiquetas" class="flex-1 overflow-y-auto overscroll-contain p-2">
 				{#if creatingTag}

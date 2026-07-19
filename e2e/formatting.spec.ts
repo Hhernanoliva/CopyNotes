@@ -30,6 +30,25 @@ test('selecting text shows the formatting toolbar', async ({ page }) => {
 	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
 });
 
+test('the toolbar waits a beat before appearing on a fresh selection', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: retardo');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('seleccioname', { delay: 25 });
+
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	const start = Date.now();
+	await selectAllInBlock(page, first);
+	await expect(toolbar).toBeVisible();
+	const elapsed = Date.now() - start;
+	// It must still appear (above), but not instantly — a short delay keeps it
+	// from flashing while the user is still dragging out a selection.
+	expect(elapsed).toBeGreaterThan(200);
+});
+
 test('applying bold wraps the text in <strong> and survives a reload', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
