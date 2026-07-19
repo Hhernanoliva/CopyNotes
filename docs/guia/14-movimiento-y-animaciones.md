@@ -20,6 +20,11 @@ ni se mueve solo, y nada te retrasa al escribir.
   fondo se oscurece con un fundido y la ventana crece apenas hasta su
   tamaño; al cerrarlas se van un poco más rápido. La tecla **Esc** siempre
   cierra al instante, aunque la ventana esté recién apareciendo.
+- **Menús y paneles** (el menú `/`, el panel de fecha, el editor de
+  enlaces, el color de texto, las acciones del renglón): aparecen con un
+  fundido suave y un mínimo desplazamiento, como saliendo del botón que los
+  abrió. La **barra de formato** aparece ya ubicada en su lugar (no persigue
+  al cursor) con un pequeño crecimiento.
 
 ## "Reducir movimiento"
 

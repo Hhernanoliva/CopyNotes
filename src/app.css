@@ -287,6 +287,36 @@
 	}
 }
 
+/* Quiet Motion — menus & popovers (spec 024, Stage 4). Mounted via {#if},
+   so @starting-style drives an entry-only fade + 4px settle: the panel drops
+   into place from just above (all of these open below their trigger). They
+   close instantly, which reads as snappy. The formatting toolbar (.cn-toolbar)
+   appears with a minimal scale instead, already positioned (its top/left are
+   set inline before paint, and are not transitioned, so it never chases the
+   cursor). The global prefers-reduced-motion rule zeroes these durations. */
+.cn-pop {
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease);
+}
+@starting-style {
+	.cn-pop {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+}
+.cn-toolbar {
+	transition:
+		opacity var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease);
+}
+@starting-style {
+	.cn-toolbar {
+		opacity: 0;
+		transform: scale(0.98) translateY(2px);
+	}
+}
+
 .fmt-color-amber { color: var(--fmt-color-amber); }
 .fmt-color-red { color: var(--fmt-color-red); }
 .fmt-color-green { color: var(--fmt-color-green); }

@@ -75,7 +75,7 @@
 
 <div
 	bind:this={rootEl}
-	class="bg-popover border-border absolute top-full z-20 mt-1 w-60 rounded-md border p-1 shadow-md {align ===
+	class="cn-pop bg-popover border-border absolute top-full z-20 mt-1 w-60 rounded-md border p-1 shadow-md {align ===
 	'right'
 		? 'right-0'
 		: 'left-0'}"
