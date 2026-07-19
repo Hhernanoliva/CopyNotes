@@ -6,33 +6,32 @@
 	import {
 		backupFileName,
 		buildBackup,
-		downloadFile,
 		filterSafeSettings,
 		noteExportFileName,
 		noteToHtml,
 		noteToMarkdown,
 		planMerge,
-		readFileAsText,
 		validateBackup
 	} from '$lib/export-import';
 	import { sanitizeBackupData } from '$lib/format';
+	import { getBackupSource, openTextFile, saveTextFile } from '$lib/platform';
 	import {
 		applyMergePlan,
 		dumpAllTables,
-		ensureSidebarOrder,
 		getNote,
 		listBlocksByNote,
-		replaceAllTables
+		replaceAllTables,
+		settlePendingWrites
 	} from '$lib/storage';
 
 	let { open = $bindable(false), currentNoteId, onDataChanged } = $props();
 
 	let dialogEl = $state(null);
-	let fileInputEl = $state(null);
 	// idle → reviewing (file validated) → confirmingReplace (danger step)
 	let step = $state('idle');
 	let review = $state(null);
 	let importing = $state(false);
+	let exporting = $state(false);
 
 	$effect(() => {
 		if (!dialogEl) return;
@@ -40,42 +39,81 @@
 			step = 'idle';
 			review = null;
 			dialogEl.showModal();
-		} else if (!open && dialogEl.open) {
+		} else if (!open && dialogEl.open && !importing) {
 			dialogEl.close();
 		}
 	});
 
+	function closeDialog() {
+		if (!importing) open = false;
+	}
+
 	async function exportAllJson() {
-		const backup = buildBackup(await dumpAllTables(), {
-			appVersion: '0.0.1',
-			exportedAt: new Date().toISOString()
-		});
-		downloadFile(backupFileName(new Date()), JSON.stringify(backup, null, 2), 'application/json');
-		toast.success('Respaldo descargado');
+		exporting = true;
+		try {
+			const backup = buildBackup(await dumpAllTables(), {
+				appVersion: '0.0.1',
+				exportedAt: new Date().toISOString(),
+				source: getBackupSource()
+			});
+			const result = await saveTextFile({
+				fileName: backupFileName(new Date()),
+				content: JSON.stringify(backup, null, 2),
+				mimeType: 'application/json'
+			});
+			if (result.status === 'saved') toast.success('Respaldo descargado');
+		} catch {
+			toast.error('No se pudo guardar el respaldo. Tus datos siguen intactos.');
+		} finally {
+			exporting = false;
+		}
 	}
 
 	async function exportCurrentNote(format) {
-		const note = await getNote(currentNoteId);
-		if (!note) return;
-		const blocks = await listBlocksByNote(note.id);
-		const content = format === 'md' ? noteToMarkdown(note, blocks) : noteToHtml(note, blocks);
-		const mime = format === 'md' ? 'text/markdown' : 'text/html';
-		downloadFile(noteExportFileName(note.title, format), content, mime);
-		toast.success('Nota exportada');
+		exporting = true;
+		try {
+			await settlePendingWrites();
+			const note = await getNote(currentNoteId);
+			if (!note) return;
+			const blocks = await listBlocksByNote(note.id);
+			const content = format === 'md' ? noteToMarkdown(note, blocks) : noteToHtml(note, blocks);
+			const mimeType = format === 'md' ? 'text/markdown' : 'text/html';
+			const result = await saveTextFile({
+				fileName: noteExportFileName(note.title, format),
+				content,
+				mimeType
+			});
+			if (result.status === 'saved') toast.success('Nota exportada');
+		} catch {
+			toast.error('No se pudo exportar la nota. Tus datos siguen intactos.');
+		} finally {
+			exporting = false;
+		}
 	}
 
-	async function handleFileChosen(event) {
-		const file = event.target.files?.[0];
-		event.target.value = '';
-		if (!file) return;
-		let parsed;
+	async function chooseBackupFile() {
+		let opened;
 		try {
-			parsed = JSON.parse(await readFileAsText(file));
+			opened = await openTextFile({ accept: '.json,application/json' });
 		} catch {
 			toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
 			return;
 		}
-		const local = await dumpAllTables();
+		if (opened.status === 'cancelled') return;
+		let parsed;
+		try {
+			parsed = JSON.parse(opened.content);
+		} catch {
+			toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
+			return;
+		}
+		let local;
+		try {
+			local = await dumpAllTables();
+		} catch {
+			toast.error('No se pudieron guardar tus últimos cambios. No se importó nada.');
+			return;
+		}
 		const result = validateBackup(parsed, {
 			existingNoteIds: local.notes.map((row) => row.id),
 			existingBlockIds: local.blocks.map((row) => row.id),
@@ -91,7 +129,7 @@
 		// backups the app itself exported.
 		const backup = { ...result.backup, data: sanitizeBackupData(result.backup.data) };
 		const plan = planMerge(local, backup.data);
-		review = { fileName: file.name, backup, warnings: result.warnings, plan };
+		review = { fileName: opened.fileName, backup, warnings: result.warnings, plan };
 		step = 'reviewing';
 	}
 
@@ -100,11 +138,12 @@
 		try {
 			// $state proxies can't be structured-cloned into IndexedDB.
 			await applyMergePlan($state.snapshot(review.plan));
-			// Imported rows may carry gaps or no order (older backups): make the
-			// manual sidebar order gapless again from their previous visible order.
-			await ensureSidebarOrder();
-			toast.success('Respaldo importado. Tus datos actuales quedaron intactos.');
-			finishImport();
+			const refreshed = await finishImport();
+			if (refreshed === false) {
+				toast.error('El respaldo se importó, pero la pantalla no pudo actualizarse. Recargá CopyNotes.');
+			} else {
+				toast.success('Respaldo importado. Tus datos actuales quedaron intactos.');
+			}
 		} catch {
 			toast.error('No se pudo importar. Tus datos no cambiaron.');
 		} finally {
@@ -117,9 +156,12 @@
 		try {
 			const data = $state.snapshot(review.backup.data);
 			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
-			await ensureSidebarOrder();
-			toast.success('Respaldo restaurado desde cero.');
-			finishImport();
+			const refreshed = await finishImport();
+			if (refreshed === false) {
+				toast.error('El respaldo se restauró, pero la pantalla no pudo actualizarse. Recargá CopyNotes.');
+			} else {
+				toast.success('Respaldo restaurado desde cero.');
+			}
 		} catch {
 			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
 		} finally {
@@ -127,11 +169,12 @@
 		}
 	}
 
-	function finishImport() {
+	async function finishImport() {
+		const refreshed = await onDataChanged();
 		step = 'idle';
 		review = null;
 		open = false;
-		onDataChanged();
+		return refreshed;
 	}
 
 	const summaryLine = $derived.by(() => {
@@ -159,17 +202,23 @@
 
 <dialog
 	bind:this={dialogEl}
-	onclose={() => (open = false)}
+	oncancel={(event) => {
+		if (importing) event.preventDefault();
+	}}
+	onclose={() => {
+		if (!importing) open = false;
+	}}
 	aria-labelledby="backup-title"
-	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
+	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto overscroll-contain rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
 	<div class="flex items-center justify-between border-b px-4 py-3">
 		<h2 id="backup-title" class="text-sm font-bold">Respaldo</h2>
 		<button
 			type="button"
-			onclick={() => (open = false)}
+			onclick={closeDialog}
+			disabled={importing}
 			aria-label="Cerrar"
-			class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+			class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 		>
 			<X size={18} aria-hidden="true" />
 		</button>
@@ -187,7 +236,8 @@
 				<button
 					type="button"
 					onclick={exportAllJson}
-					class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center gap-2 rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px"
+					disabled={exporting}
+					class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center gap-2 rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 				>
 					<FileDown size={16} aria-hidden="true" />
 					Descargar respaldo completo (JSON)
@@ -197,14 +247,16 @@
 						<button
 							type="button"
 							onclick={() => exportCurrentNote('md')}
-							class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+							disabled={exporting}
+							class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 						>
 							Nota actual en Markdown
 						</button>
 						<button
 							type="button"
 							onclick={() => exportCurrentNote('html')}
-							class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+							disabled={exporting}
+							class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 						>
 							Nota actual en HTML
 						</button>
@@ -219,20 +271,12 @@
 				</p>
 				<button
 					type="button"
-					onclick={() => fileInputEl.click()}
+					onclick={chooseBackupFile}
 					class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center gap-2 rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
 				>
 					<FileUp size={16} aria-hidden="true" />
 					Elegir archivo de respaldo…
 				</button>
-				<input
-					bind:this={fileInputEl}
-					type="file"
-					accept=".json,application/json"
-					onchange={handleFileChosen}
-					class="sr-only"
-					aria-label="Archivo de respaldo de CopyNotes"
-				/>
 			</section>
 		</div>
 	{:else if step === 'reviewing'}
@@ -279,14 +323,16 @@
 							step = 'idle';
 							review = null;
 						}}
-						class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+						disabled={importing}
+						class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 					>
 						Cancelar
 					</button>
 					<button
 						type="button"
 						onclick={() => (step = 'confirmingReplace')}
-						class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+						disabled={importing}
+						class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 					>
 						Reemplazar todo…
 					</button>
@@ -313,7 +359,8 @@
 				<button
 					type="button"
 					onclick={() => (step = 'reviewing')}
-					class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+					disabled={importing}
+					class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 				>
 					Volver
 				</button>

@@ -6,7 +6,7 @@ import { CURRENT_VERSION, SUPPORTED_FORMAT } from './schema';
 const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
 
 export function buildBackup(tables, meta) {
-	const { appVersion, exportedAt } = meta;
+	const { appVersion, exportedAt, source = 'pwa' } = meta;
 	const data = Object.fromEntries(TABLES.map((table) => [table, tables[table] ?? []]));
 	const counts = Object.fromEntries(TABLES.map((table) => [table, data[table].length]));
 	return {
@@ -14,7 +14,7 @@ export function buildBackup(tables, meta) {
 		formatVersion: CURRENT_VERSION,
 		app: { name: 'CopyNotes', version: appVersion },
 		exportedAt,
-		exportedBy: { source: 'pwa' },
+		exportedBy: { source },
 		counts,
 		data
 	};

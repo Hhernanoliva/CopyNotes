@@ -2,6 +2,13 @@ import { test, expect } from '@playwright/test';
 
 // Spec 022: sidebar organization. Slice A: click a snippet's name to rename it.
 
+async function readJsonDownload(download) {
+	const stream = await download.createReadStream();
+	const chunks = [];
+	for await (const chunk of stream) chunks.push(chunk);
+	return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
 test('click on a snippet name renames it and the name survives a reload', async ({ page }) => {
 	await page.goto('/');
 	// Seed a snippet through the + dialog (name auto-derives from the text).
@@ -19,6 +26,15 @@ test('click on a snippet name renames it and the name survives a reload', async 
 	await expect(input).toBeVisible();
 	await input.fill('Bienvenida');
 	await input.press('Enter');
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Exportar snippets' }).click()
+	]);
+	const exported = await readJsonDownload(download);
+	expect(exported.snippets.map((snippet) => snippet.name)).toContain('Bienvenida');
+	expect(exported.snippets.map((snippet) => snippet.name)).not.toContain(
+		'Hola, gracias por escribirnos'
+	);
 	await expect(page.getByText('Bienvenida', { exact: true })).toBeVisible();
 
 	// Escape cancels without saving.
@@ -152,7 +168,11 @@ test('backup roundtrip keeps folders and membership', async ({ page }) => {
 
 	// Replace everything from that file: a full wipe + restore proves the
 	// folders and membership survived the JSON roundtrip.
-	await page.getByLabel('Archivo de respaldo de CopyNotes').setInputFiles(path);
+	const [fileChooser] = await Promise.all([
+		page.waitForEvent('filechooser'),
+		page.getByRole('button', { name: 'Elegir archivo de respaldo…' }).click()
+	]);
+	await fileChooser.setFiles(path);
 	await page.getByRole('button', { name: 'Reemplazar todo…' }).click();
 	await page.getByRole('button', { name: 'Sí, borrar lo actual y reemplazar' }).click();
 	await expect(page.getByText('Respaldo restaurado desde cero.')).toBeVisible();

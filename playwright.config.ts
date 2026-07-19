@@ -4,9 +4,9 @@ import { defineConfig, devices } from '@playwright/test';
 // production build (adapter-static + service worker) served by `pnpm preview`,
 // so PWA/offline behaviour is exercised too.
 //
-// Browsers: CI runs `pnpm exec playwright install chromium`. Locally you can
-// point at an already-cached Chromium via PLAYWRIGHT_CHROMIUM_PATH to skip the
-// download (e.g. the chrome-headless-shell under ~/Library/Caches/ms-playwright).
+// Chromium protects the complete PWA suite. A focused WebKit project protects
+// the macOS/Tauri engine seam without duplicating browser-specific clipboard
+// and service-worker checks. Install it with `pnpm exec playwright install webkit`.
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 
 export default defineConfig({
@@ -24,6 +24,11 @@ export default defineConfig({
 		{
 			name: 'chromium',
 			use: { ...devices['Desktop Chrome'], launchOptions: { executablePath } }
+		},
+		{
+			name: 'webkit',
+			testMatch: /desktop-readiness\.spec\.ts/,
+			use: { ...devices['Desktop Safari'], permissions: [] }
 		}
 	],
 	webServer: {

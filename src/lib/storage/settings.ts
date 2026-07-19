@@ -1,5 +1,6 @@
 import { db } from './db';
 import { now } from './ids';
+import { trackPendingWrite } from './pending-writes';
 
 const settings = db.table('settings');
 
@@ -8,8 +9,8 @@ export async function getSetting(key) {
 	return row ? row.value : undefined;
 }
 
-export async function setSetting(key, value) {
-	await settings.put({ key, value, updatedAt: now() });
+export function setSetting(key, value) {
+	return trackPendingWrite(() => settings.put({ key, value, updatedAt: now() }));
 }
 
 export function getTheme() {

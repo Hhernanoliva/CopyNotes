@@ -30,6 +30,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 22. `022-sidebar-organization.md`
 23. `023-mcp-fases.md`
 24. `024-motion-quiet-motion.md`
+25. `025-macos-desktop-readiness.md`
 
 ## Required Sections For Specs
 

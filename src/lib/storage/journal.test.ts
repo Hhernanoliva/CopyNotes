@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './db';
 import { createNote, getNote } from './notes';
 import { createBlock, getBlock } from './blocks';
@@ -70,6 +70,19 @@ describe('pending-writes journal', () => {
 		await replayJournal();
 
 		expect((await getNote(note.id)).title).toBe('nueva');
+	});
+
+	it('keeps the journal when replay fails so the next launch can retry', async () => {
+		const note = await createNote({ title: 'vieja' });
+		writeJournal([{ table: 'notes', id: note.id, changes: { title: 'nueva' } }]);
+		const update = vi
+			.spyOn(db.table('notes'), 'update')
+			.mockRejectedValueOnce(new Error('storage unavailable'));
+
+		await expect(replayJournal()).rejects.toThrow('storage unavailable');
+
+		expect(localStorage.getItem(JOURNAL_KEY)).not.toBe(null);
+		update.mockRestore();
 	});
 
 	it('clearJournal removes a written journal', async () => {

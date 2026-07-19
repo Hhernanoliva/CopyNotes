@@ -90,6 +90,7 @@ A feature is not done until: the app runs without errors; risky logic has Vitest
 | Build plan, stage order, MVP gates | `017` |
 | Editor UX fixes (post-MVP) | `019` |
 | Inline formatting + toolbar | `020` |
+| macOS desktop/Tauri preparation | `025` |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 

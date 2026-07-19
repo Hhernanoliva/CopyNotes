@@ -11,8 +11,11 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
-		"test:e2e": "playwright test",
-		"test": "npm run test:unit -- --run"
+		"test:e2e": "playwright test --project=chromium",
+		"test:e2e:webkit": "playwright test --project=webkit",
+		"test:e2e:all": "playwright test",
+		"test": "npm run test:unit -- --run",
+		"tauri": "tauri"
 	},
 	"devDependencies": {
 		"@lucide/svelte": "^1.23.0",
@@ -22,6 +25,7 @@
 		"@sveltejs/kit": "^2.69.2",
 		"@sveltejs/vite-plugin-svelte": "^7.2.0",
 		"@tailwindcss/vite": "^4.3.0",
+		"@tauri-apps/cli": "^2.11.4",
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"clsx": "^2.1.1",
 		"fake-indexeddb": "^6.2.5",
@@ -42,6 +46,7 @@
 	},
 	"dependencies": {
 		"@fontsource/atkinson-hyperlegible": "^5.2.8",
+		"@tauri-apps/api": "^2.11.1",
 		"dexie": "^4.4.4",
 		"mode-watcher": "^1.1.0",
 		"svelte-sonner": "^1.1.1"

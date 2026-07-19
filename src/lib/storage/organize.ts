@@ -5,47 +5,52 @@
 import { db } from './db';
 import { now } from './ids';
 import { sortBySidebarOrder } from '../organize';
+import { trackPendingWrite } from './pending-writes';
 
 const KIND_ITEM_TABLE = { note: 'notes', snippet: 'snippets' };
 
-export async function applySidebarUpdates(tableName, updates) {
-	if (!updates?.length) return;
-	const timestamp = now();
-	await db.transaction('rw', db.table(tableName), async () => {
-		for (const { id, ...changes } of updates) {
-			await db.table(tableName).update(id, { ...changes, updatedAt: timestamp });
-		}
+export function applySidebarUpdates(tableName, updates) {
+	if (!updates?.length) return Promise.resolve();
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await db.transaction('rw', db.table(tableName), async () => {
+			for (const { id, ...changes } of updates) {
+				await db.table(tableName).update(id, { ...changes, updatedAt: timestamp });
+			}
+		});
 	});
 }
 
 // +1 on every live root row that shares the kind's root sequence. For notes
 // and snippets that is the item table AND the folders of that kind; tags have
 // no folders. Runs inside its own transaction; callers add the new row after.
-export async function shiftRootDown(kind) {
-	const itemTable = kind === 'tag' ? 'tags' : KIND_ITEM_TABLE[kind];
-	const tables = kind === 'tag' ? [db.table('tags')] : [db.table(itemTable), db.table('folders')];
-	await db.transaction('rw', tables, async () => {
-		await db
-			.table(itemTable)
-			.filter((row) => !row.deletedAt && (kind === 'tag' || (row.folderId ?? null) === null))
-			.modify((row) => {
-				if (typeof row.sortOrder === 'number') row.sortOrder += 1;
-			});
-		if (kind !== 'tag') {
+export function shiftRootDown(kind) {
+	return trackPendingWrite(async () => {
+		const itemTable = kind === 'tag' ? 'tags' : KIND_ITEM_TABLE[kind];
+		const tables = kind === 'tag' ? [db.table('tags')] : [db.table(itemTable), db.table('folders')];
+		await db.transaction('rw', tables, async () => {
 			await db
-				.table('folders')
-				.filter((row) => !row.deletedAt && row.kind === kind)
+				.table(itemTable)
+				.filter((row) => !row.deletedAt && (kind === 'tag' || (row.folderId ?? null) === null))
 				.modify((row) => {
 					if (typeof row.sortOrder === 'number') row.sortOrder += 1;
 				});
-		}
+			if (kind !== 'tag') {
+				await db
+					.table('folders')
+					.filter((row) => !row.deletedAt && row.kind === kind)
+					.modify((row) => {
+						if (typeof row.sortOrder === 'number') row.sortOrder += 1;
+					});
+			}
+		});
 	});
 }
 
 // Renumber every container gapless, preserving the current visual order.
 // Safety net after backup imports (which may bring gaps, duplicates or rows
 // without sortOrder from old backups).
-export async function ensureSidebarOrder() {
+export async function normalizeSidebarOrder() {
 	const renumber = (rows) =>
 		sortBySidebarOrder(rows)
 			.map((row, index) => ({ row, index }))
@@ -75,4 +80,8 @@ export async function ensureSidebarOrder() {
 	for (const { row, index } of renumber(tags)) {
 		await db.table('tags').update(row.id, { sortOrder: index });
 	}
+}
+
+export function ensureSidebarOrder() {
+	return trackPendingWrite(normalizeSidebarOrder);
 }

@@ -3,47 +3,54 @@ import { createId, now } from './ids';
 import { normalizeTagName, tagNamesMatch } from '../tags/names';
 import { sortBySidebarOrder } from '../organize';
 import { shiftRootDown } from './organize';
+import { trackPendingWrite } from './pending-writes';
 
 const tags = db.table('tags');
 const tagAssignments = db.table('tagAssignments');
 
-export async function createTag(fields) {
-	const { name, color = null } = fields;
-	await shiftRootDown('tag');
-	const timestamp = now();
-	const tag = {
-		id: createId(),
-		name,
-		color,
-		sortOrder: 0,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-		deletedAt: null
-	};
-	await tags.add(tag);
-	return tag;
+export function createTag(fields) {
+	return trackPendingWrite(async () => {
+		const { name, color = null } = fields;
+		await shiftRootDown('tag');
+		const timestamp = now();
+		const tag = {
+			id: createId(),
+			name,
+			color,
+			sortOrder: 0,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			deletedAt: null
+		};
+		await tags.add(tag);
+		return tag;
+	});
 }
 
 // "Trabajo", "#trabajo" and "trabajo " are one tag: reuse the live match if
 // it exists, create otherwise. Blank names never become tags.
-export async function findOrCreateTag(name) {
-	const clean = normalizeTagName(name);
-	if (!clean) return null;
-	const existing = (await listTags()).find((tag) => tagNamesMatch(tag.name, clean));
-	if (existing) return existing;
-	return createTag({ name: clean });
+export function findOrCreateTag(name) {
+	return trackPendingWrite(async () => {
+		const clean = normalizeTagName(name);
+		if (!clean) return null;
+		const existing = (await listTags()).find((tag) => tagNamesMatch(tag.name, clean));
+		if (existing) return existing;
+		return createTag({ name: clean });
+	});
 }
 
 // Rename fails (returns null) on blank names or a collision with another
 // live tag; renaming a tag to a variant of itself is allowed.
-export async function renameTag(id, name) {
-	const clean = normalizeTagName(name);
-	if (!clean) return null;
-	const collision = (await listTags()).find(
-		(tag) => tag.id !== id && tagNamesMatch(tag.name, clean)
-	);
-	if (collision) return null;
-	return updateTag(id, { name: clean });
+export function renameTag(id, name) {
+	return trackPendingWrite(async () => {
+		const clean = normalizeTagName(name);
+		if (!clean) return null;
+		const collision = (await listTags()).find(
+			(tag) => tag.id !== id && tagNamesMatch(tag.name, clean)
+		);
+		if (collision) return null;
+		return updateTag(id, { name: clean });
+	});
 }
 
 export async function getTag(id) {
@@ -57,45 +64,53 @@ export async function listTags() {
 	return sortBySidebarOrder(rows);
 }
 
-export async function updateTag(id, changes) {
-	await tags.update(id, { ...changes, updatedAt: now() });
-	return tags.get(id);
+export function updateTag(id, changes) {
+	return trackPendingWrite(async () => {
+		await tags.update(id, { ...changes, updatedAt: now() });
+		return tags.get(id);
+	});
 }
 
-export async function softDeleteTag(id) {
-	const timestamp = now();
-	await tags.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+export function softDeleteTag(id) {
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await tags.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+	});
 }
 
-export async function assignTag(tagId, targetType, targetId) {
-	const existing = await tagAssignments
-		.where('[targetType+targetId]')
-		.equals([targetType, targetId])
-		.filter((assignment) => assignment.tagId === tagId && !assignment.deletedAt)
-		.first();
-	if (existing) return existing;
+export function assignTag(tagId, targetType, targetId) {
+	return trackPendingWrite(async () => {
+		const existing = await tagAssignments
+			.where('[targetType+targetId]')
+			.equals([targetType, targetId])
+			.filter((assignment) => assignment.tagId === tagId && !assignment.deletedAt)
+			.first();
+		if (existing) return existing;
 
-	const timestamp = now();
-	const assignment = {
-		id: createId(),
-		tagId,
-		targetType,
-		targetId,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-		deletedAt: null
-	};
-	await tagAssignments.add(assignment);
-	return assignment;
+		const timestamp = now();
+		const assignment = {
+			id: createId(),
+			tagId,
+			targetType,
+			targetId,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			deletedAt: null
+		};
+		await tagAssignments.add(assignment);
+		return assignment;
+	});
 }
 
-export async function unassignTag(tagId, targetType, targetId) {
-	const timestamp = now();
-	await tagAssignments
-		.where('[targetType+targetId]')
-		.equals([targetType, targetId])
-		.filter((assignment) => assignment.tagId === tagId && !assignment.deletedAt)
-		.modify({ deletedAt: timestamp, updatedAt: timestamp });
+export function unassignTag(tagId, targetType, targetId) {
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await tagAssignments
+			.where('[targetType+targetId]')
+			.equals([targetType, targetId])
+			.filter((assignment) => assignment.tagId === tagId && !assignment.deletedAt)
+			.modify({ deletedAt: timestamp, updatedAt: timestamp });
+	});
 }
 
 export async function listTagsFor(targetType, targetId) {

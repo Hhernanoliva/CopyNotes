@@ -1,11 +1,12 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './db';
 import { createNote, softDeleteNote } from './notes';
 import { createBlock } from './blocks';
 import { createTag, assignTag, listTagsFor } from './tags';
 import { setSetting, getSetting } from './settings';
 import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
+import { trackPendingWrite } from './pending-writes';
 import { buildBackup } from '../export-import/backup';
 import { validateBackup } from '../export-import/schema';
 import { planMerge } from '../export-import/merge';
@@ -29,6 +30,29 @@ describe('dumpAllTables', () => {
 		expect(dump.notes.map((note) => note.id).sort()).toEqual([kept.id, gone.id].sort());
 		expect(dump.blocks).toEqual([]);
 		expect(dump.settings).toEqual([]);
+	});
+
+	it('waits for an in-flight write before taking its snapshot', async () => {
+		let release;
+		const gate = new Promise((resolve) => {
+			release = resolve;
+		});
+		trackPendingWrite(async () => {
+			await gate;
+			await db.table('notes').add({
+				id: 'note_pending',
+				title: 'Último cambio',
+				createdAt: iso,
+				updatedAt: iso,
+				deletedAt: null
+			});
+		});
+
+		const dumpPromise = dumpAllTables();
+		release();
+		const dump = await dumpPromise;
+
+		expect(dump.notes.map((note) => note.id)).toContain('note_pending');
 	});
 });
 
@@ -62,6 +86,34 @@ describe('applyMergePlan', () => {
 		expect(await db.table('tags').count()).toBe(0);
 		expect((await db.table('notes').get('note_dup')).title).toBe('Local');
 	});
+
+	it('rolls back imported rows if sidebar normalization fails', async () => {
+		const plan = {
+			inserts: {
+				...emptyTables(),
+				notes: [
+					{
+						id: 'note_new',
+						title: 'Importada',
+						sortOrder: 9,
+						createdAt: iso,
+						updatedAt: iso,
+						deletedAt: null
+					}
+				]
+			},
+			settings: []
+		};
+		delete plan.inserts.settings;
+		const update = vi
+			.spyOn(db.table('notes'), 'update')
+			.mockRejectedValueOnce(new Error('normalization failed'));
+
+		await expect(applyMergePlan(plan)).rejects.toThrow('normalization failed');
+
+		expect(await db.table('notes').get('note_new')).toBeUndefined();
+		update.mockRestore();
+	});
 });
 
 describe('replaceAllTables', () => {
@@ -76,6 +128,7 @@ describe('replaceAllTables', () => {
 		const notes = await db.table('notes').toArray();
 		expect(notes).toHaveLength(1);
 		expect(notes[0].id).toBe('note_new');
+		expect(notes[0].sortOrder).toBe(0);
 		expect(await getSetting('theme')).toBe('dark');
 	});
 });

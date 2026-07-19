@@ -29,6 +29,7 @@
 		setHasCompletedOnboarding,
 		setLastOpenedNoteId,
 		setTheme,
+		settlePendingWrites,
 		softDeleteNote,
 		softDeleteSnippet,
 		softDeleteTag,
@@ -37,7 +38,8 @@
 	} from '$lib/storage';
 	import { planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
-	import { buildSnippetsExport, downloadFile, snippetsExportFileName } from '$lib/export-import';
+	import { buildSnippetsExport, snippetsExportFileName } from '$lib/export-import';
+	import { saveTextFile } from '$lib/platform';
 	import { tooltip } from '$lib/actions/tooltip';
 
 	let notes = $state([]);
@@ -45,6 +47,7 @@
 	let sidebarOpen = $state(false);
 	let sidebarView = $state('notes');
 	let loading = $state(true);
+	let loadError = $state(false);
 	let saveState = $state('idle');
 	let backupOpen = $state(false);
 	let searchOpen = $state(false);
@@ -67,40 +70,51 @@
 		return window.matchMedia('(min-width: 768px)').matches;
 	}
 
+	function showLoadError() {
+		sidebarOpen = false;
+		loadError = true;
+		loading = false;
+		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
+	}
+
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
-			// Writes the previous page journaled while dying (reload/close inside
-			// the save debounce) must land before anything reads.
-			await replayJournal();
-			let [rows, lastId, snippetRows] = await Promise.all([
-				listNotes(),
-				getLastOpenedNoteId(),
-				listSnippets()
-			]);
-			if (cancelled) return;
+			try {
+				// Writes the previous page journaled while dying (reload/close inside
+				// the save debounce) must land before anything reads.
+				await replayJournal();
+				let [rows, lastId, snippetRows] = await Promise.all([
+					listNotes(),
+					getLastOpenedNoteId(),
+					listSnippets()
+				]);
+				if (cancelled) return;
 
-			// First run: seed an editable demo note so the user learns by using it.
-			if (rows.length === 0) {
-				const demoNoteCreated = await getDemoNoteCreated();
-				if (!cancelled && shouldSeedDemoNote({ demoNoteCreated, noteCount: rows.length })) {
-					const demo = await seedDemoNote();
-					await Promise.all([setDemoNoteCreated(true), setHasCompletedOnboarding(true)]);
-					if (cancelled) return;
-					rows = await listNotes();
-					lastId = demo.id;
+				// First run: seed an editable demo note so the user learns by using it.
+				if (rows.length === 0) {
+					const demoNoteCreated = await getDemoNoteCreated();
+					if (!cancelled && shouldSeedDemoNote({ demoNoteCreated, noteCount: rows.length })) {
+						const demo = await seedDemoNote();
+						await Promise.all([setDemoNoteCreated(true), setHasCompletedOnboarding(true)]);
+						if (cancelled) return;
+						rows = await listNotes();
+						lastId = demo.id;
+					}
 				}
-			}
 
-			notes = rows;
-			snippets = snippetRows;
-			await refreshTags();
-			await refreshFolders();
-			const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
-			const current = last ?? rows[0];
-			currentNoteId = current ? current.id : null;
-			sidebarOpen = isDesktop();
-			loading = false;
+				notes = rows;
+				snippets = snippetRows;
+				await refreshTags();
+				await refreshFolders();
+				const last = lastId ? rows.find((note) => note.id === lastId) : undefined;
+				const current = last ?? rows[0];
+				currentNoteId = current ? current.id : null;
+				sidebarOpen = isDesktop();
+				loading = false;
+			} catch {
+				if (!cancelled) showLoadError();
+			}
 		})();
 		return () => {
 			cancelled = true;
@@ -137,6 +151,7 @@
 	// stealing focus into the search box.
 	function handleShortcut(event) {
 		if (event.defaultPrevented) return;
+		if (loadError && event.key !== '?') return;
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
 			event.preventDefault();
 			searchSeed = window.getSelection()?.toString().trim() ?? '';
@@ -195,14 +210,28 @@
 	}
 
 	async function handleDataChanged() {
-		const rows = await listNotes();
-		notes = rows;
-		if (!rows.some((note) => note.id === currentNoteId)) {
-			currentNoteId = rows[0]?.id ?? null;
+		try {
+			const [rows, snippetRows, tagRows, noteFolderRows, snippetFolderRows] = await Promise.all([
+				listNotes(),
+				listSnippets(),
+				listTags(),
+				listFolders('note'),
+				listFolders('snippet')
+			]);
+			notes = rows;
+			snippets = snippetRows;
+			tags = tagRows;
+			noteFolders = noteFolderRows;
+			snippetFolders = snippetFolderRows;
+			if (!rows.some((note) => note.id === currentNoteId)) {
+				currentNoteId = rows[0]?.id ?? null;
+			}
+			dataVersion += 1;
+			return true;
+		} catch {
+			showLoadError();
+			return false;
 		}
-		await refreshSnippets();
-		await refreshFolders();
-		dataVersion += 1;
 	}
 
 	async function refreshSnippets() {
@@ -369,16 +398,23 @@
 		toast.success('Snippet borrado');
 	}
 
-	function exportSnippets() {
-		const exported = buildSnippetsExport($state.snapshot(snippets), {
-			exportedAt: new Date().toISOString()
-		});
-		downloadFile(
-			snippetsExportFileName(new Date()),
-			JSON.stringify(exported, null, 2),
-			'application/json'
-		);
-		toast.success('Snippets exportados');
+	async function exportSnippets() {
+		try {
+			await settlePendingWrites();
+			const currentSnippets = await listSnippets();
+			snippets = currentSnippets;
+			const exported = buildSnippetsExport(currentSnippets, {
+				exportedAt: new Date().toISOString()
+			});
+			const result = await saveTextFile({
+				fileName: snippetsExportFileName(new Date()),
+				content: JSON.stringify(exported, null, 2),
+				mimeType: 'application/json'
+			});
+			if (result.status === 'saved') toast.success('Snippets exportados');
+		} catch {
+			toast.error('No se pudieron exportar los snippets. Tus datos siguen intactos.');
+		}
 	}
 </script>
 
@@ -397,7 +433,7 @@
 		{noteFolders}
 		{snippetFolders}
 		{currentNoteId}
-		open={sidebarOpen}
+		open={sidebarOpen && !loadError}
 		bind:view={sidebarView}
 		onSelect={selectNote}
 		onCreate={newNote}
@@ -431,9 +467,10 @@
 			<button
 				type="button"
 				onclick={() => (sidebarOpen = !sidebarOpen)}
+				disabled={loadError}
 				aria-label={sidebarOpen ? 'Ocultar lista de notas' : 'Mostrar lista de notas'}
 				aria-expanded={sidebarOpen}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 			>
 				<PanelLeft size={18} aria-hidden="true" />
 			</button>
@@ -444,9 +481,10 @@
 					searchSeed = '';
 					searchOpen = true;
 				}}
+				disabled={loadError}
 				aria-label="Buscar"
 				title="Buscar (Cmd/Ctrl+K o Cmd/Ctrl+F)"
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring ml-auto flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring ml-auto flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 			>
 				<Search size={18} aria-hidden="true" />
 			</button>
@@ -507,6 +545,20 @@
 					<div class="bg-muted h-10 w-2/3 animate-pulse rounded-md"></div>
 					<div class="bg-muted mt-8 h-5 w-full animate-pulse rounded-md"></div>
 					<div class="bg-muted mt-3 h-5 w-5/6 animate-pulse rounded-md"></div>
+				</div>
+			{:else if loadError}
+				<div class="flex h-full flex-col items-center justify-center gap-4 px-6 text-center" role="status">
+					<h1 class="text-2xl font-bold text-balance">No pudimos abrir tus notas</h1>
+					<p class="text-muted-foreground max-w-sm text-balance">
+						Cerramos el editor para proteger tus datos. Recargá CopyNotes para volver a intentarlo.
+					</p>
+					<button
+						type="button"
+						onclick={() => window.location.reload()}
+						class="bg-primary text-primary-foreground focus-visible:ring-ring mt-2 flex min-h-(--touch-target) items-center rounded-md px-5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px"
+					>
+						Volver a intentar
+					</button>
 				</div>
 			{:else if currentNoteId}
 				{#key `${currentNoteId}:${dataVersion}`}

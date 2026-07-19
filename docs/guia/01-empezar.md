@@ -4,6 +4,7 @@
 
 - **Tus notas viven en este dispositivo.** No hay cuenta ni nube: todo se guarda automáticamente en el navegador.
 - **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar. Aunque cierres la pestaña o recargues justo después de escribir, las últimas teclas no se pierden: quedan anotadas y se aplican al volver a abrir.
+- **Si el guardado local no responde.** CopyNotes cierra el editor para no arriesgar cambios. Muestra **Volver a intentar** para que recargues cuando el almacenamiento del dispositivo vuelva a estar disponible.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 - **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.

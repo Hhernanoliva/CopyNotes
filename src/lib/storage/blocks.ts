@@ -1,54 +1,57 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { plainTextToHtml } from '$lib/format';
+import { trackPendingWrite } from './pending-writes';
 
 const blocks = db.table('blocks');
 
-export async function createBlock(fields) {
-	const {
-		noteId,
-		parentBlockId = null,
-		type = 'text',
-		content = '',
-		html,
-		collapsed = false,
-		codeCollapsed = false,
-		checked = false,
-		note = '',
-		dueDate = null
-	} = fields;
-	let { order } = fields;
-	if (order === undefined) {
-		const siblings = await listChildBlocks(noteId, parentBlockId);
-		order = siblings.length;
-	}
-	const timestamp = now();
-	const block = {
-		id: createId(),
-		noteId,
-		parentBlockId,
-		type,
-		content,
-		html: html ?? plainTextToHtml(content),
-		order,
-		collapsed,
-		codeCollapsed,
-		checked,
-		note,
-		dueDate,
-		createdAt: timestamp,
-		updatedAt: timestamp,
-		deletedAt: null
-	};
-	await blocks.add(block);
-	return block;
+export function createBlock(fields) {
+	return trackPendingWrite(async () => {
+		const {
+			noteId,
+			parentBlockId = null,
+			type = 'text',
+			content = '',
+			html,
+			collapsed = false,
+			codeCollapsed = false,
+			checked = false,
+			note = '',
+			dueDate = null
+		} = fields;
+		let { order } = fields;
+		if (order === undefined) {
+			const siblings = await listChildBlocks(noteId, parentBlockId);
+			order = siblings.length;
+		}
+		const timestamp = now();
+		const block = {
+			id: createId(),
+			noteId,
+			parentBlockId,
+			type,
+			content,
+			html: html ?? plainTextToHtml(content),
+			order,
+			collapsed,
+			codeCollapsed,
+			checked,
+			note,
+			dueDate,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			deletedAt: null
+		};
+		await blocks.add(block);
+		return block;
+	});
 }
 
 // Upsert a full block row by its id. Used by undo/redo to restore a block
 // exactly as it was (including a re-create of a soft-deleted one), which
 // createBlock cannot do because it always mints a fresh id.
-export async function putBlock(block) {
-	await blocks.put(block);
+export function putBlock(block) {
+	return trackPendingWrite(() => blocks.put(block));
 }
 
 export async function getBlock(id) {
@@ -78,43 +81,51 @@ export async function listChildBlocks(noteId, parentBlockId) {
 	return rows.filter((block) => block.parentBlockId === parent);
 }
 
-export async function updateBlock(id, changes) {
-	await blocks.update(id, { ...changes, updatedAt: now() });
-	return blocks.get(id);
+export function updateBlock(id, changes) {
+	return trackPendingWrite(async () => {
+		await blocks.update(id, { ...changes, updatedAt: now() });
+		return blocks.get(id);
+	});
 }
 
 // Applies a snippet-insertion plan (new blocks + sibling order bumps) in one
 // transaction so a mid-write failure cannot leave the note half-inserted.
-export async function applyInsertionPlan(plan) {
-	const timestamp = now();
-	await db.transaction('rw', blocks, async () => {
-		await blocks.bulkAdd(
-			plan.newBlocks.map((block) => ({
-				...block,
-				createdAt: timestamp,
-				updatedAt: timestamp,
-				deletedAt: null
-			}))
-		);
-		for (const update of plan.updates) {
-			await blocks.update(update.id, { order: update.order, updatedAt: timestamp });
-		}
+export function applyInsertionPlan(plan) {
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await db.transaction('rw', blocks, async () => {
+			await blocks.bulkAdd(
+				plan.newBlocks.map((block) => ({
+					...block,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					deletedAt: null
+				}))
+			);
+			for (const update of plan.updates) {
+				await blocks.update(update.id, { order: update.order, updatedAt: timestamp });
+			}
+		});
 	});
 }
 
-export async function softDeleteBlock(id) {
-	const timestamp = now();
-	await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+export function softDeleteBlock(id) {
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+	});
 }
 
 // Soft-delete many blocks at once (multi-block selection). One transaction so
 // a group delete can't half-apply.
-export async function softDeleteBlocks(ids) {
-	const timestamp = now();
-	await db.transaction('rw', blocks, async () => {
-		for (const id of ids) {
-			await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
-		}
+export function softDeleteBlocks(ids) {
+	return trackPendingWrite(async () => {
+		const timestamp = now();
+		await db.transaction('rw', blocks, async () => {
+			for (const id of ids) {
+				await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+			}
+		});
 	});
 }
 
