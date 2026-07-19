@@ -35,13 +35,17 @@ export async function replayJournal() {
 		const raw = localStorage.getItem(JOURNAL_KEY);
 		entries = raw ? JSON.parse(raw) : null;
 	} catch {
-		entries = null;
+		clearJournal();
+		return;
 	}
-	clearJournal();
-	if (!Array.isArray(entries)) return;
+	if (!Array.isArray(entries)) {
+		clearJournal();
+		return;
+	}
 	for (const entry of entries) {
 		if (!entry || typeof entry.id !== 'string' || typeof entry.changes !== 'object') continue;
 		if (entry.table === 'notes') await updateNote(entry.id, entry.changes);
 		else if (entry.table === 'blocks') await updateBlock(entry.id, entry.changes);
 	}
+	clearJournal();
 }

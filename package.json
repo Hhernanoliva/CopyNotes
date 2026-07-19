@@ -11,7 +11,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest",
-		"test:e2e": "playwright test",
+		"test:e2e": "playwright test --project=chromium",
+		"test:e2e:webkit": "playwright test --project=webkit",
+		"test:e2e:all": "playwright test",
 		"test": "npm run test:unit -- --run"
 	},
 	"devDependencies": {

@@ -12,6 +12,7 @@
 		listTags,
 		listTagsForMany,
 		putBlock,
+		registerPendingWriteFlusher,
 		softDeleteBlock,
 		softDeleteBlocks,
 		unassignTag,
@@ -46,7 +47,7 @@
 	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
 	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
-	import { writeToClipboard } from '$lib/copy/clipboard';
+	import { writePlainTextToClipboard, writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
 	import { MOTION, motionDuration } from '$lib/motion';
@@ -192,7 +193,9 @@
 				})
 			);
 		}
-		return Promise.all(saves);
+		return Promise.all(saves).then(() => {
+			if (pending.size === 0) onSaveStateChange('saved');
+		});
 	}
 
 	function persistJournal() {
@@ -200,6 +203,7 @@
 	}
 
 	$effect(() => () => flushPending());
+	$effect(() => registerPendingWriteFlusher(flushPending));
 
 	// A reload/close/navigation never unmounts the component, so the unmount
 	// flush above cannot run — and IndexedDB writes started while the page
@@ -286,7 +290,7 @@
 	// Apply a snapshot to the editor and persist the difference through storage.
 	async function restore(snapshot) {
 		if (!snapshot) return;
-		flushPending();
+		await flushPending();
 		const diff = diffBlocks($state.snapshot(blocks), snapshot.blocks);
 		for (const id of diff.deletedIds) await softDeleteBlock(id);
 		for (const row of diff.created) await putBlock(row);
@@ -554,7 +558,7 @@
 			case 'clear': document.execCommand('removeFormat'); break;
 			case 'copyText': {
 				const text = window.getSelection()?.toString() ?? '';
-				if (text && navigator.clipboard) await navigator.clipboard.writeText(text);
+				if (text) await writePlainTextToClipboard(text);
 				return;
 			}
 		}

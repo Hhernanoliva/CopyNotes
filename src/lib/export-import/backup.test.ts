@@ -38,6 +38,16 @@ describe('buildBackup', () => {
 		expect(backup.data.folders).toEqual([]);
 		expect(backup.counts.folders).toBe(0);
 	});
+
+	it('records whether a backup came from the PWA or desktop app', () => {
+		const pwa = buildBackup({}, { appVersion: '0.0.1', exportedAt: iso });
+		const desktop = buildBackup(
+			{},
+			{ appVersion: '0.0.1', exportedAt: iso, source: 'desktop' }
+		);
+		expect(pwa.exportedBy.source).toBe('pwa');
+		expect(desktop.exportedBy.source).toBe('desktop');
+	});
 });
 
 describe('backupFileName', () => {

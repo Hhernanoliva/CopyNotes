@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-19 (la app ahora tiene animaciones suaves: la lista lateral entra deslizándose en el teléfono y al instante en la computadora, la estrella de favorito responde al toque, y lo que arrastrás se levanta apenas; todo respeta "Reducir movimiento" del sistema).
+Última actualización: 2026-07-19 (los respaldos esperan los últimos cambios antes de crear el archivo y, si el guardado local no responde, CopyNotes protege los datos y ofrece volver a intentar).
 
 ## Temas
 

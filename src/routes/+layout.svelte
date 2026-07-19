@@ -7,6 +7,7 @@
 	import { getTheme } from '$lib/storage';
 	import { startTodayClock } from '$lib/dates';
 	import { browserThemeColors } from '$lib/theme/browser-colors';
+	import { isTauriRuntime } from '$lib/platform';
 	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
 	import InstallPrompt from '$lib/pwa/InstallPrompt.svelte';
 
@@ -58,7 +59,7 @@
 
 <!-- Service worker + install prompt are browser-only: never instantiate them
      during prerender/SSR, where useRegisterSW would touch navigator. -->
-{#if browser}
+{#if browser && !isTauriRuntime()}
 	<PwaLifecycle />
 	<InstallPrompt />
 {/if}

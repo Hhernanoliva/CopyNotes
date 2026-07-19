@@ -21,15 +21,19 @@ pnpm dev       # abre la app en http://localhost:5173
 ```bash
 pnpm test      # corre las pruebas de lógica (Vitest)
 pnpm test:e2e  # corre los flujos críticos end-to-end (Playwright)
+pnpm test:e2e:webkit # prueba la base compatible con Safari y la futura app de Mac
 pnpm check     # revisa tipos y errores de Svelte
 pnpm build     # genera la versión de producción
 pnpm preview   # sirve la versión de producción localmente
 ```
 
 `pnpm test:e2e` levanta la versión de producción (`build` + `preview`) y prueba
-los flujos críticos, incluido el uso sin conexión. En CI se instala el navegador
-con `pnpm exec playwright install chromium`. Para reusar un Chromium ya cacheado
-sin descargar, exportá `PLAYWRIGHT_CHROMIUM_PATH` apuntando al ejecutable.
+los flujos críticos, incluido el uso sin conexión. En CI se instala Chromium con
+`pnpm exec playwright install chromium`. La preparación de escritorio suma una
+prueba enfocada con el motor de Safari: instalalo una vez con
+`pnpm exec playwright install webkit` y corré `pnpm test:e2e:webkit`. Para reusar
+un Chromium ya cacheado sin descargar, exportá `PLAYWRIGHT_CHROMIUM_PATH`
+apuntando al ejecutable.
 
 ## Stack
 

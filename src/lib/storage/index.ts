@@ -1,6 +1,11 @@
 // Public storage API. UI code imports from here, never from Dexie tables directly.
 export { db } from './db';
 export { createId, now } from './ids';
+export {
+	trackPendingWrite,
+	registerPendingWriteFlusher,
+	settlePendingWrites
+} from './pending-writes';
 export { createNote, getNote, listNotes, updateNote, softDeleteNote } from './notes';
 export { writeJournal, clearJournal, replayJournal } from './journal';
 export {

@@ -31,5 +31,9 @@ export async function writeToClipboard({ text, html, custom }) {
 			}
 		}
 	}
-	await navigator.clipboard.writeText(text);
+	await writePlainTextToClipboard(text);
+}
+
+export function writePlainTextToClipboard(text) {
+	return navigator.clipboard.writeText(text);
 }
