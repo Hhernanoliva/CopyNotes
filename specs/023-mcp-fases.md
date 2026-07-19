@@ -49,6 +49,8 @@ This is enough to validate whether agent assistance adds real value, without tur
 - **Prompts are reusable snippets, not the centerpiece.** The prompt/workflow ideas in `011` remain valid, but the clearest early value is people always seeing what is pending, in progress, blocked, or changed — not an AI prompt hub.
 - **People before agents.** Step 1 (human task UX) must feel excellent before any MCP work begins.
 - **Shared task-action layer before permissions.** Step 2 gives step 3 a single surface to gate; gating a scattered set of write paths is where trust bugs hide.
+- **Binary checkbox, not four task states** (Hernan, 2026-07-19). The step 1 headline's "pending / in progress / blocked / done" is dropped as too complex. A todo's checked/unchecked state already tells both the person and a future agent whether the task is done. No `status` field, no state model — keep the existing checkbox. This supersedes the four-state wording in the Build Order and the "Task states" precondition below.
+- **"AI-touched" mark belongs to step 3, not to dates** (Hernan, 2026-07-19). Idea: when an agent changes something in a note, leave an automatic dated trace so the person can see what the agent did and when. This is *audit history*, distinct from spec 021's user-chosen `dueDate` (due dates). It requires an agent that can write, which does not exist before step 4, and its natural home is the step 3 activity log / action history. Recorded here as intent; design deferred, no code now.
 
 ## Preconditions / Known Blockers
 
