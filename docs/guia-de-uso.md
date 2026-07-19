@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-19 (los respaldos esperan los últimos cambios antes de crear el archivo y, si el guardado local no responde, CopyNotes protege los datos y ofrece volver a intentar).
+Última actualización: 2026-07-19 (manija ⠿ a la izquierda de cada renglón para arrastrarlo al instante; y con varios seleccionados ya podés apretar directo sobre lo resaltado y arrastrar sin perder la selección; un clic simple deselecciona y edita).
 
 ## Temas
 

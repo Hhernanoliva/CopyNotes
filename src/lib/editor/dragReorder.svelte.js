@@ -16,7 +16,13 @@ const INDENT_PX = 24; // 1.5rem
 const AUTOSCROLL_EDGE_PX = 48;
 const AUTOSCROLL_SPEED = 8;
 
-export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onApply }) {
+export function createDragReorder({
+	getBlocks,
+	getSelectedIds,
+	getListEl,
+	onApply,
+	onSelectionClick = () => {}
+}) {
 	let active = $state(false);
 	let indicator = $state(null); // { top, depth } — top is list-relative px
 	let ghost = $state(null); // { x, y, ids } — x/y are viewport px (position: fixed)
@@ -24,8 +30,17 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 	let holdTimer = null;
 	let startX = 0;
 	let startY = 0;
+	let grabDepth = 0; // depth of the grabbed row, so nesting is relative to it
 	let draggedIds = [];
 	let scrollRAF = null;
+	// Handle drags skip the long-press: the grip is not editable, so there is no
+	// text-selection to disambiguate from. Arm on pointerdown, activate on the
+	// first real move. A press with no move stays a plain click.
+	let handleArmed = false;
+	// True when this arm started on a row already in the multi-selection. Same
+	// no-long-press behaviour as the grip, but a plain release (no drag) calls
+	// onSelectionClick so the editor can collapse the selection to a caret.
+	let armedOnSelection = false;
 
 	function cleanup() {
 		clearTimeout(holdTimer);
@@ -43,17 +58,35 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 		indicator = null;
 		ghost = null;
 		draggedIds = [];
+		grabDepth = 0;
+		handleArmed = false;
+		armedOnSelection = false;
+	}
+
+	// Depth of a block in the current visible list, or 0 if not found.
+	function depthOf(blockId) {
+		for (const { block, depth } of buildVisibleList(getBlocks())) {
+			if (block.id === blockId) return depth;
+		}
+		return 0;
 	}
 
 	// Measure the visible rows (excluding dragged) in list-relative Y. Returns
 	// { rows, originX } for resolveDrop. Shared by move + release.
+	//
+	// originX is grab-relative, NOT read from the DOM: the row box's left is the
+	// same at every depth (indentation is padding), so it can't tell levels
+	// apart. Instead we anchor the origin so that at the grab X the resolved
+	// depth equals the grabbed row's own depth; moving one indent right/left then
+	// nests/outdents by one. This behaves the same whether you grabbed the grip
+	// or the text, and never auto-nests just because you grabbed further right.
 	function measure() {
 		const listEl = getListEl();
-		if (!listEl) return { rows: [], originX: 0 };
+		const originX = startX - grabDepth * INDENT_PX;
+		if (!listEl) return { rows: [], originX, listTop: 0 };
 		const listTop = listEl.getBoundingClientRect().top;
 		const draggedSet = new Set(draggedIds);
 		const rows = [];
-		let originX = Infinity;
 		for (const { block, depth, hasChildren } of buildVisibleList(getBlocks())) {
 			if (draggedSet.has(block.id)) continue;
 			const el = listEl.querySelector(`[data-block-id="${block.id}"]`);
@@ -66,9 +99,7 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 				top: rect.top - listTop,
 				height: rect.height
 			});
-			originX = Math.min(originX, rect.left - depth * INDENT_PX);
 		}
-		if (!Number.isFinite(originX)) originX = 0;
 		return { rows, originX, listTop };
 	}
 
@@ -78,12 +109,24 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 		if (event.button != null && event.button !== 0) return; // primary only
 		startX = event.clientX;
 		startY = event.clientY;
+		grabDepth = depthOf(blockId);
 		const selected = getSelectedIds();
-		const ids = selected.includes(blockId) ? selected : [blockId];
+		const onSelection = selected.includes(blockId);
+		const ids = onSelection ? selected : [blockId];
 		draggedIds = orderedSelectionRoots(getBlocks(), ids);
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('keydown', onKey);
+		if (onSelection) {
+			// Press landed on the existing multi-selection: grab it directly. No
+			// long-press — activate on the first move like the grip — and never
+			// preventDefault the press, so a plain click still lands a caret. A
+			// release with no move is that click: onSelectionClick collapses the
+			// selection so the caret can edit the line.
+			handleArmed = true;
+			armedOnSelection = true;
+			return;
+		}
 		holdTimer = setTimeout(() => {
 			holdTimer = null;
 			active = true;
@@ -94,12 +137,39 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 		}, HOLD_MS);
 	}
 
+	// Called from a grip handle's pointerdown. No long-press: arm now, activate on
+	// the first move. preventDefault keeps the press from stealing focus or
+	// starting a text selection. The selection-aware id set matches armFromPointer.
+	function armFromHandle(blockId, event) {
+		if (event.button != null && event.button !== 0) return; // primary only
+		event.preventDefault();
+		startX = event.clientX;
+		startY = event.clientY;
+		grabDepth = depthOf(blockId);
+		const selected = getSelectedIds();
+		const ids = selected.includes(blockId) ? selected : [blockId];
+		draggedIds = orderedSelectionRoots(getBlocks(), ids);
+		handleArmed = true;
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+		window.addEventListener('keydown', onKey);
+	}
+
 	function onMove(event) {
 		if (!active) {
 			const dx = event.clientX - startX;
 			const dy = event.clientY - startY;
-			if (Math.hypot(dx, dy) > MOVE_CANCEL_PX) reset(); // cancel arming
-			return;
+			if (Math.hypot(dx, dy) <= MOVE_CANCEL_PX) return;
+			if (handleArmed) {
+				// First real move on a grip: go live now instead of cancelling.
+				active = true;
+				ghost = { x: event.clientX, y: event.clientY, ids: draggedIds };
+				if (navigator.vibrate) navigator.vibrate(8);
+				window.getSelection()?.removeAllRanges();
+			} else {
+				reset(); // quick drag before the long-press fired → select/scroll
+				return;
+			}
 		}
 		event.preventDefault();
 		update(event.clientX, event.clientY);
@@ -138,7 +208,9 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 
 	function onUp(event) {
 		if (!active) {
+			const wasSelectionClick = armedOnSelection;
 			reset();
+			if (wasSelectionClick) onSelectionClick?.();
 			return;
 		}
 		const { rows, originX, listTop } = measure();
@@ -156,6 +228,7 @@ export function createDragReorder({ getBlocks, getSelectedIds, getListEl, onAppl
 
 	return {
 		armFromPointer,
+		armFromHandle,
 		get active() {
 			return active;
 		},

@@ -6,7 +6,7 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { scale } from 'svelte/transition';
-	import { ChevronRight, Check, Copy, CopyPlus } from '@lucide/svelte';
+	import { ChevronRight, Check, Copy, CopyPlus, GripVertical } from '@lucide/svelte';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
 	import DatePanel from './DatePanel.svelte';
@@ -54,6 +54,7 @@
 		onPlainMousedown,
 		onDragOver,
 		onDragHold,
+		onDragHandle,
 		tags = [],
 		allTags = [],
 		tagPickerOpen = false,
@@ -417,9 +418,14 @@
 		if (event.shiftKey) {
 			event.preventDefault();
 			onShiftSelect?.(block);
-		} else {
-			onPlainMousedown?.(block);
+			return;
 		}
+		// A press on an already-selected row is a "grab the selection" gesture,
+		// handled by the drag controller (row pointerdown). Don't start a fresh
+		// drag-select here — that would wipe the selection before a move begins.
+		// The controller collapses the selection itself if it turns out a click.
+		if (selected) return;
+		onPlainMousedown?.(block);
 	}
 
 	// Return the caret to this block after a transient menu closes.
@@ -446,6 +452,21 @@
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
 	onpointerdown={(event) => onDragHold?.(block.id, event)}
 >
+	<!-- Grip handle: grab to move this row (and any active selection). Shown on
+	     hover/focus. Not editable, so dragging never fights text selection.
+	     Keyboard users move rows with Alt+↑/↓, so this stays out of the tab order. -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		aria-hidden="true"
+		use:tooltip={'Arrastrar para mover'}
+		onpointerdown={(event) => {
+			event.stopPropagation();
+			onDragHandle?.(block.id, event);
+		}}
+		class="text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+	>
+		<GripVertical size={14} aria-hidden="true" />
+	</div>
 	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
 		{#if hasChildren}
 			<button

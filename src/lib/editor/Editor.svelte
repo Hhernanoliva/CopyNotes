@@ -131,7 +131,10 @@
 		onApply: async (plan) => {
 			recordSnapshot();
 			await applyUpdates(plan.updates);
-		}
+		},
+		// A plain click on an already-selected row (no drag) collapses the
+		// selection; the caret lands there via the browser's own mousedown.
+		onSelectionClick: () => clearSelection()
 	});
 	$effect(() => () => reorder.destroy());
 	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
@@ -1396,6 +1399,7 @@
 					onPlainMousedown={startDrag}
 					onDragOver={dragOver}
 					onDragHold={(id, event) => reorder.armFromPointer(id, event)}
+					onDragHandle={(id, event) => reorder.armFromHandle(id, event)}
 					tags={blockTagsMap[row.block.id] ?? []}
 					{allTags}
 					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
