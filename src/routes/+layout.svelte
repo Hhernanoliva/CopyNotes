@@ -10,6 +10,7 @@
 	import { isTauriRuntime } from '$lib/platform';
 	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
 	import InstallPrompt from '$lib/pwa/InstallPrompt.svelte';
+	import TauriLifecycle from '$lib/desktop/TauriLifecycle.svelte';
 
 	let { children } = $props();
 
@@ -62,6 +63,12 @@
 {#if browser && !isTauriRuntime()}
 	<PwaLifecycle />
 	<InstallPrompt />
+{/if}
+
+<!-- Desktop-only: route the native window close through the pending-write
+     barrier so quitting can never race a delayed save. -->
+{#if browser && isTauriRuntime()}
+	<TauriLifecycle />
 {/if}
 
 {@render children()}
