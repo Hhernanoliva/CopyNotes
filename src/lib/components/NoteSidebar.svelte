@@ -14,9 +14,11 @@
 		Pencil,
 		Tag
 	} from '@lucide/svelte';
+	import { fade, fly } from 'svelte/transition';
 	import AgendaPanel from './AgendaPanel.svelte';
 	import { sidebarDragList } from './dnd';
 	import { buildSidebarTree } from '$lib/organize';
+	import { MOTION, motionDuration } from '$lib/motion';
 
 	let {
 		notes,
@@ -77,6 +79,14 @@
 
 	function isMobile() {
 		return !window.matchMedia('(min-width: 768px)').matches;
+	}
+
+	// Quiet Motion (spec 024, Stage 2). The drawer only animates as a mobile
+	// overlay; on desktop it is part of the flex layout, so sliding it would
+	// shove the editor and move the cursor — keep desktop instant.
+	function drawerFly() {
+		if (!isMobile()) return { duration: 0 };
+		return { x: -320, duration: motionDuration(MOTION.overlay) };
 	}
 
 	// Escape closes the sidebar only when it behaves as a mobile overlay.
@@ -273,7 +283,7 @@
 					aria-pressed={snippet.isFavorite}
 					title={snippet.isFavorite ? 'Quitar de favoritos' : 'Marcar como favorito'}
 					onclick={() => onToggleFavorite(snippet)}
-					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none {snippet.isFavorite
+					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-[opacity,transform] duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none active:scale-90 {snippet.isFavorite
 						? 'text-foreground opacity-100'
 						: 'opacity-0 max-md:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'}"
 				>
@@ -365,12 +375,14 @@
 		type="button"
 		aria-label="Cerrar navegación"
 		onclick={onClose}
+		transition:fade={{ duration: motionDuration(MOTION.fast) }}
 		class="bg-overlay fixed inset-0 z-30 md:hidden"
 	></button>
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions — the Tab-trap keydown keeps the mobile drawer modal -->
 	<aside
 		bind:this={asideEl}
 		onkeydown={trapTab}
+		transition:fly={drawerFly()}
 		class="bg-sidebar border-border fixed inset-y-0 left-0 z-40 flex w-[85%] max-w-xs flex-col border-r md:static md:z-auto md:w-[270px] md:max-w-none"
 	>
 		<div class="flex h-12 shrink-0 items-center justify-between border-b px-3">
@@ -606,9 +618,14 @@
 {/if}
 
 <style>
-	/* Drag feedback: attribute-driven, toggled by sidebarDragList (dnd.ts). */
+	/* Drag feedback: attribute-driven, toggled by sidebarDragList (dnd.ts).
+	   The dragged row keeps its place in the list (dnd draws a separate
+	   indicator line), so a minimal lift here is safe — the row's own rect is
+	   excluded from the drop geometry. */
 	:global([data-dragging='true']) {
-		opacity: 0.4;
+		opacity: 0.5;
+		transform: scale(1.02);
+		box-shadow: 0 4px 12px var(--overlay);
 	}
 	:global([data-drag-over-folder='true']) {
 		outline: 2px solid var(--ring);
