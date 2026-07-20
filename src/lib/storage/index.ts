@@ -19,7 +19,8 @@ export {
 	softDeleteBlocks,
 	applyInsertionPlan,
 	listAllBlocks,
-	listDatedBlocks
+	listDatedBlocks,
+	toggleTodoCascade
 } from './blocks';
 export {
 	createSnippet,

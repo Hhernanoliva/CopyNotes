@@ -6,7 +6,7 @@
 		listDatedBlocks,
 		listNotes,
 		setAgendaHideCompleted,
-		updateBlock
+		toggleTodoCascade
 	} from '$lib/storage';
 
 	let { onOpen, onDataChanged, version = 0 } = $props();
@@ -40,7 +40,10 @@
 	});
 
 	async function toggleTodo(block) {
-		await updateBlock(block.id, { checked: !block.checked });
+		// Route through the shared cascade so checking a parent/child from Agenda
+		// stays consistent with the editor (parent checks children, last child
+		// checks parent). The cascade loads the whole note, not just dated rows.
+		await toggleTodoCascade(block.noteId, block.id);
 		await refresh();
 		onDataChanged();
 	}

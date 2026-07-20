@@ -11,7 +11,8 @@ import {
 	softDeleteBlock,
 	softDeleteBlocks,
 	updateBlock,
-	listDatedBlocks
+	listDatedBlocks,
+	toggleTodoCascade
 } from './blocks';
 import { createNote } from './notes';
 
@@ -210,5 +211,43 @@ describe('dueDate (spec 021)', () => {
 
 		const rows = await listDatedBlocks();
 		expect(rows.map((row) => row.id)).toEqual([kept.id]);
+	});
+
+	it('toggleTodoCascade checks todo descendants when a parent is toggled', async () => {
+		const note = await createNote({ title: 'Tareas' });
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre' });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hija'
+		});
+
+		await toggleTodoCascade(note.id, parent.id);
+
+		expect((await getBlock(parent.id)).checked).toBe(true);
+		expect((await getBlock(child.id)).checked).toBe(true);
+	});
+
+	it('toggleTodoCascade auto-checks the parent when the last todo child is completed', async () => {
+		const note = await createNote({ title: 'Tareas' });
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre' });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hija'
+		});
+
+		await toggleTodoCascade(note.id, child.id);
+
+		expect((await getBlock(child.id)).checked).toBe(true);
+		expect((await getBlock(parent.id)).checked).toBe(true);
+	});
+
+	it('toggleTodoCascade returns null for a non-todo block', async () => {
+		const note = await createNote({ title: 'Tareas' });
+		const text = await createBlock({ noteId: note.id, type: 'text', content: 'nota' });
+		expect(await toggleTodoCascade(note.id, text.id)).toBeNull();
 	});
 });

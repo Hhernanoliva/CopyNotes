@@ -41,7 +41,7 @@ En la barra lateral, junto a "Notas" y "Snippets", está la pestaña **Agenda** 
 
 Cada ítem muestra el texto del renglón, el nombre de la nota a la que pertenece y su fecha. Tocá un ítem para ir directo a ese renglón, en su nota — el editor se abre con el renglón ya enfocado.
 
-Si el renglón es una tarea, podés marcarla o desmarcarla directamente desde la Agenda, tocando su casilla, sin tener que entrar a la nota. Las tareas marcadas se ven tachadas.
+Si el renglón es una tarea, podés marcarla o desmarcarla directamente desde la Agenda, tocando su casilla, sin tener que entrar a la nota. Las tareas marcadas se ven tachadas. Si la tarea tiene subtareas, funciona igual que en la nota: marcar la tarea madre marca sus subtareas, y marcar la última subtarea que faltaba marca sola a la madre.
 
 Arriba de la lista hay un interruptor, **Ocultar completadas**: si lo activás, las tareas ya marcadas como hechas desaparecen de la Agenda (siguen existiendo en la nota, solo se ocultan acá). Queda recordado la próxima vez que abrís la Agenda.
 

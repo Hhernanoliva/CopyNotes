@@ -2,6 +2,7 @@ import { db } from './db';
 import { createId, now } from './ids';
 import { plainTextToHtml } from '$lib/format';
 import { trackPendingWrite } from './pending-writes';
+import { planToggleChecked } from '$lib/blocks/cascade';
 
 const blocks = db.table('blocks');
 
@@ -98,6 +99,21 @@ export function updateBlock(id, changes) {
 		await blocks.update(id, { ...changes, updatedAt: now() });
 		return blocks.get(id);
 	});
+}
+
+// Toggle a todo's checked state applying the same parent/child cascade the
+// editor uses (specs/003). Callers like Agenda only hold the dated blocks, so
+// this loads the full note first — the cascade needs every ancestor and sibling
+// to decide the final state. Returns the applied plan, or null when the target
+// is not a todo.
+export async function toggleTodoCascade(noteId, blockId) {
+	const noteBlocks = await listBlocksByNote(noteId);
+	const plan = planToggleChecked(noteBlocks, blockId);
+	if (!plan) return null;
+	for (const { id, ...changes } of plan.updates) {
+		await updateBlock(id, changes);
+	}
+	return plan;
 }
 
 // Applies a snippet-insertion plan (new blocks + sibling order bumps) in one
