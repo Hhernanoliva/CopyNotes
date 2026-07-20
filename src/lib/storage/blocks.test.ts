@@ -127,6 +127,20 @@ describe('listAllBlocks', () => {
 		const rows = await listAllBlocks();
 		expect(rows.map((block) => block.content)).toEqual(['a1']);
 	});
+
+	// Safety net for pre-existing orphans: a block whose note was deleted without
+	// cascading (legacy data) must not resurface in search.
+	it('skips blocks whose note is no longer live', async () => {
+		const live = await createNote();
+		await createBlock({ noteId: live.id, content: 'live' });
+		const ghost = await createNote();
+		await createBlock({ noteId: ghost.id, content: 'ghost' });
+		// Raw update bypasses the cascade to simulate a legacy orphan.
+		await db.table('notes').update(ghost.id, { deletedAt: '2026-07-20T00:00:00.000Z' });
+
+		const rows = await listAllBlocks();
+		expect(rows.map((block) => block.content)).toEqual(['live']);
+	});
 });
 
 describe('softDeleteBlocks', () => {
@@ -185,5 +199,16 @@ describe('dueDate (spec 021)', () => {
 		await updateBlock(block.id, { dueDate: null });
 		const rows = await listDatedBlocks();
 		expect(rows.find((row) => row.id === block.id)).toBeUndefined();
+	});
+
+	it('listDatedBlocks skips dated blocks whose note is no longer live', async () => {
+		const live = await createNote({ title: 'Agenda' });
+		const kept = await createBlock({ noteId: live.id, content: 'kept', dueDate: '2026-07-22' });
+		const ghost = await createNote({ title: 'Gone' });
+		await createBlock({ noteId: ghost.id, content: 'ghost', dueDate: '2026-07-10' });
+		await db.table('notes').update(ghost.id, { deletedAt: '2026-07-20T00:00:00.000Z' });
+
+		const rows = await listDatedBlocks();
+		expect(rows.map((row) => row.id)).toEqual([kept.id]);
 	});
 });

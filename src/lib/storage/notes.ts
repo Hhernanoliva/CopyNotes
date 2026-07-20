@@ -42,9 +42,25 @@ export function updateNote(id, changes) {
 	});
 }
 
+// Deleting a note cascades to its blocks in one transaction. Without this the
+// blocks stay live and resurface as ghosts in Search and Agenda (they list
+// blocks across all notes) under a "Sin título" label, opening a note that no
+// longer exists.
 export function softDeleteNote(id) {
 	return trackPendingWrite(async () => {
 		const timestamp = now();
-		await notes.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+		const blocks = db.table('blocks');
+		await db.transaction('rw', notes, blocks, async () => {
+			await notes.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+			await blocks
+				.where('noteId')
+				.equals(id)
+				.modify((block) => {
+					if (!block.deletedAt) {
+						block.deletedAt = timestamp;
+						block.updatedAt = timestamp;
+					}
+				});
+		});
 	});
 }

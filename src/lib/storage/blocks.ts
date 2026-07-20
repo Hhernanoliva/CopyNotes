@@ -69,10 +69,22 @@ export async function listBlocksByNote(noteId) {
 	return rows.sort((a, b) => a.order - b.order);
 }
 
+// The ids of every note that is still live. Used to keep cross-note block
+// queries from returning orphans — blocks whose note was deleted without
+// cascading (legacy data from before softDeleteNote cascaded), which would
+// otherwise resurface as ghosts in Search and Agenda.
+async function liveNoteIds() {
+	const notes = await db
+		.table('notes')
+		.filter((note) => !note.deletedAt)
+		.toArray();
+	return new Set(notes.map((note) => note.id));
+}
+
 // Every live block across all notes, for search indexing.
 export async function listAllBlocks() {
-	const rows = await blocks.filter((block) => !block.deletedAt).toArray();
-	return rows;
+	const live = await liveNoteIds();
+	return blocks.filter((block) => !block.deletedAt && live.has(block.noteId)).toArray();
 }
 
 export async function listChildBlocks(noteId, parentBlockId) {
@@ -132,5 +144,9 @@ export function softDeleteBlocks(ids) {
 // Every live block carrying a dueDate, ascending by date — the Agenda query.
 // orderBy walks the dueDate index, so undated/null rows never appear.
 export async function listDatedBlocks() {
-	return blocks.orderBy('dueDate').filter((block) => !block.deletedAt).toArray();
+	const live = await liveNoteIds();
+	return blocks
+		.orderBy('dueDate')
+		.filter((block) => !block.deletedAt && live.has(block.noteId))
+		.toArray();
 }
