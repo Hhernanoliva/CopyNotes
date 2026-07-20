@@ -120,3 +120,84 @@ test('dragging right nests the line under the previous one', async ({ page }) =>
 	const bRow = page.locator('main [data-block-id]', { hasText: 'B' });
 	await expect(bRow).not.toHaveCSS('padding-left', '0px');
 });
+
+// Regression: dragging a SELECTED WORD is native text drag-and-drop — it must
+// not hijack into a whole-line block move (the long-press must stay disarmed
+// while a text selection is live). We assert the line order is untouched; the
+// word itself may move via the browser's native DnD, which is fine.
+test('dragging a selected word does not move the whole line', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const aBox = await rows.nth(0).boundingBox();
+	const cBox = await rows.nth(2).boundingBox();
+
+	// Select the letter/word content of line A.
+	const aEditable = rows.nth(0).locator('.block-editable');
+	const box = await aEditable.evaluate((el) => {
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		const sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(range);
+		const r = range.getBoundingClientRect();
+		return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+	});
+
+	// Press on the selection, hold past the long-press window, drag to line C.
+	await page.mouse.move(box.x, box.y);
+	await page.mouse.down();
+	await page.waitForTimeout(HOLD);
+	await page.mouse.move(cBox.x + 40, cBox.y + cBox.height - 2, { steps: 8 });
+	await page.mouse.up();
+	await page.waitForTimeout(200);
+
+	// The line block must NOT have been reordered (A is still first, C still last).
+	const texts = await blockTexts(page);
+	expect(texts[0].startsWith('A')).toBe(true);
+	expect(texts[2].includes('C')).toBe(true);
+	await expect(rows.nth(0)).toHaveCSS('padding-left', '0px'); // not nested either
+	void aBox;
+});
+
+// Spec 026: dragging a selected word MOVES that text (custom text drag), not the
+// whole line, and a single undo restores it. Quick grab, no long hold.
+test('dragging a selected word moves the text to another line', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('hola mundo', { delay: 20 });
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('otra', { delay: 20 });
+	await expect.poll(() => blockTexts(page)).toEqual(['hola mundo', 'otra']);
+
+	// Select "mundo" and grab the drop coordinates (end of line 2).
+	const coords = await page.evaluate(() => {
+		const els = document.querySelectorAll('main [data-block-id] .block-editable');
+		const el = els[0];
+		const i = el.innerText.indexOf('mundo');
+		const range = document.createRange();
+		range.setStart(el.firstChild, i);
+		range.setEnd(el.firstChild, i + 5);
+		const s = window.getSelection();
+		s.removeAllRanges();
+		s.addRange(range);
+		const r = range.getBoundingClientRect();
+		const second = els[1].getBoundingClientRect();
+		return { x: r.left + r.width / 2, y: r.top + r.height / 2, dropX: second.right - 2, dropY: second.top + second.height / 2 };
+	});
+
+	// Quick drag (no long hold) — the custom text drag takes over.
+	await page.mouse.move(coords.x, coords.y);
+	await page.mouse.down();
+	await page.mouse.move(coords.x + 10, coords.y + 6, { steps: 2 });
+	await page.mouse.move(coords.dropX, coords.dropY, { steps: 8 });
+	await page.mouse.up();
+
+	await expect.poll(() => blockTexts(page)).toEqual(['hola ', 'otramundo']);
+
+	// One undo restores both lines.
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect.poll(() => blockTexts(page)).toEqual(['hola mundo', 'otra']);
+});

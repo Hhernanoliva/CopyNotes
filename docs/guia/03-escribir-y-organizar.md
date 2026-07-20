@@ -29,8 +29,17 @@ Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mo
 - **Con varios seleccionados también podés apretar directo sobre lo resaltado y arrastrar** (sin buscar la manija): la selección se conserva y se mueve entera. Un **clic simple** sobre lo resaltado (sin arrastrar) deja de seleccionar y pone el cursor en esa línea para editar.
 - Para **cancelar**, soltá fuera de la lista o apretá **Escape**: no se mueve nada.
 - Un **clic rápido** sigue sirviendo para poner el cursor y editar; solo se arrastra si mantenés presionado.
+### Mover un texto seleccionado (una palabra o un trozo)
 
-Un solo **Ctrl/Cmd+Z** deshace todo el movimiento.
+Es distinto de mover el renglón entero: si seleccionás **solo una palabra o un trozo** dentro de un renglón y lo arrastrás, se mueve **solo ese texto**.
+
+- Seleccioná el texto, apretá **sobre lo resaltado** y arrastrá. Una **línea fina** te muestra dónde va a caer, siguiendo el cursor.
+- Soltá donde quieras (en la misma línea o en otra): el texto **se mueve** ahí y **conserva el formato** (negrita, itálica, links…).
+- **Escape** cancela: no se mueve nada.
+- Funciona en renglones de texto, títulos, viñetas y tareas. En bloques de **código** y **separadores** no aplica.
+- Un **clic simple** sobre el texto resaltado (sin arrastrar) solo pone el cursor ahí, como siempre.
+
+Un solo **Ctrl/Cmd+Z** deshace el movimiento (de renglones o de texto).
 
 ### Pegar varias líneas
 
