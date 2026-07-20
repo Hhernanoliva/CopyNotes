@@ -52,6 +52,7 @@
 		selected = false,
 		onShiftSelect,
 		onPlainMousedown,
+		onTextSelectionMousedown,
 		onDragOver,
 		onDragHold,
 		onDragHandle,
@@ -425,6 +426,14 @@
 		// drag-select here — that would wipe the selection before a move begins.
 		// The controller collapses the selection itself if it turns out a click.
 		if (selected) return;
+		// Pressing on a live text selection (a word) grabs it for a text move
+		// (spec 026) instead of starting a block drag-select. The editor decides
+		// if the press is really inside the selection and arms the drag.
+		const textSel = window.getSelection?.();
+		if (textSel && !textSel.isCollapsed) {
+			onTextSelectionMousedown?.(block, event);
+			return;
+		}
 		onPlainMousedown?.(block);
 	}
 

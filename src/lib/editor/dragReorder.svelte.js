@@ -107,11 +107,19 @@ export function createDragReorder({
 	// MOVE_CANCEL_PX before it fires means "select text / scroll", not "move".
 	function armFromPointer(blockId, event) {
 		if (event.button != null && event.button !== 0) return; // primary only
+		const selected = getSelectedIds();
+		const onSelection = selected.includes(blockId);
+		// Dragging a live text selection (a word/phrase) is the browser's own
+		// drag-and-drop of that text. Stay out of its way — don't hijack it into
+		// a whole-block move. Block-selection drags clear the native range first,
+		// so this only bails on an in-line text selection.
+		if (!onSelection) {
+			const textSel = window.getSelection?.();
+			if (textSel && !textSel.isCollapsed && textSel.rangeCount > 0) return;
+		}
 		startX = event.clientX;
 		startY = event.clientY;
 		grabDepth = depthOf(blockId);
-		const selected = getSelectedIds();
-		const onSelection = selected.includes(blockId);
 		const ids = onSelection ? selected : [blockId];
 		draggedIds = orderedSelectionRoots(getBlocks(), ids);
 		window.addEventListener('pointermove', onMove);

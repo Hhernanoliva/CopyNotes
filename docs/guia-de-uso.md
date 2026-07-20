@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-07-19 (manija ⠿ a la izquierda de cada renglón para arrastrarlo al instante; y con varios seleccionados ya podés apretar directo sobre lo resaltado y arrastrar sin perder la selección; un clic simple deselecciona y edita).
+Última actualización: 2026-07-20 (ahora podés seleccionar una palabra o trozo de texto y arrastrarlo para mover solo ese texto —misma línea u otra, conservando el formato, con una guía de dónde cae y Escape para cancelar; un clic simple solo pone el cursor. Además: manija ⠿ para arrastrar renglones, agarrar lo resaltado para mover varios, la Agenda se actualiza sola al poner fecha, y la barra de formato tarda un instante en aparecer).
 
 ## Temas
 

@@ -52,13 +52,15 @@
 	import { fade } from 'svelte/transition';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import { filterCommands, moveSelection, nextSlashState } from './slash';
-	import { caretColumnX, placeCaretAtColumn, edgeForDirection } from './caret';
+	import { caretColumnX, placeCaretAtColumn, edgeForDirection, caretPointFromViewport } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
 	import BlockRow from './BlockRow.svelte';
 	import { createDragReorder } from './dragReorder.svelte.js';
+	import { createTextDrag } from './textDrag.svelte.js';
+	import { planTextMove } from './text-move';
 	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
-	import { textOffset, rangeFromTextOffsets } from './selection-offsets';
+	import { textOffset, rangeFromTextOffsets, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
 	import {
 		sanitizeHtml,
 		htmlToPlainText,
@@ -138,6 +140,96 @@
 		onSelectionClick: () => clearSelection()
 	});
 	$effect(() => () => reorder.destroy());
+
+	// Drag-to-move a text selection (spec 026). The controller owns the pointer
+	// gesture; resolveTextDropPoint maps a screen point to a rich block + caret
+	// offset, and applyTextMove runs the pure planTextMove and persists it.
+	const textDrag = createTextDrag({
+		resolveDropPoint: resolveTextDropPoint,
+		onApply: applyTextMove
+	});
+	$effect(() => () => textDrag.destroy());
+
+	const RICH_TYPES = new Set(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo']);
+	const isRichBlock = (block) => block && RICH_TYPES.has(block.type);
+
+	function blockHtml(block) {
+		return block.html ?? plainTextToHtml(block.content ?? '');
+	}
+
+	// Map a viewport point to a drop target: the rich block editable under it and
+	// the plain-text caret offset there. Null over code/separators or empty space.
+	function resolveTextDropPoint(x, y) {
+		const point = caretPointFromViewport(x, y);
+		if (!point) return null;
+		const node = point.node;
+		const el = node.nodeType === 1 ? /** @type {Element} */ (node) : node.parentElement;
+		const editable = el?.closest('.block-editable');
+		if (!editable) return null;
+		const row = editable.closest('[data-block-id]');
+		const block = blocks.find((b) => b.id === row?.getAttribute('data-block-id'));
+		if (!isRichBlock(block)) return null;
+		const offset = plainTextOffset(editable, node, point.offset);
+		const caretRect = rangeAtPlainOffset(editable, offset).getBoundingClientRect();
+		return { blockId: block.id, offset, caretRect };
+	}
+
+	async function applyTextMove({ sourceId, start, end, targetId, offset }) {
+		const source = blocks.find((b) => b.id === sourceId);
+		const target = blocks.find((b) => b.id === targetId);
+		if (!source || !target) return;
+		const sameBlock = sourceId === targetId;
+		const plan = planTextMove({
+			sourceHtml: blockHtml(source),
+			start,
+			end,
+			targetHtml: sameBlock ? blockHtml(source) : blockHtml(target),
+			dropOffset: offset,
+			sameBlock
+		});
+		if (!plan) return;
+		recordSnapshot();
+		if (sameBlock) {
+			source.html = plan.targetHtml;
+			source.content = htmlToPlainText(plan.targetHtml);
+			await updateBlock(source.id, { html: source.html, content: source.content });
+		} else {
+			source.html = plan.sourceHtml;
+			source.content = htmlToPlainText(plan.sourceHtml);
+			target.html = plan.targetHtml;
+			target.content = htmlToPlainText(plan.targetHtml);
+			await updateBlock(source.id, { html: source.html, content: source.content });
+			await updateBlock(target.id, { html: target.html, content: target.content });
+		}
+		focusBlockId = targetId;
+		focusCaret = plan.caretOffset;
+	}
+
+	// Called from a block's mousedown when the press lands on a live in-line text
+	// selection. Arm the text drag if the press is inside that selection.
+	function textSelectionMousedown(block, event) {
+		if (!isRichBlock(block)) return;
+		const sel = window.getSelection();
+		if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+		const range = sel.getRangeAt(0);
+		const editable = event.currentTarget;
+		if (!editable?.contains?.(range.startContainer) || !editable.contains(range.endContainer)) return;
+		if (!pointInRects(range.getClientRects(), event.clientX, event.clientY)) return;
+		const a = plainTextOffset(editable, range.startContainer, range.startOffset);
+		const b = plainTextOffset(editable, range.endContainer, range.endOffset);
+		const startOffset = Math.min(a, b);
+		const endOffset = Math.max(a, b);
+		if (endOffset <= startOffset) return;
+		textDrag.armFromSelection(block.id, startOffset, endOffset, event);
+	}
+
+	function pointInRects(rects, x, y) {
+		for (const r of rects) {
+			if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+		}
+		return false;
+	}
+
 	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
 	// The block highlight is visual only; announce the count for screen readers.
 	const selectionAnnouncement = $derived(
@@ -1421,6 +1513,7 @@
 					selected={selectedSet.has(row.block.id)}
 					onShiftSelect={shiftSelect}
 					onPlainMousedown={startDrag}
+					onTextSelectionMousedown={textSelectionMousedown}
 					onDragOver={dragOver}
 					onDragHold={(id, event) => reorder.armFromPointer(id, event)}
 					onDragHandle={(id, event) => reorder.armFromHandle(id, event)}
@@ -1486,5 +1579,13 @@
 			Moviendo {reorder.ghost.ids.length}
 			{reorder.ghost.ids.length === 1 ? 'renglón' : 'renglones'}
 		</div>
+	{/if}
+
+	{#if textDrag.indicator}
+		<!-- Drop caret for a text move: a thin line at the pointer's caret position. -->
+		<div
+			class="bg-primary pointer-events-none fixed z-50 w-0.5"
+			style="left: {textDrag.indicator.x}px; top: {textDrag.indicator.top}px; height: {textDrag.indicator.height}px;"
+		></div>
 	{/if}
 {/if}

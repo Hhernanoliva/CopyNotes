@@ -47,3 +47,17 @@ function caretPointFromXY(x, y, el) {
 	}
 	return null;
 }
+
+// Same, but not restricted to a container — returns the caret point anywhere in
+// the document under (x, y). The text-drag controller uses it to find which
+// block a drop lands on. Returns { node, offset } or null.
+export function caretPointFromViewport(x, y) {
+	if (document.caretPositionFromPoint) {
+		const pos = document.caretPositionFromPoint(x, y);
+		return pos ? { node: pos.offsetNode, offset: pos.offset } : null;
+	} else if (document.caretRangeFromPoint) {
+		const range = document.caretRangeFromPoint(x, y);
+		return range ? { node: range.startContainer, offset: range.startOffset } : null;
+	}
+	return null;
+}

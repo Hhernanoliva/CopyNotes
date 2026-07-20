@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createDragReorder } from './dragReorder.svelte.js';
 
 // Three flat blocks, 30px tall each, stacked from list top.
@@ -80,6 +80,25 @@ describe('dragReorder — handle drag', () => {
 
 		expect(reorder.active).toBe(false);
 		expect(applied).toHaveLength(0);
+	});
+
+	it('does not arm a block move when a live text selection is being dragged', () => {
+		// A non-collapsed window selection means the user grabbed selected text
+		// (a word) — that is the browser's native drag-and-drop, not a block move.
+		vi.useFakeTimers();
+		const realGetSelection = window.getSelection;
+		window.getSelection = () =>
+			/** @type {any} */ ({ isCollapsed: false, rangeCount: 1, removeAllRanges() {} });
+		try {
+			reorder.armFromPointer('a', pointer('pointerdown', ROW_LEFT, 10));
+			vi.advanceTimersByTime(500); // well past the long-press window
+			expect(reorder.active).toBe(false);
+			window.dispatchEvent(pointer('pointerup', ROW_LEFT, 10));
+			expect(applied).toHaveLength(0);
+		} finally {
+			window.getSelection = realGetSelection;
+			vi.useRealTimers();
+		}
 	});
 });
 
