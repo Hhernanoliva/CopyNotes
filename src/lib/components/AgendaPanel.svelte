@@ -9,7 +9,7 @@
 		updateBlock
 	} from '$lib/storage';
 
-	let { onOpen, onDataChanged } = $props();
+	let { onOpen, onDataChanged, version = 0 } = $props();
 
 	let blocks = $state([]);
 	let titles = $state({});
@@ -32,7 +32,10 @@
 		loaded = true;
 	}
 
+	// Re-read on mount and whenever the parent bumps `version` (a due date changed
+	// in the editor), so an open Agenda updates live without a re-mount.
 	$effect(() => {
+		version; // reactive dependency
 		refresh();
 	});
 

@@ -61,6 +61,9 @@
 	let editorRef = $state();
 	// Bumped after an import so the editor re-reads its note from storage.
 	let dataVersion = $state(0);
+	// Bumped when a due date changes in the editor, so an open Agenda re-reads
+	// live. Kept separate from dataVersion, which would re-mount the editor.
+	let agendaVersion = $state(0);
 	// Block to focus once the editor (re)loads, set by the Agenda's jump-to-block.
 	let pendingFocusBlockId = $state(null);
 
@@ -455,6 +458,7 @@
 		onDeleteTag={deleteTag}
 		onOpenBlock={openFromAgenda}
 		onDataChanged={handleDataChanged}
+		{agendaVersion}
 	/>
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
@@ -570,6 +574,7 @@
 						onSaveStateChange={(state) => (saveState = state)}
 						onSnippetsChanged={refreshSnippets}
 						onTagsChanged={refreshTags}
+						onDatesChanged={() => (agendaVersion += 1)}
 					/>
 				{/key}
 			{:else}

@@ -21,10 +21,12 @@
 
 Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mouse o con el dedo:
 
-- **Mantené presionado** sobre el renglón un instante (hasta que se "despegue" y aparezca una etiqueta de que lo estás moviendo). Sin soltar, llevalo a donde quieras.
+- **Con el mouse:** al pasar el mouse por un renglón aparece a la izquierda una **manija** (el ícono de puntitos ⠿). Agarrala y arrastrá: el renglón se mueve al instante, sin espera. Es la forma más cómoda cuando tenés **varios renglones seleccionados** — agarrás la manija de cualquiera de ellos y se mueven todos juntos, sin que se te vuelva a seleccionar el texto.
+- **Con el dedo (o si preferís):** **mantené presionado** sobre el renglón un instante (hasta que se "despegue" y aparezca una etiqueta de que lo estás moviendo). Sin soltar, llevalo a donde quieras.
 - Una **línea fina** te va mostrando dónde va a caer.
 - Si lo movés **hacia la derecha**, queda **dentro** del renglón de arriba (como sub-punto). Hacia la **izquierda**, **sale** hacia afuera. Así podés anidar o desanidar sin usar Tab.
 - El renglón se lleva **todos sus hijos**. Si tenías **varios renglones seleccionados**, se mueven todos juntos.
+- **Con varios seleccionados también podés apretar directo sobre lo resaltado y arrastrar** (sin buscar la manija): la selección se conserva y se mueve entera. Un **clic simple** sobre lo resaltado (sin arrastrar) deja de seleccionar y pone el cursor en esa línea para editar.
 - Para **cancelar**, soltá fuera de la lista o apretá **Escape**: no se mueve nada.
 - Un **clic rápido** sigue sirviendo para poner el cursor y editar; solo se arrastra si mantenés presionado.
 

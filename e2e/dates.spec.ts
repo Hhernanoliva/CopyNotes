@@ -111,6 +111,35 @@ test('date panel closes on outside click and badge toggle', async ({ page }) => 
 	await expect(panel).not.toBeVisible();
 });
 
+// Regression: adding a date while the Agenda is already open must show up
+// live, without leaving and re-entering Agenda to force a re-read.
+test('agenda updates live when a date is added while it is open', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('pagar');
+	await page.waitForTimeout(700); // flush the text before the Agenda reads storage
+
+	// Open the Agenda first — nothing is dated yet.
+	await page.getByRole('button', { name: 'Agenda' }).click();
+	await expect(page.getByText('Nada agendado')).toBeVisible();
+
+	// Add a date in the editor WITHOUT leaving the Agenda.
+	await first.click();
+	await page.keyboard.press('End');
+	await page.keyboard.type('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+	await page.getByRole('button', { name: 'Hoy' }).click();
+	await expect(panel).not.toBeVisible();
+
+	// The Agenda must reflect it live.
+	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toBeVisible();
+});
+
 // Spec 021 Slice B: the Agenda lists dated blocks and jumps to them.
 test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 	await page.goto('/');
