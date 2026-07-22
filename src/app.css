@@ -247,6 +247,22 @@
 	}
 }
 
+@media (pointer: coarse) {
+	/* Agranda el área tocable a 44px mediante un pseudo-elemento invisible,
+	   sin cambiar el tamaño visual del control. */
+	.cn-tap {
+		position: relative;
+	}
+	.cn-tap::after {
+		content: '';
+		position: absolute;
+		inset: 50%;
+		width: var(--touch-target);
+		height: var(--touch-target);
+		transform: translate(-50%, -50%);
+	}
+}
+
 /* Quiet Motion — modal dialogs (spec 024, Stage 3). These are native
    <dialog>s opened with showModal(); the element is never unmounted, so
    Svelte transitions do not apply. Animate with CSS instead: @starting-style

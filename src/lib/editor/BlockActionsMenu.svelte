@@ -50,7 +50,7 @@
 		use:tooltip={'Más acciones'}
 		onmousedown={(event) => event.preventDefault()}
 		onclick={() => (open = !open)}
-		class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
+		class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
 			? 'text-foreground'
 			: ''}"
 	>

@@ -61,3 +61,22 @@ test('los controles de la línea son visibles al tacto sin hover', async ({ page
 	);
 	expect(Number(opacity)).toBe(1);
 });
+
+test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => {
+	await page.goto('/');
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('con etiqueta #urgente ');
+
+	const x = page.getByRole('button', { name: /Quitar etiqueta/ }).first();
+	// El área tocable la aporta el pseudo-elemento .cn-tap::after (44px), que no
+	// agranda la caja visible del botón; se mide sobre el pseudo.
+	const size = await x.evaluate((el) => {
+		const s = getComputedStyle(el, '::after');
+		return { w: parseFloat(s.width), h: parseFloat(s.height) };
+	});
+	expect(size.w).toBeGreaterThanOrEqual(44);
+	expect(size.h).toBeGreaterThanOrEqual(44);
+});

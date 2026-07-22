@@ -475,7 +475,7 @@
 			event.stopPropagation();
 			onDragHandle?.(block.id, event);
 		}}
-		class="cn-affordance text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+		class="cn-affordance cn-tap text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
 	>
 		<GripVertical size={14} aria-hidden="true" />
 	</div>
@@ -634,7 +634,7 @@
 			onmousedown={(event) => event.preventDefault()}
 			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => onDateBadge(block)}
-			class="{overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring mt-1 flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring mt-1 flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
 		>📅 {dueLabel}</button>
 	{/if}
 
@@ -663,7 +663,7 @@
 			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
 			onclick={() => confirmCopy(false)}
-			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			{#if copied}
 				<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -680,7 +680,7 @@
 				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => confirmCopy(true)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				{#if copiedWithChildren}
 					<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
