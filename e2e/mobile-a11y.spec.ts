@@ -44,3 +44,20 @@ test('la barra de formato no supera el ancho de la pantalla', async ({ page }) =
 	expect(box.x).toBeGreaterThanOrEqual(0);
 	expect(box.x + box.width).toBeLessThanOrEqual(vw);
 });
+
+test('los controles de la línea son visibles al tacto sin hover', async ({ page }) => {
+	await page.goto('/');
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('una línea');
+
+	// sin hover: el clúster de acciones debe estar visible (opacity 1)
+	const copy = page.getByRole('button', { name: 'Copiar bloque' }).first();
+	await expect(copy).toBeVisible();
+	const opacity = await copy.evaluate((el) =>
+		getComputedStyle(el.closest('.cn-affordance')).opacity
+	);
+	expect(Number(opacity)).toBe(1);
+});

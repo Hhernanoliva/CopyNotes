@@ -475,7 +475,7 @@
 			event.stopPropagation();
 			onDragHandle?.(block.id, event);
 		}}
-		class="text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+		class="cn-affordance text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
 	>
 		<GripVertical size={14} aria-hidden="true" />
 	</div>
@@ -486,7 +486,7 @@
 				onclick={() => onToggleCollapsed(block)}
 				aria-label={block.collapsed ? 'Expandir bloque' : 'Colapsar bloque'}
 				aria-expanded={!block.collapsed}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
+				class="cn-affordance text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
 					? 'opacity-100'
 					: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
 			>
@@ -655,7 +655,7 @@
 	     Hidden until hover/keyboard focus so the page stays quiet.
 	     mousedown+preventDefault keeps the caret in the block. -->
 	<div
-		class="pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
+		class="cn-affordance pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
 	>
 		<button
 			type="button"

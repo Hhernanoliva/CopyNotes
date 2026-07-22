@@ -238,6 +238,15 @@
 	opacity: 1;
 }
 
+/* En punteros sin hover (táctil), los controles de la línea no pueden
+   depender de "pasar el mouse por encima": quedan siempre alcanzables. */
+@media (hover: none) {
+	.cn-affordance {
+		opacity: 1 !important;
+		pointer-events: auto !important;
+	}
+}
+
 /* Quiet Motion — modal dialogs (spec 024, Stage 3). These are native
    <dialog>s opened with showModal(); the element is never unmounted, so
    Svelte transitions do not apply. Animate with CSS instead: @starting-style
