@@ -37,7 +37,10 @@
 		let top = rect.top - box.height - margin;
 		if (top < margin) top = rect.bottom + margin;
 		let left = rect.left + rect.width / 2 - box.width / 2;
-		left = Math.min(Math.max(left, margin), window.innerWidth - box.width - margin);
+		// Cuando la barra es tan ancha como la pantalla, el borde derecho ideal
+		// queda a la izquierda del margen: no dejar el borde izquierdo negativo.
+		const maxLeft = Math.max(margin, window.innerWidth - box.width - margin);
+		left = Math.min(Math.max(left, margin), maxLeft);
 		pos = { top: top + window.scrollY, left: left + window.scrollX };
 	});
 
@@ -64,7 +67,7 @@
 		data-copynotes-toolbar
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
-		class="cn-toolbar bg-popover border-border flex items-center gap-0.5 rounded-lg border p-1 shadow-xl"
+		class="cn-toolbar bg-popover border-border flex max-w-[calc(100vw-1rem)] items-center gap-0.5 overflow-x-auto rounded-lg border p-1 shadow-xl"
 	>
 		{#each headings as [id, label, on]}
 			<FormattingButton {label} active={on} disabled={!enabled.blockType} onActivate={() => onCommand(id)}>

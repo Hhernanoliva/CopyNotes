@@ -27,3 +27,20 @@ test('la fecha queda arriba en una línea de varios renglones', async ({ page })
 	// el tope del badge está cerca del tope de la fila (no centrado verticalmente)
 	expect(badgeBox.y - rowBox.y).toBeLessThan(16);
 });
+
+test('la barra de formato no supera el ancho de la pantalla', async ({ page }) => {
+	await page.goto('/');
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('texto para seleccionar');
+	await page.keyboard.press('ControlOrMeta+A'); // selecciona el renglón
+
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await toolbar.waitFor();
+	const box = await toolbar.boundingBox();
+	const vw = page.viewportSize().width;
+	expect(box.x).toBeGreaterThanOrEqual(0);
+	expect(box.x + box.width).toBeLessThanOrEqual(vw);
+});
