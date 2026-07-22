@@ -362,6 +362,9 @@
 	const history = createHistory({ limit: 100 });
 	let lastTextAt = 0;
 	let lastTextBlockId = null;
+	// Id del renglón en formateo durante la ventana síncrona del comando. Deja
+	// que handleBlockInput ignore el evento `input` incidental de execCommand.
+	let formattingBlockId = null;
 
 	function currentSnapshot() {
 		return { blocks: $state.snapshot(blocks), focusId: activeBlockId };
@@ -433,6 +436,11 @@
 	function handleBlockInput(block, payload) {
 		const text = payload.content;
 		const html = payload.html;
+		// Ignorar el evento `input` incidental que un comando de formato puede
+		// disparar: runFormatCommand ya registró historial y guardó. En la ventana
+		// síncrona lo marca formattingBlockId; un evento tardío llega con el html
+		// ya guardado (sanitizeHtml es idempotente) y coincide.
+		if (block.id === formattingBlockId || (html === block.html && text === block.content)) return;
 		recordTextSnapshot(block.id);
 		// Typing "/" anywhere in the block opens the slash menu; what follows up
 		// to the caret is the query. Code blocks are exempt, slashes are normal
@@ -614,10 +622,10 @@
 	// silently collapsing it a tick later. Apply the sanitized HTML to the DOM
 	// ourselves (so that later comparison is a no-op) and restore the selection
 	// by character offset, which survives the node replacement.
-	function persistActiveBlock() {
-		const row = document.querySelector(`[data-block-id="${toolbar?.blockId}"] .block-editable`);
+	function persistActiveBlock(blockId) {
+		const row = document.querySelector(`[data-block-id="${blockId}"] .block-editable`);
 		if (!row) return;
-		const block = blocks.find((b) => b.id === toolbar.blockId);
+		const block = blocks.find((b) => b.id === blockId);
 		if (!block) return;
 		const sel = window.getSelection();
 		let start = null;
@@ -640,7 +648,16 @@
 		}
 		block.html = html;
 		block.content = htmlToPlainText(html);
-		updateBlock(block.id, { html: block.html, content: block.content });
+		// Guardar por la cola con la MISMA clave que usa el tipeo: así el guardado
+		// pendiente de la última tecla (que lleva el html SIN formato) se reemplaza
+		// —scheduleSave limpia su timer— y este estado con formato queda cubierto
+		// por el diario ante un cierre. No hace falta cancelPending: para inline lo
+		// reemplaza esta misma clave, y los encabezados no cambian el html.
+		scheduleSave(`block:${blockId}`, () => updateBlock(blockId, { html: block.html, content: block.content }), {
+			table: 'blocks',
+			id: blockId,
+			changes: { html: block.html, content: block.content }
+		});
 	}
 
 	// Popover-dispatched commands (currently just the link editor's Save/Remove
@@ -655,31 +672,70 @@
 		sel.addRange(toolbar.savedRange);
 	}
 
-	async function handleToolbarCommand(name, arg) {
-		const block = blocks.find((b) => b.id === toolbar?.blockId);
+	// Única puerta de formato, venga de la barra o del teclado. Dueña del paso
+	// de Deshacer, de aplicar el comando y de guardar el resultado leyéndolo del
+	// DOM explícitamente — nunca depende del evento `input` del navegador, que
+	// execCommand dispara distinto en cada motor (Chrome síncrono, WebKit tarde
+	// o nunca).
+	function runFormatCommand(blockId, name, arg, { restoreSelection = false } = {}) {
+		const block = blocks.find((b) => b.id === blockId);
 		if (!block) return;
-		restoreSavedSelection();
-		switch (name) {
-			case 'h1': return void setBlockType(block, 'heading1');
-			case 'h2': return void setBlockType(block, 'heading2');
-			case 'h3': return void setBlockType(block, 'heading3');
-			case 'normal': return void setBlockType(block, 'text');
-			case 'bold': applyInline('bold'); break;
-			case 'italic': applyInline('italic'); break;
-			case 'underline': applyInline('underline'); break;
-			case 'strike': applyInline('strikethrough'); break;
-			case 'code': toggleCode(); break;
-			case 'color': applyColor(arg); break;
-			case 'link': if (!applyLink(arg)) return; break;
-			case 'removeLink': removeLink(); break;
-			case 'clear': document.execCommand('removeFormat'); break;
-			case 'copyText': {
-				const text = window.getSelection()?.toString() ?? '';
-				if (text) await writePlainTextToClipboard(text);
-				return;
+		if (restoreSelection) restoreSavedSelection();
+		const before = currentSnapshot();
+		const beforeHtml = block.html;
+		const beforeType = block.type;
+		const isHeading = name === 'h1' || name === 'h2' || name === 'h3' || name === 'normal';
+		formattingBlockId = blockId;
+		try {
+			switch (name) {
+				case 'h1': setBlockType(block, 'heading1'); break;
+				case 'h2': setBlockType(block, 'heading2'); break;
+				case 'h3': setBlockType(block, 'heading3'); break;
+				case 'normal': setBlockType(block, 'text'); break;
+				case 'bold': applyInline('bold'); break;
+				case 'italic': applyInline('italic'); break;
+				case 'underline': applyInline('underline'); break;
+				case 'strike': applyInline('strikethrough'); break;
+				case 'code': toggleCode(); break;
+				case 'color': applyColor(arg); break;
+				case 'link': if (!applyLink(arg)) return; break;
+				case 'removeLink': removeLink(); break;
+				case 'clear': document.execCommand('removeFormat'); break;
+				default: return;
+			}
+		} finally {
+			formattingBlockId = null;
+		}
+		// Los encabezados persisten por el propio setBlockType; los comandos que
+		// mutan el contenteditable se leen y guardan acá. Al restaurar la selección
+		// (origen barra/popover) enfocamos el renglón para que Ctrl/Cmd+Z llegue al
+		// editor aunque el foco estuviera en el popover de enlace.
+		if (!isHeading) {
+			persistActiveBlock(blockId);
+			if (restoreSelection) {
+				const el = document.querySelector(`[data-block-id="${blockId}"] .block-editable`);
+				if (el instanceof HTMLElement) el.focus({ preventScroll: true });
 			}
 		}
-		persistActiveBlock();
+		// Un solo paso de Deshacer, y solo si algo cambió de verdad.
+		if (block.html !== beforeHtml || block.type !== beforeType) {
+			history.push(before);
+			lastTextBlockId = null;
+		}
+	}
+
+	async function handleToolbarCommand(name, arg) {
+		const blockId = toolbar?.blockId;
+		if (!blockId) return;
+		if (name === 'copyText') {
+			// El popover puede haber movido el foco; restaurar la selección guardada
+			// antes de leerla (protección que ya existía).
+			restoreSavedSelection();
+			const text = window.getSelection()?.toString() ?? '';
+			if (text) await writePlainTextToClipboard(text);
+			return;
+		}
+		runFormatCommand(blockId, name, arg, { restoreSelection: true });
 		refreshToolbar();
 	}
 
