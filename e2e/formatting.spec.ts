@@ -324,3 +324,58 @@ test('rehacer recupera el código en línea deshecho', async ({ page }) => {
 	await page.keyboard.press('ControlOrMeta+Shift+z');
 	await expect(first.locator('code')).toHaveText('codigo');
 });
+
+test('aplicar negrita por atajo a mitad de ráfaga: 1er deshacer quita negrita, 2do quita texto', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: negrita atajo deshacer');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	// SIN pausa: el atajo cae dentro de la ráfaga de tipeo. Con el código viejo el
+	// formato se agrupa con el texto y el primer Deshacer borra todo. La puerta le
+	// da su propio paso. El 2do Deshacer (llega a vacío) descarta un paso duplicado.
+	await page.keyboard.type('hola mundo', { delay: 25 });
+	await selectAllInBlock(page, first);
+	await page.keyboard.press('ControlOrMeta+b');
+	await expect(first.locator('strong')).toHaveText('hola mundo');
+
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(first.locator('strong')).toHaveCount(0);
+	await expect(first).toHaveText('hola mundo');
+
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(first).toHaveText('');
+});
+
+// Los cuatro atajos pasan por la misma puerta y cada uno crea su propio paso de
+// Deshacer. El tachado (Ctrl/Cmd+Shift+S) valida el nombre canónico `strike`:
+// antes emitía `strikethrough` y moría en la puerta.
+for (const { nombre, keys, tag } of [
+	{ nombre: 'negrita', keys: 'ControlOrMeta+b', tag: 'strong' },
+	{ nombre: 'cursiva', keys: 'ControlOrMeta+i', tag: 'em' },
+	{ nombre: 'subrayado', keys: 'ControlOrMeta+u', tag: 'u' },
+	{ nombre: 'tachado', keys: 'ControlOrMeta+Shift+s', tag: 's' }
+]) {
+	test(`atajo de ${nombre}: un Deshacer quita solo el formato`, async ({ page }) => {
+		await page.goto('/');
+		await page.getByRole('button', { name: 'Nueva nota' }).click();
+		await title(page).fill(`Formato E2E: atajo ${nombre}`);
+
+		const first = page.locator('main [role="textbox"]').first();
+		await first.click();
+		await page.keyboard.type('palabra', { delay: 25 });
+		await page.waitForTimeout(650);
+		await selectAllInBlock(page, first);
+		await page.keyboard.press(keys);
+		await expect(first.locator(tag)).toHaveText('palabra');
+
+		await first.click();
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(first.locator(tag)).toHaveCount(0);
+		await expect(first).toHaveText('palabra');
+	});
+}

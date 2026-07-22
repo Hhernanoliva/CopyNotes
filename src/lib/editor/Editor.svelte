@@ -739,6 +739,13 @@
 		refreshToolbar();
 	}
 
+	// Atajos de teclado (Ctrl/Cmd+B/I/U, Ctrl/Cmd+Shift+S) desde un renglón:
+	// misma puerta que la barra, pero con la selección viva (no la guardada) y
+	// sin reconstruir la barra flotante.
+	function handleKeyboardFormat(block, name) {
+		runFormatCommand(block.id, name, undefined, { restoreSelection: false });
+	}
+
 	function handleNoteInput(block, text) {
 		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
@@ -1553,6 +1560,7 @@
 					{slashCommands}
 					slashIndex={slash ? slash.index : 0}
 					onInput={handleBlockInput}
+					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
