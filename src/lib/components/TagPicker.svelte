@@ -1,6 +1,7 @@
 <script>
 	import { Check, Plus } from '@lucide/svelte';
 	import { filterTags, normalizeTagName, tagNamesMatch } from '$lib/tags';
+	import { keyboardInset } from '$lib/actions/keyboardInset';
 
 	// One picker for notes, blocks and snippets: type to filter existing tags,
 	// pick to toggle, or create the tag on the fly. The parent owns what
@@ -75,6 +76,7 @@
 
 <div
 	bind:this={rootEl}
+	use:keyboardInset
 	class="cn-pop bg-popover border-border absolute top-full z-20 mt-1 w-60 rounded-md border p-1 shadow-md {align ===
 	'right'
 		? 'right-0'

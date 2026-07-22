@@ -1,5 +1,6 @@
 <script>
 	import { Type, List, SquareCheck, Code, Minus, Bookmark, Star, CalendarDays } from '@lucide/svelte';
+	import { keyboardInset } from '$lib/actions/keyboardInset';
 
 	let { commands, selectedIndex, onSelect, emptyLabel = 'Sin resultados' } = $props();
 
@@ -76,6 +77,7 @@
 
 <div
 	bind:this={listEl}
+	use:keyboardInset
 	role="listbox"
 	id="slash-menu"
 	aria-label={commands.some((command) => command.kind === 'snippet')

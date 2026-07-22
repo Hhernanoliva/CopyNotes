@@ -1,5 +1,6 @@
 <script>
 	import { resolveQuickOption, todayString } from '$lib/dates';
+	import { keyboardInset } from '$lib/actions/keyboardInset';
 
 	let { hasDate = false, onPick, onRemove, onClose } = $props();
 
@@ -45,6 +46,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={panelEl}
+	use:keyboardInset
 	role="dialog"
 	aria-label="Fecha del renglón"
 	tabindex="-1"

@@ -3,6 +3,7 @@
 	import FormattingButton from './FormattingButton.svelte';
 	import LinkEditorPopover from './LinkEditorPopover.svelte';
 	import TextColorPopover from './TextColorPopover.svelte';
+	import { keyboardInset } from '$lib/actions/keyboardInset';
 
 	let {
 		rect,
@@ -61,6 +62,7 @@
 {#if rect}
 	<div
 		bind:this={el}
+		use:keyboardInset
 		role="toolbar"
 		tabindex="0"
 		aria-label="Formato de texto"
