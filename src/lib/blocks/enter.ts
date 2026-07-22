@@ -55,6 +55,12 @@ export function canDeleteOnBackspace(blocks, id) {
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);
 }
 
+// Borrar desde el menú (a diferencia de Backspace) puede eliminar un bloque
+// con contenido y su subárbol; solo se prohíbe dejar el editor sin bloques.
+export function canDeleteFromMenu(blocks, id) {
+	return blocks.length > 1;
+}
+
 export function previousVisibleId(blocks, id) {
 	const visible = buildVisibleList(blocks);
 	const index = visible.findIndex((row) => row.block.id === id);

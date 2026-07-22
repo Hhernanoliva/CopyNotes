@@ -21,11 +21,15 @@ test('la fecha queda arriba en una línea de varios renglones', async ({ page })
 	await page.getByRole('button', { name: 'Hoy' }).click();
 
 	const row = page.locator('main [data-block-id]').first();
-	const badge = page.getByRole('button', { name: 'Cambiar fecha' });
-	const rowBox = await row.boundingBox();
+	const badge = row.getByRole('button', { name: 'Cambiar fecha' });
+	await expect(badge).toBeVisible();
+	// El comando "/fecha" ya se consumió: el renglón vuelve a su texto y no
+	// quedan reflows pendientes que muevan el badge mientras lo medimos.
+	await expect(row.locator('.block-editable').first()).not.toContainText('/fecha');
+	const editBox = await row.locator('.block-editable').first().boundingBox();
 	const badgeBox = await badge.boundingBox();
-	// el tope del badge está cerca del tope de la fila (no centrado verticalmente)
-	expect(badgeBox.y - rowBox.y).toBeLessThan(16);
+	// el tope del badge se alinea con el primer renglón del texto (no centrado)
+	expect(badgeBox.y - editBox.y).toBeLessThan(16);
 });
 
 test('la barra de formato no supera el ancho de la pantalla', async ({ page }) => {
@@ -79,4 +83,21 @@ test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => 
 	});
 	expect(size.w).toBeGreaterThanOrEqual(44);
 	expect(size.h).toBeGreaterThanOrEqual(44);
+});
+
+test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }) => {
+	await page.goto('/');
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await first.pressSequentially('borrame');
+	await first.press('Enter');
+	await page.locator('main [data-block-id] .block-editable').nth(1).pressSequentially('quedo yo');
+
+	await page.getByRole('button', { name: 'Más acciones' }).first().click();
+	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
+
+	await expect(page.getByText('borrame')).toHaveCount(0);
+	await expect(page.getByText('quedo yo')).toBeVisible();
 });

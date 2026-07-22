@@ -34,11 +34,12 @@
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { Tag } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { buildVisibleList } from '$lib/blocks/hierarchy';
+	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
 	import {
 		backspaceAction,
+		canDeleteFromMenu,
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
 		planEnter,
@@ -929,6 +930,20 @@
 		if (prevId) focusBlockId = prevId;
 	}
 
+	// Borrar desde el menú de la línea: elimina el bloque y su subárbol. A
+	// diferencia de Backspace, borra aunque tenga contenido o hijos; lo único
+	// que se protege es dejar el editor sin bloques.
+	async function handleDeleteBlock(block) {
+		if (!canDeleteFromMenu(blocks, block.id)) return;
+		recordSnapshot();
+		const prevId = previousVisibleId(blocks, block.id);
+		const ids = [block.id, ...listDescendantIds(blocks, block.id)];
+		await softDeleteBlocks(ids);
+		const removed = new Set(ids);
+		blocks = blocks.filter((row) => !removed.has(row.id));
+		focusBlockId = prevId ?? blocks[0]?.id ?? null;
+	}
+
 	async function handleIndent(block) {
 		const plan = planIndent(blocks, block.id);
 		if (!plan) return;
@@ -1568,6 +1583,7 @@
 					onOutdent={handleOutdent}
 					onMoveUp={handleMoveUp}
 					onMoveDown={handleMoveDown}
+					onDelete={handleDeleteBlock}
 					onToggleCollapsed={handleToggleCollapsed}
 					onToggleCodeCollapsed={handleToggleCodeCollapsed}
 					onToggleChecked={handleToggleChecked}

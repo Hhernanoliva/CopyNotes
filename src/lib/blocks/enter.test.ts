@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	backspaceAction,
+	canDeleteFromMenu,
 	canDeleteOnBackspace,
 	enterOnEmptyAction,
 	planEnter,
@@ -92,6 +93,19 @@ describe('canDeleteOnBackspace', () => {
 	it('protects the last remaining block', () => {
 		const blocks = [block('a', null, 0)];
 		expect(canDeleteOnBackspace(blocks, 'a')).toBe(false);
+	});
+});
+
+describe('canDeleteFromMenu', () => {
+	it('no permite borrar el único bloque', () => {
+		expect(canDeleteFromMenu([block('a')], 'a')).toBe(false);
+	});
+	it('permite borrar un bloque hoja habiendo otros', () => {
+		expect(canDeleteFromMenu([block('a'), block('b')], 'a')).toBe(true);
+	});
+	it('permite borrar un bloque con hijos (se borra el subárbol)', () => {
+		const blocks = [block('a'), block('b', 'a')];
+		expect(canDeleteFromMenu(blocks, 'a')).toBe(true);
 	});
 });
 

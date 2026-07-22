@@ -44,6 +44,7 @@
 		onOutdent,
 		onMoveUp,
 		onMoveDown,
+		onDelete,
 		onToggleCollapsed,
 		onToggleCodeCollapsed,
 		onToggleChecked,
@@ -457,7 +458,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-block-id={block.id}
-	class="group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
+	class="cn-row group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
 		? 'bg-primary/10'
 		: ''}"
 	style="padding-left: {depth * 1.5}rem"
@@ -655,7 +656,7 @@
 	     Hidden until hover/keyboard focus so the page stays quiet.
 	     mousedown+preventDefault keeps the caret in the block. -->
 	<div
-		class="cn-affordance pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
+		class="cn-affordance cn-actions pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
 	>
 		<button
 			type="button"
@@ -663,7 +664,7 @@
 			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
 			onclick={() => confirmCopy(false)}
-			class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			{#if copied}
 				<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -680,7 +681,7 @@
 				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => confirmCopy(true)}
-				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				{#if copiedWithChildren}
 					<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -693,6 +694,10 @@
 		{/if}
 		{#if block.type !== 'separator'}
 			<BlockActionsMenu
+				onAddNote={openNote}
+				onMoveUp={() => onMoveUp(block)}
+				onMoveDown={() => onMoveDown(block)}
+				onDelete={() => onDelete(block)}
 				onSaveSnippet={() => onSaveSnippet(block)}
 				onTag={() => onTag(block)}
 				onDismiss={focusContent}

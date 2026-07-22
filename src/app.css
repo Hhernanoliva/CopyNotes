@@ -247,6 +247,21 @@
 	}
 }
 
+/* En celular táctil (angosto) el clúster de acciones sigue flotando (absoluto)
+   pero en fila horizontal: así ocupa un solo renglón de alto y no se desborda
+   hacia la fila de abajo (donde robaría los toques). La fila reserva espacio a
+   la derecha para que el texto y la fecha no queden debajo del clúster. En
+   tablet (≥md) el clúster ya va en flujo por las clases md:. */
+@media (pointer: coarse) and (max-width: 47.999rem) {
+	.cn-actions {
+		flex-direction: row;
+		gap: 0.25rem;
+	}
+	.cn-row {
+		padding-right: 4rem;
+	}
+}
+
 @media (pointer: coarse) {
 	/* Agranda el área tocable a 44px mediante un pseudo-elemento invisible,
 	   sin cambiar el tamaño visual del control. */
