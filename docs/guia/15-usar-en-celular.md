@@ -19,6 +19,17 @@ En la compu muchas acciones se hacen con el teclado. En el teléfono, tocá los 
 - **Guardar como snippet** y **Etiquetar** — como siempre.
 - **Eliminar** — borra el renglón (y, si tiene sub-renglones, también esos). No te deja borrar el único renglón que queda.
 
+## Enter funciona igual con el teclado en pantalla
+
+En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un teclado físico cuando tocás Enter. CopyNotes ahora lo entiende igual:
+
+- **Enter** crea un renglón nuevo.
+- **Enter dos veces** dentro de la nota gris te saca de la nota y abre un renglón nuevo abajo, igual que en la computadora.
+
+## Los menús no quedan tapados por el teclado
+
+Cuando abrís un menú (el de "/", el de fecha, el de etiquetas o la barra de formato) con el teclado en pantalla ocupando la mitad de abajo, el menú **se acomoda solo para quedar por encima del teclado**, así siempre lo ves y podés elegir.
+
 ## La fecha se alinea arriba
 
 Cuando un renglón ocupa varios renglones de pantalla y tiene una fecha 📅, la fecha ahora se ubica **arriba, junto al comienzo del texto**, en lugar de quedar flotando en el medio.

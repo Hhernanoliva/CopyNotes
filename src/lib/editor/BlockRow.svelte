@@ -23,6 +23,7 @@
 	} from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, normalizeForest } from '$lib/format';
 	import { planNoteExit } from './note';
+	import { intentFromBeforeInput } from './mobileInput';
 	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
 
 	let {
@@ -188,24 +189,30 @@
 		}
 	}
 
+	// Double Enter leaves the note: the second Enter lands on an empty line, so
+	// the empty line is dropped and a fresh text block opens below. Returns true
+	// when it took the exit (caller should preventDefault). Shared by the keyboard
+	// path and the virtual-keyboard beforeinput path so the logic lives once.
+	function tryNoteExit() {
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return false;
+		const range = selection.getRangeAt(0);
+		const start = textOffset(noteEl, range.startContainer, range.startOffset);
+		const end = textOffset(noteEl, range.endContainer, range.endOffset);
+		const plan = planNoteExit(noteEl.textContent, start, end);
+		if (!plan) return false;
+		noteEl.textContent = plan.text;
+		onNoteInput(block, plan.text);
+		if (plan.text === '') showNote = false;
+		onEnter(block, 'text');
+		return true;
+	}
+
 	function handleNoteKeydown(event) {
-		// Double Enter leaves the note: the second Enter lands on an empty line,
-		// so the empty line is dropped and a fresh text block opens below.
 		if (event.key === 'Enter' && !event.shiftKey) {
-			const selection = window.getSelection();
-			if (selection && selection.rangeCount > 0) {
-				const range = selection.getRangeAt(0);
-				const start = textOffset(noteEl, range.startContainer, range.startOffset);
-				const end = textOffset(noteEl, range.endContainer, range.endOffset);
-				const plan = planNoteExit(noteEl.textContent, start, end);
-				if (plan) {
-					event.preventDefault();
-					noteEl.textContent = plan.text;
-					onNoteInput(block, plan.text);
-					if (plan.text === '') showNote = false;
-					onEnter(block, 'text');
-					return;
-				}
+			if (tryNoteExit()) {
+				event.preventDefault();
+				return;
 			}
 		}
 		if (event.key === 'Backspace' && noteEl.textContent === '') {
@@ -219,6 +226,38 @@
 			event.preventDefault();
 			focusBlockSurface();
 		}
+	}
+
+	// Virtual keyboards often do NOT fire keydown 'Enter'; they send a beforeinput
+	// instead. We translate its inputType and enter through the SAME doors as the
+	// physical Enter. On desktop the physical Enter is preventDefault'd in
+	// handleKeydown, which cancels this beforeinput, so there is no double action.
+	function handleBeforeInput(event) {
+		const intent = intentFromBeforeInput(event.inputType);
+		if (!intent) return;
+		// Code blocks keep Enter as a literal newline handled by the browser.
+		if (block.type === 'code') return;
+		if (intent === 'enter') {
+			// With the slash menu open, Enter picks the highlighted command.
+			if (slashOpen) {
+				event.preventDefault();
+				onSlashKey('Enter');
+				return;
+			}
+			event.preventDefault();
+			onEnter(block);
+		} else if (intent === 'softbreak') {
+			event.preventDefault();
+			document.execCommand('insertLineBreak');
+			handleInput();
+		}
+	}
+
+	// The gray note's own virtual-keyboard path: an Enter that lands the exit
+	// leaves the note; otherwise the browser inserts the newline as usual.
+	function handleNoteBeforeInput(event) {
+		if (intentFromBeforeInput(event.inputType) !== 'enter') return;
+		if (tryNoteExit()) event.preventDefault();
 	}
 
 	function handleNoteBlur() {
@@ -574,6 +613,7 @@
 					autocapitalize={block.type === 'code' ? 'off' : undefined}
 					translate={block.type === 'code' ? 'no' : undefined}
 					onkeydown={handleKeydown}
+					onbeforeinput={handleBeforeInput}
 					oninput={handleInput}
 					onpaste={handlePaste}
 					onmousedown={handleMousedown}
@@ -619,6 +659,7 @@
 					aria-label="Nota del bloque"
 					data-placeholder="Nota…"
 					onkeydown={handleNoteKeydown}
+					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}
 					onblur={handleNoteBlur}
 					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap outline-none"
