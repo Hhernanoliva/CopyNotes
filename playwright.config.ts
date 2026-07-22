@@ -27,7 +27,7 @@ export default defineConfig({
 		},
 		{
 			name: 'webkit',
-			testMatch: /desktop-(readiness|import)\.spec\.ts/,
+			testMatch: /(desktop-(readiness|import)|formatting-undo)\.spec\.ts/,
 			use: { ...devices['Desktop Safari'], permissions: [] }
 		}
 	],
