@@ -189,6 +189,12 @@ Behavior:
 - Buttons reflect active format.
 - Selection preserved after clicking a toolbar button.
 - Format persists across a reload.
+- Every format command (toolbar or shortcut) goes through a single gate in the
+  editor that registers one Undo step and persists the result through the save
+  queue (replacing the block's pending typing save under the same key, so a stale
+  save can never overwrite the format on reload). The incidental `input` event
+  from execCommand is ignored via a guard (per-block synchronous flag + content
+  equality). See `specs/019-editor-ux-fixes.md` (fix 6, history).
 - Existing editor behaviors (bullets/checks/collapse/copy/snippets/tags/paste/
   search/export) still pass.
 

@@ -16,6 +16,7 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - **Deshacer:** **Ctrl/Cmd+Z**. Vuelve atrás lo último que hiciste, sea escribir, borrar, mover, indentar, tildar una tarea, pegar o insertar un snippet. Cada golpe deshace un paso más.
 - **Rehacer:** **Ctrl/Cmd+Shift+Z** (o **Ctrl+Y**). Vuelve a aplicar lo que deshiciste.
 - El deshacer del texto va **por tandas**: un Ctrl+Z borra el último tramo que escribiste de una, no letra por letra.
+- **Deshacer también revierte el último formato** que aplicaste —negrita, cursiva, subrayado, tachado, código, color, enlace o convertir a título—, como un paso más y sin borrar el texto. Da igual si lo aplicaste desde la barra flotante o con un atajo de teclado. **Rehacer** (Ctrl/Cmd+Shift+Z) lo vuelve a poner.
 - El historial es **por nota**: al cambiar de nota, arranca limpio.
 
 ## Colapsar y expandir

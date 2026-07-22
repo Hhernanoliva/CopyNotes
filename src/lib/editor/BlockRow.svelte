@@ -21,7 +21,7 @@
 		normalizeNewlines,
 		recallCopy
 	} from '$lib/copy/serialize';
-	import { sanitizeHtml, htmlToPlainText, applyInline, normalizeForest } from '$lib/format';
+	import { sanitizeHtml, htmlToPlainText, normalizeForest } from '$lib/format';
 	import { planNoteExit } from './note';
 	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
 
@@ -36,6 +36,7 @@
 		slashIndex = 0,
 		slashEmptyLabel = 'Sin resultados',
 		onInput,
+		onFormat,
 		onNoteInput,
 		onEnter,
 		onBackspaceEmpty,
@@ -256,11 +257,13 @@
 			if (key === 'b') cmd = 'bold';
 			else if (key === 'i') cmd = 'italic';
 			else if (key === 'u') cmd = 'underline';
-			else if (key === 's' && event.shiftKey) cmd = 'strikethrough';
+			else if (key === 's' && event.shiftKey) cmd = 'strike';
 			if (cmd) {
+				// No aplicar acá: la puerta del editor (runFormatCommand) es la dueña
+				// del formato, del paso de Deshacer y del guardado. Nombre canónico
+				// (strike, no strikethrough); la puerta lo traduce.
 				event.preventDefault();
-				applyInline(cmd);
-				handleInput();
+				onFormat?.(block, cmd);
 				return;
 			}
 			if (key === 'k') {

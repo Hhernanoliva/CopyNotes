@@ -255,6 +255,12 @@ simpler/safer than replicating per-keystroke native undo.
 - Undo/Redo reverse and replay text and structural changes for the current note,
   persist correctly to storage, and restore focus. Switching notes resets
   history without corrupting either note.
+- Inline formatting and headings also enter the history: they are applied through
+  a single gate (`runFormatCommand` in `Editor.svelte`, shared by the floating
+  toolbar and the keyboard shortcuts) that pushes one snapshot only when `html` or
+  `type` actually change (a cancelled link creates no empty step). The incidental
+  `input` event execCommand fires is ignored via a guard (synchronous per-block
+  flag + content equality). See spec 020.
 - No regression to nesting, collapse, todo cascade, slash, tags, copy, or
   snippet insertion.
 

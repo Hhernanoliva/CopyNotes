@@ -44,7 +44,7 @@ Introduce `runFormatCommand`, el guard doble, hace que la barra flotante pase po
 - Test: `e2e/formatting.spec.ts`
 
 **Interfaces:**
-- Produces: `runFormatCommand(blockId, name, arg, { restoreSelection })` — `name` ∈ `{h1,h2,h3,normal,bold,italic,underline,strike,code,color,link,removeLink,clear}`; empuja una foto de historial solo si `block.html` o `block.type` cambian; persiste vía `persistActiveBlock(blockId)` para los comandos que mutan el contenteditable; cancela el guardado de tipeo pendiente del renglón antes de aplicar.
+- Produces: `runFormatCommand(blockId, name, arg, { restoreSelection })` — `name` ∈ `{h1,h2,h3,normal,bold,italic,underline,strike,code,color,link,removeLink,clear}`; empuja una foto de historial solo si `block.html` o `block.type` cambian; persiste vía `persistActiveBlock(blockId)` para los comandos que mutan el contenteditable (que a su vez reemplaza el guardado de tipeo pendiente usando la misma clave en la cola).
 - Produces: `persistActiveBlock(blockId)` — recibe el id explícito (antes leía `toolbar.blockId`) y **guarda por `scheduleSave` con la misma clave `block:<id>`** (reemplaza el guardado viejo y entra al diario), no por una escritura directa.
 - Produces: módulo-`let formattingBlockId` — id del renglón en formateo durante la ventana síncrona; `null` el resto del tiempo.
 
@@ -145,10 +145,6 @@ Agregar la puerta (por ejemplo justo antes de `handleToolbarCommand`):
 	function runFormatCommand(blockId, name, arg, { restoreSelection = false } = {}) {
 		const block = blocks.find((b) => b.id === blockId);
 		if (!block) return;
-		// Matar el guardado de tipeo pendiente del renglón: lleva el html viejo y,
-		// si llegara después, pisaría el formato al recargar. La persistencia de
-		// abajo (o setBlockType para encabezados) escribe el estado fresco.
-		cancelPending(`block:${blockId}`);
 		if (restoreSelection) restoreSavedSelection();
 		const before = currentSnapshot();
 		const beforeHtml = block.html;
@@ -193,7 +189,7 @@ Agregar la puerta (por ejemplo justo antes de `handleToolbarCommand`):
 	}
 ```
 
-Nota: `setBlockType` es `async`, pero su `Object.assign(block, changes)` corre síncrono antes del primer `await`, así que `block.type` ya refleja el cambio cuando se evalúa la comparación (no se hace `await` a propósito: la persistencia sigue en segundo plano). El `cancelPending` de arriba cubre también los encabezados: si había un guardado de tipeo pendiente, no pisa el html del encabezado.
+Nota: `setBlockType` es `async`, pero su `Object.assign(block, changes)` corre síncrono antes del primer `await`, así que `block.type` ya refleja el cambio cuando se evalúa la comparación (no se hace `await` a propósito: la persistencia sigue en segundo plano). Por qué NO hace falta cancelar el guardado de tipeo pendiente: (a) para el formato inline, `persistActiveBlock` llama `scheduleSave` con la misma clave `block:<id>`, y `scheduleSave` ya limpia el timer de la entrada anterior y la reemplaza (el guardado viejo con html sin formato desaparece); (b) para encabezados, `planBlockType` solo cambia `type`/`checked`, nunca `html`/`content`, así que el guardado de tipeo pendiente escribe el mismo html —inofensivo— y encima devuelve el indicador a "Guardado". Cancelarlo dejaría el indicador colgado en "Guardando…" en encabezados.
 
 - [ ] **Step 5: `handleToolbarCommand` delega en la puerta (y `copyText` conserva su protección)**
 
@@ -253,12 +249,14 @@ test('deshacer revierte solo el color, sin borrar el texto', async ({ page }) =>
 	await page.keyboard.type('coloreado', { delay: 25 });
 	await page.waitForTimeout(650);
 	await selectAllInBlock(page, first);
-	// (usar el mismo gesto de la barra que ya usan otras pruebas de color)
-	await applyColorFromToolbar(page); // helper existente/al mismo estilo de la suite
-	await expect(first.locator('[style*="color"]')).toHaveCount(1);
+	// El color se aplica por CLASE (fmt-color-*), no por style inline: abrir el
+	// panel "Color de texto" y elegir el swatch "Rojo".
+	await page.getByRole('button', { name: 'Color de texto' }).click();
+	await page.getByRole('menuitemradio', { name: 'Rojo' }).click();
+	await expect(first.locator('.fmt-color-red')).toHaveCount(1);
 	await first.click();
 	await page.keyboard.press('ControlOrMeta+z');
-	await expect(first.locator('[style*="color"]')).toHaveCount(0);
+	await expect(first.locator('.fmt-color-red')).toHaveCount(0);
 	await expect(first).toHaveText('coloreado');
 });
 
@@ -301,7 +299,13 @@ test('deshacer quita el enlace recién puesto — sin volver a hacer clic en el 
 });
 ```
 
-> Nota: usar los selectores/labels reales de la barra (`Color`, `Enlace`, `Quitar enlace`, `Limpiar formato`) tal como los expone `FloatingFormattingToolbar`; el implementador confirma los nombres con `grep -n "aria-label" src/lib/editor/FloatingFormattingToolbar.svelte`. Agregar también, con el mismo patrón (pausa >650 ms → aplicar → un Deshacer), pruebas para **quitar enlace** y **limpiar formato**.
+> Labels verificados de `FloatingFormattingToolbar`/popovers (usar tal cual):
+> - **Negrita**, **Cursiva**, **Subrayado**, **Tachado**, **Código en línea**, **Título 2** — botón con ese `label` (nombre accesible del botón).
+> - **Color de texto** — abre el panel; los swatches son `role="menuitemradio"` con nombre `Ámbar`/`Rojo`/`Verde`/`Azul`/`Gris tenue`/`Por defecto`; aplica la clase `fmt-color-<id>` (p. ej. `.fmt-color-red`), no `style`.
+> - **Enlace** — abre `LinkEditorPopover` (`role="dialog"` name `Editar enlace`); input con label `URL del enlace`; botón **Guardar** (o Enter); botón **Quitar** (solo aparece si ya había enlace).
+> - **Quitar formato** — está **dentro** del menú **Más opciones** (abrir ese menú primero, luego clic en `Quitar formato`).
+>
+> Agregar, con el mismo patrón (pausa >650 ms → aplicar → un Deshacer), pruebas para **quitar enlace** (crear enlace, reabrir **Enlace**, clic **Quitar**) y **quitar formato** (**Más opciones** → **Quitar formato**).
 
 - [ ] **Step 9: Correr las pruebas de Step 8 y verificar que pasan**
 
@@ -562,7 +566,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Color → Task 1 Step 8 (camino propio `applyColor`, rojo) → Step 9.
 - H2/encabezado → Task 1 Step 8 (camino propio `setBlockType`, rojo) → Step 9.
 - Enlace válido (sin re-clic, valida foco tras popover) → Task 1 Step 8-9. Enlace inválido/cancelado no crea paso vacío → por construcción (`applyLink` devuelve falso → `return` antes del push).
-- Quitar enlace y limpiar formato → Task 1 Step 8 (caminos propios `removeLink` / `removeFormat`).
+- Quitar enlace y quitar formato → Task 1 Step 8 (caminos propios `removeLink` / `execCommand('removeFormat')`).
 - Rehacer recupera el formato → Task 1 Step 10-11.
 - Escribir + pausa + Ctrl+B (atajo) → doble Deshacer → Task 2 Step 1.
 - Los cuatro atajos, **incluido tachado** (nombre canónico llega a la puerta) → Task 2 Step 6.
@@ -570,7 +574,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Chromium + **WebKit real** (verificando que corre 1 test, no 0) → Task 3.
 
 **Bloqueadores del análisis previo, y dónde se resuelven:**
-1. Guardado viejo pisa el formato nuevo → `persistActiveBlock` guarda por `scheduleSave` con la misma clave `block:<id>` (reemplaza el pendiente) y `runFormatCommand` hace `cancelPending` antes de aplicar; queda cubierto por el diario. Task 1 Step 3-4; regresión Task 2 Step 7.
+1. Guardado viejo pisa el formato nuevo → `persistActiveBlock` guarda por `scheduleSave` con la misma clave `block:<id>`, y `scheduleSave` ya limpia y reemplaza la entrada anterior (el guardado de tipeo viejo desaparece); queda cubierto por el diario. No hace falta `cancelPending` (rompería el indicador de guardado en encabezados, que no cambian html). Task 1 Step 3-4; regresión Task 2 Step 7.
 2. El atajo de tachado moría en `default` → nombre canónico `strike` desde `BlockRow`; la puerta lo traduce a `applyInline('strikethrough')`. Task 2 Step 3; prueba Task 2 Step 6.
 3. WebKit no corría ninguna prueba de formato → archivo enfocado agregado al `testMatch` de WebKit; se verifica que ejecuta 1 test. Task 3.
 4. Commits violaban la regla de docs → specs y guía viajan dentro del commit de la Task 1 (mismo commit que implementa el cambio visible). Task 1 Step 13-14.
