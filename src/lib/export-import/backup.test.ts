@@ -26,6 +26,24 @@ describe('buildBackup', () => {
 		expect(validateBackup(backup).ok).toBe(true);
 	});
 
+	it('keeps only backup-safe settings out of the file', () => {
+		const backup = buildBackup(
+			{
+				settings: [
+					{ key: 'theme', value: 'dark', updatedAt: iso },
+					{ key: 'agendaHideCompleted', value: true, updatedAt: iso },
+					{ key: 'apiToken', value: 'secreto', updatedAt: iso }
+				]
+			},
+			{ appVersion: '0.0.1', exportedAt: iso }
+		);
+		expect(backup.data.settings.map((row) => row.key).sort()).toEqual([
+			'agendaHideCompleted',
+			'theme'
+		]);
+		expect(backup.counts.settings).toBe(2);
+	});
+
 	it('fills missing tables with empty arrays', () => {
 		const backup = buildBackup({}, { appVersion: '0.0.1', exportedAt: iso });
 		expect(backup.data.blocks).toEqual([]);

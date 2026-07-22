@@ -31,6 +31,8 @@ Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo
 
 Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).
 
+El respaldo también incluye tus preferencias seguras y las restaura: el tema (claro/oscuro), si ya viste la bienvenida y **Ocultar completadas** de la Agenda, entre otras. Solo viajan las preferencias inofensivas; nada delicado se escribe nunca en el archivo. Cuando importás y conservás lo tuyo, una preferencia que ya tengas puesta en este equipo manda: no se pisa con la del archivo.
+
 ### Reemplazar todo (con cuidado)
 
 En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo lo del respaldo. Pide una confirmación explícita y te recuerda descargar un respaldo de lo actual antes. No se puede deshacer.

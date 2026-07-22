@@ -49,8 +49,6 @@ export { createFolder, listFolders, updateFolder, deleteFolderKeepContents } fro
 export { applySidebarUpdates, shiftRootDown, ensureSidebarOrder } from './organize';
 export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 export {
-	getSetting,
-	setSetting,
 	getTheme,
 	setTheme,
 	getHasCompletedOnboarding,

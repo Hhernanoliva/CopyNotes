@@ -165,6 +165,21 @@ describe('planMerge', () => {
 		expect(plan.settings.map((row) => row.key)).toEqual(['theme']);
 	});
 
+	it('restores the agenda and demo-note preferences (spec 021)', () => {
+		const incoming = {
+			...emptyTables(),
+			settings: [
+				{ key: 'agendaHideCompleted', value: true, updatedAt: iso },
+				{ key: 'demoNoteCreated', value: true, updatedAt: iso }
+			]
+		};
+		const plan = planMerge(emptyTables(), incoming, { createId: nextId });
+		expect(plan.settings.map((row) => row.key).sort()).toEqual([
+			'agendaHideCompleted',
+			'demoNoteCreated'
+		]);
+	});
+
 	it('summarizes what will be added', () => {
 		const incoming = {
 			...emptyTables(),

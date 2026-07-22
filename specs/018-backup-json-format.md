@@ -319,15 +319,19 @@ Required fields:
 }
 ```
 
-Allowed MVP setting examples:
+Backup-safe settings (current):
 
 - `theme`
 - `hasCompletedOnboarding`
 - `lastOpenedNoteId`
+- `demoNoteCreated`
+- `agendaHideCompleted`
 
 Settings are an explicit exception to the stable-ID and full-timestamp rule used by other entities: the `key` acts as the identifier, and settings do not need `id`, `createdAt`, or soft delete. This exception is also documented in `002-data-model-storage.md`.
 
 Settings should only include safe preferences. Do not export sensitive browser internals.
+
+The allow-list is not maintained by hand in the export/import code. `src/lib/storage/settings-registry.ts` is the single source of truth: every preference key is declared there with a `backupSafe` flag, and both export (`buildBackup`) and import (`planMerge`, `replaceAllTables`) filter through it. A preference not marked `backupSafe` never leaves the device in a backup file and is never restored from one — unknown keys are treated as unsafe by default. The flag is intentionally scoped to backups; if cloud sync or MCP access arrive, add sibling flags (e.g. `cloudSync`, `mcpExposable`) rather than widening the meaning of `backupSafe`. When you add a new preference, register it there and decide its flag in the same place you add its typed getter/setter.
 
 ## Example Minimal Backup
 

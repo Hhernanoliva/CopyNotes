@@ -6,6 +6,8 @@
 // exists locally with different content keeps BOTH versions — the imported
 // copy gets a fresh id and every reference to it is remapped.
 
+import { isBackupSafe } from '../storage/settings-registry';
+
 function stableStringify(value) {
 	if (value === null || typeof value !== 'object') return JSON.stringify(value);
 	if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
@@ -47,10 +49,8 @@ function planTable(localRows, incomingRows, remap, createId) {
 
 const mapped = (remap) => (id) => (id !== null && remap.has(id) ? remap.get(id) : id);
 
-export const SAFE_SETTING_KEYS = ['theme', 'hasCompletedOnboarding', 'lastOpenedNoteId'];
-
 export function filterSafeSettings(settings) {
-	return settings.filter((row) => SAFE_SETTING_KEYS.includes(row.key));
+	return settings.filter((row) => isBackupSafe(row.key));
 }
 
 export function planMerge(local, incoming, options = undefined) {
