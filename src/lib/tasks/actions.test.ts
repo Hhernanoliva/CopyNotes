@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, createNote, getBlock, listActivityByBlock } from '$lib/storage';
-import { createTask, completeTask, reopenTask, addTaskNote, editTask } from './actions';
+import { createTask, completeTask, reopenTask, addTaskNote, editTask, readTask, listTasks } from './actions';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -75,5 +75,24 @@ describe('reopen / note / edit', () => {
 		});
 		expect(edited.content).toBe('nuevo');
 		expect(activity.action).toBe('edited');
+	});
+});
+
+describe('readTask / listTasks', () => {
+	it('readTask returns the block and its ordered bitácora', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'T', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+		const read = await readTask(block.id);
+		expect(read.block.id).toBe(block.id);
+		expect(read.activity.map((e) => e.action)).toEqual(['created', 'done']);
+	});
+
+	it('listTasks returns only todo blocks of the note', async () => {
+		const note = await createNote();
+		await createTask({ noteId: note.id, content: 'una', actor: 'user' });
+		const tasks = await listTasks(note.id);
+		expect(tasks.length).toBe(1);
+		expect(tasks[0].type).toBe('todo');
 	});
 });

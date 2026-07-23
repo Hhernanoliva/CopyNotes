@@ -86,3 +86,15 @@ export async function editTask({ blockId, content, html, actor = 'user' }) {
 	});
 	return { block, activity };
 }
+
+export async function readTask(blockId) {
+	const block = await getBlock(blockId);
+	if (!block) return undefined;
+	const activity = await listActivityByBlock(blockId);
+	return { block, activity };
+}
+
+export async function listTasks(noteId) {
+	const blocks = await listBlocksByNote(noteId);
+	return blocks.filter((block) => block.type === 'todo');
+}
