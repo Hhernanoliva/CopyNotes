@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, createNote, updateNote, getBlock, listActivityByBlock } from '$lib/storage';
-import { listTasks } from '$lib/tasks';
+import { db, createNote, updateNote } from '$lib/storage';
+import { createTask, listTasks, readTask } from '$lib/tasks';
 import { ingestAgentChange } from './ingest';
 
 beforeEach(async () => {
@@ -48,5 +48,69 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const res = await ingestAgentChange({ type: 'deleteTask', noteId: note.id, agentId: 'agent' });
 		expect(res.ok).toBe(false);
 		expect(res.reason).toBe('not-allowed');
+	});
+
+	it('rejects a completeTask whose blockId belongs to a hidden note, even with a visible noteId', async () => {
+		const visible = await createNote();
+		await updateNote(visible.id, { agentVisible: true });
+
+		const hidden = await createNote();
+		await updateNote(hidden.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: hidden.id, content: 'secreta', actor: 'user' });
+		// user revokes visibility on the hidden note
+		await updateNote(hidden.id, { agentVisible: false });
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			noteId: visible.id, // agent lies: claims the still-visible note
+			blockId: block.id, // but targets the now-hidden note's task
+			agentId: 'agent'
+		});
+
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('not-agent-visible');
+		// no write happened: task still unchecked, no `done` entry
+		const read = await readTask(block.id);
+		expect(read.block.checked).toBe(false);
+		expect(read.activity.map((e) => e.action)).toEqual(['created']);
+	});
+
+	it('completes a task on a visible note and sanitizes the summary', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: note.id, content: 'tarea', actor: 'user' });
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			noteId: note.id,
+			blockId: block.id,
+			text: 'listo <b>ok</b>',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(true);
+
+		const read = await readTask(block.id);
+		expect(read.block.checked).toBe(true);
+		const done = read.activity.find((e) => e.action === 'done');
+		expect(done.text).not.toContain('<b>'); // markup stripped to plain text
+		expect(done.text).toContain('listo');
+	});
+
+	it('adds a bitácora note on a visible note', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: note.id, content: 'tarea', actor: 'user' });
+
+		const res = await ingestAgentChange({
+			type: 'addNote',
+			noteId: note.id,
+			blockId: block.id,
+			text: 'nota del agente',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(true);
+		const read = await readTask(block.id);
+		expect(read.activity.at(-1).action).toBe('note');
+		expect(read.activity.at(-1).text).toBe('nota del agente');
 	});
 });

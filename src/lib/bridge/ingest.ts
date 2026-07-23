@@ -5,7 +5,7 @@
 // a bitácora note — never delete, export, or reorder.
 
 import { sanitizeHtml, htmlToPlainText } from '$lib/format';
-import { getNote } from '$lib/storage';
+import { getNote, getBlock } from '$lib/storage';
 import { createTask, completeTask, addTaskNote } from '$lib/tasks';
 
 // Reduce any agent-supplied string to safe plain text: sanitize the markup,
@@ -31,7 +31,20 @@ export async function ingestAgentChange(change) {
 	const handler = HANDLERS[change?.type];
 	if (!handler) return { ok: false, reason: 'not-allowed' };
 
-	const note = await getNote(change.noteId);
+	// The note an operation lands on is authoritative from the target itself,
+	// never from the agent's claimed change.noteId. createTask has no block yet
+	// (it targets change.noteId); completeTask/addNote target an existing block,
+	// whose own noteId is the one we gate on — so a stale blockId from a
+	// once-visible, now-hidden note cannot be paired with a still-visible
+	// noteId to slip past the gate.
+	let noteId = change.noteId;
+	if (change.type !== 'createTask') {
+		const block = await getBlock(change.blockId);
+		if (!block) return { ok: false, reason: 'not-agent-visible' };
+		noteId = block.noteId;
+	}
+
+	const note = await getNote(noteId);
 	if (!note || note.agentVisible !== true) return { ok: false, reason: 'not-agent-visible' };
 
 	const result = await handler(change);
