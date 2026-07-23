@@ -50,6 +50,50 @@ test('Alt+Arrow moves a line out of its parent in both directions', async ({ pag
 	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Padre', 'Hijo 2']);
 });
 
+// Regression: Backspace on an EMPTY line that still has sub-items used to leave a
+// stuck "ghost" row (empty, undeletable, caret trapped). Now the row is removed and
+// its children rise one level to take its place — nothing lost, caret goes up.
+test('Backspace on an emptied parent lifts its children up instead of ghosting', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	// Build: Padre > [Hijo 1, Hijo 2]
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Padre');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo 1');
+	await page.keyboard.press('Tab');
+	await page.waitForTimeout(150);
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo 2');
+	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2']);
+
+	// Empty "Padre", then Backspace once more on the now-empty row.
+	await page.getByText('Padre', { exact: true }).click();
+	await page.keyboard.press('End');
+	for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');
+	await page.keyboard.press('Backspace');
+
+	// "Padre" is gone; both children rose to root level, order preserved.
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+	await expect(page.locator('main [data-block-id]', { hasText: 'Hijo 1' })).toHaveCSS(
+		'padding-left',
+		'0px'
+	);
+	await expect(page.locator('main [data-block-id]', { hasText: 'Hijo 2' })).toHaveCSS(
+		'padding-left',
+		'0px'
+	);
+
+	// Survives a reload.
+	await page.waitForTimeout(700);
+	await page.reload();
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+});
+
 // Drag-to-reorder-and-nest: long-press a line (~350ms hold), then drag. A
 // quick drag is text-selection, not a move. Dragging right nests the line.
 

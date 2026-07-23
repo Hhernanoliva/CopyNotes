@@ -43,6 +43,7 @@
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
 		planEnter,
+		planPromoteChildren,
 		previousVisibleId
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
@@ -945,6 +946,19 @@
 			block.checked = false;
 			await updateBlock(block.id, { type: 'text', checked: false });
 			focusBlockId = block.id;
+			return;
+		}
+		// Un renglón vacío con sub-ítems no se puede borrar de plano (perderíamos la
+		// rama), pero tampoco debe quedar como "fantasma": lo quitamos y subimos sus
+		// sub-ítems un nivel para que ocupen su lugar. El cursor pasa al de arriba.
+		const promote = planPromoteChildren(blocks, block.id);
+		if (promote) {
+			recordSnapshot();
+			const prevId = previousVisibleId(blocks, block.id);
+			await applyUpdates(promote.updates);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((row) => row.id !== block.id);
+			if (prevId) focusBlockId = prevId;
 			return;
 		}
 		if (!canDeleteOnBackspace(blocks, block.id)) return;
