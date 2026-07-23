@@ -28,6 +28,7 @@ export {
 	listActivityByNote,
 	listRecentActivity
 } from './activity';
+export { getConnectedAgent, setConnectedAgent, AGENT_SETTING_KEY } from './agents';
 export {
 	createSnippet,
 	getSnippet,
