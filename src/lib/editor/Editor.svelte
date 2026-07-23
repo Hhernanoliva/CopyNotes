@@ -51,7 +51,7 @@
 	import { writePlainTextToClipboard, writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
-	import { MOTION, motionDuration } from '$lib/motion';
+	import { MOTION, motionDuration, prefersReducedMotion } from '$lib/motion';
 	import { filterCommands, moveSelection, nextSlashState } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection, caretPointFromViewport } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
@@ -97,6 +97,16 @@
 	let focusCaret = $state(null);
 	// Last block the user touched; snippet insertion from the sidebar lands here.
 	let activeBlockId = $state(null);
+	// Blocks that just arrived from a snippet insertion, briefly highlighted so
+	// the user sees where the snippet landed. Cleared after the flash.
+	let flashBlockIds = $state(new Set());
+	let flashTimer;
+	function flashBlocks(ids) {
+		if (prefersReducedMotion()) return;
+		clearTimeout(flashTimer);
+		flashBlockIds = new Set(ids);
+		flashTimer = setTimeout(() => (flashBlockIds = new Set()), 650);
+	}
 	let titleEl = $state();
 	// Slash menu state: which block it is anchored to, the plain-text offset of
 	// the "/" (anchor), the text typed after it, and the highlighted option.
@@ -1334,6 +1344,7 @@
 		}
 		blocks = [...blocks, ...plan.newBlocks];
 		focusBlockId = plan.focusId;
+		flashBlocks(plan.newBlocks.map((newBlock) => newBlock.id));
 	}
 
 	// Remove the "/query" span from a row's plain content and html, preserving
@@ -1570,6 +1581,7 @@
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					focused={focusBlockId === row.block.id}
+					flash={flashBlockIds.has(row.block.id)}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
 					slashOpen={slash !== null && slash.blockId === row.block.id}
 					{slashCommands}

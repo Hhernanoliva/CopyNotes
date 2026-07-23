@@ -20,6 +20,19 @@ test('la ventana de Respaldo no abre con la X enfocada', async ({ page }) => {
 	expect(closeFocused).toBe(false);
 });
 
+test('el aviso "Guardado" aparece al guardar y luego se desvanece', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const block = page.locator('main [data-block-id] .block-editable').first();
+	await block.click();
+	await page.keyboard.type('hola');
+
+	// Aparece cuando el guardado termina (exact evita chocar con "Guardando…").
+	await expect(page.getByText('Guardado', { exact: true })).toBeVisible({ timeout: 4000 });
+	// Y no se queda fijo: se va solo.
+	await expect(page.getByText('Guardado', { exact: true })).toBeHidden({ timeout: 4000 });
+});
+
 test('an immediate backup includes the latest editor text', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();

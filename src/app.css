@@ -258,6 +258,22 @@
 	}
 }
 
+/* Quiet Motion — snippet-insertion flash. Newly inserted rows briefly glow so
+   the eye lands where the snippet dropped, then settle. One pass, ease-out.
+   The global prefers-reduced-motion rule zeroes the duration automatically
+   (and the editor also skips arming it when reduce is requested). */
+@keyframes cn-flash {
+	from {
+		background-color: color-mix(in oklab, var(--primary) 20%, transparent);
+	}
+	to {
+		background-color: transparent;
+	}
+}
+.cn-flash {
+	animation: cn-flash 650ms var(--motion-ease);
+}
+
 @media (pointer: coarse) {
 	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al
 	   tocarlo, así que group-focus-within / group-hover no alcanzan para mostrar

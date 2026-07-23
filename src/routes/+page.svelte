@@ -1,5 +1,5 @@
 <script>
-	import { CircleHelp, Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
+	import { Check, CircleHelp, Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
@@ -79,6 +79,16 @@
 		loading = false;
 		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
 	}
+
+	// "Guardado" is a brief reassurance, not a permanent label. While saving it
+	// reads "Guardando…"; once the save lands it shows the check for a moment and
+	// then fades to nothing, so the header stays calm and silence means "todo
+	// guardado". Timer, not a derived value — hence an $effect with cleanup.
+	$effect(() => {
+		if (saveState !== 'saved') return;
+		const timer = setTimeout(() => (saveState = 'idle'), 1400);
+		return () => clearTimeout(timer);
+	});
 
 	$effect(() => {
 		let cancelled = false;
@@ -542,8 +552,10 @@
 					Guardando…
 				{:else if saveState === 'saved'}
 					<span
+						class="inline-flex items-center gap-1"
 						in:fade={{ duration: motionDuration(MOTION.fast) }}
-						out:fade={{ duration: motionDuration(MOTION.fast) }}>Guardado</span
+						out:fade={{ duration: motionDuration(MOTION.fast) }}
+						><Check size={13} aria-hidden="true" />Guardado</span
 					>
 				{/if}
 			</span>

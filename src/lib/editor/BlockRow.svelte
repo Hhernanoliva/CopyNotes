@@ -31,6 +31,7 @@
 		depth = 0,
 		hasChildren = false,
 		focused = false,
+		flash = false,
 		placeholder = '',
 		slashOpen = false,
 		slashCommands = [],
@@ -524,7 +525,7 @@
 	data-block-id={block.id}
 	class="cn-row group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
 		? 'bg-primary/10'
-		: ''}"
+		: ''} {flash ? 'cn-flash' : ''}"
 	style="padding-left: {depth * 1.5}rem"
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
 	onpointerdown={(event) => onDragHold?.(block.id, event)}
@@ -697,6 +698,7 @@
 	{#if block.dueDate && block.type !== 'separator'}
 		<button
 			type="button"
+			in:scale={{ start: 0.6, duration: ready ? motionDuration(MOTION.fast) : 0 }}
 			aria-label="Cambiar fecha"
 			use:tooltip={'Cambiar o quitar fecha'}
 			onmousedown={(event) => event.preventDefault()}

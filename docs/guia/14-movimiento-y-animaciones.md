@@ -32,7 +32,14 @@ ni se mueve solo, y nada te retrasa al escribir.
 - **Copiar un renglón**: el botón de copiar cambia por un instante a una
   tilde ✓ para confirmarte que copió (ya no aparece un aviso aparte).
 - **Tareas**: al marcar una tarea, la tilde aparece con un pequeño gesto.
-- **"Guardado"**: el aviso entra y sale con un fundido suave.
+- **Poner una fecha o una etiqueta**: cuando le agregás una fecha a un
+  renglón, o le ponés una etiqueta, el chip nuevo (📅 la fecha, #la etiqueta)
+  **aparece con un pequeño rebote** para que veas que se agregó.
+- **Insertar un snippet**: los renglones que trae el snippet **se iluminan
+  un instante** al aparecer, así ves dónde cayó lo que insertaste.
+- **"Guardado"**: solo aparece cuando hace falta. Mientras guarda dice
+  "Guardando…"; al terminar muestra un instante ✓ **Guardado** y luego se
+  desvanece. Si no ves nada, es que ya está todo guardado.
 - **Tema claro/oscuro**: el ícono del sol y la luna se cruzan con un fundido
   al cambiar de tema.
 
