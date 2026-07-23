@@ -58,5 +58,7 @@ export {
 	getDemoNoteCreated,
 	setDemoNoteCreated,
 	getAgendaHideCompleted,
-	setAgendaHideCompleted
+	setAgendaHideCompleted,
+	getEditorTextScale,
+	setEditorTextScale
 } from './settings';

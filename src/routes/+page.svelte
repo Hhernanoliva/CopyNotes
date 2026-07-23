@@ -1,14 +1,16 @@
 <script>
-	import { Check, CircleHelp, Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
+	import { Check, CircleHelp, Moon, PanelLeft, Search, Settings, Sun } from '@lucide/svelte';
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import { MOTION, motionDuration } from '$lib/motion';
+	import { coerceScale } from '$lib/settings/text-scale';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
 	import SearchDialog from '$lib/components/SearchDialog.svelte';
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
+	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		applySidebarUpdates,
@@ -18,6 +20,7 @@
 		deleteFolderKeepContents,
 		findOrCreateTag,
 		getDemoNoteCreated,
+		getEditorTextScale,
 		getLastOpenedNoteId,
 		listFolders,
 		listNotes,
@@ -27,6 +30,7 @@
 		replayJournal,
 		setDemoNoteCreated,
 		setHasCompletedOnboarding,
+		setEditorTextScale,
 		setLastOpenedNoteId,
 		setTheme,
 		settlePendingWrites,
@@ -53,6 +57,9 @@
 	let searchOpen = $state(false);
 	let searchSeed = $state('');
 	let helpOpen = $state(false);
+	let settingsOpen = $state(false);
+	// Note-text size multiplier (spec 027). 1 = 100%; applied via --cn-editor-scale.
+	let editorScale = $state(1);
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
@@ -90,6 +97,17 @@
 		return () => clearTimeout(timer);
 	});
 
+	// Apply the note-text size to a stable root so it survives editor remounts
+	// on note switch. Only editor text reads this variable (see app.css).
+	$effect(() => {
+		document.documentElement.style.setProperty('--cn-editor-scale', String(editorScale));
+	});
+
+	async function changeEditorScale(next) {
+		editorScale = next;
+		await setEditorTextScale(next);
+	}
+
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
@@ -97,11 +115,13 @@
 				// Writes the previous page journaled while dying (reload/close inside
 				// the save debounce) must land before anything reads.
 				await replayJournal();
-				let [rows, lastId, snippetRows] = await Promise.all([
+				let [rows, lastId, snippetRows, savedScale] = await Promise.all([
 					listNotes(),
 					getLastOpenedNoteId(),
-					listSnippets()
+					listSnippets(),
+					getEditorTextScale()
 				]);
+				if (!cancelled) editorScale = coerceScale(savedScale);
 				if (cancelled) return;
 
 				// First run: seed an editable demo note so the user learns by using it.
@@ -484,6 +504,7 @@
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
 	<SearchDialog bind:open={searchOpen} initialQuery={searchSeed} onOpenNote={selectNote} />
 	<HelpDialog bind:open={helpOpen} />
+	<SettingsDialog bind:open={settingsOpen} scale={editorScale} onChange={changeEditorScale} />
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -519,6 +540,15 @@
 				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
 			>
 				<CircleHelp size={18} aria-hidden="true" />
+			</button>
+			<button
+				type="button"
+				onclick={() => (settingsOpen = true)}
+				aria-label="Configuración"
+				use:tooltip={'Configuración'}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+			>
+				<Settings size={18} aria-hidden="true" />
 			</button>
 			<button
 				type="button"

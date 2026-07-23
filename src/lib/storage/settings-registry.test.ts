@@ -9,19 +9,21 @@ describe('settings registry', () => {
 				'hasCompletedOnboarding',
 				'lastOpenedNoteId',
 				'demoNoteCreated',
-				'agendaHideCompleted'
+				'agendaHideCompleted',
+				'editorTextScale'
 			].sort()
 		);
 	});
 
-	it('exposes the five current preferences as backup-safe', () => {
+	it('exposes every current preference as backup-safe', () => {
 		expect(SAFE_SETTING_KEYS.sort()).toEqual(
 			[
 				'theme',
 				'hasCompletedOnboarding',
 				'lastOpenedNoteId',
 				'demoNoteCreated',
-				'agendaHideCompleted'
+				'agendaHideCompleted',
+				'editorTextScale'
 			].sort()
 		);
 	});

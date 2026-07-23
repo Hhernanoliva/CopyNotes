@@ -420,3 +420,16 @@
 .block-editable--h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.25; }
 .block-editable--h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; }
 .block-editable--h3 { font-size: 1.1rem; font-weight: 600; line-height: 1.35; }
+
+/* Note-text size (spec 027). Only the editor content reads --cn-editor-scale,
+   set on <html>. These descendant rules outrank the Tailwind text-* utilities,
+   so the whole note text scales while icons/sidebar/chrome stay fixed. */
+.cn-editor .cn-note-title { font-size: calc(1.875rem * var(--cn-editor-scale, 1)); }
+@media (min-width: 768px) {
+	.cn-editor .cn-note-title { font-size: calc(2.25rem * var(--cn-editor-scale, 1)); }
+}
+.cn-editor .block-editable { font-size: calc(1rem * var(--cn-editor-scale, 1)); }
+.cn-editor .block-editable--code { font-size: calc(0.875rem * var(--cn-editor-scale, 1)); }
+.cn-editor .block-editable--h1 { font-size: calc(1.5rem * var(--cn-editor-scale, 1)); }
+.cn-editor .block-editable--h2 { font-size: calc(1.25rem * var(--cn-editor-scale, 1)); }
+.cn-editor .block-editable--h3 { font-size: calc(1.1rem * var(--cn-editor-scale, 1)); }

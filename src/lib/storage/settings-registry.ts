@@ -18,7 +18,8 @@ export const KEY = {
 	hasCompletedOnboarding: 'hasCompletedOnboarding',
 	lastOpenedNoteId: 'lastOpenedNoteId',
 	demoNoteCreated: 'demoNoteCreated',
-	agendaHideCompleted: 'agendaHideCompleted'
+	agendaHideCompleted: 'agendaHideCompleted',
+	editorTextScale: 'editorTextScale'
 };
 
 export const SETTINGS = {
@@ -26,7 +27,8 @@ export const SETTINGS = {
 	[KEY.hasCompletedOnboarding]: { backupSafe: true },
 	[KEY.lastOpenedNoteId]: { backupSafe: true },
 	[KEY.demoNoteCreated]: { backupSafe: true },
-	[KEY.agendaHideCompleted]: { backupSafe: true }
+	[KEY.agendaHideCompleted]: { backupSafe: true },
+	[KEY.editorTextScale]: { backupSafe: true }
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);

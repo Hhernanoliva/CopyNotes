@@ -60,3 +60,12 @@ export async function getAgendaHideCompleted() {
 export function setAgendaHideCompleted(value) {
 	return setSetting(KEY.agendaHideCompleted, value === true);
 }
+
+// Note-text size multiplier applied via --cn-editor-scale (spec 027).
+export function getEditorTextScale() {
+	return getSetting(KEY.editorTextScale);
+}
+
+export function setEditorTextScale(value) {
+	return setSetting(KEY.editorTextScale, value);
+}

@@ -1536,7 +1536,7 @@
 {#if note}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14 {dragging
+		class="cn-editor mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14 {dragging
 			? 'select-none'
 			: ''}"
 		onkeydowncapture={handleSelectionKeys}
@@ -1552,7 +1552,7 @@
 				aria-label="Título de la nota"
 				autocomplete="off"
 				name="note-title"
-				class="placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
+				class="cn-note-title placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
 			/>
 			<div class="relative shrink-0">
 				<button
