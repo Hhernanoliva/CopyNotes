@@ -86,7 +86,7 @@ test('code paste keeps whitespace, scrolls horizontally and remembers collapse',
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.press('Control+Enter');
-	const blockNote = page.getByRole('textbox', { name: 'Nota del bloque' });
+	const blockNote = page.getByRole('textbox', { name: 'Comentario del bloque' });
 	await page.keyboard.type('Nota retenida');
 	await page.keyboard.press('Escape');
 	await page.keyboard.type('/code');
@@ -450,7 +450,7 @@ test('double Enter leaves the block note and opens a new normal line', async ({ 
 	await first.click();
 	await page.keyboard.type('Línea principal');
 	await page.keyboard.press('Control+Enter');
-	const blockNote = page.getByRole('textbox', { name: 'Nota del bloque' });
+	const blockNote = page.getByRole('textbox', { name: 'Comentario del bloque' });
 	await expect(blockNote).toBeFocused();
 	await page.keyboard.type('una nota');
 	await page.keyboard.press('Enter');

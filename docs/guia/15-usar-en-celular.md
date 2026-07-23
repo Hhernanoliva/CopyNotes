@@ -14,7 +14,7 @@ Varios controles chicos (la ✕ para quitar una etiqueta, los botones de la barr
 
 En la compu muchas acciones se hacen con el teclado. En el teléfono, tocá los **tres puntitos** a la derecha del renglón y vas a encontrar todo junto:
 
-- **Agregar nota** — abre la sub-línea gris para escribir un comentario debajo del renglón (lo mismo que en la compu se hace con Ctrl+Enter).
+- **Agregar comentario** — abre la sub-línea gris para escribir un comentario debajo del renglón (lo mismo que en la compu se hace con Ctrl+Enter).
 - **Mover arriba** / **Mover abajo** — cambia el renglón de lugar sin arrastrar.
 - **Guardar como snippet** y **Etiquetar** — como siempre.
 - **Eliminar** — borra el renglón (y, si tiene sub-renglones, también esos). No te deja borrar el único renglón que queda.
@@ -28,7 +28,7 @@ En la barra lateral, los botones de borrar (nota, snippet, carpeta, etiqueta) en
 En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un teclado físico cuando tocás Enter. CopyNotes ahora lo entiende igual:
 
 - **Enter** crea un renglón nuevo.
-- **Enter dos veces** dentro de la nota gris te saca de la nota y abre un renglón nuevo abajo, igual que en la computadora. (La nota gris usa un modo de texto simple donde el teclado en pantalla manda la tecla Enter de otra forma; CopyNotes ahora la reconoce también en ese modo.)
+- **Enter dos veces** dentro del comentario gris te saca del comentario y abre un renglón nuevo abajo, igual que en la computadora. (El comentario usa un modo de texto simple donde el teclado en pantalla manda la tecla Enter de otra forma; CopyNotes ahora la reconoce también en ese modo.)
 
 ## Los menús no quedan tapados por el teclado
 

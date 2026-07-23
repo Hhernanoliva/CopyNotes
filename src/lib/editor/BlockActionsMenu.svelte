@@ -95,7 +95,7 @@
 				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
 			>
 				<StickyNote size={15} aria-hidden="true" />
-				<span class="flex-1">Agregar nota</span>
+				<span class="flex-1">Agregar comentario</span>
 				<kbd class="text-faint border-border rounded border px-1 text-xs">Ctrl+↵</kbd>
 			</button>
 			<button

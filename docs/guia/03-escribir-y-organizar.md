@@ -8,7 +8,7 @@
 |---|---|
 | **Enter** | Renglón nuevo, del mismo tipo que el actual |
 | **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea. El salto se conserva al buscar, copiar y exportar |
-| **Ctrl/Cmd+Enter** | Agrega/edita la **nota gris** del renglón (ver abajo) |
+| **Ctrl/Cmd+Enter** | Agrega/edita el **comentario** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar) |
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |

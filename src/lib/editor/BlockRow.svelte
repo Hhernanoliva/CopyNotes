@@ -660,8 +660,8 @@
 					role="textbox"
 					tabindex="0"
 					aria-multiline="true"
-					aria-label="Nota del bloque"
-					data-placeholder="Nota…"
+					aria-label="Comentario del bloque"
+					data-placeholder="Comentario…"
 					onkeydown={handleNoteKeydown}
 					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}

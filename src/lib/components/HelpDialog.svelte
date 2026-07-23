@@ -17,7 +17,7 @@
 			items: [
 				{ keys: ['Enter'], desc: 'Nuevo renglón' },
 				{ keys: ['Shift', 'Enter'], desc: 'Salto de línea en el mismo renglón' },
-				{ keys: [mod, 'Enter'], desc: 'Nota debajo del renglón' },
+				{ keys: [mod, 'Enter'], desc: 'Comentario debajo del renglón' },
 				{ keys: ['↑ / ↓'], desc: 'Mover el cursor entre renglones' },
 				{ keys: ['Tab'], desc: 'Anidar el renglón' },
 				{ keys: ['Shift', 'Tab'], desc: 'Sacar un nivel' },
