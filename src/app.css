@@ -274,6 +274,26 @@
 	animation: cn-flash 650ms var(--motion-ease);
 }
 
+/* Quiet Motion — 3-dots (⋯) menu pulse. Fires on the active row's menu icon
+   when a date or tag is added from it: a quick grow + accent tint, then back.
+   Duration zeroed automatically under prefers-reduced-motion; the editor also
+   skips arming it when reduce is requested. */
+@keyframes cn-pulse {
+	0% {
+		transform: scale(1);
+	}
+	40% {
+		transform: scale(1.35);
+		color: var(--primary);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+.cn-pulse {
+	animation: cn-pulse 500ms var(--motion-ease);
+}
+
 @media (pointer: coarse) {
 	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al
 	   tocarlo, así que group-focus-within / group-hover no alcanzan para mostrar

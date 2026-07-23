@@ -107,6 +107,21 @@
 		flashBlockIds = new Set(ids);
 		flashTimer = setTimeout(() => (flashBlockIds = new Set()), 650);
 	}
+	// Row whose 3-dots (⋯) menu icon should pulse: fired when a date or tag is
+	// added to that line, so the menu it came from gives a quick confirmation.
+	// The row is focused/active right after, so the (otherwise hidden) icon shows.
+	let pulseMenuBlockId = $state(null);
+	let pulseMenuTimer;
+	function pulseMenu(id) {
+		if (prefersReducedMotion() || !id) return;
+		clearTimeout(pulseMenuTimer);
+		// Drop then set so re-adding to the same row replays the animation.
+		pulseMenuBlockId = null;
+		requestAnimationFrame(() => {
+			pulseMenuBlockId = id;
+			pulseMenuTimer = setTimeout(() => (pulseMenuBlockId = null), 500);
+		});
+	}
 	let titleEl = $state();
 	// Slash menu state: which block it is anchored to, the plain-text offset of
 	// the "/" (anchor), the text typed after it, and the highlighted option.
@@ -1310,6 +1325,7 @@
 			await unassignTag(tag.id, target.type, target.id);
 		} else {
 			await assignTag(tag.id, target.type, target.id);
+			if (target.type === 'block') pulseMenu(target.id);
 		}
 		await refreshTags();
 		if (onTagsChanged) onTagsChanged();
@@ -1478,6 +1494,7 @@
 		// Structural change: persist immediately, never debounced.
 		await updateBlock(block.id, { dueDate: day });
 		onDatesChanged?.(); // let an open Agenda refresh live
+		pulseMenu(block.id);
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
 		datePanelCaret = null;
@@ -1582,6 +1599,7 @@
 					hasChildren={row.hasChildren}
 					focused={focusBlockId === row.block.id}
 					flash={flashBlockIds.has(row.block.id)}
+					pulseMenu={pulseMenuBlockId === row.block.id}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
 					slashOpen={slash !== null && slash.blockId === row.block.id}
 					{slashCommands}

@@ -32,6 +32,7 @@
 		hasChildren = false,
 		focused = false,
 		flash = false,
+		pulseMenu = false,
 		placeholder = '',
 		slashOpen = false,
 		slashCommands = [],
@@ -763,6 +764,7 @@
 		{/if}
 		{#if block.type !== 'separator'}
 			<BlockActionsMenu
+				{pulseMenu}
 				onAddNote={openNote}
 				onMoveUp={() => onMoveUp(block)}
 				onMoveDown={() => onMoveDown(block)}

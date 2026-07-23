@@ -34,7 +34,8 @@ ni se mueve solo, y nada te retrasa al escribir.
 - **Tareas**: al marcar una tarea, la tilde aparece con un pequeño gesto.
 - **Poner una fecha o una etiqueta**: cuando le agregás una fecha a un
   renglón, o le ponés una etiqueta, el chip nuevo (📅 la fecha, #la etiqueta)
-  **aparece con un pequeño rebote** para que veas que se agregó.
+  **aparece con un pequeño rebote**, y además el ícono de los tres puntitos
+  (⋯) de ese renglón **late un instante**, para que veas que se agregó.
 - **Insertar un snippet**: los renglones que trae el snippet **se iluminan
   un instante** al aparecer, así ves dónde cayó lo que insertaste.
 - **"Guardado"**: solo aparece cuando hace falta. Mientras guarda dice
