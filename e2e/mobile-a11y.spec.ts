@@ -95,6 +95,22 @@ test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => 
 	expect(size.h).toBeGreaterThanOrEqual(44);
 });
 
+test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ page }) => {
+	await page.goto('/');
+
+	// La barra lateral arranca cerrada en pantalla angosta; se abre con el botón.
+	await page.getByRole('button', { name: 'Mostrar lista de notas' }).click();
+
+	// En táctil el <button> puede no recibir :focus al tocar (iOS), así que el
+	// tacho no puede depender de hover/focus-within: se muestra siempre (opacity
+	// 1) vía .cn-touch-visible bajo (pointer: coarse). Antes dependía del ancho
+	// (max-md) y en tablet quedaba invisible.
+	const trash = page.getByRole('button', { name: /Borrar nota/ }).first();
+	await expect(trash).toBeVisible();
+	const opacity = await trash.evaluate((el) => Number(getComputedStyle(el).opacity));
+	expect(opacity).toBe(1);
+});
+
 test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }) => {
 	await page.goto('/');
 

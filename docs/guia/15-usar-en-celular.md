@@ -19,12 +19,16 @@ En la compu muchas acciones se hacen con el teclado. En el teléfono, tocá los 
 - **Guardar como snippet** y **Etiquetar** — como siempre.
 - **Eliminar** — borra el renglón (y, si tiene sub-renglones, también esos). No te deja borrar el único renglón que queda.
 
+## Los botones de la barra lateral se ven al tocar
+
+En la barra lateral, los botones de borrar (nota, snippet, carpeta, etiqueta) en la computadora aparecen al pasar el mouse. En el teléfono y la **tablet** se muestran **siempre**, sin necesidad de pasar el dedo ni de seleccionar primero. Antes en tablet quedaban escondidos porque la pantalla es ancha; ahora se ven en cualquier pantalla táctil.
+
 ## Enter funciona igual con el teclado en pantalla
 
 En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un teclado físico cuando tocás Enter. CopyNotes ahora lo entiende igual:
 
 - **Enter** crea un renglón nuevo.
-- **Enter dos veces** dentro de la nota gris te saca de la nota y abre un renglón nuevo abajo, igual que en la computadora.
+- **Enter dos veces** dentro de la nota gris te saca de la nota y abre un renglón nuevo abajo, igual que en la computadora. (La nota gris usa un modo de texto simple donde el teclado en pantalla manda la tecla Enter de otra forma; CopyNotes ahora la reconoce también en ese modo.)
 
 ## Los menús no quedan tapados por el teclado
 

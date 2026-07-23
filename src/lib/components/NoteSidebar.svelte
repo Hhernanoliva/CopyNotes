@@ -265,7 +265,7 @@
 			aria-label="Borrar nota {note.title || 'sin título'}"
 			title="Borrar nota"
 			onclick={() => onDeleteNote(note.id)}
-			class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
+			class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 cn-touch-visible transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
 		>
 			<Trash2 size={14} aria-hidden="true" />
 		</button>
@@ -318,7 +318,7 @@
 					onclick={() => onToggleFavorite(snippet)}
 					class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm transition-[opacity,transform] duration-(--motion-fast) focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none active:scale-90 {snippet.isFavorite
 						? 'text-foreground opacity-100'
-						: 'opacity-0 max-md:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100'}"
+						: 'opacity-0 cn-touch-visible group-focus-within:opacity-100 group-hover:opacity-100'}"
 				>
 					<Star size={14} aria-hidden="true" class={snippet.isFavorite ? 'fill-current' : ''} />
 				</button>
@@ -327,7 +327,7 @@
 					aria-label="Borrar snippet"
 					title="Borrar snippet"
 					onclick={() => onDeleteSnippet(snippet)}
-					class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+					class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 cn-touch-visible transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 				>
 					<Trash2 size={14} aria-hidden="true" />
 				</button>
@@ -387,7 +387,7 @@
 				aria-label="Borrar carpeta {node.folder.name}"
 				title="Borrar carpeta (el contenido vuelve a la lista)"
 				onclick={() => onDeleteFolder(viewName, node.folder)}
-				class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
+				class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 shrink-0 items-center justify-center rounded-sm opacity-0 cn-touch-visible transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7"
 			>
 				<Trash2 size={14} aria-hidden="true" />
 			</button>
@@ -606,7 +606,7 @@
 											aria-label="Renombrar etiqueta {tag.name}"
 											title="Renombrar"
 											onclick={() => startRename(tag)}
-											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-foreground focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 cn-touch-visible transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Pencil size={14} aria-hidden="true" />
 										</button>
@@ -615,7 +615,7 @@
 											aria-label="Borrar etiqueta {tag.name}"
 											title="Borrar etiqueta"
 											onclick={() => onDeleteTag(tag)}
-											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 max-md:opacity-100 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+											class="text-faint hover:text-destructive focus-visible:ring-ring flex size-9 md:size-7 items-center justify-center rounded-sm opacity-0 cn-touch-visible transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
 										>
 											<Trash2 size={14} aria-hidden="true" />
 										</button>

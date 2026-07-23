@@ -259,6 +259,16 @@
 }
 
 @media (pointer: coarse) {
+	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al
+	   tocarlo, así que group-focus-within / group-hover no alcanzan para mostrar
+	   los controles de la barra lateral (borrar nota/snippet/carpeta, etc.).
+	   Estos se muestran SIEMPRE en punteros táctiles, sin importar el ancho:
+	   antes dependían de max-md (ancho de celular) y quedaban ocultos en tablet.
+	   Distinto de .cn-affordance del editor, que sí es solo-fila-activa. */
+	.cn-touch-visible {
+		opacity: 1 !important;
+	}
+
 	/* Agranda el área tocable a 44px mediante un pseudo-elemento invisible,
 	   sin cambiar el tamaño visual del control. */
 	.cn-tap {

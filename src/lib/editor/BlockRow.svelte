@@ -254,8 +254,13 @@
 
 	// The gray note's own virtual-keyboard path: an Enter that lands the exit
 	// leaves the note; otherwise the browser inserts the newline as usual.
+	// The note is contenteditable="plaintext-only", so a virtual keyboard sends
+	// the Return key as insertLineBreak, NOT insertParagraph (that only happens
+	// in rich contenteditable). Both mean "Enter" here, so both are candidates
+	// to take the double-Enter exit; when the caret is not on a trailing empty
+	// line, planNoteExit returns null and the newline is inserted as usual.
 	function handleNoteBeforeInput(event) {
-		if (intentFromBeforeInput(event.inputType) !== 'enter') return;
+		if (!intentFromBeforeInput(event.inputType)) return;
 		if (tryNoteExit()) event.preventDefault();
 	}
 
