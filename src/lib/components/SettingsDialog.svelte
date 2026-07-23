@@ -2,11 +2,24 @@
 	import { X } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity } from '$lib/storage';
+	import { reopenTask, addTaskNote } from '$lib/tasks';
 
 	let { open = $bindable(false), scale, onChange } = $props();
 
 	let dialogEl = $state(null);
 	let activity = $state([]);
+	let redoFor = $state(null); // blockId currently being redone
+	let redoText = $state('');
+
+	async function submitRedo(entry) {
+		const text = redoText.trim();
+		if (!text) return;
+		await reopenTask({ blockId: entry.blockId, actor: 'user' });
+		await addTaskNote({ blockId: entry.blockId, actor: 'user', text });
+		redoFor = null;
+		redoText = '';
+		activity = await listRecentActivity(20);
+	}
 
 	// Load the recent bitácora each time the dialog opens (read-only view).
 	$effect(() => {
@@ -138,6 +151,36 @@
 								<span class="text-muted-foreground">{entry.text}</span>
 							{/if}
 							<span class="text-faint text-xs">{timeLabel(entry.at)}</span>
+							{#if entry.action === 'done' && entry.actor !== 'user'}
+								{#if redoFor === entry.blockId}
+									<div class="mt-1 flex items-center gap-2">
+										<input
+											bind:value={redoText}
+											aria-label="Instrucción para rehacer"
+											placeholder="Rehacer: …"
+											class="border-border min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1 text-sm outline-none"
+										/>
+										<button
+											type="button"
+											onclick={() => submitRedo(entry)}
+											class="bg-primary text-primary-foreground rounded-md px-3 py-1 text-sm font-bold"
+										>
+											Enviar
+										</button>
+									</div>
+								{:else}
+									<button
+										type="button"
+										onclick={() => {
+											redoFor = entry.blockId;
+											redoText = '';
+										}}
+										class="text-muted-foreground hover:text-foreground self-start text-xs underline underline-offset-2"
+									>
+										Rehacer
+									</button>
+								{/if}
+							{/if}
 						</li>
 					{/each}
 				</ul>

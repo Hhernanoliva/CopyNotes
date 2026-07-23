@@ -20,16 +20,14 @@ app.
 
 No puede borrar, exportar ni reordenar, y no escribe en el texto de tus notas.
 
-## Si algo quedó mal: pedir que lo rehaga
-
-Si el agente marcó una tarea como hecha pero no te gustó el resultado,
-**destildá** la tarea y dejale una instrucción ("Rehacer: …"). El agente lee esa
-instrucción como un pedido de rehacer.
-
-## Ver la actividad
+## Ver la actividad y pedir que lo rehaga
 
 En **Configuración** (engranaje ⚙️) hay una sección **Agentes** con la lista de
-lo último que hizo el agente.
+lo último que hizo el agente. Si marcó una tarea como hecha pero el resultado
+no te convenció, en esa misma línea aparece un botón **"Rehacer"**: tocalo,
+escribí una instrucción (por ejemplo "Rehacer: agregá fuentes") y tocá
+**"Enviar"**. Esto destilda la tarea y deja tu instrucción anotada para que el
+agente la lea como un pedido de rehacer.
 
 ## Solo en la app de escritorio
 
