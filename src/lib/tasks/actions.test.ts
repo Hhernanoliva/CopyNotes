@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, createNote, getBlock, listActivityByBlock } from '$lib/storage';
-import { createTask } from './actions';
+import { createTask, completeTask } from './actions';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -25,5 +25,26 @@ describe('createTask', () => {
 		expect(activity.actor).toBe('agent');
 		const log = await listActivityByBlock(block.id);
 		expect(log.length).toBe(1);
+	});
+});
+
+describe('completeTask', () => {
+	it('checks the task and appends a done entry with actor and summary', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+
+		const { block: done, activity } = await completeTask({
+			blockId: block.id,
+			actor: 'agent',
+			text: 'Listo: enlace agregado'
+		});
+
+		expect(done.checked).toBe(true);
+		expect(activity.action).toBe('done');
+		expect(activity.actor).toBe('agent');
+		expect(activity.text).toBe('Listo: enlace agregado');
+
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done']);
 	});
 });

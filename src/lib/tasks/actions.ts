@@ -33,3 +33,15 @@ export async function createTask({ noteId, parentBlockId = null, content = '', h
 	});
 	return { block, activity };
 }
+
+export async function completeTask({ blockId, actor, text = '' }) {
+	const block = await updateBlock(blockId, { checked: true });
+	const activity = await appendActivity({
+		blockId,
+		noteId: block.noteId,
+		actor,
+		action: 'done',
+		text
+	});
+	return { block, activity };
+}
