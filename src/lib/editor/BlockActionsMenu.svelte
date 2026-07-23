@@ -17,7 +17,21 @@
 	let { onAddNote, onMoveUp, onMoveDown, onDelete, onSaveSnippet, onTag, onDismiss } = $props();
 
 	let open = $state(false);
+	let openUp = $state(false);
 	let rootEl = $state();
+
+	// Abrir hacia arriba cuando no entra abajo (fila cerca del borde inferior o
+	// teclado en pantalla tapando la mitad de abajo). Así el último ítem
+	// ("Eliminar") nunca queda cortado. Se decide justo antes de abrir.
+	function toggleOpen() {
+		if (!open && rootEl) {
+			const rect = rootEl.getBoundingClientRect();
+			const visibleBottom = window.visualViewport?.height ?? window.innerHeight;
+			const estimatedMenuHeight = 280; // ~6 ítems + separación
+			openUp = rect.bottom + estimatedMenuHeight > visibleBottom;
+		}
+		open = !open;
+	}
 
 	$effect(() => {
 		if (!open) return;
@@ -57,7 +71,7 @@
 		aria-expanded={open}
 		use:tooltip={'Más acciones'}
 		onmousedown={(event) => event.preventDefault()}
-		onclick={() => (open = !open)}
+		onclick={toggleOpen}
 		class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
 			? 'text-foreground'
 			: ''}"
@@ -69,7 +83,9 @@
 		<div
 			role="menu"
 			aria-label="Acciones del bloque"
-			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 w-56 rounded-md border p-1 shadow-md"
+			class="cn-pop bg-popover border-border absolute right-0 z-20 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md {openUp
+				? 'bottom-full mb-1'
+				: 'top-full mt-1'}"
 		>
 			<button
 				type="button"
