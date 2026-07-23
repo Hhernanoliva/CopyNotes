@@ -34,6 +34,14 @@ describe('blocks repository', () => {
 		expect(first.checked).toBe(false);
 	});
 
+	it('records createdBy, defaulting to user', async () => {
+		const note = await createNote();
+		const mine = await createBlock({ noteId: note.id, content: 'x' });
+		const agents = await createBlock({ noteId: note.id, content: 'y', createdBy: 'agent' });
+		expect(mine.createdBy).toBe('user');
+		expect(agents.createdBy).toBe('agent');
+	});
+
 	it('keeps parent-child relationships for nested blocks', async () => {
 		const note = await createNote();
 		const parent = await createBlock({ noteId: note.id, type: 'bullet', content: 'parent' });

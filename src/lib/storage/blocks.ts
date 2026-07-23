@@ -18,7 +18,8 @@ export function createBlock(fields) {
 			codeCollapsed = false,
 			checked = false,
 			note = '',
-			dueDate = null
+			dueDate = null,
+			createdBy = 'user'
 		} = fields;
 		let { order } = fields;
 		if (order === undefined) {
@@ -39,6 +40,7 @@ export function createBlock(fields) {
 			checked,
 			note,
 			dueDate,
+			createdBy,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			deletedAt: null
