@@ -237,20 +237,19 @@
 		if (!intent) return;
 		// Code blocks keep Enter as a literal newline handled by the browser.
 		if (block.type === 'code') return;
-		if (intent === 'enter') {
+		// On a virtual keyboard there is no reliable Shift+Enter, and the same
+		// Return key can arrive as insertParagraph or insertLineBreak (some
+		// keyboards send insertLineBreak on an empty line). Both mean "Enter"
+		// here, so both go through the block Enter door — otherwise the empty
+		// nested line would get a soft break instead of outdenting (double-Enter
+		// exit). Desktop Shift+Enter still works: it is a keydown, handled there.
+		event.preventDefault();
+		if (slashOpen) {
 			// With the slash menu open, Enter picks the highlighted command.
-			if (slashOpen) {
-				event.preventDefault();
-				onSlashKey('Enter');
-				return;
-			}
-			event.preventDefault();
-			onEnter(block);
-		} else if (intent === 'softbreak') {
-			event.preventDefault();
-			document.execCommand('insertLineBreak');
-			handleInput();
+			onSlashKey('Enter');
+			return;
 		}
+		onEnter(block);
 	}
 
 	// The gray note's own virtual-keyboard path: an Enter that lands the exit
