@@ -45,3 +45,44 @@ export async function completeTask({ blockId, actor, text = '' }) {
 	});
 	return { block, activity };
 }
+
+export async function reopenTask({ blockId, actor = 'user', text = '' }) {
+	const block = await updateBlock(blockId, { checked: false });
+	const activity = await appendActivity({
+		blockId,
+		noteId: block.noteId,
+		actor,
+		action: 'reopened',
+		text
+	});
+	return { block, activity };
+}
+
+// The user's redo channel: an instruction line the agent can read. Stored as
+// plain text on the activity row (never in block.html), rendered escaped.
+export async function addTaskNote({ blockId, actor = 'user', text }) {
+	const block = await getBlock(blockId);
+	const activity = await appendActivity({
+		blockId,
+		noteId: block.noteId,
+		actor,
+		action: 'note',
+		text
+	});
+	return { activity };
+}
+
+export async function editTask({ blockId, content, html, actor = 'user' }) {
+	const changes = { content };
+	if (html !== undefined) changes.html = html;
+	else changes.html = plainTextToHtml(content);
+	const block = await updateBlock(blockId, changes);
+	const activity = await appendActivity({
+		blockId,
+		noteId: block.noteId,
+		actor,
+		action: 'edited',
+		text: content
+	});
+	return { block, activity };
+}

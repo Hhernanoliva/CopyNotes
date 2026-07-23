@@ -1,1 +1,1 @@
-export { createTask, completeTask } from './actions';
+export { createTask, completeTask, reopenTask, addTaskNote, editTask } from './actions';

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, createNote, getBlock, listActivityByBlock } from '$lib/storage';
-import { createTask, completeTask } from './actions';
+import { createTask, completeTask, reopenTask, addTaskNote, editTask } from './actions';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -46,5 +46,34 @@ describe('completeTask', () => {
 
 		const log = await listActivityByBlock(block.id);
 		expect(log.map((e) => e.action)).toEqual(['created', 'done']);
+	});
+});
+
+describe('reopen / note / edit', () => {
+	it('reopen unchecks and traces; addTaskNote records an instruction', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+
+		const { block: reopened } = await reopenTask({ blockId: block.id, actor: 'user' });
+		expect(reopened.checked).toBe(false);
+
+		await addTaskNote({ blockId: block.id, actor: 'user', text: 'Rehacer: agregá fuentes' });
+
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'reopened', 'note']);
+		expect(log.at(-1).text).toBe('Rehacer: agregá fuentes');
+	});
+
+	it('editTask updates content and traces edited', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'viejo', actor: 'user' });
+		const { block: edited, activity } = await editTask({
+			blockId: block.id,
+			content: 'nuevo',
+			actor: 'agent'
+		});
+		expect(edited.content).toBe('nuevo');
+		expect(activity.action).toBe('edited');
 	});
 });
