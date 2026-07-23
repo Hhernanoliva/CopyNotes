@@ -47,13 +47,28 @@ async function seedAgentDoneTask(page, { noteId, blockId }) {
 						updatedAt: now,
 						deletedAt: null
 					});
+					// Two agent `done` rows for the SAME block — the real redo cycle
+					// (agent done → user redo → agent done again). Each is its own
+					// bitácora line, so the "Rehacer" form must open under only the
+					// clicked one (keyed by the row id, not the shared blockId).
+					const earlier = new Date(Date.parse(now) - 1000).toISOString();
 					tx.objectStore('activity').put({
-						id: 'e2e-act-done',
+						id: 'e2e-act-done-1',
 						blockId,
 						noteId,
 						actor: 'agent',
 						action: 'done',
-						text: 'hecho',
+						text: 'hecho (1)',
+						at: earlier,
+						deletedAt: null
+					});
+					tx.objectStore('activity').put({
+						id: 'e2e-act-done-2',
+						blockId,
+						noteId,
+						actor: 'agent',
+						action: 'done',
+						text: 'hecho (2)',
 						at: now,
 						deletedAt: null
 					});
@@ -77,8 +92,11 @@ test('a redo instruction unchecks the task and records a note', async ({ page })
 
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
-	// The seeded agent `done` entry shows a "Rehacer" trigger.
+	// Both agent `done` entries show a "Rehacer" trigger; clicking one must open
+	// the input under that row only (regression guard for keying by row id).
+	await expect(page.getByRole('button', { name: 'Rehacer' })).toHaveCount(2);
 	await page.getByRole('button', { name: 'Rehacer' }).first().click();
+	await expect(page.getByLabel('Instrucción para rehacer')).toHaveCount(1);
 	await page.getByLabel('Instrucción para rehacer').fill('Rehacer: agregá fuentes');
 	await page.getByRole('button', { name: 'Enviar' }).click();
 

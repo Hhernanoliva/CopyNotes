@@ -152,7 +152,7 @@
 							{/if}
 							<span class="text-faint text-xs">{timeLabel(entry.at)}</span>
 							{#if entry.action === 'done' && entry.actor !== 'user'}
-								{#if redoFor === entry.blockId}
+								{#if redoFor === entry.id}
 									<div class="mt-1 flex items-center gap-2">
 										<input
 											bind:value={redoText}
@@ -172,7 +172,7 @@
 									<button
 										type="button"
 										onclick={() => {
-											redoFor = entry.blockId;
+											redoFor = entry.id;
 											redoText = '';
 										}}
 										class="text-muted-foreground hover:text-foreground self-start text-xs underline underline-offset-2"
