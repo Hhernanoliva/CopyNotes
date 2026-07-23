@@ -32,6 +32,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 24. `024-motion-quiet-motion.md`
 25. `025-macos-desktop-readiness.md`
 26. `026-text-drag-move.md`
+27. `027-settings-text-size.md`
 
 ## Required Sections For Specs
 
