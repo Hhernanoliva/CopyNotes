@@ -23,6 +23,12 @@ export {
 	toggleTodoCascade
 } from './blocks';
 export {
+	appendActivity,
+	listActivityByBlock,
+	listActivityByNote,
+	listRecentActivity
+} from './activity';
+export {
 	createSnippet,
 	getSnippet,
 	listSnippets,
