@@ -36,6 +36,7 @@ export async function createTask({ noteId, parentBlockId = null, content = '', h
 
 export async function completeTask({ blockId, actor, text = '' }) {
 	const block = await updateBlock(blockId, { checked: true });
+	if (!block) return undefined;
 	const activity = await appendActivity({
 		blockId,
 		noteId: block.noteId,
@@ -48,6 +49,7 @@ export async function completeTask({ blockId, actor, text = '' }) {
 
 export async function reopenTask({ blockId, actor = 'user', text = '' }) {
 	const block = await updateBlock(blockId, { checked: false });
+	if (!block) return undefined;
 	const activity = await appendActivity({
 		blockId,
 		noteId: block.noteId,
@@ -62,6 +64,7 @@ export async function reopenTask({ blockId, actor = 'user', text = '' }) {
 // plain text on the activity row (never in block.html), rendered escaped.
 export async function addTaskNote({ blockId, actor = 'user', text }) {
 	const block = await getBlock(blockId);
+	if (!block) return undefined;
 	const activity = await appendActivity({
 		blockId,
 		noteId: block.noteId,
@@ -77,6 +80,7 @@ export async function editTask({ blockId, content, html, actor = 'user' }) {
 	if (html !== undefined) changes.html = html;
 	else changes.html = plainTextToHtml(content);
 	const block = await updateBlock(blockId, changes);
+	if (!block) return undefined;
 	const activity = await appendActivity({
 		blockId,
 		noteId: block.noteId,

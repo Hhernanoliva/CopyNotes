@@ -16,4 +16,7 @@ describe('isRedoRequested', () => {
 	it('false when the last entry is not a user note', () => {
 		expect(isRedoRequested({ checked: false }, [{ action: 'reopened', actor: 'user' }])).toBe(false);
 	});
+	it('false when the last note is by an agent, not the user', () => {
+		expect(isRedoRequested({ checked: false }, [{ action: 'note', actor: 'agent' }])).toBe(false);
+	});
 });

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, createNote, getBlock, listActivityByBlock } from '$lib/storage';
+import { db, createNote, createBlock, getBlock, listActivityByBlock } from '$lib/storage';
 import { createTask, completeTask, reopenTask, addTaskNote, editTask, readTask, listTasks } from './actions';
 
 beforeEach(async () => {
@@ -91,8 +91,22 @@ describe('readTask / listTasks', () => {
 	it('listTasks returns only todo blocks of the note', async () => {
 		const note = await createNote();
 		await createTask({ noteId: note.id, content: 'una', actor: 'user' });
+		await createBlock({ noteId: note.id, type: 'text', content: 'no soy tarea' });
 		const tasks = await listTasks(note.id);
 		expect(tasks.length).toBe(1);
 		expect(tasks[0].type).toBe('todo');
+	});
+});
+
+describe('mutators on a missing block', () => {
+	it('return undefined instead of throwing when the block is gone', async () => {
+		expect(await completeTask({ blockId: 'nope', actor: 'agent' })).toBeUndefined();
+		expect(await reopenTask({ blockId: 'nope', actor: 'user' })).toBeUndefined();
+		expect(await addTaskNote({ blockId: 'nope', actor: 'user', text: 'x' })).toBeUndefined();
+		expect(await editTask({ blockId: 'nope', content: 'x', actor: 'agent' })).toBeUndefined();
+	});
+
+	it('readTask returns undefined for a nonexistent block', async () => {
+		expect(await readTask('nope')).toBeUndefined();
 	});
 });
