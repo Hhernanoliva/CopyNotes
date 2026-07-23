@@ -1,11 +1,12 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { trackPendingWrite } from './pending-writes';
+import { KEY } from './settings-registry';
 
 // v1 stores the single connected agent as one settings row. It is shaped as a
 // full entity (stable id, timestamps, soft delete) so spec 029 can move it to
 // its own synced table without a data reshape.
-export const AGENT_SETTING_KEY = 'connectedAgent';
+export const AGENT_SETTING_KEY = KEY.connectedAgent;
 
 const settings = db.table('settings');
 

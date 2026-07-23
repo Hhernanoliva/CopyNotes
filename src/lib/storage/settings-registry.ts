@@ -19,7 +19,8 @@ export const KEY = {
 	lastOpenedNoteId: 'lastOpenedNoteId',
 	demoNoteCreated: 'demoNoteCreated',
 	agendaHideCompleted: 'agendaHideCompleted',
-	editorTextScale: 'editorTextScale'
+	editorTextScale: 'editorTextScale',
+	connectedAgent: 'connectedAgent'
 };
 
 export const SETTINGS = {
@@ -28,7 +29,8 @@ export const SETTINGS = {
 	[KEY.lastOpenedNoteId]: { backupSafe: true },
 	[KEY.demoNoteCreated]: { backupSafe: true },
 	[KEY.agendaHideCompleted]: { backupSafe: true },
-	[KEY.editorTextScale]: { backupSafe: true }
+	[KEY.editorTextScale]: { backupSafe: true },
+	[KEY.connectedAgent]: { backupSafe: false } // Local MCP connection identity — device-only, never leaves in a backup (cloud is spec 029).
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);

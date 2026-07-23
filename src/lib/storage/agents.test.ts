@@ -19,6 +19,7 @@ describe('connected agent', () => {
 
 		const renamed = await setConnectedAgent({ name: 'Otro' });
 		expect(renamed.id).toBe(first.id); // same identity, new display name
+		expect(renamed.createdAt).toBe(first.createdAt); // creation time preserved
 		expect((await getConnectedAgent()).name).toBe('Otro');
 	});
 });

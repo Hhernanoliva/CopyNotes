@@ -10,7 +10,8 @@ describe('settings registry', () => {
 				'lastOpenedNoteId',
 				'demoNoteCreated',
 				'agendaHideCompleted',
-				'editorTextScale'
+				'editorTextScale',
+				'connectedAgent'
 			].sort()
 		);
 	});
@@ -26,6 +27,10 @@ describe('settings registry', () => {
 				'editorTextScale'
 			].sort()
 		);
+	});
+
+	it('treats connectedAgent as not backup-safe', () => {
+		expect(isBackupSafe('connectedAgent')).toBe(false);
 	});
 
 	it('treats an unknown key as not backup-safe', () => {
