@@ -40,7 +40,7 @@
 		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
-	import { planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
+	import { planDelete, planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { buildSnippetsExport, snippetsExportFileName } from '$lib/export-import';
 	import { saveTextFile } from '$lib/platform';
@@ -232,9 +232,41 @@
 		selectNote(note.id);
 	}
 
+	// Deleting a sidebar row leaves a hole in its container's sortOrder sequence;
+	// spec 022 requires them gapless after every delete. Renumber the survivors of
+	// the deleted item's container (a folder's contents, or the root sequence that
+	// mixes folders and loose items). Root renumbering may touch folder rows too,
+	// so split the updates by table.
+	async function renumberAfterItemDelete(view, item) {
+		const isNotes = view === 'notes';
+		const items = isNotes ? notes : snippets;
+		const folderRows = isNotes ? noteFolders : snippetFolders;
+		const table = isNotes ? 'notes' : 'snippets';
+		const folderId = item.folderId ?? null;
+		const container =
+			folderId !== null
+				? $state.snapshot(items.filter((it) => (it.folderId ?? null) === folderId))
+				: $state.snapshot([
+						...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+						...items.filter((it) => (it.folderId ?? null) === null)
+					]);
+		const { updates } = planDelete(container, item.id);
+		if (!updates.length) return;
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		await applySidebarUpdates(
+			table,
+			updates.filter((u) => !folderIds.has(u.id))
+		);
+		const folderUpdates = updates.filter((u) => folderIds.has(u.id));
+		if (folderUpdates.length) await applySidebarUpdates('folders', folderUpdates);
+	}
+
 	async function deleteNote(id) {
+		const item = notes.find((note) => note.id === id);
 		await softDeleteNote(id);
 		notes = notes.filter((note) => note.id !== id);
+		if (item) await renumberAfterItemDelete('notes', item);
+		notes = await listNotes();
 		if (currentNoteId === id) {
 			const next = notes[0];
 			currentNoteId = next ? next.id : null;
@@ -302,7 +334,10 @@
 	}
 
 	async function deleteTag(tag) {
+		const container = $state.snapshot(tags);
 		await softDeleteTag(tag.id);
+		// Tags are one flat container (no folders): close the gap the delete left.
+		await applySidebarUpdates('tags', planDelete(container, tag.id).updates);
 		await refreshTags();
 		dataVersion += 1;
 		toast.success('Etiqueta borrada');
@@ -436,6 +471,7 @@
 
 	async function deleteSnippet(snippet) {
 		await softDeleteSnippet(snippet.id);
+		await renumberAfterItemDelete('snippets', snippet);
 		await refreshSnippets();
 		toast.success('Snippet borrado');
 	}

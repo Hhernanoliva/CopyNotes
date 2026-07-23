@@ -94,6 +94,39 @@ test('notes can be dragged into a manual order that survives reload', async ({ p
 	await expect(myNotes()).toHaveText(['Nota A', 'Nota C', 'Nota B']);
 });
 
+// Spec 022 invariant: orders stay gapless after a delete (no hole left behind).
+
+test('deleting a snippet from the middle keeps the order gapless (spec 022)', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Snippets' }).click();
+	// Three snippets; each new one lands on top → sortOrder Tres=0, Dos=1, Uno=2.
+	for (const name of ['Uno', 'Dos', 'Tres']) {
+		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
+		await page.getByRole('textbox', { name: 'Texto', exact: true }).fill(name);
+		await page.getByRole('button', { name: 'Guardar snippet' }).click();
+		await expect(page.getByRole('button', { name: `Renombrar snippet ${name}` })).toBeVisible();
+	}
+
+	// Delete the middle one ("Dos").
+	const row = page
+		.locator('.group')
+		.filter({ has: page.getByRole('button', { name: 'Renombrar snippet Dos' }) });
+	await row.hover();
+	await row.getByRole('button', { name: 'Borrar snippet' }).click();
+	await expect(page.getByText('Snippet borrado')).toBeVisible();
+
+	// Export and confirm the survivors' sortOrder is [0, 1] with no gap.
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: 'Exportar snippets' }).click()
+	]);
+	const exported = await readJsonDownload(download);
+	const orders = exported.snippets
+		.map((snippet) => snippet.sortOrder)
+		.sort((a, b) => a - b);
+	expect(orders).toEqual([0, 1]);
+});
+
 // Slice C: folders — file a snippet by dragging, collapse persists, delete restores.
 
 test('folders: file a snippet by dragging, collapse persists, delete restores contents', async ({

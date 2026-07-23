@@ -278,6 +278,42 @@ test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) =>
 	await expect(first.locator('a')).toHaveText('sitio');
 });
 
+test('Escape en el editor de enlace cierra el popover y devuelve el foco al renglón (spec 020)', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: escape enlace');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await expect(page.getByLabel('URL del enlace')).toBeFocused();
+
+	await page.keyboard.press('Escape');
+	await expect(page.getByLabel('URL del enlace')).toHaveCount(0);
+	await expect(first).toBeFocused();
+});
+
+test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020)', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: escape barra');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toHaveCount(0);
+	await expect(first).toBeFocused();
+});
+
 test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();

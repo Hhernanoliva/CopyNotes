@@ -30,7 +30,7 @@ Cuando guardás un snippet desde un renglón, arranca con las primeras palabras 
 
 Escribí **`/snippet`** en un renglón vacío (o `/` y elegí "Snippet" del menú). El menú pasa a mostrar tus snippets guardados, favoritos primero. Seguí escribiendo para filtrar por nombre o contenido, movete con **↑ ↓** y elegí con **Enter**.
 
-Al insertarse, el snippet se convierte en renglones normales de la nota: si era una checklist con niveles, entra como checklist con niveles. Después lo editás como cualquier otro texto, sin afectar al snippet guardado.
+Al insertarse, el snippet se convierte en renglones normales de la nota: si era una checklist con niveles, entra como checklist con niveles. Si guardaste un bloque de **código largo contraído** (con solo el adelanto a la vista), el snippet **recuerda que estaba contraído** y entra igual, contraído. Después lo editás como cualquier otro texto, sin afectar al snippet guardado.
 
 ### Exportar snippets
 

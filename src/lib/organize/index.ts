@@ -4,6 +4,7 @@ export {
 	planReorder,
 	planInsertAtTop,
 	planMoveToContainer,
+	planDelete,
 	planFolderDelete,
 	buildSidebarTree
 } from './plans';

@@ -13,11 +13,19 @@
 		currentLinkUrl = '',
 		requestPanel = null,
 		onCommand,
+		onRestorePanelFocus = null,
 		onClose
 	} = $props();
 
 	let el = $state();
 	let openPanel = $state(null); // 'link' | 'color' | 'more' | null
+
+	// Cerrar un popover con Escape (o su botón cerrar) devuelve el foco a la caja
+	// editable manteniendo la barra abierta (spec 020).
+	function closePanel() {
+		openPanel = null;
+		onRestorePanelFocus?.();
+	}
 
 	// Ctrl/Cmd+K fired from a block with no toolbar visible: Editor rebuilds the
 	// toolbar and tags it with a one-shot requestPanel. Sync that external
@@ -46,7 +54,7 @@
 	});
 
 	$effect(() => {
-		function onKey(e) { if (e.key === 'Escape') { openPanel ? (openPanel = null) : onClose(); } }
+		function onKey(e) { if (e.key === 'Escape') { openPanel ? closePanel() : onClose(); } }
 		window.addEventListener('keydown', onKey);
 		return () => window.removeEventListener('keydown', onKey);
 	});
@@ -94,7 +102,7 @@
 					<LinkEditorPopover initialUrl={currentLinkUrl}
 						onSave={(u) => { onCommand('link', u); openPanel = null; }}
 						onRemove={() => { onCommand('removeLink'); openPanel = null; }}
-						onClose={() => (openPanel = null)} />
+						onClose={closePanel} />
 				</div>
 			{/if}
 		</div>
@@ -105,7 +113,7 @@
 				<div class="cn-pop absolute left-0 top-full mt-1">
 					<TextColorPopover current={currentColor}
 						onPick={(c) => { onCommand('color', c); openPanel = null; }}
-						onClose={() => (openPanel = null)} />
+						onClose={closePanel} />
 				</div>
 			{/if}
 		</div>

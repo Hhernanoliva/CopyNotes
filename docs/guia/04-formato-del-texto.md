@@ -40,6 +40,7 @@ Con texto seleccionado, tocá el botón de enlace (ícono de cadena) o el atajo 
 - **Abrir** un enlace: apretá **Ctrl** (o **Cmd** en Mac) y hacé clic sobre el texto enlazado; se abre en una pestaña nueva. Un clic normal no lo abre —así podés seguir escribiendo sin irte de la nota sin querer. (En celular o tablet, por ahora el enlace no se abre con el toque; se abre desde una computadora).
 - **Editar** un enlace ya puesto: parate con el cursor adentro de ese texto (no hace falta seleccionar nada) y tocá de nuevo el botón de enlace; el cuadrito aparece con la dirección actual lista para cambiar.
 - **Quitar** un enlace: mismo cuadrito, botón **Quitar**.
+- **Cerrar sin cambios:** **Escape** cierra el cuadrito del enlace (y también la barra de formato) y **te devuelve el cursor al texto**, así seguís escribiendo sin tener que volver a tocar el renglón.
 
 > Si tenés texto seleccionado adentro de un renglón, **Ctrl/Cmd+K** agrega el enlace ahí en vez de abrir el buscador general (ver "Buscar" más abajo).
 

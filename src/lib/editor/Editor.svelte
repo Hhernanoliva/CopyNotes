@@ -699,6 +699,38 @@
 		sel.addRange(toolbar.savedRange);
 	}
 
+	function focusBlockEditable(blockId) {
+		const el = document.querySelector(`[data-block-id="${blockId}"] .block-editable`);
+		if (el instanceof HTMLElement) el.focus({ preventScroll: true });
+	}
+
+	// Escape en un popover de la barra (enlace, color, más) lo cierra pero deja la
+	// barra abierta: spec 020 pide devolver el foco a la caja editable, con la
+	// selección intacta, para que la barra siga mostrándose sobre ella.
+	function restoreToolbarFocus() {
+		const blockId = toolbar?.blockId;
+		if (!blockId) return;
+		restoreSavedSelection();
+		focusBlockEditable(blockId);
+	}
+
+	// Escape con la barra sin popover la cierra del todo (spec 020). Devolvemos el
+	// foco al renglón con el cursor colapsado al final de la selección previa, para
+	// que la barra no reaparezca de inmediato por el cambio de selección.
+	function closeToolbar() {
+		const blockId = toolbar?.blockId;
+		const range = toolbar?.savedRange;
+		toolbar = null;
+		if (range) {
+			const caret = range.cloneRange();
+			caret.collapse(false);
+			const sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(caret);
+		}
+		if (blockId) focusBlockEditable(blockId);
+	}
+
 	// Única puerta de formato, venga de la barra o del teclado. Dueña del paso
 	// de Deshacer, de aplicar el comando y de guardar el resultado leyéndolo del
 	// DOM explícitamente — nunca depende del evento `input` del navegador, que
@@ -1691,7 +1723,8 @@
 			currentLinkUrl={toolbar.linkUrl}
 			requestPanel={toolbar.requestPanel ?? null}
 			onCommand={handleToolbarCommand}
-			onClose={() => (toolbar = null)}
+			onRestorePanelFocus={restoreToolbarFocus}
+			onClose={closeToolbar}
 		/>
 	{/if}
 	{#if reorder.ghost}

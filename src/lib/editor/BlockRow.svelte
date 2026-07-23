@@ -553,7 +553,7 @@
 				onclick={() => onToggleCollapsed(block)}
 				aria-label={block.collapsed ? 'Expandir bloque' : 'Colapsar bloque'}
 				aria-expanded={!block.collapsed}
-				class="cn-affordance text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
+				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
 					? 'opacity-100'
 					: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
 			>
@@ -578,7 +578,7 @@
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
 			onclick={() => onToggleChecked(block)}
-			class="focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<span
 				aria-hidden="true"
@@ -734,7 +734,7 @@
 			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
 			onclick={() => confirmCopy(false)}
-			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			{#if copied}
 				<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -751,7 +751,7 @@
 				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => confirmCopy(true)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				{#if copiedWithChildren}
 					<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>

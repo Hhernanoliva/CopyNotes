@@ -28,6 +28,7 @@ export function snapshotFromBlocks(blocks, rootId) {
 			checked: block.checked,
 			dueDate: block.dueDate ?? null,
 			note: block.note ?? '',
+			codeCollapsed: block.codeCollapsed ?? false,
 			children: children.map(node)
 		};
 	}
