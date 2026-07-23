@@ -139,9 +139,26 @@ describe('db migrations v1 → v5', () => {
 		});
 		await migrate();
 
-		// verno is Dexie's on-disk version number; v5 is the latest declared.
-		expect(db.verno).toBe(5);
+		// verno is Dexie's on-disk version number; v6 is the latest declared.
+		expect(db.verno).toBe(6);
 		const b1 = await db.table('blocks').get('b1');
 		expect(b1.html).toBe('texto');
+	});
+});
+
+describe('db migrations v1 → v6', () => {
+	it('v6: opens on legacy data, keeps old rows, exposes an empty activity table', async () => {
+		await seedLegacyV1({
+			notes: [{ id: 'n1', title: 'vieja', updatedAt: '2026-01-01T00:00:00.000Z' }],
+			blocks: [{ id: 'b1', noteId: 'n1', parentBlockId: null, content: 'tarea' }]
+		});
+		await migrate();
+
+		// Old data survived the whole chain.
+		expect((await db.table('notes').get('n1')).title).toBe('vieja');
+		expect((await db.table('blocks').get('b1')).content).toBe('tarea');
+		// The new table exists and starts empty.
+		expect(db.tables.some((t) => t.name === 'activity')).toBe(true);
+		expect(await db.table('activity').count()).toBe(0);
 	});
 });
