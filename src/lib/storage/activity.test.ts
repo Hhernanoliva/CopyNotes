@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './db';
+import * as ids from './ids';
 import {
 	appendActivity,
 	listActivityByBlock,
@@ -9,7 +10,20 @@ import {
 } from './activity';
 
 beforeEach(async () => {
+	// Deterministic clock: each now() call returns a strictly later ISO
+	// timestamp, so ordering by `at` is stable no matter how fast the appends
+	// run. Without this, fake-indexeddb resolves within a single real
+	// millisecond, `at` ties, and the repo falls back to the random-uuid
+	// tiebreak — which made these ordering assertions flaky.
+	let tick = 0;
+	vi.spyOn(ids, 'now').mockImplementation(() =>
+		new Date(Date.UTC(2026, 0, 1, 0, 0, 0) + tick++).toISOString()
+	);
 	await Promise.all(db.tables.map((table) => table.clear()));
+});
+
+afterEach(() => {
+	vi.restoreAllMocks();
 });
 
 describe('activity repository', () => {
