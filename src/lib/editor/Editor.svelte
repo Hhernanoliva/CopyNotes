@@ -453,11 +453,20 @@
 		);
 	}
 
-	async function toggleAgentVisible() {
+	function toggleAgentVisible() {
 		const next = !note.agentVisible;
 		note.agentVisible = next;
-		await updateNote(note.id, { agentVisible: next });
-		onNoteUpdated(note.id, { agentVisible: next });
+		// Route through scheduleSave (like the title) so the change gets a
+		// localStorage journal entry — surviving a reload/unload that races the
+		// IndexedDB write — plus the shared "Guardando…/Guardado" indicator.
+		scheduleSave(
+			`agentVisible:${note.id}`,
+			async () => {
+				await updateNote(note.id, { agentVisible: next });
+				onNoteUpdated(note.id, { agentVisible: next });
+			},
+			{ table: 'notes', id: note.id, changes: { agentVisible: next } }
+		);
 	}
 
 	function handleTitleKeydown(event) {
