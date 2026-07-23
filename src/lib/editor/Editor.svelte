@@ -32,7 +32,7 @@
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
-	import { Tag } from '@lucide/svelte';
+	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
@@ -451,6 +451,13 @@
 			},
 			{ table: 'notes', id: note.id, changes: { title } }
 		);
+	}
+
+	async function toggleAgentVisible() {
+		const next = !note.agentVisible;
+		note.agentVisible = next;
+		await updateNote(note.id, { agentVisible: next });
+		onNoteUpdated(note.id, { agentVisible: next });
 	}
 
 	function handleTitleKeydown(event) {
@@ -1600,6 +1607,20 @@
 				name="note-title"
 				class="cn-note-title placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
 			/>
+			<button
+				type="button"
+				onclick={toggleAgentVisible}
+				aria-label="Visible para agentes"
+				aria-pressed={note.agentVisible === true}
+				use:tooltip={note.agentVisible
+					? 'Los agentes pueden ver las tareas de esta nota'
+					: 'Los agentes no ven esta nota'}
+				class="focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-md transition-[color,opacity] duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {note.agentVisible
+					? 'text-primary opacity-100'
+					: 'text-faint hover:text-foreground opacity-0 group-hover/title:opacity-100 group-focus-within/title:opacity-100'}"
+			>
+				<Bot size={18} aria-hidden="true" />
+			</button>
 			<div class="relative shrink-0">
 				<button
 					type="button"

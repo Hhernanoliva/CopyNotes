@@ -1,0 +1,36 @@
+# Agentes (beta)
+
+CopyNotes puede dejar que un **agente** (un asistente de IA que corre en tu
+computadora) te ayude con las **tareas** de una nota. Es opcional y arranca
+apagado: el agente no ve nada hasta que vos abrís la puerta.
+
+## Hacer una nota visible para agentes
+
+En el encabezado de la nota, al lado del botón de etiquetar, hay un botón con un
+robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer las
+**tareas** de esa nota (los renglones tipo tarea) y su historial. **Nunca** ve
+el resto del texto de la nota, y ninguna nota sin este botón activado sale de la
+app.
+
+## Qué puede hacer el agente
+
+- Leer las tareas de las notas que marcaste como visibles.
+- Crear tareas y marcarlas como hechas, dejando siempre una línea en la
+  **bitácora** (quién hizo qué y cuándo).
+
+No puede borrar, exportar ni reordenar, y no escribe en el texto de tus notas.
+
+## Si algo quedó mal: pedir que lo rehaga
+
+Si el agente marcó una tarea como hecha pero no te gustó el resultado,
+**destildá** la tarea y dejale una instrucción ("Rehacer: …"). El agente lee esa
+instrucción como un pedido de rehacer.
+
+## Ver la actividad
+
+En **Configuración** (engranaje ⚙️) hay una sección **Agentes** con la lista de
+lo último que hizo el agente.
+
+## Solo en la app de escritorio
+
+Esta conexión funciona en la app de escritorio (Mac). En el navegador todavía no.
