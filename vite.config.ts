@@ -61,7 +61,9 @@ export default defineConfig({
 					environment: 'jsdom',
 					include: [
 						'src/lib/format/**/*.{test,spec}.{js,ts}',
-						'src/lib/editor/**/*.{test,spec}.{js,ts}'
+						'src/lib/editor/**/*.{test,spec}.{js,ts}',
+						// Migration test: v3 upgrade uses htmlToPlainText, which needs a DOM.
+						'src/lib/storage/db.migrations.test.ts'
 					]
 				}
 			},
@@ -74,7 +76,9 @@ export default defineConfig({
 					exclude: [
 						'src/**/*.svelte.{test,spec}.{js,ts}',
 						'src/lib/format/**/*.{test,spec}.{js,ts}',
-						'src/lib/editor/**/*.{test,spec}.{js,ts}'
+						'src/lib/editor/**/*.{test,spec}.{js,ts}',
+						// Runs under jsdom instead (see the jsdom project's include).
+						'src/lib/storage/db.migrations.test.ts'
 					]
 				}
 			}
