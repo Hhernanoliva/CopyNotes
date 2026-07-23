@@ -1,10 +1,33 @@
 <script>
 	import { X } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
+	import { listRecentActivity } from '$lib/storage';
 
 	let { open = $bindable(false), scale, onChange } = $props();
 
 	let dialogEl = $state(null);
+	let activity = $state([]);
+
+	// Load the recent bitácora each time the dialog opens (read-only view).
+	$effect(() => {
+		if (open) listRecentActivity(20).then((rows) => (activity = rows));
+	});
+
+	const ACTION_LABEL = {
+		created: 'creó una tarea',
+		done: 'marcó hecha',
+		reopened: 'reabrió',
+		note: 'dejó una nota',
+		edited: 'editó'
+	};
+
+	function actorLabel(actor) {
+		return actor === 'user' ? 'Vos' : 'Agente';
+	}
+
+	function timeLabel(at) {
+		return new Date(at).toLocaleString('es');
+	}
 
 	const minScale = SCALE_STEPS[0];
 	const maxScale = SCALE_STEPS[SCALE_STEPS.length - 1];
@@ -93,6 +116,32 @@
 			>
 				Restablecer
 			</button>
+		</section>
+
+		<section class="flex flex-col gap-3">
+			<div class="flex flex-col gap-0.5">
+				<h3 class="text-sm font-bold">Agentes</h3>
+				<p class="text-muted-foreground text-sm">Lo último que hicieron los agentes en tus tareas.</p>
+			</div>
+
+			{#if activity.length === 0}
+				<p class="text-muted-foreground text-sm">Todavía no hay actividad de agentes.</p>
+			{:else}
+				<ul class="flex flex-col gap-2">
+					{#each activity as entry (entry.id)}
+						<li class="border-border flex flex-col gap-0.5 rounded-md border px-3 py-2 text-sm">
+							<span>
+								<span class="font-medium">{actorLabel(entry.actor)}</span>
+								{ACTION_LABEL[entry.action] ?? entry.action}
+							</span>
+							{#if entry.text}
+								<span class="text-muted-foreground">{entry.text}</span>
+							{/if}
+							<span class="text-faint text-xs">{timeLabel(entry.at)}</span>
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</section>
 	</div>
 </dialog>

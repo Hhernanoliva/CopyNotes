@@ -2,7 +2,7 @@
 
 Arriba a la derecha, junto a Ayuda y al sol/luna, hay un botón de
 **engranaje ⚙️**. Al tocarlo se abre la ventana **Configuración**, donde vas
-a ir encontrando los ajustes de CopyNotes. Hoy trae uno: el tamaño del texto.
+a ir encontrando los ajustes de CopyNotes.
 
 ## Tamaño de texto
 
@@ -22,3 +22,10 @@ lateral y los menús quedan del mismo tamaño.
 El tamaño que elegís **queda guardado**: sigue igual cuando cambiás de nota,
 cerrás la app o la recargás, y también viaja en tu archivo de respaldo (si lo
 exportás y lo importás en otro lado, vuelve con el mismo tamaño).
+
+## Agentes
+
+Más abajo hay una sección **Agentes**, de solo lectura: muestra lo último que
+pasó en la **bitácora** de tus tareas —quién lo hizo (vos o el agente), qué
+hizo y cuándo—. Si todavía no hubo actividad de agentes, ves un aviso que lo
+dice. Ver el tema 17 para más sobre los agentes.
