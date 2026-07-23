@@ -44,6 +44,11 @@ future desktop shell a small set of explicit integration points.
 
 ## What Does NOT Enter
 
+_These exclusions scope **this** stage (readiness only). The Tauri scaffold that
+later adds `src-tauri`, the Rust toolchain, and native capabilities is a
+separate stage, tracked in "Scaffold Roadmap Progress" below (landed in
+`7b70dcd`). They are not a contradiction._
+
 - No `src-tauri` directory.
 - No Rust toolchain or Tauri packages.
 - No native file dialog, clipboard plugin, updater, or window-close listener.

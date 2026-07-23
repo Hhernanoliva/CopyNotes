@@ -113,8 +113,9 @@
 		<p class="text-muted-foreground border-t pt-4 text-sm">
 			En cada renglón, pasá el mouse para ver el botón <span class="text-foreground font-medium"
 				>Copiar</span
-			>. El menú <span class="text-foreground font-medium">⋯</span> copia el renglón con sus hijos, lo
-			guarda como snippet o le pone una etiqueta.
+			> (y <span class="text-foreground font-medium">Copiar con subniveles</span> si tiene hijos). El
+			menú <span class="text-foreground font-medium">⋯</span> lo guarda como snippet o le pone una
+			etiqueta.
 		</p>
 	</div>
 </dialog>

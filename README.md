@@ -2,7 +2,7 @@
 
 Organizador de notas local-first, simple y rápido, inspirado en Bear y Workflowy. Escribís en bullets, organizás con tags y copiás cualquier bloque con un clic. Los datos viven en tu dispositivo.
 
-Estado: en construcción. Plan de etapas en `specs/017-mvp-implementation-plan.md`.
+Estado: MVP completo; en fase de mejoras post-MVP. Plan de etapas en `specs/017-mvp-implementation-plan.md`.
 
 ## Requisitos
 
@@ -40,7 +40,7 @@ apuntando al ejecutable.
 - SvelteKit + Svelte 5 (runes)
 - Tailwind CSS 4 + shadcn-svelte (tema Quiet Ink, oscuro por defecto)
 - Vitest para pruebas
-- Dexie (IndexedDB) para almacenamiento local — se incorpora en la Etapa 1
+- Dexie (IndexedDB) para almacenamiento local
 
 ## Estructura
 

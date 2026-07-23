@@ -1,6 +1,8 @@
 # Deshacer cubre el formato — Plan de implementación
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **✅ Plan COMPLETADO.** Las funciones se entregaron y están en producción. Las casillas `- [ ]` quedan como registro histórico del plan, no como trabajo pendiente.
 
 **Goal:** Que aplicar cualquier formato (negrita, cursiva, subrayado, tachado, código en línea, color, enlace, H1/H2/H3) cree exactamente un paso de Deshacer, sin importar si se aplicó desde la barra flotante o con atajo de teclado.
 

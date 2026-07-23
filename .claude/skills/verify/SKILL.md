@@ -13,19 +13,17 @@ pnpm dev --port 5199   # background; ready in ~2s, check curl http://localhost:5
 
 ## Drive (GUI surface)
 
-Playwright is NOT a project dependency. Install `playwright-core` in the
-scratchpad and use the cached headless shell:
-
-```js
-executablePath: `${homedir()}/Library/Caches/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell`
-```
-
-(`chromium-1228/chrome-mac-arm64/Google Chrome for Testing.app` also exists.)
+Playwright IS a project dev dependency (`@playwright/test`). Drive the app with
+the project's own runner: `pnpm test:e2e` (Chromium) or `pnpm test:e2e:webkit`
+(Safari/WebKit engine). Specs live in `e2e/`; install the browser once with
+`pnpm exec playwright install chromium` (or `webkit`).
 
 ## Gotchas
 
-- Fresh browser context = fresh IndexedDB; first screen is the empty state.
-  Two buttons match "Nueva nota" (header icon + empty-state CTA) — use `.last()`.
+- Fresh browser context = fresh IndexedDB → first run seeds the welcome demo
+  note ("👋 Bienvenido a CopyNotes"), NOT the empty state. It seeds once (the
+  `demoNoteCreated` flag); the empty state only shows if that flag is already
+  set. Two buttons match "Nueva nota" (header icon + empty-state CTA) — `.last()`.
 - Structural keys (Enter/Tab) persist to IndexedDB before focus moves to the
   new block. Type with `{ delay: 25 }` and wait ~150ms after Enter/Tab, or
   keystrokes land in the previous block.

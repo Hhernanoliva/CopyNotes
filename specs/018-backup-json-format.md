@@ -34,7 +34,10 @@ copynotes-backup-2026-07-09-1630.json
 
 ## Top-Level Shape
 
-The backup should use this structure:
+The backup should use this structure (the examples below show the core shape at
+`formatVersion` 3; a current export is `formatVersion` 4, which adds the
+`folders` array — see the Folder section and the `formatVersion` 4 note further
+down):
 
 ```json
 {

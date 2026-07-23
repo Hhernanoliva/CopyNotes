@@ -18,7 +18,7 @@
 ## En el teléfono
 
 - **Lista de notas a pantalla casi completa.** En el celular, el botón de panel (arriba a la izquierda) abre la lista de notas como un panel grande que cubre casi toda la pantalla, con un fondo oscuro detrás. Tocás afuera o la tecla Escape para cerrarla.
-- **Botones siempre visibles.** En pantallas táctiles, los botones de cada snippet y etiqueta (favorito, insertar, etiquetar, renombrar, borrar) se ven siempre, sin necesidad de pasar el mouse.
+- **Botones siempre visibles.** En pantallas táctiles, los botones de cada snippet (favorito, renombrar, borrar) y de cada etiqueta (renombrar, borrar) se ven siempre, sin necesidad de pasar el mouse.
 - **Más lugar para cada renglón.** El editor deja menos espacio vacío alrededor del texto. Al tocar un renglón, los botones para copiar y abrir más acciones aparecen uno debajo del otro a la derecha, para ocupar menos ancho.
 - **Etiquetas sin achicar el texto.** Las etiquetas de un renglón se acomodan debajo del contenido y se ordenan horizontalmente. Si agregás muchas, pasan a otra fila sin quitarle ancho a lo que escribiste.
 - **Navegación con teclado.** Mientras el panel está abierto en el teléfono, el foco del teclado se queda dentro y vuelve al botón que lo abrió al cerrarlo.

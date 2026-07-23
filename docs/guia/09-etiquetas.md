@@ -14,7 +14,7 @@ Al pasar el mouse por un renglón, tocá los **tres puntitos ⋯** y elegí **Et
 
 ### Administrar etiquetas (pestaña Etiquetas)
 
-El conmutador de la barra lateral ahora tiene tres pestañas: **Notas | Snippets | Etiquetas**. En Etiquetas ves la lista completa, alfabética. Al pasar el mouse por una:
+El conmutador de la barra lateral ahora tiene tres pestañas: **Notas | Snippets | Etiquetas**. En Etiquetas ves la lista completa, en el orden que quieras: **arrastrá** cada una para reordenarlas. Al pasar el mouse por una:
 
 - **Lápiz** — renombrar ahí mismo (Enter guarda, Escape cancela). Si el nombre nuevo ya existe, avisa y no cambia nada.
 - **Tachito** — borrarla (recuperable, como todo). Desaparece de todas las notas y renglones donde estaba.

@@ -1,6 +1,8 @@
 # Inline Formatting & Floating Toolbar Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **✅ Plan COMPLETADO.** Las funciones se entregaron y están en producción. Las casillas `- [ ]` quedan como registro histórico del plan, no como trabajo pendiente.
 
 **Goal:** Add a floating formatting toolbar to CopyNotes' block editor with headings (H1/H2/H3), bold, italic, underline, strikethrough, inline code, links, and a fixed text-color palette — persisted as a sanitized HTML subset per block.
 
