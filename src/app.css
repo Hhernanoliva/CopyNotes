@@ -238,14 +238,10 @@
 	opacity: 1;
 }
 
-/* En punteros sin hover (táctil), los controles de la línea no pueden
-   depender de "pasar el mouse por encima": quedan siempre alcanzables. */
-@media (hover: none) {
-	.cn-affordance {
-		opacity: 1 !important;
-		pointer-events: auto !important;
-	}
-}
+/* En punteros sin hover (táctil) no hay "pasar el mouse por encima": los
+   controles de la línea aparecen en la fila ACTIVA (la enfocada) vía
+   group-focus-within, y se ocultan en el resto para no ensuciar la lista.
+   La regla vieja los forzaba visibles en todas las filas; se quitó. */
 
 /* En celular táctil (angosto) el clúster de acciones sigue flotando (absoluto)
    pero en fila horizontal: así ocupa un solo renglón de alto y no se desborda

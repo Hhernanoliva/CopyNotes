@@ -49,7 +49,7 @@ test('la barra de formato no supera el ancho de la pantalla', async ({ page }) =
 	expect(box.x + box.width).toBeLessThanOrEqual(vw);
 });
 
-test('los controles de la línea son visibles al tacto sin hover', async ({ page }) => {
+test('al tacto, los controles aparecen solo en la fila activa', async ({ page }) => {
 	await page.goto('/');
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
@@ -57,13 +57,23 @@ test('los controles de la línea son visibles al tacto sin hover', async ({ page
 	await page.keyboard.press('ControlOrMeta+A');
 	await line.pressSequentially('una línea');
 
-	// sin hover: el clúster de acciones debe estar visible (opacity 1)
-	const copy = page.getByRole('button', { name: 'Copiar bloque' }).first();
-	await expect(copy).toBeVisible();
-	const opacity = await copy.evaluate((el) =>
-		getComputedStyle(el.closest('.cn-affordance')).opacity
-	);
-	expect(Number(opacity)).toBe(1);
+	// La fila enfocada (donde está el cursor) muestra sus controles: opacity 1
+	// (se espera a que termine la transición de aparición).
+	await expect
+		.poll(() =>
+			page
+				.getByRole('button', { name: 'Copiar bloque' })
+				.first()
+				.evaluate((el) => Number(getComputedStyle(el.closest('.cn-affordance')).opacity))
+		)
+		.toBe(1);
+
+	// Una fila que NO está enfocada mantiene sus controles ocultos: opacity 0.
+	const otherOpacity = await page
+		.getByRole('button', { name: 'Copiar bloque' })
+		.nth(2)
+		.evaluate((el) => getComputedStyle(el.closest('.cn-affordance')).opacity);
+	expect(Number(otherOpacity)).toBe(0);
 });
 
 test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => {
@@ -95,6 +105,9 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await first.press('Enter');
 	await page.locator('main [data-block-id] .block-editable').nth(1).pressSequentially('quedo yo');
 
+	// Los controles salen solo en la fila activa: hay que enfocar la primera
+	// para que aparezca su menú (mismo flujo que hace el usuario al tacto).
+	await first.click();
 	await page.getByRole('button', { name: 'Más acciones' }).first().click();
 	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
 

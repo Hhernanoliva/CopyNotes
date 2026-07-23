@@ -2,9 +2,9 @@
 
 CopyNotes está pensado también para el dedo, no solo para el mouse. En una pantalla táctil los controles de cada renglón cambian para que no tengas que "pasar el mouse por encima" (algo que en el teléfono no existe).
 
-## Los controles del renglón están siempre a la vista
+## Los controles aparecen en el renglón que tocás
 
-En la computadora, los botoncitos de cada renglón (la manija para arrastrar ⠿, el copiar y los tres puntitos) aparecen recién cuando ponés el mouse encima. En el teléfono o la tablet eso no sirve, así que **quedan siempre visibles** a la derecha del renglón. No hace falta ningún truco: tocás y ahí están.
+En la computadora, los botoncitos de cada renglón (la manija para arrastrar ⠿, el copiar y los tres puntitos) aparecen cuando ponés el mouse encima. En el teléfono o la tablet, **aparecen en el renglón que tocás**: al poner el cursor en una línea, esa línea muestra sus controles y las demás quedan limpias. Así la lista no se llena de íconos.
 
 ## Botones más grandes para el dedo
 
