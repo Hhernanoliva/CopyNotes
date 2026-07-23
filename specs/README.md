@@ -33,6 +33,8 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 25. `025-macos-desktop-readiness.md`
 26. `026-text-drag-move.md`
 27. `027-settings-text-size.md`
+28. `028-agent-beta-local-mcp.md`
+29. `029-cloud-sync-path.md`
 
 ## Required Sections For Specs
 
