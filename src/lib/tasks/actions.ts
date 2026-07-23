@@ -15,7 +15,7 @@ import {
 } from '$lib/storage';
 import { plainTextToHtml } from '$lib/format';
 
-export async function createTask({ noteId, parentBlockId = null, content = '', html, actor = 'user' }) {
+export async function createTask({ noteId, parentBlockId = null, content = '', html = undefined, actor = 'user' }) {
 	const block = await createBlock({
 		noteId,
 		parentBlockId,
@@ -75,10 +75,10 @@ export async function addTaskNote({ blockId, actor = 'user', text }) {
 	return { activity };
 }
 
-export async function editTask({ blockId, content, html, actor = 'user' }) {
-	const changes = { content };
-	if (html !== undefined) changes.html = html;
-	else changes.html = plainTextToHtml(content);
+export async function editTask({ blockId, content, html = undefined, actor = 'user' }) {
+	// When html is omitted, derive it from content (escaped) so a plain-text
+	// edit can never smuggle markup into block.html.
+	const changes = { content, html: html !== undefined ? html : plainTextToHtml(content) };
 	const block = await updateBlock(blockId, changes);
 	if (!block) return undefined;
 	const activity = await appendActivity({
