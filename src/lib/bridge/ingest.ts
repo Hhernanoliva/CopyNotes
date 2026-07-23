@@ -28,7 +28,11 @@ const HANDLERS = {
 };
 
 export async function ingestAgentChange(change) {
-	const handler = HANDLERS[change?.type];
+	// Own-property check, not a bare lookup: a bare HANDLERS[type] would resolve
+	// reserved names like 'constructor' or '__proto__' off Object.prototype and
+	// dodge the allow-list. The allow-list is exactly the three own keys.
+	const type = change?.type;
+	const handler = Object.hasOwn(HANDLERS, type) ? HANDLERS[type] : null;
 	if (!handler) return { ok: false, reason: 'not-allowed' };
 
 	// The note an operation lands on is authoritative from the target itself,

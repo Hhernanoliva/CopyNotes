@@ -50,6 +50,13 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(res.reason).toBe('not-allowed');
 	});
 
+	it('rejects reserved-name types that are not own handlers', async () => {
+		for (const type of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+			const res = await ingestAgentChange({ type, noteId: 'whatever', agentId: 'agent' });
+			expect(res).toEqual({ ok: false, reason: 'not-allowed' });
+		}
+	});
+
 	it('rejects a completeTask whose blockId belongs to a hidden note, even with a visible noteId', async () => {
 		const visible = await createNote();
 		await updateNote(visible.id, { agentVisible: true });
