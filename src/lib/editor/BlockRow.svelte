@@ -158,14 +158,26 @@
 		}
 	});
 
+	// Park a collapsed caret at the end of a node's contents. Builds a detached
+	// range and collapses it BEFORE handing it to the live selection, so the
+	// selection is never momentarily expanded — on mobile that expansion painted
+	// as a one-frame highlight flash when moving between lines.
+	function placeCaretAtEnd(node) {
+		const selection = window.getSelection();
+		if (!selection) return;
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		range.collapse(false);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
 	async function openNote() {
 		showNote = true;
 		await tick();
 		if (noteEl) {
 			noteEl.focus();
-			const selection = window.getSelection();
-			selection.selectAllChildren(noteEl);
-			selection.collapseToEnd();
+			placeCaretAtEnd(noteEl);
 		}
 	}
 
@@ -183,9 +195,7 @@
 		}
 		el.focus();
 		if (caretToEnd && block.type !== 'separator') {
-			const selection = window.getSelection();
-			selection.selectAllChildren(el);
-			selection.collapseToEnd();
+			placeCaretAtEnd(el);
 		}
 	}
 
@@ -462,6 +472,17 @@
 
 	// Shift+click selects a block range instead of moving the caret; a plain
 	// mousedown starts a potential drag-select and clears any active selection.
+	// Inside a contenteditable a plain click only parks the caret; a link never
+	// navigates. Ctrl/Cmd + click opens it in a new tab — the editor convention
+	// (Notion, Docs). No modifier means the user is editing, so we stay out.
+	function handleEditableClick(event) {
+		if (!(event.metaKey || event.ctrlKey)) return;
+		const anchor = event.target?.closest?.('a[href]');
+		if (!anchor) return;
+		event.preventDefault();
+		window.open(anchor.href, '_blank', 'noopener,noreferrer');
+	}
+
 	function handleMousedown(event) {
 		if (event.shiftKey) {
 			event.preventDefault();
@@ -621,6 +642,7 @@
 					oninput={handleInput}
 					onpaste={handlePaste}
 					onmousedown={handleMousedown}
+					onclick={handleEditableClick}
 					onfocus={() => onActive(block)}
 					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
 					'code'

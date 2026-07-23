@@ -132,6 +132,12 @@
 	}
 
 	function openFromAgenda(noteId, blockId) {
+		// A stale Agenda row could point at a note that was just deleted. Don't try
+		// to open a ghost; refresh the Agenda so the dead date drops off instead.
+		if (!notes.some((note) => note.id === noteId)) {
+			agendaVersion += 1;
+			return;
+		}
 		// Remount the editor even when the note is already open so the focus
 		// request applies (the editor is keyed on noteId + dataVersion).
 		dataVersion++;
@@ -204,6 +210,9 @@
 			currentNoteId = next ? next.id : null;
 			if (next) setLastOpenedNoteId(next.id);
 		}
+		// The note's dated rows are gone with it; tell an open Agenda to re-read so
+		// its dates don't linger and open a note that no longer exists.
+		agendaVersion += 1;
 		toast.success('Nota borrada');
 	}
 

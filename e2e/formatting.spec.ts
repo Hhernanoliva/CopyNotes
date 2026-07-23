@@ -278,6 +278,31 @@ test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) =>
 	await expect(first.locator('a')).toHaveText('sitio');
 });
 
+test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: abrir enlace');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+	await expect(first.locator('a')).toHaveText('sitio');
+
+	// Ctrl/Cmd+clic sobre el enlace lo abre; un clic sin modificador solo edita.
+	const [popup] = await Promise.all([
+		page.waitForEvent('popup'),
+		first.locator('a').click({ modifiers: ['ControlOrMeta'] })
+	]);
+	expect(popup.url()).toContain('ejemplo.com');
+	await popup.close();
+});
+
 test('deshacer restaura el formato que se acababa de limpiar', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
