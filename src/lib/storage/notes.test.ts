@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
 import { createNote, getNote, listNotes, softDeleteNote, updateNote } from './notes';
 import { createBlock } from './blocks';
+import { agentData } from '$lib/bridge/signal.svelte';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -65,5 +66,27 @@ describe('notes repository', () => {
 
 		const raw = await db.table('blocks').get(block.id);
 		expect(raw.deletedAt).toBeTruthy();
+	});
+});
+
+// Same safety net for notes: title and deletion travel to the agent export.
+describe('agent-data safety net', () => {
+	it('bumps on every note write, not on reads', async () => {
+		let before = agentData.version;
+		const note = await createNote({ title: 'A' });
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await updateNote(note.id, { title: 'B' });
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await listNotes();
+		await getNote(note.id);
+		expect(agentData.version).toBe(before);
+
+		before = agentData.version;
+		await softDeleteNote(note.id);
+		expect(agentData.version).toBeGreaterThan(before);
 	});
 });

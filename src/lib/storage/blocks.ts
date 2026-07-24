@@ -3,8 +3,13 @@ import { createId, now } from './ids';
 import { plainTextToHtml } from '$lib/format';
 import { trackPendingWrite } from './pending-writes';
 import { planToggleChecked } from '$lib/blocks/cascade';
+import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 const blocks = db.table('blocks');
+
+// Safety net (spec 2026-07-24 puerta única): every write in this repo bumps
+// the agent-data signal AFTER the Dexie write resolves, so export.json can
+// never go stale regardless of which code path wrote. Reads never bump.
 
 export function createBlock(fields) {
 	return trackPendingWrite(async () => {
@@ -46,6 +51,7 @@ export function createBlock(fields) {
 			deletedAt: null
 		};
 		await blocks.add(block);
+		bumpAgentData();
 		return block;
 	});
 }
@@ -54,7 +60,11 @@ export function createBlock(fields) {
 // exactly as it was (including a re-create of a soft-deleted one), which
 // createBlock cannot do because it always mints a fresh id.
 export function putBlock(block) {
-	return trackPendingWrite(() => blocks.put(block));
+	return trackPendingWrite(async () => {
+		const key = await blocks.put(block);
+		bumpAgentData();
+		return key;
+	});
 }
 
 export async function getBlock(id) {
@@ -98,7 +108,11 @@ export async function listChildBlocks(noteId, parentBlockId) {
 
 export function updateBlock(id, changes) {
 	return trackPendingWrite(async () => {
-		await blocks.update(id, { ...changes, updatedAt: now() });
+		// .update resolves to the count of rows changed (0 for a missing id). Only
+		// bump on a real write, so a no-op update never announces nothing — this
+		// is what keeps the task layer's "missing block does not bump" invariant.
+		const updated = await blocks.update(id, { ...changes, updatedAt: now() });
+		if (updated) bumpAgentData();
 		return blocks.get(id);
 	});
 }
@@ -136,13 +150,15 @@ export function applyInsertionPlan(plan) {
 				await blocks.update(update.id, { order: update.order, updatedAt: timestamp });
 			}
 		});
+		bumpAgentData();
 	});
 }
 
 export function softDeleteBlock(id) {
 	return trackPendingWrite(async () => {
 		const timestamp = now();
-		await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+		const updated = await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+		if (updated) bumpAgentData();
 	});
 }
 
@@ -151,11 +167,13 @@ export function softDeleteBlock(id) {
 export function softDeleteBlocks(ids) {
 	return trackPendingWrite(async () => {
 		const timestamp = now();
+		let changed = 0;
 		await db.transaction('rw', blocks, async () => {
 			for (const id of ids) {
-				await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
+				changed += await blocks.update(id, { deletedAt: timestamp, updatedAt: timestamp });
 			}
 		});
+		if (changed) bumpAgentData();
 	});
 }
 

@@ -8,6 +8,7 @@ import {
 	listAllBlocks,
 	listBlocksByNote,
 	listChildBlocks,
+	putBlock,
 	softDeleteBlock,
 	softDeleteBlocks,
 	updateBlock,
@@ -15,6 +16,7 @@ import {
 	toggleTodoCascade
 } from './blocks';
 import { createNote } from './notes';
+import { agentData } from '$lib/bridge/signal.svelte';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -257,5 +259,67 @@ describe('dueDate (spec 021)', () => {
 		const note = await createNote({ title: 'Tareas' });
 		const text = await createBlock({ noteId: note.id, type: 'text', content: 'nota' });
 		expect(await toggleTodoCascade(note.id, text.id)).toBeNull();
+	});
+});
+
+// Safety net: EVERY block write must bump the agent-data signal so the agent
+// export can never go stale, no matter which code path wrote (spec 2026-07-24
+// puerta única). Reads must not bump.
+describe('agent-data safety net', () => {
+	it('bumps on create, update, put and softDelete; not on reads', async () => {
+		const note = await createNote();
+		let before = agentData.version;
+		const block = await createBlock({ noteId: note.id, content: 'a' });
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await updateBlock(block.id, { content: 'b' });
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await putBlock({ ...block, content: 'c' });
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await getBlock(block.id);
+		await listBlocksByNote(note.id);
+		expect(agentData.version).toBe(before);
+
+		before = agentData.version;
+		await softDeleteBlock(block.id);
+		expect(agentData.version).toBeGreaterThan(before);
+	});
+
+	it('bumps on softDeleteBlocks and applyInsertionPlan', async () => {
+		const note = await createNote();
+		const a = await createBlock({ noteId: note.id, content: 'a' });
+		const b = await createBlock({ noteId: note.id, content: 'b' });
+
+		let before = agentData.version;
+		await applyInsertionPlan({
+			newBlocks: [
+				{
+					id: 'ins-1',
+					noteId: note.id,
+					parentBlockId: null,
+					type: 'text',
+					content: 'x',
+					html: 'x',
+					order: 2,
+					collapsed: false,
+					codeCollapsed: false,
+					checked: false,
+					note: '',
+					dueDate: null,
+					createdBy: 'user'
+				}
+			],
+			updates: []
+		});
+		expect(agentData.version).toBeGreaterThan(before);
+
+		before = agentData.version;
+		await softDeleteBlocks([a.id, b.id]);
+		expect(agentData.version).toBeGreaterThan(before);
 	});
 });

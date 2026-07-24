@@ -3,8 +3,13 @@ import { createId, now } from './ids';
 import { sortBySidebarOrder } from '../organize';
 import { shiftRootDown } from './organize';
 import { trackPendingWrite } from './pending-writes';
+import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 const notes = db.table('notes');
+
+// Safety net (spec 2026-07-24 puerta única): every note write bumps the
+// agent-data signal after the write resolves — a title change or a deletion
+// travels to the agent export, which can never go stale. Reads never bump.
 
 export function createNote({ title = '' } = {}) {
 	return trackPendingWrite(async () => {
@@ -21,6 +26,7 @@ export function createNote({ title = '' } = {}) {
 			deletedAt: null
 		};
 		await notes.add(note);
+		bumpAgentData();
 		return note;
 	});
 }
@@ -38,7 +44,9 @@ export async function listNotes() {
 
 export function updateNote(id, changes) {
 	return trackPendingWrite(async () => {
-		await notes.update(id, { ...changes, updatedAt: now() });
+		// Only bump on a real write (0 rows for a missing id), same as updateBlock.
+		const updated = await notes.update(id, { ...changes, updatedAt: now() });
+		if (updated) bumpAgentData();
 		return notes.get(id);
 	});
 }
@@ -63,5 +71,6 @@ export function softDeleteNote(id) {
 					}
 				});
 		});
+		bumpAgentData();
 	});
 }
