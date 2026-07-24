@@ -122,3 +122,39 @@ describe('mutators on a missing block', () => {
 		expect(await readTask('nope')).toBeUndefined();
 	});
 });
+
+describe('atomicity', () => {
+	it('does not append activity if the block write fails', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'T', actor: 'user' });
+		const before = (await listActivityByBlock(block.id)).length;
+
+		// Force the activity write to throw mid-transaction; the block change must roll back too.
+		const activityTable = db.table('activity');
+		const original = activityTable.add.bind(activityTable);
+		activityTable.add = () => Promise.reject(new Error('boom'));
+		try {
+			await expect(completeTask({ blockId: block.id, actor: 'agent' })).rejects.toThrow('boom');
+		} finally {
+			activityTable.add = original;
+		}
+
+		const reread = await getBlock(block.id);
+		expect(reread.checked).toBe(false); // rolled back
+		expect((await listActivityByBlock(block.id)).length).toBe(before); // no orphan entry
+	});
+
+	it('does not leave an orphan block if the activity write fails during createTask', async () => {
+		const note = await createNote();
+		const activityTable = db.table('activity');
+		const original = activityTable.add.bind(activityTable);
+		activityTable.add = () => Promise.reject(new Error('boom'));
+		try {
+			await expect(createTask({ noteId: note.id, content: 'T', actor: 'user' })).rejects.toThrow('boom');
+		} finally {
+			activityTable.add = original;
+		}
+		// The whole createTask transaction rolled back → no orphan block in the note.
+		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+});

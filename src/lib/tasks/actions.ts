@@ -6,89 +6,95 @@
 // ingest gate BEFORE calling here (see src/lib/bridge/ingest.ts).
 
 import {
+	db,
 	createBlock,
 	updateBlock,
 	getBlock,
 	listBlocksByNote,
+	listChildBlocks,
 	appendActivity,
 	listActivityByBlock
 } from '$lib/storage';
 import { plainTextToHtml } from '$lib/format';
 
+// Block change + its one bitácora entry commit together or not at all, so an
+// action can never leave a task mutated without its trace (or vice versa).
+async function traceWrite({ blockId, changes, actor, action, text }) {
+	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+		const block = await updateBlock(blockId, changes);
+		if (!block) return undefined;
+		const activity = await appendActivity({
+			blockId,
+			noteId: block.noteId,
+			actor,
+			action,
+			text
+		});
+		return { block, activity };
+	});
+}
+
 export async function createTask({ noteId, parentBlockId = null, content = '', html = undefined, actor = 'user' }) {
-	const block = await createBlock({
-		noteId,
-		parentBlockId,
-		type: 'todo',
-		content,
-		html: html ?? plainTextToHtml(content),
-		createdBy: actor
+	// Resolve sibling order BEFORE the transaction: createBlock's order
+	// inference does chained reads that, wrapped in trackPendingWrite's native
+	// promise, escape Dexie's transaction zone and commit it early
+	// (PrematureCommitError). Passing order explicitly leaves only direct,
+	// single-hop Dexie ops inside the transaction (no chained Collection query),
+	// which is what makes nesting safe here. Order was never atomic with the
+	// insert pre-G1, so this is no regression.
+	const siblings = await listChildBlocks(noteId, parentBlockId);
+	const order = siblings.length;
+	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+		const block = await createBlock({
+			noteId,
+			parentBlockId,
+			type: 'todo',
+			content,
+			html: html ?? plainTextToHtml(content),
+			order,
+			createdBy: actor
+		});
+		const activity = await appendActivity({
+			blockId: block.id,
+			noteId,
+			actor,
+			action: 'created',
+			text: content
+		});
+		return { block, activity };
 	});
-	const activity = await appendActivity({
-		blockId: block.id,
-		noteId,
-		actor,
-		action: 'created',
-		text: content
-	});
-	return { block, activity };
 }
 
 export async function completeTask({ blockId, actor, text = '' }) {
-	const block = await updateBlock(blockId, { checked: true });
-	if (!block) return undefined;
-	const activity = await appendActivity({
-		blockId,
-		noteId: block.noteId,
-		actor,
-		action: 'done',
-		text
-	});
-	return { block, activity };
+	return traceWrite({ blockId, changes: { checked: true }, actor, action: 'done', text });
 }
 
 export async function reopenTask({ blockId, actor = 'user', text = '' }) {
-	const block = await updateBlock(blockId, { checked: false });
-	if (!block) return undefined;
-	const activity = await appendActivity({
-		blockId,
-		noteId: block.noteId,
-		actor,
-		action: 'reopened',
-		text
-	});
-	return { block, activity };
+	return traceWrite({ blockId, changes: { checked: false }, actor, action: 'reopened', text });
 }
 
 // The user's redo channel: an instruction line the agent can read. Stored as
 // plain text on the activity row (never in block.html), rendered escaped.
 export async function addTaskNote({ blockId, actor = 'user', text }) {
-	const block = await getBlock(blockId);
-	if (!block) return undefined;
-	const activity = await appendActivity({
-		blockId,
-		noteId: block.noteId,
-		actor,
-		action: 'note',
-		text
+	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+		const block = await getBlock(blockId);
+		if (!block) return undefined;
+		const activity = await appendActivity({
+			blockId,
+			noteId: block.noteId,
+			actor,
+			action: 'note',
+			text
+		});
+		return { activity };
 	});
-	return { activity };
 }
 
 export async function editTask({ blockId, content, html = undefined, actor = 'user' }) {
 	// When html is omitted, derive it from content (escaped) so a plain-text
 	// edit can never smuggle markup into block.html.
 	const changes = { content, html: html !== undefined ? html : plainTextToHtml(content) };
-	const block = await updateBlock(blockId, changes);
-	if (!block) return undefined;
-	const activity = await appendActivity({
-		blockId,
-		noteId: block.noteId,
-		actor,
-		action: 'edited',
-		text: content
-	});
-	return { block, activity };
+	return traceWrite({ blockId, changes, actor, action: 'edited', text: content });
 }
 
 export async function readTask(blockId) {
