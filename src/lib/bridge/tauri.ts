@@ -29,27 +29,44 @@ export async function startBridgeWatch(onIngested) {
 	if (!isTauriRuntime()) return () => {};
 	const { invoke } = await import('@tauri-apps/api/core');
 	const { listen } = await import('@tauri-apps/api/event');
-	await invoke('bridge_start_watch');
+	// Register the listener BEFORE starting the watcher: if bridge_start_watch
+	// ran first, a file processed in the gap before listen() attaches would be
+	// moved to processed/ but its event silently dropped (never ingested).
 	// Rust emits the inbox file's raw text as the payload (a String). The
 	// <string> type argument matches Tauri's own documented listen<T>(...)
 	// usage — without it event.payload has no inferred type to JSON.parse.
-	return listen<string>('bridge://change', async (event) => {
+	const unlisten = await listen<string>('bridge://change', async (event) => {
 		let change;
 		try {
 			change = JSON.parse(event.payload);
 		} catch {
 			return; // ignore a malformed/partial inbox file
 		}
-		const result = await ingestAgentChange(change);
-		if (change?.id) {
-			try {
-				await invoke('bridge_write_outbox', { id: change.id, contents: JSON.stringify(result) });
-			} catch (e) {
-				console.error('bridge_write_outbox failed', e);
+		try {
+			const result = await ingestAgentChange(change);
+			if (change?.id) {
+				try {
+					await invoke('bridge_write_outbox', { id: change.id, contents: JSON.stringify(result) });
+				} catch (e) {
+					console.error('bridge_write_outbox failed', e);
+				}
+			}
+			if (result.ok) onIngested?.();
+		} catch (error) {
+			// A malformed change (e.g. a missing blockId making Dexie reject) must
+			// still answer the outbox — otherwise the MCP client waits out the full
+			// timeout instead of getting an immediate error.
+			console.error('bridge ingest failed', error);
+			if (change?.id) {
+				await invoke('bridge_write_outbox', {
+					id: change.id,
+					contents: JSON.stringify({ id: change.id, ok: false, reason: 'error' })
+				}).catch((e) => console.error('bridge_write_outbox failed', e));
 			}
 		}
-		if (result.ok) onIngested?.();
 	});
+	await invoke('bridge_start_watch');
+	return unlisten;
 }
 
 // Returns the mailbox folder's absolute path so it can be shown to the user
