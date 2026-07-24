@@ -9,7 +9,8 @@ import {
 	editTask,
 	readTask,
 	listTasks,
-	setTaskChecked
+	setTaskChecked,
+	convertToTask
 } from './actions';
 
 beforeEach(async () => {
@@ -241,5 +242,30 @@ describe('setTaskChecked', () => {
 		const plan = await setTaskChecked({ noteId: note.id, blockId: block.id });
 		expect(plan).toBeNull();
 		expect(await listActivityByBlock(block.id)).toEqual([]);
+	});
+});
+
+describe('convertToTask', () => {
+	it('converts a text block to todo with a created line', async () => {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'comprar pan' });
+		const result = await convertToTask({ blockId: block.id });
+		expect(result.block.type).toBe('todo');
+		expect(result.block.checked).toBe(false);
+		expect(result.activity).toMatchObject({ actor: 'user', action: 'created', text: 'comprar pan' });
+	});
+
+	it('returns undefined for a missing block and does not bump', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const before = agentData.version;
+		expect(await convertToTask({ blockId: 'nope' })).toBeUndefined();
+		expect(agentData.version).toBe(before);
+	});
+
+	it('preserves an explicit checked (pasted "[x]" first line)', async () => {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'hecho' });
+		const result = await convertToTask({ blockId: block.id, checked: true });
+		expect(result.block.checked).toBe(true);
 	});
 });

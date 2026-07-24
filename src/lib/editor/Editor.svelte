@@ -29,7 +29,7 @@
 		planMoveSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
-	import { setTaskChecked } from '$lib/tasks';
+	import { setTaskChecked, convertToTask } from '$lib/tasks';
 	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -547,7 +547,12 @@
 	async function setBlockType(block, nextType) {
 		const changes = planBlockType(block, nextType);
 		Object.assign(block, changes);
-		await updateBlock(block.id, changes);
+		if (nextType === 'todo') {
+			// Convertir a tarea nace por la capa (bitácora 'created').
+			await convertToTask({ blockId: block.id, checked: changes.checked });
+		} else {
+			await updateBlock(block.id, changes);
+		}
 	}
 
 	// --- Floating formatting toolbar (spec: toolbar wiring) ---
@@ -1553,12 +1558,13 @@
 		}
 		row.type = command.id;
 		if (command.id === 'code') row.html = row.content;
-		const changes = { type: command.id, html: row.html };
 		if (command.id === 'todo') {
+			// La tarea nace acá: la capa escribe el tipo y la línea 'created'.
 			row.checked = false;
-			changes.checked = false;
+			await convertToTask({ blockId: row.id, checked: false });
+		} else {
+			await updateBlock(row.id, { type: command.id, html: row.html });
 		}
-		await updateBlock(row.id, changes);
 		focusBlockId = row.id;
 		focusCaret = anchor;
 	}

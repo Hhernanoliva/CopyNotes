@@ -123,6 +123,22 @@ export async function addTaskNote({ blockId, actor = 'user', text }) {
 	return result;
 }
 
+// Converting an existing block INTO a todo (slash /todo, type menu, the reused
+// first line of a paste). For the agent the task is born here → a 'created'
+// line. An explicit `checked` wins (a pasted "[x]" line stays done); omitted,
+// the block's previous checked survives — parity with planBlockType.
+export async function convertToTask({ blockId, actor = 'user', checked = undefined }) {
+	const block = await getBlock(blockId);
+	if (!block) return undefined;
+	return traceWrite({
+		blockId,
+		changes: { type: 'todo', checked: checked ?? (block.checked ?? false) },
+		actor,
+		action: 'created',
+		text: block.content ?? ''
+	});
+}
+
 export async function editTask({ blockId, content, html = undefined, actor = 'user' }) {
 	// When html is omitted, derive it from content (escaped) so a plain-text
 	// edit can never smuggle markup into block.html.
