@@ -147,3 +147,45 @@ output:
 `zod@4.4.3` is installed alongside the SDK because tool/resource schema
 registration (`registerTool`/`registerResource`) requires it as a peer
 dependency.
+
+## Empaquetado dentro de la app (Tauri resource)
+
+El server MCP viaja **dentro** del `.app` como recurso Tauri — no se publica en
+npm. `src-tauri/tauri.conf.json` declara en `bundle.resources`:
+
+```json
+"resources": {
+  "../mcp/server.js": "mcp/server.js",
+  "../mcp/lib": "mcp/lib",
+  "../mcp/node_modules": "mcp/node_modules"
+}
+```
+
+En runtime el comando Rust `bridge_server_path` resuelve
+`resource_dir()/mcp/server.js` (o, en `tauri dev`, el `../mcp/server.js` del
+repo). La app rellena esa ruta en Ajustes › Agentes.
+
+### Riesgo: `node_modules` con symlinks
+
+`pnpm install` deja `mcp/node_modules` con **symlinks** al store `.pnpm`. Tauri
+copia archivos, no symlinks → hay que producir un `node_modules` **plano** antes
+de bundlear. Paso de build (GATE manual, en la Mac):
+
+```bash
+# 1) node_modules plano y solo de producción (deja zod, quita vitest):
+cd mcp && pnpm install --config.node-linker=hoisted --prod && cd ..
+# 2) build del .app (mcp/ viaja en los recursos):
+export PATH="$HOME/.cargo/bin:$PATH" && pnpm tauri build
+# 3) verificar que el server viajó:
+find src-tauri/target -name server.js -path '*Resources/mcp*' | head
+```
+
+Para volver al entorno de desarrollo (recuperar vitest y los symlinks):
+
+```bash
+cd mcp && pnpm install
+```
+
+> Nota: los `*.test.js` dentro de `lib/` viajan en el bundle pero son inertes en
+> runtime (nadie los importa). Excluirlos moviéndolos a `mcp/test/` es un
+> follow-up de limpieza, no bloqueante para la beta.

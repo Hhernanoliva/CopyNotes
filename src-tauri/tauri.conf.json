@@ -26,6 +26,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": {
+      "../mcp/server.js": "mcp/server.js",
+      "../mcp/lib": "mcp/lib",
+      "../mcp/node_modules": "mcp/node_modules"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
