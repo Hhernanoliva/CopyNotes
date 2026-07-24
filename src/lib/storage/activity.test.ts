@@ -1,7 +1,6 @@
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
-import * as ids from './ids';
 import {
 	appendActivity,
 	listActivityByBlock,
@@ -10,20 +9,7 @@ import {
 } from './activity';
 
 beforeEach(async () => {
-	// Deterministic clock: each now() call returns a strictly later ISO
-	// timestamp, so ordering by `at` is stable no matter how fast the appends
-	// run. Without this, fake-indexeddb resolves within a single real
-	// millisecond, `at` ties, and the repo falls back to the random-uuid
-	// tiebreak — which made these ordering assertions flaky.
-	let tick = 0;
-	vi.spyOn(ids, 'now').mockImplementation(() =>
-		new Date(Date.UTC(2026, 0, 1, 0, 0, 0) + tick++).toISOString()
-	);
 	await Promise.all(db.tables.map((table) => table.clear()));
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
 });
 
 describe('activity repository', () => {
@@ -58,5 +44,15 @@ describe('activity repository', () => {
 		expect((await listActivityByNote('n1')).length).toBe(2);
 		const recent = await listRecentActivity(10);
 		expect(recent[0].text).toBe('b');
+	});
+
+	it('orders by a monotonic seq, independent of the wall clock', async () => {
+		// Same wall-clock ms for all three; order must still be insertion order.
+		const rows = [];
+		for (const text of ['a', 'b', 'c']) {
+			rows.push(await appendActivity({ blockId: 'b1', noteId: 'n1', actor: 'user', action: 'note', text }));
+		}
+		expect(rows.map((r) => r.seq)).toEqual([...rows.map((r) => r.seq)].sort((x, y) => x - y));
+		expect((await listActivityByBlock('b1')).map((r) => r.text)).toEqual(['a', 'b', 'c']);
 	});
 });

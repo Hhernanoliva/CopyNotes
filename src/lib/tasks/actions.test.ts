@@ -1,22 +1,10 @@
 import 'fake-indexeddb/auto';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as ids from '$lib/storage/ids';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { db, createNote, createBlock, getBlock, listActivityByBlock } from '$lib/storage';
 import { createTask, completeTask, reopenTask, addTaskNote, editTask, readTask, listTasks } from './actions';
 
 beforeEach(async () => {
-	// Deterministic clock so bitácora order is stable: without it, entries
-	// appended within the same millisecond tie on `at` and fall back to the
-	// random-uuid tiebreak, which reordered ['reopened','note'] intermittently.
-	let tick = 0;
-	vi.spyOn(ids, 'now').mockImplementation(() =>
-		new Date(Date.UTC(2026, 0, 1, 0, 0, 0) + tick++).toISOString()
-	);
 	await Promise.all(db.tables.map((table) => table.clear()));
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
 });
 
 describe('createTask', () => {
