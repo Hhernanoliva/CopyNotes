@@ -5,7 +5,9 @@ pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
       bridge::bridge_mailbox_path,
-      bridge::bridge_write_export
+      bridge::bridge_write_export,
+      bridge::bridge_start_watch,
+      bridge::bridge_write_outbox
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
