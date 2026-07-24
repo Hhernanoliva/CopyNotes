@@ -1,5 +1,6 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::channel;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{Emitter, Manager};
@@ -29,8 +30,32 @@ pub fn bridge_write_export(app: tauri::AppHandle, contents: String) -> Result<St
     Ok(target.to_string_lossy().to_string())
 }
 
+// Shared by the startup sweep and the live watch loop: read one inbox file,
+// emit it to the webview, then move it to processed/ so it is never re-read.
+fn process_inbox_file(app: &tauri::AppHandle, path: &Path, processed: &Path) {
+    if let Ok(text) = fs::read_to_string(path) {
+        if let Err(e) = app.emit("bridge://change", text) {
+            log::warn!("bridge emit failed: {e}");
+        }
+        if let Some(name) = path.file_name() {
+            if let Err(e) = fs::rename(path, processed.join(name)) {
+                log::warn!("bridge move-to-processed failed: {e}");
+            }
+        }
+    }
+}
+
+// Guards against spawning a second watcher thread when the webview reloads
+// and BridgeLifecycle re-mounts, re-invoking this command. The Rust process
+// survives webview reloads, so the first watcher keeps working — a second
+// invocation is a no-op, not a duplicate thread that double-emits every file.
+static WATCH_STARTED: AtomicBool = AtomicBool::new(false);
+
 #[tauri::command]
 pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
+    if WATCH_STARTED.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
     let dir = mailbox_dir(&app)?;
     let inbox = dir.join("inbox");
     let processed = inbox.join("processed");
@@ -49,6 +74,25 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
             log::error!("bridge watch({}) failed: {e}", inbox.display());
             return;
         }
+
+        // Startup sweep: pick up files dropped in inbox/ while the app was
+        // closed (the watcher only sees events from here on). Run AFTER
+        // watch() is registered so a file that arrives mid-sweep is still
+        // caught by the watcher too — a harmless double-emit, deduped on
+        // the JS side by change.id.
+        if let Ok(entries) = fs::read_dir(&inbox) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                    continue;
+                }
+                process_inbox_file(&app, &path, &processed);
+            }
+        }
+
         for event in rx {
             let Ok(event) = event else { continue };
             if !matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
@@ -58,16 +102,7 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
                 if path.extension().and_then(|e| e.to_str()) != Some("json") {
                     continue;
                 }
-                if let Ok(text) = fs::read_to_string(&path) {
-                    if let Err(e) = app.emit("bridge://change", text) {
-                        log::warn!("bridge emit failed: {e}");
-                    }
-                    if let Some(name) = path.file_name() {
-                        if let Err(e) = fs::rename(&path, processed.join(name)) {
-                            log::warn!("bridge move-to-processed failed: {e}");
-                        }
-                    }
-                }
+                process_inbox_file(&app, &path, &processed);
             }
         }
     });
