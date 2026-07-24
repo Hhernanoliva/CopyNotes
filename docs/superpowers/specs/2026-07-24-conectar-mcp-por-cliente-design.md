@@ -108,11 +108,22 @@ El buzón sigue mostrándose arriba (ya existe). El generador de base64 vive en 
 Un cartelito fijo y claro en la sección (arriba de los sub-bloques): **"El agente solo funciona con
 CopyNotes abierta."** Trivial; cierra la fricción #4.
 
+### 5. Señal "un agente se conectó" (v1 — fricción #3)
+
+CopyNotes muestra en Ajustes › Agentes: **"Un agente se conectó — hace X"** (o "Ningún agente
+conectado todavía"). Mecanismo mínimo a validar en el plan:
+
+- `mcp/server.js`, al arrancar (después de `transport.connect`), escribe un **heartbeat** al buzón:
+  un archivo de estado dedicado (p. ej. `mailbox/agent-status.json` con `{ connectedAt }`), fuera de
+  `inbox/` para NO pasar por el gate de ingesta (no es un cambio, es una señal de vida). Refrescarlo
+  también en cada tool call para el "hace X".
+- Lado app: un `#[tauri::command] bridge_read_status(app)` que lee ese archivo (o `null` si no existe),
+  y la UI lo muestra. Alternativa a evaluar en el plan: leer el `mtime` del archivo en vez de su JSON.
+- Nota: Cursor y OpenCode ya muestran del lado del cliente si el MCP conectó; esta señal es la
+  confirmación del lado de CopyNotes, que era lo que faltaba.
+
 ## Fuera de alcance (follow-ups)
 
-- **Señal "un agente se conectó" (fricción #3):** requiere que el server escriba un "hola" al buzón
-  al arrancar y que CopyNotes lo detecte y muestre "última conexión hace X". Es una mejora separable
-  (toca `mcp/server.js` + ingest + UI). Se documenta como **fase 2**, no bloquea la conexión.
 - `.mcpb` para Claude Desktop (no es cliente de Hernán).
 - Publicar en npm / `npx` (decisión (b), descartada).
 - MCP remoto/HTTP.
