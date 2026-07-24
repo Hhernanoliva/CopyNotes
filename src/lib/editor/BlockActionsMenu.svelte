@@ -14,7 +14,7 @@
 	// buttons (editor UX pass). Each item shows its typed quick key when it has
 	// one. onDismiss returns focus to the block when the menu closes without
 	// handing focus to another surface (Escape, click-away, snippet).
-	let { onAddNote, onMoveUp, onMoveDown, onDelete, onSaveSnippet, onTag, onDismiss } = $props();
+	let { onAddNote, onMoveUp, onMoveDown, onDelete, onSaveSnippet, onTag, onDismiss, pulseMenu = false } = $props();
 
 	let open = $state(false);
 	let openUp = $state(false);
@@ -74,7 +74,7 @@
 		onclick={toggleOpen}
 		class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
 			? 'text-foreground'
-			: ''}"
+			: ''} {pulseMenu ? 'cn-pulse' : ''}"
 	>
 		<MoreHorizontal size={14} aria-hidden="true" />
 	</button>

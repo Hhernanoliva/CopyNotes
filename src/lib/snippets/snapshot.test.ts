@@ -13,7 +13,8 @@ function block(fields) {
 		collapsed: fields.collapsed ?? false,
 		checked: fields.checked ?? false,
 		dueDate: fields.dueDate ?? null,
-		note: fields.note ?? ''
+		note: fields.note ?? '',
+		codeCollapsed: fields.codeCollapsed ?? false
 	};
 }
 
@@ -28,6 +29,7 @@ describe('snapshotFromBlocks', () => {
 			checked: true,
 			dueDate: null,
 			note: '',
+			codeCollapsed: false,
 			children: []
 		});
 	});
@@ -48,6 +50,7 @@ describe('snapshotFromBlocks', () => {
 			checked: false,
 			dueDate: null,
 			note: '',
+			codeCollapsed: false,
 			children: []
 		});
 	});
@@ -140,5 +143,19 @@ describe('snapshot captures block html', () => {
 		const blocks = [block({ id: 'a', type: 'text', content: 'x', dueDate: '2026-07-22' })];
 		const snapshot = snapshotFromBlocks(blocks, 'a');
 		expect(snapshot.dueDate).toBe('2026-07-22');
+	});
+});
+
+describe('snapshot captures collapsed code state', () => {
+	it('carries codeCollapsed so a snippet from a contracted code block stays contracted', () => {
+		const blocks = [block({ id: 'a', type: 'code', content: 'x'.repeat(500), codeCollapsed: true })];
+		const snapshot = snapshotFromBlocks(blocks, 'a');
+		expect(snapshot.codeCollapsed).toBe(true);
+	});
+
+	it('defaults codeCollapsed to false when the block has none', () => {
+		const blocks = [block({ id: 'a', type: 'text', content: 'x' })];
+		const snapshot = snapshotFromBlocks(blocks, 'a');
+		expect(snapshot.codeCollapsed).toBe(false);
 	});
 });

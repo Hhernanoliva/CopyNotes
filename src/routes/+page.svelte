@@ -1,14 +1,17 @@
 <script>
-	import { CircleHelp, Moon, PanelLeft, Search, Sun } from '@lucide/svelte';
+	import { Check, CircleHelp, Moon, PanelLeft, Search, Settings, Sun } from '@lucide/svelte';
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
 	import { MOTION, motionDuration } from '$lib/motion';
+	import { coerceScale } from '$lib/settings/text-scale';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
 	import SearchDialog from '$lib/components/SearchDialog.svelte';
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
+	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		applySidebarUpdates,
@@ -18,6 +21,7 @@
 		deleteFolderKeepContents,
 		findOrCreateTag,
 		getDemoNoteCreated,
+		getEditorTextScale,
 		getLastOpenedNoteId,
 		listFolders,
 		listNotes,
@@ -27,6 +31,7 @@
 		replayJournal,
 		setDemoNoteCreated,
 		setHasCompletedOnboarding,
+		setEditorTextScale,
 		setLastOpenedNoteId,
 		setTheme,
 		settlePendingWrites,
@@ -36,11 +41,12 @@
 		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
-	import { planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
+	import { planDelete, planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { buildSnippetsExport, snippetsExportFileName } from '$lib/export-import';
 	import { saveTextFile } from '$lib/platform';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 	let notes = $state([]);
 	let currentNoteId = $state(null);
@@ -53,6 +59,9 @@
 	let searchOpen = $state(false);
 	let searchSeed = $state('');
 	let helpOpen = $state(false);
+	let settingsOpen = $state(false);
+	// Note-text size multiplier (spec 027). 1 = 100%; applied via --cn-editor-scale.
+	let editorScale = $state(1);
 	let newSnippetOpen = $state(false);
 	let snippets = $state([]);
 	let tags = $state([]);
@@ -80,6 +89,27 @@
 		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
 	}
 
+	// "Guardado" is a brief reassurance, not a permanent label. While saving it
+	// reads "Guardando…"; once the save lands it shows the check for a moment and
+	// then fades to nothing, so the header stays calm and silence means "todo
+	// guardado". Timer, not a derived value — hence an $effect with cleanup.
+	$effect(() => {
+		if (saveState !== 'saved') return;
+		const timer = setTimeout(() => (saveState = 'idle'), 1400);
+		return () => clearTimeout(timer);
+	});
+
+	// Apply the note-text size to a stable root so it survives editor remounts
+	// on note switch. Only editor text reads this variable (see app.css).
+	$effect(() => {
+		document.documentElement.style.setProperty('--cn-editor-scale', String(editorScale));
+	});
+
+	async function changeEditorScale(next) {
+		editorScale = next;
+		await setEditorTextScale(next);
+	}
+
 	$effect(() => {
 		let cancelled = false;
 		(async () => {
@@ -87,11 +117,13 @@
 				// Writes the previous page journaled while dying (reload/close inside
 				// the save debounce) must land before anything reads.
 				await replayJournal();
-				let [rows, lastId, snippetRows] = await Promise.all([
+				let [rows, lastId, snippetRows, savedScale] = await Promise.all([
 					listNotes(),
 					getLastOpenedNoteId(),
-					listSnippets()
+					listSnippets(),
+					getEditorTextScale()
 				]);
+				if (!cancelled) editorScale = coerceScale(savedScale);
 				if (cancelled) return;
 
 				// First run: seed an editable demo note so the user learns by using it.
@@ -132,6 +164,12 @@
 	}
 
 	function openFromAgenda(noteId, blockId) {
+		// A stale Agenda row could point at a note that was just deleted. Don't try
+		// to open a ghost; refresh the Agenda so the dead date drops off instead.
+		if (!notes.some((note) => note.id === noteId)) {
+			agendaVersion += 1;
+			return;
+		}
 		// Remount the editor even when the note is already open so the focus
 		// request applies (the editor is keyed on noteId + dataVersion).
 		dataVersion++;
@@ -196,14 +234,52 @@
 		selectNote(note.id);
 	}
 
+	// Deleting a sidebar row leaves a hole in its container's sortOrder sequence;
+	// spec 022 requires them gapless after every delete. Renumber the survivors of
+	// the deleted item's container (a folder's contents, or the root sequence that
+	// mixes folders and loose items). Root renumbering may touch folder rows too,
+	// so split the updates by table.
+	async function renumberAfterItemDelete(view, item) {
+		const isNotes = view === 'notes';
+		const items = isNotes ? notes : snippets;
+		const folderRows = isNotes ? noteFolders : snippetFolders;
+		const table = isNotes ? 'notes' : 'snippets';
+		const folderId = item.folderId ?? null;
+		const container =
+			folderId !== null
+				? $state.snapshot(items.filter((it) => (it.folderId ?? null) === folderId))
+				: $state.snapshot([
+						...folderRows.map((row) => ({ id: row.id, sortOrder: row.sortOrder })),
+						...items.filter((it) => (it.folderId ?? null) === null)
+					]);
+		const { updates } = planDelete(container, item.id);
+		if (!updates.length) return;
+		const folderIds = new Set(folderRows.map((row) => row.id));
+		await applySidebarUpdates(
+			table,
+			updates.filter((u) => !folderIds.has(u.id))
+		);
+		const folderUpdates = updates.filter((u) => folderIds.has(u.id));
+		if (folderUpdates.length) await applySidebarUpdates('folders', folderUpdates);
+	}
+
 	async function deleteNote(id) {
+		const item = notes.find((note) => note.id === id);
 		await softDeleteNote(id);
 		notes = notes.filter((note) => note.id !== id);
+		if (item) await renumberAfterItemDelete('notes', item);
+		notes = await listNotes();
 		if (currentNoteId === id) {
 			const next = notes[0];
 			currentNoteId = next ? next.id : null;
 			if (next) setLastOpenedNoteId(next.id);
 		}
+		// The note's dated rows are gone with it; tell an open Agenda to re-read so
+		// its dates don't linger and open a note that no longer exists.
+		agendaVersion += 1;
+		// Re-exportar para agentes: deleteNote no pasa por handleDataChanged, así que
+		// necesita su propio bump (una nota borrada no puede seguir en export.json).
+		bumpAgentData();
 		toast.success('Nota borrada');
 	}
 
@@ -230,6 +306,8 @@
 				currentNoteId = rows[0]?.id ?? null;
 			}
 			dataVersion += 1;
+			// Re-exportar para agentes: un borrado o un import puede quitar notas visibles.
+			bumpAgentData();
 			return true;
 		} catch {
 			showLoadError();
@@ -263,7 +341,10 @@
 	}
 
 	async function deleteTag(tag) {
+		const container = $state.snapshot(tags);
 		await softDeleteTag(tag.id);
+		// Tags are one flat container (no folders): close the gap the delete left.
+		await applySidebarUpdates('tags', planDelete(container, tag.id).updates);
 		await refreshTags();
 		dataVersion += 1;
 		toast.success('Etiqueta borrada');
@@ -397,6 +478,7 @@
 
 	async function deleteSnippet(snippet) {
 		await softDeleteSnippet(snippet.id);
+		await renumberAfterItemDelete('snippets', snippet);
 		await refreshSnippets();
 		toast.success('Snippet borrado');
 	}
@@ -461,10 +543,18 @@
 		{agendaVersion}
 	/>
 
+	<BridgeLifecycle onAgentIngested={handleDataChanged} />
+
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
 	<SearchDialog bind:open={searchOpen} initialQuery={searchSeed} onOpenNote={selectNote} />
 	<HelpDialog bind:open={helpOpen} />
+	<SettingsDialog
+		bind:open={settingsOpen}
+		scale={editorScale}
+		onChange={changeEditorScale}
+		onDataChanged={handleDataChanged}
+	/>
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -503,6 +593,15 @@
 			</button>
 			<button
 				type="button"
+				onclick={() => (settingsOpen = true)}
+				aria-label="Configuración"
+				use:tooltip={'Configuración'}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+			>
+				<Settings size={18} aria-hidden="true" />
+			</button>
+			<button
+				type="button"
 				onclick={toggleTheme}
 				aria-label={currentTheme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
 				use:tooltip={currentTheme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro'}
@@ -533,8 +632,10 @@
 					Guardando…
 				{:else if saveState === 'saved'}
 					<span
+						class="inline-flex items-center gap-1"
 						in:fade={{ duration: motionDuration(MOTION.fast) }}
-						out:fade={{ duration: motionDuration(MOTION.fast) }}>Guardado</span
+						out:fade={{ duration: motionDuration(MOTION.fast) }}
+						><Check size={13} aria-hidden="true" />Guardado</span
 					>
 				{/if}
 			</span>

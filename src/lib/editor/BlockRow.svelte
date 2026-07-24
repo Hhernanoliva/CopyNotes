@@ -31,6 +31,8 @@
 		depth = 0,
 		hasChildren = false,
 		focused = false,
+		flash = false,
+		pulseMenu = false,
 		placeholder = '',
 		slashOpen = false,
 		slashCommands = [],
@@ -158,14 +160,26 @@
 		}
 	});
 
+	// Park a collapsed caret at the end of a node's contents. Builds a detached
+	// range and collapses it BEFORE handing it to the live selection, so the
+	// selection is never momentarily expanded — on mobile that expansion painted
+	// as a one-frame highlight flash when moving between lines.
+	function placeCaretAtEnd(node) {
+		const selection = window.getSelection();
+		if (!selection) return;
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		range.collapse(false);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
 	async function openNote() {
 		showNote = true;
 		await tick();
 		if (noteEl) {
 			noteEl.focus();
-			const selection = window.getSelection();
-			selection.selectAllChildren(noteEl);
-			selection.collapseToEnd();
+			placeCaretAtEnd(noteEl);
 		}
 	}
 
@@ -183,9 +197,7 @@
 		}
 		el.focus();
 		if (caretToEnd && block.type !== 'separator') {
-			const selection = window.getSelection();
-			selection.selectAllChildren(el);
-			selection.collapseToEnd();
+			placeCaretAtEnd(el);
 		}
 	}
 
@@ -462,6 +474,17 @@
 
 	// Shift+click selects a block range instead of moving the caret; a plain
 	// mousedown starts a potential drag-select and clears any active selection.
+	// Inside a contenteditable a plain click only parks the caret; a link never
+	// navigates. Ctrl/Cmd + click opens it in a new tab — the editor convention
+	// (Notion, Docs). No modifier means the user is editing, so we stay out.
+	function handleEditableClick(event) {
+		if (!(event.metaKey || event.ctrlKey)) return;
+		const anchor = event.target?.closest?.('a[href]');
+		if (!anchor) return;
+		event.preventDefault();
+		window.open(anchor.href, '_blank', 'noopener,noreferrer');
+	}
+
 	function handleMousedown(event) {
 		if (event.shiftKey) {
 			event.preventDefault();
@@ -503,7 +526,7 @@
 	data-block-id={block.id}
 	class="cn-row group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
 		? 'bg-primary/10'
-		: ''}"
+		: ''} {flash ? 'cn-flash' : ''}"
 	style="padding-left: {depth * 1.5}rem"
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
 	onpointerdown={(event) => onDragHold?.(block.id, event)}
@@ -530,7 +553,7 @@
 				onclick={() => onToggleCollapsed(block)}
 				aria-label={block.collapsed ? 'Expandir bloque' : 'Colapsar bloque'}
 				aria-expanded={!block.collapsed}
-				class="cn-affordance text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
+				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
 					? 'opacity-100'
 					: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
 			>
@@ -555,7 +578,7 @@
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
 			onclick={() => onToggleChecked(block)}
-			class="focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<span
 				aria-hidden="true"
@@ -621,6 +644,7 @@
 					oninput={handleInput}
 					onpaste={handlePaste}
 					onmousedown={handleMousedown}
+					onclick={handleEditableClick}
 					onfocus={() => onActive(block)}
 					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
 					'code'
@@ -675,6 +699,7 @@
 	{#if block.dueDate && block.type !== 'separator'}
 		<button
 			type="button"
+			in:scale={{ start: 0.6, duration: ready ? motionDuration(MOTION.fast) : 0 }}
 			aria-label="Cambiar fecha"
 			use:tooltip={'Cambiar o quitar fecha'}
 			onmousedown={(event) => event.preventDefault()}
@@ -709,7 +734,7 @@
 			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
 			onclick={() => confirmCopy(false)}
-			class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			{#if copied}
 				<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -726,7 +751,7 @@
 				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => confirmCopy(true)}
-				class="text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				{#if copiedWithChildren}
 					<span class="text-primary" in:scale={{ start: 0.5, duration: motionDuration(MOTION.fast) }}>
@@ -739,6 +764,7 @@
 		{/if}
 		{#if block.type !== 'separator'}
 			<BlockActionsMenu
+				{pulseMenu}
 				onAddNote={openNote}
 				onMoveUp={() => onMoveUp(block)}
 				onMoveDown={() => onMoveDown(block)}

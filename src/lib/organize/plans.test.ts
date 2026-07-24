@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	assignInitialOrder,
 	buildSidebarTree,
+	planDelete,
 	planFolderDelete,
 	planInsertAtTop,
 	planMoveToContainer,
@@ -43,6 +44,23 @@ describe('planReorder', () => {
 	});
 	it('returns no updates for an unknown id', () => {
 		expect(planReorder([row('a', 0)], 'ghost', 0).updates).toEqual([]);
+	});
+});
+
+describe('planDelete', () => {
+	it('closes the gap left by a deleted row, renumbering survivors gapless', () => {
+		const container = [row('a', 0), row('b', 1), row('c', 2), row('d', 3)];
+		expect(planDelete(container, 'b').updates).toEqual([
+			{ id: 'c', sortOrder: 1 },
+			{ id: 'd', sortOrder: 2 }
+		]);
+	});
+	it('is a no-op when the last row is deleted (no gap to close)', () => {
+		const container = [row('a', 0), row('b', 1)];
+		expect(planDelete(container, 'b').updates).toEqual([]);
+	});
+	it('returns no updates for an unknown id', () => {
+		expect(planDelete([row('a', 0)], 'ghost').updates).toEqual([]);
 	});
 });
 

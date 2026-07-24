@@ -77,7 +77,7 @@ En dos pasos, como Workflowy:
 2. **Segundo Backspace**: borra el renglón y subís al de arriba.
 
 - Los renglones de texto vacíos y los separadores se borran con un solo Backspace.
-- Un renglón que tiene hijos adentro **no se puede borrar** con Backspace: primero sacá o borrá los hijos. Es protección contra borrar de más.
+- Si el renglón vacío tiene sub-ítems adentro, Backspace **borra el renglón y sube los sub-ítems un nivel** para que ocupen su lugar: no se pierde nada, quedan donde estaba el renglón que borraste. (Para borrar un renglón junto con todos sus sub-ítems, usá **Borrar** en el menú ⋯).
 
 ### Enter en un renglón con hijos
 

@@ -23,6 +23,14 @@ export {
 	toggleTodoCascade
 } from './blocks';
 export {
+	appendActivity,
+	listActivityByBlock,
+	listActivityByNote,
+	listRecentActivity
+} from './activity';
+export { getConnectedAgent, setConnectedAgent, AGENT_SETTING_KEY } from './agents';
+export { getProcessedChange, recordProcessedChange } from './dedupe';
+export {
 	createSnippet,
 	getSnippet,
 	listSnippets,
@@ -58,5 +66,7 @@ export {
 	getDemoNoteCreated,
 	setDemoNoteCreated,
 	getAgendaHideCompleted,
-	setAgendaHideCompleted
+	setAgendaHideCompleted,
+	getEditorTextScale,
+	setEditorTextScale
 } from './settings';

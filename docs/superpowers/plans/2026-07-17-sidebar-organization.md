@@ -1,6 +1,8 @@
 # Sidebar Organization Implementation Plan (spec 022)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **✅ Plan COMPLETADO.** Las funciones se entregaron y están en producción. Las casillas `- [ ]` quedan como registro histórico del plan, no como trabajo pendiente.
 
 **Goal:** Manual drag & drop ordering for the sidebar lists (Notas, Snippets, Etiquetas), one-level folders for Notas and Snippets, click-to-rename for snippets and folders, and removal of the snippet-row "Insertar en la nota" / "Etiquetar snippet" buttons.
 

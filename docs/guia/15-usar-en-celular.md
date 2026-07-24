@@ -8,7 +8,7 @@ En la computadora, los botoncitos de cada renglón (la manija para arrastrar ⠿
 
 ## Botones más grandes para el dedo
 
-Varios controles chicos (la ✕ para quitar una etiqueta, los botones de la barra de formato, la fecha, la manija y los tres puntitos) tienen un **área de toque más grande de lo que se ve**: el dibujo sigue siendo chico y prolijo, pero alrededor hay una zona invisible de buen tamaño para que le pegues con el dedo sin errarle.
+Varios controles chicos (la ✕ para quitar una etiqueta, los botones de la barra de formato, la fecha, la manija, los tres puntitos, la **casilla de las tareas**, el botón de **copiar** y la flecha para **contraer/expandir** un renglón) tienen un **área de toque más grande de lo que se ve**: el dibujo sigue siendo chico y prolijo, pero alrededor hay una zona invisible de buen tamaño para que le pegues con el dedo sin errarle.
 
 ## El menú de tres puntitos (⋯): todo lo del renglón
 

@@ -9,21 +9,33 @@ describe('settings registry', () => {
 				'hasCompletedOnboarding',
 				'lastOpenedNoteId',
 				'demoNoteCreated',
-				'agendaHideCompleted'
+				'agendaHideCompleted',
+				'editorTextScale',
+				'connectedAgent',
+				'processedChanges'
 			].sort()
 		);
 	});
 
-	it('exposes the five current preferences as backup-safe', () => {
+	it('exposes every current preference as backup-safe', () => {
 		expect(SAFE_SETTING_KEYS.sort()).toEqual(
 			[
 				'theme',
 				'hasCompletedOnboarding',
 				'lastOpenedNoteId',
 				'demoNoteCreated',
-				'agendaHideCompleted'
+				'agendaHideCompleted',
+				'editorTextScale'
 			].sort()
 		);
+	});
+
+	it('treats connectedAgent as not backup-safe', () => {
+		expect(isBackupSafe('connectedAgent')).toBe(false);
+	});
+
+	it('treats processedChanges as not backup-safe', () => {
+		expect(isBackupSafe('processedChanges')).toBe(false);
 	});
 
 	it('treats an unknown key as not backup-safe', () => {

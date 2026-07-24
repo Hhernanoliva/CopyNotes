@@ -17,6 +17,11 @@ describe('notes repository', () => {
 		expect(note.deletedAt).toBeNull();
 	});
 
+	it('creates notes hidden from agents by default', async () => {
+		const note = await createNote();
+		expect(note.agentVisible).toBe(false);
+	});
+
 	it('reads a created note back', async () => {
 		const note = await createNote({ title: 'Ideas' });
 		const found = await getNote(note.id);

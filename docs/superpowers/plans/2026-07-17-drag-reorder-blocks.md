@@ -1,6 +1,8 @@
 # Arrastrar renglones para mover y anidar — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **✅ Plan COMPLETADO.** Las funciones se entregaron y están en producción. Las casillas `- [ ]` quedan como registro histórico del plan, no como trabajo pendiente.
 
 **Goal:** Let users reorder and re-nest note blocks by dragging (long-press, mouse + touch), in addition to the existing Alt+Arrow moves.
 

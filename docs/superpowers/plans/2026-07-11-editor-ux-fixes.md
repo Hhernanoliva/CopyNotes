@@ -1,6 +1,8 @@
 # Editor UX Fixes Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **✅ Plan COMPLETADO.** Las funciones se entregaron y están en producción. Las casillas `- [ ]` quedan como registro histórico del plan, no como trabajo pendiente.
 
 **Goal:** Ship six daily-writing fixes on CopyNotes' existing custom block editor (spec `019-editor-ux-fixes.md`), without migrating to a rich-text engine.
 

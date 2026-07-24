@@ -78,3 +78,12 @@ db.version(5)
 		await migrate('snippets', byRecency, true);
 		await migrate('tags', byName, false);
 	});
+
+// v6 (spec 028): agent beta. New `activity` table — the per-task bitácora and
+// the 012 "Agent Action History" entity, arriving early for the agent↔user
+// channel. No upgrade body: the additive block field `createdBy` and note field
+// `agentVisible` are read with a default in the repositories, so existing rows
+// need no rewrite, and the activity table simply starts empty.
+db.version(6).stores({
+	activity: 'id, blockId, noteId, at'
+});

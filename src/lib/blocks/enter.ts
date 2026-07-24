@@ -50,6 +50,31 @@ export function backspaceAction(block) {
 	return block.type === 'text' || block.type === 'separator' ? 'delete' : 'convert';
 }
 
+// Backspace on an EMPTY row that still has sub-items: instead of refusing (which
+// left a stuck empty "ghost" row), the row is removed and its direct children are
+// lifted one level to take its place — nothing is lost, they just slide up. The
+// caller deletes the now-empty row; this only plans the children's re-parenting.
+// Grandchildren follow their parent implicitly, so only the direct children move.
+export function planPromoteChildren(blocks, id) {
+	const target = blocks.find((block) => block.id === id);
+	if (!target) return null;
+	const children = siblingsOf(blocks, id);
+	if (children.length === 0) return null;
+	const parent = target.parentBlockId ?? null;
+	const shift = children.length - 1;
+	const updates = [];
+	children.forEach((child, index) => {
+		updates.push({ id: child.id, parentBlockId: parent, order: target.order + index });
+	});
+	if (shift !== 0) {
+		const laterSiblings = siblingsOf(blocks, parent).filter((block) => block.order > target.order);
+		for (const later of laterSiblings) {
+			updates.push({ id: later.id, order: later.order + shift });
+		}
+	}
+	return { updates };
+}
+
 export function canDeleteOnBackspace(blocks, id) {
 	if (blocks.length <= 1) return false;
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);

@@ -1,0 +1,4 @@
+# Marks mcp/ as its own pnpm workspace root, so pnpm does not walk up to
+# the CopyNotes repo root's pnpm-workspace.yaml and absorb this package
+# into that workspace. mcp/ is a standalone Node package with its own
+# lockfile and node_modules — see mcp/README.md.

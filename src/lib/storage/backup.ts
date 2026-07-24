@@ -41,7 +41,11 @@ export async function applyMergePlan(plan) {
 export async function replaceAllTables(data) {
 	await settlePendingWrites();
 	return trackPendingWrite(() =>
-		db.transaction('rw', TABLES, async () => {
+		db.transaction('rw', [...TABLES, 'activity'], async () => {
+			// The device-local bitácora is not part of the portable backup, but a
+			// full restore must not leave stale activity rows that would re-attach
+			// to restored/renamed tasks. Clear it — nothing to repopulate.
+			await db.table('activity').clear();
 			for (const name of TABLES) {
 				await db.table(name).clear();
 				const rows = data[name] ?? [];

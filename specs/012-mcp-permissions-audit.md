@@ -105,6 +105,8 @@ Future tests should include:
 
 Agent control is a trust feature. The user must always be able to understand and stop what agents are doing.
 
+The MCP rollout **order** and the conservative first version are mapped in `023-mcp-fases.md`; this spec stays the detail of *permissions, audit, and control*.
+
 ## Detail Absorbed From AGENT.md (2026-07-16)
 
 - **Review/proposal mode (future):** the action model must leave room for a mode where an agent's change is representable as *pending* until the user accepts, rejects, or edits it — useful for large rewrites, bulk task creation, broad reordering. Not required for the first MCP phase; permissions + confirmations may come first, but do not make proposals impossible.

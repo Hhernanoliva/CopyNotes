@@ -5,6 +5,7 @@ import {
 	canDeleteOnBackspace,
 	enterOnEmptyAction,
 	planEnter,
+	planPromoteChildren,
 	previousVisibleId
 } from './enter';
 
@@ -93,6 +94,64 @@ describe('canDeleteOnBackspace', () => {
 	it('protects the last remaining block', () => {
 		const blocks = [block('a', null, 0)];
 		expect(canDeleteOnBackspace(blocks, 'a')).toBe(false);
+	});
+});
+
+describe('planPromoteChildren', () => {
+	it('returns null when the block has no children', () => {
+		const blocks = [block('a', null, 0), block('b', null, 1)];
+		expect(planPromoteChildren(blocks, 'b')).toBe(null);
+	});
+
+	it('lifts a single child into the deleted block’s slot', () => {
+		// a(0) b(1) c(2), and b has one child b1
+		const blocks = [
+			block('a', null, 0),
+			block('b', null, 1),
+			block('b1', 'b', 0),
+			block('c', null, 2)
+		];
+		const plan = planPromoteChildren(blocks, 'b');
+		expect(plan.updates).toEqual([{ id: 'b1', parentBlockId: null, order: 1 }]);
+	});
+
+	it('lifts several children in order and pushes later siblings down', () => {
+		const blocks = [
+			block('a', null, 0),
+			block('b', null, 1),
+			block('b1', 'b', 0),
+			block('b2', 'b', 1),
+			block('c', null, 2)
+		];
+		const plan = planPromoteChildren(blocks, 'b');
+		expect(plan.updates).toEqual([
+			{ id: 'b1', parentBlockId: null, order: 1 },
+			{ id: 'b2', parentBlockId: null, order: 2 },
+			{ id: 'c', order: 3 }
+		]);
+	});
+
+	it('promotes children one level up when the block is itself nested', () => {
+		// a(0) with children b(0) and a2(1); b has child b1
+		const blocks = [
+			block('a', null, 0),
+			block('b', 'a', 0),
+			block('b1', 'b', 0),
+			block('a2', 'a', 1)
+		];
+		const plan = planPromoteChildren(blocks, 'b');
+		// b1 takes b's slot (order 0) under a; a2 already sits after it, untouched.
+		expect(plan.updates).toEqual([{ id: 'b1', parentBlockId: 'a', order: 0 }]);
+	});
+
+	it('leaves grandchildren untouched — they follow their parent implicitly', () => {
+		const blocks = [
+			block('b', null, 0),
+			block('b1', 'b', 0),
+			block('b1a', 'b1', 0)
+		];
+		const plan = planPromoteChildren(blocks, 'b');
+		expect(plan.updates).toEqual([{ id: 'b1', parentBlockId: null, order: 0 }]);
 	});
 });
 

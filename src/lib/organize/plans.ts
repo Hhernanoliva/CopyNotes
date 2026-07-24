@@ -36,6 +36,13 @@ export function planReorder(container, movedId, targetIndex) {
 	return { updates: renumber(rest) };
 }
 
+// Removes the deleted row from its container and renumbers the survivors so the
+// sequence stays gapless (spec 022: orders are consecutive after every delete).
+export function planDelete(container, deletedId) {
+	const remaining = sortBySidebarOrder(container).filter((row) => row.id !== deletedId);
+	return { updates: renumber(remaining) };
+}
+
 export function planInsertAtTop(container) {
 	return sortBySidebarOrder(container).map((row, index) => ({ id: row.id, sortOrder: index + 1 }));
 }

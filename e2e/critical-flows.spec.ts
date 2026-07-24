@@ -425,20 +425,61 @@ test('the help panel opens with the ? key and lists shortcuts', async ({ page })
 	expect(await dialog.locator('kbd').count()).toBeGreaterThan(10);
 });
 
-test('the app still works offline after the first visit', async ({ page, context }) => {
+test('offline after the first visit: read, write, snippets and export all work', async ({
+	page,
+	context
+}) => {
 	await page.goto('/', { waitUntil: 'networkidle' });
 	// Wait until the service worker is registered and active, then cut the
-	// network: the reload must be served entirely from the precache.
+	// network: everything below must run with no server (spec 008 offline flows).
 	await page.evaluate(async () => {
 		const reg = await navigator.serviceWorker.ready;
 		return !!reg.active;
 	});
 	await page.waitForTimeout(300);
 	await context.setOffline(true);
+
+	// Read: a reload is served entirely from the precache.
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await page.waitForTimeout(500);
 	await expect(page.locator('main#contenido-principal')).toBeVisible();
 	await expect(title(page)).toHaveValue(/Bienvenido/);
+
+	// Write: add a line offline and confirm it survives an offline reload
+	// (IndexedDB persistence with no network).
+	const firstBlock = page.locator('main [data-block-surface]').first();
+	await firstBlock.click();
+	await page.keyboard.press('End');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(200);
+	await page.keyboard.type('escrito sin conexión', { delay: 25 });
+	await page.waitForTimeout(700); // autosave debounce
+	await page.reload({ waitUntil: 'domcontentloaded' });
+	await page.waitForTimeout(500);
+	await expect(page.getByText('escrito sin conexión')).toBeVisible();
+
+	// Snippets: save a block as a snippet and see it land in the library.
+	const row = page.locator('main .group').first();
+	await row.hover();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+	await page.getByRole('menuitem', { name: 'Guardar como snippet' }).click();
+	await expect(page.getByText('Snippet guardado')).toBeVisible();
+	await page.getByRole('button', { name: 'Snippets' }).click();
+	const library = page.getByRole('region', { name: 'Biblioteca de snippets' });
+	await expect(library.getByRole('button', { name: 'Borrar snippet' }).first()).toBeAttached();
+
+	// Export: a full backup downloads and carries the note written offline.
+	await page.getByRole('button', { name: 'Respaldo' }).click();
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		page.getByRole('button', { name: /Descargar respaldo completo/ }).click()
+	]);
+	const stream = await download.createReadStream();
+	const chunks = [];
+	for await (const chunk of stream) chunks.push(chunk);
+	const backup = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+	expect(backup.data.notes.length).toBeGreaterThan(0);
+
 	await context.setOffline(false);
 });
 

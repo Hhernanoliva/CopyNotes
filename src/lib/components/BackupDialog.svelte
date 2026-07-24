@@ -33,12 +33,18 @@
 	let importing = $state(false);
 	let exporting = $state(false);
 
+	let titleEl = $state(null);
+
 	$effect(() => {
 		if (!dialogEl) return;
 		if (open && !dialogEl.open) {
 			step = 'idle';
 			review = null;
 			dialogEl.showModal();
+			// showModal() auto-focuses the first tabbable element (the X), which
+			// reads as if the close button were pre-pressed. Park focus on the
+			// heading instead so nothing looks activated on open.
+			titleEl?.focus();
 		} else if (!open && dialogEl.open && !importing) {
 			dialogEl.close();
 		}
@@ -212,7 +218,7 @@
 	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto overscroll-contain rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
 	<div class="flex items-center justify-between border-b px-4 py-3">
-		<h2 id="backup-title" class="text-sm font-bold">Respaldo</h2>
+		<h2 bind:this={titleEl} id="backup-title" tabindex="-1" class="text-sm font-bold focus:outline-none">Respaldo</h2>
 		<button
 			type="button"
 			onclick={closeDialog}

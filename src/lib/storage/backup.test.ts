@@ -131,6 +131,22 @@ describe('replaceAllTables', () => {
 		expect(notes[0].sortOrder).toBe(0);
 		expect(await getSetting('theme')).toBe('dark');
 	});
+
+	it('clears prior activity rows (device-local bitácora is not part of the backup)', async () => {
+		await db.table('activity').add({
+			id: 'old',
+			blockId: 'b',
+			noteId: 'n',
+			actor: 'agent',
+			action: 'done',
+			text: '',
+			seq: 0,
+			at: iso,
+			deletedAt: null
+		});
+		await replaceAllTables({ ...emptyTables(), folders: [] });
+		expect(await db.table('activity').count()).toBe(0);
+	});
 });
 
 describe('backup roundtrip', () => {

@@ -1,0 +1,184 @@
+import 'fake-indexeddb/auto';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { db, createNote, createBlock, getBlock, listActivityByBlock } from '$lib/storage';
+import { createTask, completeTask, reopenTask, addTaskNote, editTask, readTask, listTasks } from './actions';
+
+beforeEach(async () => {
+	await Promise.all(db.tables.map((table) => table.clear()));
+});
+
+describe('agent data signal', () => {
+	it('bumps the agent-data signal on a task action', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const note = await createNote();
+		const before = agentData.version;
+		await createTask({ noteId: note.id, content: 'x', actor: 'user' });
+		expect(agentData.version).toBeGreaterThan(before);
+	});
+
+	it('does not bump when the mutated block is missing', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const before = agentData.version;
+		await completeTask({ blockId: 'nope', actor: 'agent' });
+		expect(agentData.version).toBe(before);
+	});
+
+	it('does not bump the agent-data signal when addTaskNote targets a missing block', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const before = agentData.version;
+		const res = await addTaskNote({ blockId: 'nope', actor: 'user', text: 'x' });
+		expect(res).toBeUndefined();
+		expect(agentData.version).toBe(before);
+	});
+
+	it('bumps on completeTask when the block exists (traceWrite success path)', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'x', actor: 'user' });
+		const before = agentData.version;
+		await completeTask({ blockId: block.id, actor: 'agent' });
+		expect(agentData.version).toBeGreaterThan(before);
+	});
+});
+
+describe('createTask', () => {
+	it('creates a todo block and one created activity entry', async () => {
+		const note = await createNote();
+		const { block, activity } = await createTask({
+			noteId: note.id,
+			content: 'Revisar el brief',
+			actor: 'agent'
+		});
+
+		expect(block.type).toBe('todo');
+		expect(block.checked).toBe(false);
+		expect(block.createdBy).toBe('agent');
+		expect((await getBlock(block.id)).content).toBe('Revisar el brief');
+
+		expect(activity.action).toBe('created');
+		expect(activity.actor).toBe('agent');
+		const log = await listActivityByBlock(block.id);
+		expect(log.length).toBe(1);
+	});
+});
+
+describe('completeTask', () => {
+	it('checks the task and appends a done entry with actor and summary', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+
+		const { block: done, activity } = await completeTask({
+			blockId: block.id,
+			actor: 'agent',
+			text: 'Listo: enlace agregado'
+		});
+
+		expect(done.checked).toBe(true);
+		expect(activity.action).toBe('done');
+		expect(activity.actor).toBe('agent');
+		expect(activity.text).toBe('Listo: enlace agregado');
+
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done']);
+	});
+});
+
+describe('reopen / note / edit', () => {
+	it('reopen unchecks and traces; addTaskNote records an instruction', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+
+		const { block: reopened } = await reopenTask({ blockId: block.id, actor: 'user' });
+		expect(reopened.checked).toBe(false);
+
+		await addTaskNote({ blockId: block.id, actor: 'user', text: 'Rehacer: agregá fuentes' });
+
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'reopened', 'note']);
+		expect(log.at(-1).text).toBe('Rehacer: agregá fuentes');
+	});
+
+	it('editTask updates content and traces edited', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'viejo', actor: 'user' });
+		const { block: edited, activity } = await editTask({
+			blockId: block.id,
+			content: 'nuevo',
+			actor: 'agent'
+		});
+		expect(edited.content).toBe('nuevo');
+		expect(activity.action).toBe('edited');
+	});
+});
+
+describe('readTask / listTasks', () => {
+	it('readTask returns the block and its ordered bitácora', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'T', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+		const read = await readTask(block.id);
+		expect(read.block.id).toBe(block.id);
+		expect(read.activity.map((e) => e.action)).toEqual(['created', 'done']);
+	});
+
+	it('listTasks returns only todo blocks of the note', async () => {
+		const note = await createNote();
+		await createTask({ noteId: note.id, content: 'una', actor: 'user' });
+		await createBlock({ noteId: note.id, type: 'text', content: 'no soy tarea' });
+		const tasks = await listTasks(note.id);
+		expect(tasks.length).toBe(1);
+		expect(tasks[0].type).toBe('todo');
+	});
+});
+
+describe('mutators on a missing block', () => {
+	it('return undefined instead of throwing when the block is gone', async () => {
+		expect(await completeTask({ blockId: 'nope', actor: 'agent' })).toBeUndefined();
+		expect(await reopenTask({ blockId: 'nope', actor: 'user' })).toBeUndefined();
+		expect(await addTaskNote({ blockId: 'nope', actor: 'user', text: 'x' })).toBeUndefined();
+		expect(await editTask({ blockId: 'nope', content: 'x', actor: 'agent' })).toBeUndefined();
+	});
+
+	it('readTask returns undefined for a nonexistent block', async () => {
+		expect(await readTask('nope')).toBeUndefined();
+	});
+});
+
+describe('atomicity', () => {
+	it('does not append activity if the block write fails', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'T', actor: 'user' });
+		const before = (await listActivityByBlock(block.id)).length;
+
+		// Force the activity write to throw mid-transaction; the block change must roll back too.
+		const activityTable = db.table('activity');
+		const original = activityTable.add.bind(activityTable);
+		// @ts-expect-error — monkey-patch de prueba: un Promise plano alcanza para forzar el fallo
+		activityTable.add = () => Promise.reject(new Error('boom'));
+		try {
+			await expect(completeTask({ blockId: block.id, actor: 'agent' })).rejects.toThrow('boom');
+		} finally {
+			activityTable.add = original;
+		}
+
+		const reread = await getBlock(block.id);
+		expect(reread.checked).toBe(false); // rolled back
+		expect((await listActivityByBlock(block.id)).length).toBe(before); // no orphan entry
+	});
+
+	it('does not leave an orphan block if the activity write fails during createTask', async () => {
+		const note = await createNote();
+		const activityTable = db.table('activity');
+		const original = activityTable.add.bind(activityTable);
+		// @ts-expect-error — monkey-patch de prueba: un Promise plano alcanza para forzar el fallo
+		activityTable.add = () => Promise.reject(new Error('boom'));
+		try {
+			await expect(createTask({ noteId: note.id, content: 'T', actor: 'user' })).rejects.toThrow('boom');
+		} finally {
+			activityTable.add = original;
+		}
+		// The whole createTask transaction rolled back → no orphan block in the note.
+		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+});

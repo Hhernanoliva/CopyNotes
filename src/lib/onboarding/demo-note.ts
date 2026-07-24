@@ -35,7 +35,7 @@ export function demoNoteTree() {
 			{
 				type: 'bullet',
 				content: 'Pasá el mouse por un renglón y aparece el botón Copiar',
-				note: 'En el menú ⋯ podés copiar un bullet junto con todos sus hijos.'
+				note: 'Si tiene hijos, el botón Copiar con subniveles se lleva todo lo anidado.'
 			},
 			{
 				type: 'text',

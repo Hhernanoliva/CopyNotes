@@ -15,6 +15,7 @@ export function createNote({ title = '' } = {}) {
 			title,
 			sortOrder: 0,
 			folderId: null,
+			agentVisible: false,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			deletedAt: null

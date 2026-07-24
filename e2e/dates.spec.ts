@@ -195,3 +195,37 @@ test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 	await hideToggle.click();
 	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toBeVisible();
 });
+
+// Regression: deleting a note while the Agenda is open must drop the note's
+// dated rows live. Before, the Agenda kept a stale badge that opened a note
+// that no longer existed.
+test('agenda drops a note’s dates live when the note is deleted', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	// Name the note so we can target its trash button unambiguously.
+	await page.getByRole('textbox', { name: 'Título de la nota' }).fill('Cuentas');
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('pagar');
+	await page.keyboard.type('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+	await page.getByRole('button', { name: 'Hoy' }).click();
+	await expect(panel).not.toBeVisible();
+	await page.waitForTimeout(700); // flush before the Agenda reads storage
+
+	await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toBeVisible();
+
+	// Back to the Notes tab and delete the note there.
+	await page.getByRole('button', { name: 'Notas', exact: true }).click();
+	await page.getByRole('button', { name: 'Borrar nota Cuentas' }).click();
+
+	// Re-open the Agenda: the deleted note's date must be gone, not a ghost that
+	// opens a note that no longer exists.
+	await page.getByRole('button', { name: 'Agenda', exact: true }).click();
+	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toHaveCount(0);
+});

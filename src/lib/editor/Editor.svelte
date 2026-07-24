@@ -29,10 +29,11 @@
 		planMoveSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
+	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
-	import { Tag } from '@lucide/svelte';
+	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
@@ -43,6 +44,7 @@
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
 		planEnter,
+		planPromoteChildren,
 		previousVisibleId
 	} from '$lib/blocks/enter';
 	import { planToggleChecked } from '$lib/blocks/cascade';
@@ -51,7 +53,7 @@
 	import { writePlainTextToClipboard, writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
-	import { MOTION, motionDuration } from '$lib/motion';
+	import { MOTION, motionDuration, prefersReducedMotion } from '$lib/motion';
 	import { filterCommands, moveSelection, nextSlashState } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection, caretPointFromViewport } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
@@ -97,6 +99,31 @@
 	let focusCaret = $state(null);
 	// Last block the user touched; snippet insertion from the sidebar lands here.
 	let activeBlockId = $state(null);
+	// Blocks that just arrived from a snippet insertion, briefly highlighted so
+	// the user sees where the snippet landed. Cleared after the flash.
+	let flashBlockIds = $state(new Set());
+	let flashTimer;
+	function flashBlocks(ids) {
+		if (prefersReducedMotion()) return;
+		clearTimeout(flashTimer);
+		flashBlockIds = new Set(ids);
+		flashTimer = setTimeout(() => (flashBlockIds = new Set()), 650);
+	}
+	// Row whose 3-dots (⋯) menu icon should pulse: fired when a date or tag is
+	// added to that line, so the menu it came from gives a quick confirmation.
+	// The row is focused/active right after, so the (otherwise hidden) icon shows.
+	let pulseMenuBlockId = $state(null);
+	let pulseMenuTimer;
+	function pulseMenu(id) {
+		if (prefersReducedMotion() || !id) return;
+		clearTimeout(pulseMenuTimer);
+		// Drop then set so re-adding to the same row replays the animation.
+		pulseMenuBlockId = null;
+		requestAnimationFrame(() => {
+			pulseMenuBlockId = id;
+			pulseMenuTimer = setTimeout(() => (pulseMenuBlockId = null), 500);
+		});
+	}
 	let titleEl = $state();
 	// Slash menu state: which block it is anchored to, the plain-text offset of
 	// the "/" (anchor), the text typed after it, and the highlighted option.
@@ -427,6 +454,27 @@
 		);
 	}
 
+	function toggleAgentVisible() {
+		const next = !note.agentVisible;
+		note.agentVisible = next;
+		// Route through scheduleSave (like the title) so the change gets a
+		// localStorage journal entry — surviving a reload/unload that races the
+		// IndexedDB write — plus the shared "Guardando…/Guardado" indicator.
+		scheduleSave(
+			`agentVisible:${note.id}`,
+			async () => {
+				await updateNote(note.id, { agentVisible: next });
+				onNoteUpdated(note.id, { agentVisible: next });
+				// Bump AFTER the write lands, so a future re-export (P3) reads the
+				// new visibility from the DB — never bump before the persisted value
+				// actually changed, or an export could race the write and still see
+				// the old (hidden) state.
+				bumpAgentData();
+			},
+			{ table: 'notes', id: note.id, changes: { agentVisible: next } }
+		);
+	}
+
 	function handleTitleKeydown(event) {
 		if (event.key === 'Enter') {
 			event.preventDefault();
@@ -671,6 +719,38 @@
 		const sel = window.getSelection();
 		sel.removeAllRanges();
 		sel.addRange(toolbar.savedRange);
+	}
+
+	function focusBlockEditable(blockId) {
+		const el = document.querySelector(`[data-block-id="${blockId}"] .block-editable`);
+		if (el instanceof HTMLElement) el.focus({ preventScroll: true });
+	}
+
+	// Escape en un popover de la barra (enlace, color, más) lo cierra pero deja la
+	// barra abierta: spec 020 pide devolver el foco a la caja editable, con la
+	// selección intacta, para que la barra siga mostrándose sobre ella.
+	function restoreToolbarFocus() {
+		const blockId = toolbar?.blockId;
+		if (!blockId) return;
+		restoreSavedSelection();
+		focusBlockEditable(blockId);
+	}
+
+	// Escape con la barra sin popover la cierra del todo (spec 020). Devolvemos el
+	// foco al renglón con el cursor colapsado al final de la selección previa, para
+	// que la barra no reaparezca de inmediato por el cambio de selección.
+	function closeToolbar() {
+		const blockId = toolbar?.blockId;
+		const range = toolbar?.savedRange;
+		toolbar = null;
+		if (range) {
+			const caret = range.cloneRange();
+			caret.collapse(false);
+			const sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(caret);
+		}
+		if (blockId) focusBlockEditable(blockId);
 	}
 
 	// Única puerta de formato, venga de la barra o del teclado. Dueña del paso
@@ -920,6 +1000,19 @@
 			block.checked = false;
 			await updateBlock(block.id, { type: 'text', checked: false });
 			focusBlockId = block.id;
+			return;
+		}
+		// Un renglón vacío con sub-ítems no se puede borrar de plano (perderíamos la
+		// rama), pero tampoco debe quedar como "fantasma": lo quitamos y subimos sus
+		// sub-ítems un nivel para que ocupen su lugar. El cursor pasa al de arriba.
+		const promote = planPromoteChildren(blocks, block.id);
+		if (promote) {
+			recordSnapshot();
+			const prevId = previousVisibleId(blocks, block.id);
+			await applyUpdates(promote.updates);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((row) => row.id !== block.id);
+			if (prevId) focusBlockId = prevId;
 			return;
 		}
 		if (!canDeleteOnBackspace(blocks, block.id)) return;
@@ -1300,6 +1393,7 @@
 			await unassignTag(tag.id, target.type, target.id);
 		} else {
 			await assignTag(tag.id, target.type, target.id);
+			if (target.type === 'block') pulseMenu(target.id);
 		}
 		await refreshTags();
 		if (onTagsChanged) onTagsChanged();
@@ -1334,6 +1428,7 @@
 		}
 		blocks = [...blocks, ...plan.newBlocks];
 		focusBlockId = plan.focusId;
+		flashBlocks(plan.newBlocks.map((newBlock) => newBlock.id));
 	}
 
 	// Remove the "/query" span from a row's plain content and html, preserving
@@ -1467,6 +1562,7 @@
 		// Structural change: persist immediately, never debounced.
 		await updateBlock(block.id, { dueDate: day });
 		onDatesChanged?.(); // let an open Agenda refresh live
+		pulseMenu(block.id);
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
 		datePanelCaret = null;
@@ -1508,7 +1604,7 @@
 {#if note}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14 {dragging
+		class="cn-editor mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14 {dragging
 			? 'select-none'
 			: ''}"
 		onkeydowncapture={handleSelectionKeys}
@@ -1524,8 +1620,22 @@
 				aria-label="Título de la nota"
 				autocomplete="off"
 				name="note-title"
-				class="placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
+				class="cn-note-title placeholder:text-faint min-w-0 flex-1 bg-transparent text-3xl font-bold tracking-tight outline-none md:text-4xl"
 			/>
+			<button
+				type="button"
+				onclick={toggleAgentVisible}
+				aria-label="Visible para agentes"
+				aria-pressed={note.agentVisible === true}
+				use:tooltip={note.agentVisible
+					? 'Los agentes pueden ver las tareas de esta nota'
+					: 'Los agentes no ven esta nota'}
+				class="focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-md transition-[color,opacity] duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {note.agentVisible
+					? 'text-primary opacity-100'
+					: 'text-faint hover:text-foreground opacity-0 group-hover/title:opacity-100 group-focus-within/title:opacity-100'}"
+			>
+				<Bot size={18} aria-hidden="true" />
+			</button>
 			<div class="relative shrink-0">
 				<button
 					type="button"
@@ -1570,6 +1680,8 @@
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					focused={focusBlockId === row.block.id}
+					flash={flashBlockIds.has(row.block.id)}
+					pulseMenu={pulseMenuBlockId === row.block.id}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
 					slashOpen={slash !== null && slash.blockId === row.block.id}
 					{slashCommands}
@@ -1647,7 +1759,8 @@
 			currentLinkUrl={toolbar.linkUrl}
 			requestPanel={toolbar.requestPanel ?? null}
 			onCommand={handleToolbarCommand}
-			onClose={() => (toolbar = null)}
+			onRestorePanelFocus={restoreToolbarFocus}
+			onClose={closeToolbar}
 		/>
 	{/if}
 	{#if reorder.ghost}

@@ -9,8 +9,8 @@ Define what “done” means for CopyNotes features. The goal is not to test eve
 - Vitest as main test layer.
 - Testing Library for key Svelte components.
 - Playwright for critical user flows.
-- Manual QA checklist.
-- Release readiness checklist.
+- Manual QA checklist. → `docs/release-checklist.md`
+- Release readiness checklist. → `docs/release-checklist.md`
 - Documentation/spec update requirement.
 - Regression protection for high-risk areas.
 

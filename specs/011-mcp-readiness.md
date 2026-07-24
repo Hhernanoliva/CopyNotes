@@ -73,10 +73,12 @@ MVP does not need MCP tests. If minimal MCP contracts are created, add Vitest te
 
 MCP is a strategic future capability. Do not let it distract from the main MVP: writing, organizing, copying, snippets, tags, backup, and offline use.
 
+The MCP rollout **order** and the deliberately conservative first version are mapped in `023-mcp-fases.md`; this spec stays the detail of *what gets exposed*.
+
 ## Detail Absorbed From AGENT.md (2026-07-16)
 
 - **Audience:** MCP is not only for developers. Target users are (1) general users connecting AI clients like ChatGPT or Claude, (2) developers using coding agents (Claude Code, Codex, Cursor, OpenCode), (3) teams organizing agent tasks. The first implementation need not serve all equally, but the architecture must not assume developers-only.
 - **Connection priority order:** 1. local/desktop (Tauri) MCP where the user controls app and data directly — the preferred first serious path; 2. web/PWA integration only if browser limitations and security are acceptable (document the limitations, do not assume the browser can do everything); 3. backend/cloud MCP only after accounts, sync, and permissions are mature.
-- **Agent task states:** agent tasks stay normal todo blocks, but the model should later support richer states: pending, in progress, blocked, done — extensible if agent workflows need more. UI can stay simple; the internal model must not make these states impossible.
+- **Agent task states:** agent tasks stay normal todo blocks, but the model should later support richer states: pending, in progress, blocked, done — extensible if agent workflows need more. UI can stay simple; the internal model must not make these states impossible. _Superseded for the shipping product surface by `023`'s binary-checkbox decision (Hernan, 2026-07-19): no `status` field ships; a todo's checked/unchecked state is the model. This bullet only records that the data model must not make richer states impossible later._
 - **Prompt/workflow ideas** (reusable workflows, not an AI chat): review my pending tasks; create a work plan from this note; summarize project progress; convert a note into tasks; prepare tasks for a coding agent; review what changed since the last agent session; find blocked tasks and suggest next actions.
 - **Product rule:** MCP extends CopyNotes without turning it into a complicated AI workspace. Agents interact through stable IDs, types, timestamps, tags, and parent-child relationships — structured data, never fragile raw UI text.

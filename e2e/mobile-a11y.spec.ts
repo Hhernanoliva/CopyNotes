@@ -95,6 +95,43 @@ test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => 
 	expect(size.h).toBeGreaterThanOrEqual(44);
 });
 
+test('el botón de copiar tiene área táctil de 44px', async ({ page }) => {
+	await page.goto('/');
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('copiame');
+
+	const copy = page.getByRole('button', { name: 'Copiar bloque' }).first();
+	const size = await copy.evaluate((el) => {
+		const s = getComputedStyle(el, '::after');
+		return { w: parseFloat(s.width), h: parseFloat(s.height) };
+	});
+	expect(size.w).toBeGreaterThanOrEqual(44);
+	expect(size.h).toBeGreaterThanOrEqual(44);
+});
+
+test('el checkbox de tarea tiene área táctil de 44px', async ({ page }) => {
+	await page.goto('/');
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('End');
+	await page.keyboard.press('Enter'); // renglón nuevo vacío
+	await page.keyboard.type('/tarea');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.getByRole('option', { name: 'Tarea' }).click();
+
+	const box = page.getByRole('checkbox').first();
+	const size = await box.evaluate((el) => {
+		const s = getComputedStyle(el, '::after');
+		return { w: parseFloat(s.width), h: parseFloat(s.height) };
+	});
+	expect(size.w).toBeGreaterThanOrEqual(44);
+	expect(size.h).toBeGreaterThanOrEqual(44);
+});
+
 test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ page }) => {
 	await page.goto('/');
 
