@@ -161,4 +161,30 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(log[0].actor).toBe(agent.id);   // the real agent id
 		expect(log[0].actor).not.toBe('user'); // never the spoofed value
 	});
+
+	it('is idempotent: the same change id applied twice yields one task and the same result', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const change = { id: 'chg-1', type: 'createTask', noteId: note.id, content: 'una' };
+
+		const a = await ingestAgentChange(change);
+		const b = await ingestAgentChange(change);
+		expect(a.ok).toBe(true);
+		expect(b).toEqual(a); // same result, not re-applied
+		expect(await listTasks(note.id)).toHaveLength(1); // only one task created
+	});
+
+	it('serializes concurrent same-id deliveries: a retry fired mid-flight still applies once', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const change = { id: 'chg-race', type: 'createTask', noteId: note.id, content: 'una' };
+
+		// Both fired WITHOUT awaiting the first — the canonical retry-in-flight
+		// case. Without serialization both miss the dedupe check and apply.
+		const [a, b] = await Promise.all([ingestAgentChange(change), ingestAgentChange(change)]);
+
+		expect(await listTasks(note.id)).toHaveLength(1); // applied exactly once
+		expect(a.ok).toBe(true);
+		expect(b).toEqual(a); // second delivery sees the recorded result
+	});
 });

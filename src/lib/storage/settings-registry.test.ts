@@ -11,7 +11,8 @@ describe('settings registry', () => {
 				'demoNoteCreated',
 				'agendaHideCompleted',
 				'editorTextScale',
-				'connectedAgent'
+				'connectedAgent',
+				'processedChanges'
 			].sort()
 		);
 	});
@@ -31,6 +32,10 @@ describe('settings registry', () => {
 
 	it('treats connectedAgent as not backup-safe', () => {
 		expect(isBackupSafe('connectedAgent')).toBe(false);
+	});
+
+	it('treats processedChanges as not backup-safe', () => {
+		expect(isBackupSafe('processedChanges')).toBe(false);
 	});
 
 	it('treats an unknown key as not backup-safe', () => {
