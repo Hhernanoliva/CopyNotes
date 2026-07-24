@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 // The "Rehacer" control only appears for an AGENT `done` activity entry — the
 // kind the desktop bridge produces, which no in-browser UI path can create
-// (the editor checkbox never calls the task-action layer, and the bridge is
-// desktop-only). So we seed one the harness-agnostic way: after the app boots
+// (a user checkbox now logs actor `user`, and the bridge is desktop-only). So
+// we seed one the harness-agnostic way: after the app boots
 // (which is what creates the Dexie database at its current version, with all
 // object stores), we open the SAME IndexedDB with the browser's native API and
 // insert a visible note, its todo block, and a `done` activity row by an agent.

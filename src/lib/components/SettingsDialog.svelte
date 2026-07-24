@@ -83,6 +83,21 @@
 		edited: 'editó'
 	};
 
+	// Con la puerta única las acciones del usuario también entran al feed;
+	// "Vos marcó hecha" no conjuga, así que el actor user tiene su propia tabla.
+	const ACTION_LABEL_USER = {
+		created: 'creaste una tarea',
+		done: 'marcaste hecha',
+		reopened: 'reabriste',
+		note: 'dejaste una nota',
+		edited: 'editaste'
+	};
+
+	function actionLabel(entry) {
+		const labels = entry.actor === 'user' ? ACTION_LABEL_USER : ACTION_LABEL;
+		return labels[entry.action] ?? entry.action;
+	}
+
 	function actorLabel(actor) {
 		return actor === 'user' ? 'Vos' : 'Agente';
 	}
@@ -194,7 +209,7 @@
 						<li class="border-border flex flex-col gap-0.5 rounded-md border px-3 py-2 text-sm">
 							<span>
 								<span class="font-medium">{actorLabel(entry.actor)}</span>
-								{ACTION_LABEL[entry.action] ?? entry.action}
+								{actionLabel(entry)}
 							</span>
 							{#if entry.text}
 								<span class="text-muted-foreground">{entry.text}</span>

@@ -30,6 +30,23 @@ escribí una instrucción (por ejemplo "Rehacer: agregá fuentes") y tocá
 a ver destildarse ahí mismo, sin recargar) y deja tu instrucción anotada para
 que el agente la lea como un pedido de rehacer.
 
+## La lista del agente siempre está al día
+
+Lo que ve el agente se actualiza solo ante **cualquier** cambio: crear, completar,
+reabrir, editar o borrar una tarea, borrar una nota o cambiarle el título. No
+tenés que hacer nada especial. Hay una pequeña espera de **medio segundo** para
+no rehacer la lista con cada tecla mientras escribís: cuando frenás, se pone al
+día sola.
+
+## Tus propias acciones también quedan anotadas
+
+Cuando **vos** marcás una tarea como hecha, la reabrís o creás una tarea, eso
+también aparece en **Configuración › Agentes** como **"Vos…"** (por ejemplo "Vos
+marcaste hecha"). Así el agente distingue lo que hiciste vos de lo que hizo él, y
+la actividad cuenta la historia completa de cada tarea. Escribir el texto de una
+tarea no genera una línea (sería demasiado ruido); sí actualiza lo que el agente
+lee.
+
 ## Solo en la app de escritorio
 
 Esta conexión funciona en la app de escritorio (Mac). En el navegador todavía no.
