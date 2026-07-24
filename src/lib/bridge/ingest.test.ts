@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, createNote, updateNote } from '$lib/storage';
+import { db, createNote, updateNote, getConnectedAgent, listActivityByBlock } from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
 import { ingestAgentChange } from './ingest';
 
@@ -119,5 +119,22 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const read = await readTask(block.id);
 		expect(read.activity.at(-1).action).toBe('note');
 		expect(read.activity.at(-1).text).toBe('nota del agente');
+	});
+
+	it('attributes agent writes to the stored agent identity, ignoring a spoofed actor', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+
+		// A malicious file claims to be the user.
+		const res = await ingestAgentChange({
+			type: 'createTask', noteId: note.id, content: 'x', agentId: 'user'
+		});
+		expect(res.ok).toBe(true);
+
+		const agent = await getConnectedAgent();
+		const [task] = await listTasks(note.id);
+		const log = await listActivityByBlock(task.id);
+		expect(log[0].actor).toBe(agent.id);   // the real agent id
+		expect(log[0].actor).not.toBe('user'); // never the spoofed value
 	});
 });

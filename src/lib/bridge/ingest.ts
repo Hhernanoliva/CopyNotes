@@ -5,7 +5,7 @@
 // a bitácora note — never delete, export, or reorder.
 
 import { sanitizeHtml, htmlToPlainText } from '$lib/format';
-import { getNote, getBlock } from '$lib/storage';
+import { getNote, getBlock, getConnectedAgent, setConnectedAgent } from '$lib/storage';
 import { createTask, completeTask, addTaskNote } from '$lib/tasks';
 
 // Reduce any agent-supplied string to safe plain text: sanitize the markup,
@@ -14,16 +14,26 @@ function toCleanText(raw) {
 	return htmlToPlainText(sanitizeHtml(typeof raw === 'string' ? raw : ''));
 }
 
+// The actor must come from the stored connected-agent identity, never from
+// the inbound file — change.agentId is untrusted and a malicious file could
+// claim agentId: 'user' to forge attribution and hide the "Rehacer" control.
+// v1 is single-agent: exactly one connected-agent row, lazily created here.
+async function resolveAgentActor() {
+	let agent = await getConnectedAgent();
+	if (!agent) agent = await setConnectedAgent({ name: 'Agente local' });
+	return agent.id;
+}
+
 const HANDLERS = {
-	async createTask(change) {
+	async createTask(change, actor) {
 		const content = toCleanText(change.content);
-		return createTask({ noteId: change.noteId, content, actor: change.agentId });
+		return createTask({ noteId: change.noteId, content, actor });
 	},
-	async completeTask(change) {
-		return completeTask({ blockId: change.blockId, actor: change.agentId, text: toCleanText(change.text) });
+	async completeTask(change, actor) {
+		return completeTask({ blockId: change.blockId, actor, text: toCleanText(change.text) });
 	},
-	async addNote(change) {
-		return addTaskNote({ blockId: change.blockId, actor: change.agentId, text: toCleanText(change.text) });
+	async addNote(change, actor) {
+		return addTaskNote({ blockId: change.blockId, actor, text: toCleanText(change.text) });
 	}
 };
 
@@ -51,6 +61,7 @@ export async function ingestAgentChange(change) {
 	const note = await getNote(noteId);
 	if (!note || note.agentVisible !== true) return { ok: false, reason: 'not-agent-visible' };
 
-	const result = await handler(change);
+	const actor = await resolveAgentActor();
+	const result = await handler(change, actor);
 	return { ok: true, result };
 }
