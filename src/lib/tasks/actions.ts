@@ -40,16 +40,27 @@ async function traceWrite({ blockId, changes, actor, action, text }) {
 	return result;
 }
 
-export async function createTask({ noteId, parentBlockId = null, content = '', html = undefined, actor = 'user' }) {
-	// Resolve sibling order BEFORE the transaction: createBlock's order
-	// inference does chained reads that, wrapped in trackPendingWrite's native
-	// promise, escape Dexie's transaction zone and commit it early
-	// (PrematureCommitError). Passing order explicitly leaves only direct,
-	// single-hop Dexie ops inside the transaction (no chained Collection query),
-	// which is what makes nesting safe here. Order was never atomic with the
-	// insert pre-G1, so this is no regression.
-	const siblings = await listChildBlocks(noteId, parentBlockId);
-	const order = siblings.length;
+export async function createTask({
+	noteId,
+	parentBlockId = null,
+	content = '',
+	html = undefined,
+	actor = 'user',
+	order = undefined,
+	checked = false
+}) {
+	// Resolve sibling order BEFORE the transaction when the caller didn't pass
+	// one (the editor passes plan.order for in-position inserts; the agent omits
+	// it → append). createBlock's order inference does chained reads that,
+	// wrapped in trackPendingWrite's native promise, escape Dexie's transaction
+	// zone and commit it early (PrematureCommitError). Passing order explicitly
+	// leaves only direct, single-hop Dexie ops inside the transaction (no chained
+	// Collection query), which is what makes nesting safe here.
+	let resolvedOrder = order;
+	if (resolvedOrder === undefined) {
+		const siblings = await listChildBlocks(noteId, parentBlockId);
+		resolvedOrder = siblings.length;
+	}
 	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		const block = await createBlock({
 			noteId,
@@ -57,7 +68,8 @@ export async function createTask({ noteId, parentBlockId = null, content = '', h
 			type: 'todo',
 			content,
 			html: html ?? plainTextToHtml(content),
-			order,
+			order: resolvedOrder,
+			checked,
 			createdBy: actor
 		});
 		const activity = await appendActivity({

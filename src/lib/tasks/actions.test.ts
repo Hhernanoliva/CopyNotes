@@ -70,6 +70,14 @@ describe('createTask', () => {
 		const log = await listActivityByBlock(block.id);
 		expect(log.length).toBe(1);
 	});
+
+	it('respects an explicit order and checked (editor insertion)', async () => {
+		const note = await createNote();
+		await createBlock({ noteId: note.id, content: 'primero' });
+		const { block } = await createTask({ noteId: note.id, content: 'tarea', order: 0, checked: true });
+		expect(block.order).toBe(0);
+		expect(block.checked).toBe(true);
+	});
 });
 
 describe('completeTask', () => {

@@ -29,7 +29,7 @@
 		planMoveSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
-	import { setTaskChecked, convertToTask } from '$lib/tasks';
+	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -868,12 +868,23 @@
 		if (!plan) return;
 		recordSnapshot();
 		await applyUpdates(plan.updates);
-		const created = await createBlock({
-			noteId: note.id,
-			parentBlockId: plan.parentBlockId,
-			type: forcedType ?? inheritType(block.type),
-			order: plan.order
-		});
+		const type = forcedType ?? inheritType(block.type);
+		let created;
+		if (type === 'todo') {
+			// Una tarea nueva nace por la capa: bitácora 'created', actor user.
+			({ block: created } = await createTask({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				order: plan.order
+			}));
+		} else {
+			created = await createBlock({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				type,
+				order: plan.order
+			});
+		}
 		blocks = [...blocks, created];
 		focusBlockId = created.id;
 	}
@@ -895,15 +906,19 @@
 			block.content = first.content;
 			block.html = first.html ?? plainTextToHtml(first.content);
 			const changes = {
-				type: first.type,
 				content: first.content,
 				html: first.html ?? plainTextToHtml(first.content)
 			};
 			if (first.type === 'todo') {
 				block.checked = first.checked;
-				changes.checked = first.checked;
+				// Conversión, no creación: primero el contenido (así la línea
+				// 'created' lo registra), después el tipo por la capa.
+				await updateBlock(block.id, changes);
+				await convertToTask({ blockId: block.id, checked: first.checked });
+			} else {
+				changes.type = first.type;
+				await updateBlock(block.id, changes);
 			}
-			await updateBlock(block.id, changes);
 			startIndex = 1;
 		}
 		for (let i = startIndex; i < parsed.length; i++) {
@@ -911,14 +926,24 @@
 			const plan = planEnter(blocks, afterId);
 			if (!plan) break;
 			await applyUpdates(plan.updates);
-			const created = await createBlock({
-				noteId: note.id,
-				parentBlockId: plan.parentBlockId,
-				type: line.type,
-				order: plan.order,
-				content: line.content,
-				...(line.type === 'todo' ? { checked: line.checked } : {})
-			});
+			const created =
+				line.type === 'todo'
+					? (
+							await createTask({
+								noteId: note.id,
+								parentBlockId: plan.parentBlockId,
+								order: plan.order,
+								content: line.content,
+								checked: line.checked
+							})
+						).block
+					: await createBlock({
+							noteId: note.id,
+							parentBlockId: plan.parentBlockId,
+							type: line.type,
+							order: plan.order,
+							content: line.content
+						});
 			blocks = [...blocks, created];
 			afterId = created.id;
 		}
