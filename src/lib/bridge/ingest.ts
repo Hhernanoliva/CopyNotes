@@ -11,7 +11,7 @@ import { createTask, completeTask, addTaskNote } from '$lib/tasks';
 // Reduce any agent-supplied string to safe plain text: sanitize the markup,
 // then flatten to text so it can never act as an html sink.
 function toCleanText(raw) {
-	return htmlToPlainText(sanitizeHtml(typeof raw === 'string' ? raw : ''));
+	return htmlToPlainText(sanitizeHtml(typeof raw === 'string' ? raw : '')).slice(0, 2000);
 }
 
 // The actor must come from the stored connected-agent identity, never from
@@ -52,14 +52,23 @@ export async function ingestAgentChange(change) {
 	// once-visible, now-hidden note cannot be paired with a still-visible
 	// noteId to slip past the gate.
 	let noteId = change.noteId;
+	let block = null;
 	if (change.type !== 'createTask') {
-		const block = await getBlock(change.blockId);
+		block = await getBlock(change.blockId);
 		if (!block) return { ok: false, reason: 'not-agent-visible' };
 		noteId = block.noteId;
 	}
 
 	const note = await getNote(noteId);
 	if (!note || note.agentVisible !== true) return { ok: false, reason: 'not-agent-visible' };
+
+	// The target must be a live todo block: a completeTask/addNote pointed at a
+	// text/bullet/heading block would otherwise set checked:true or append
+	// activity on a non-task. Checked after the visibility gate so a hidden
+	// note always yields not-agent-visible, never leaking block-type info.
+	if (change.type !== 'createTask' && block.type !== 'todo') {
+		return { ok: false, reason: 'not-a-task' };
+	}
 
 	const actor = await resolveAgentActor();
 	const result = await handler(change, actor);

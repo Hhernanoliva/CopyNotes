@@ -1,6 +1,14 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, createNote, updateNote, getConnectedAgent, listActivityByBlock } from '$lib/storage';
+import {
+	db,
+	createNote,
+	updateNote,
+	getConnectedAgent,
+	listActivityByBlock,
+	createBlock,
+	getBlock
+} from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
 import { ingestAgentChange } from './ingest';
 
@@ -80,6 +88,22 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const read = await readTask(block.id);
 		expect(read.block.checked).toBe(false);
 		expect(read.activity.map((e) => e.action)).toEqual(['created']);
+	});
+
+	it('rejects completing a non-todo block', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const textBlock = await createBlock({ noteId: note.id, type: 'text', content: 'prosa' });
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			noteId: note.id,
+			blockId: textBlock.id,
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('not-a-task');
+		expect((await getBlock(textBlock.id)).checked).toBe(false);
 	});
 
 	it('completes a task on a visible note and sanitizes the summary', async () => {
