@@ -2,16 +2,23 @@
 	import { isTauriRuntime } from '$lib/platform';
 	import { agentData } from './signal.svelte';
 	import { writeAgentExport, startBridgeWatch } from './tauri';
+	import { createExportScheduler } from './schedule';
 
 	let { onAgentIngested } = $props();
 
-	// Re-export whenever agent-relevant data changes (a task write or a
-	// visibility toggle bumps agentData.version). writeAgentExport no-ops off
-	// desktop. Hiding a note bumps the signal → always re-exports, so a hidden
-	// note can never linger in export.json.
+	// Re-export whenever agent-relevant data changes. With the storage safety
+	// net (every notes/blocks write bumps agentData.version) this fires on any
+	// keystroke's save, so the scheduler folds bursts into one trailing write
+	// 500 ms after quiet. Hiding a note re-exports too (≤500 ms later — same
+	// order as the pre-existing read/write race window). writeAgentExport
+	// no-ops off desktop. The mount run (version 0) keeps the boot export.
+	const exportScheduler = createExportScheduler(() => {
+		writeAgentExport().catch((error) => console.error('agent export failed', error));
+	});
 	$effect(() => {
 		void agentData.version;
-		writeAgentExport().catch((error) => console.error('agent export failed', error));
+		exportScheduler.schedule();
+		return () => exportScheduler.cancel();
 	});
 
 	// Start the inbox watcher ONCE on mount (desktop-only). Reads no reactive
