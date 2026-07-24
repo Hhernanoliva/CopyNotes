@@ -16,6 +16,7 @@ import {
 	listActivityByBlock
 } from '$lib/storage';
 import { plainTextToHtml } from '$lib/format';
+import { planToggleChecked } from '$lib/blocks/cascade';
 import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 // Block change + its one bitácora entry commit together or not at all, so an
@@ -80,6 +81,27 @@ export async function completeTask({ blockId, actor, text = '' }) {
 
 export async function reopenTask({ blockId, actor = 'user', text = '' }) {
 	return traceWrite({ blockId, changes: { checked: false }, actor, action: 'reopened', text });
+}
+
+// The UI's check/uncheck door. Applies the editor's cascade (specs/003: the
+// toggled value flows down to todo children, ancestors mirror their children)
+// writing ONE bitácora line per affected task — done or reopened by its final
+// value. Returns the applied plan so the caller can update its in-memory rows,
+// or null when the target is not a todo.
+export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
+	const noteBlocks = await listBlocksByNote(noteId);
+	const plan = planToggleChecked(noteBlocks, blockId);
+	if (!plan) return null;
+	for (const { id, checked } of plan.updates) {
+		await traceWrite({
+			blockId: id,
+			changes: { checked },
+			actor,
+			action: checked ? 'done' : 'reopened',
+			text: ''
+		});
+	}
+	return plan;
 }
 
 // The user's redo channel: an instruction line the agent can read. Stored as

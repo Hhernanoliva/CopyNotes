@@ -1,7 +1,16 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db, createNote, createBlock, getBlock, listActivityByBlock } from '$lib/storage';
-import { createTask, completeTask, reopenTask, addTaskNote, editTask, readTask, listTasks } from './actions';
+import {
+	createTask,
+	completeTask,
+	reopenTask,
+	addTaskNote,
+	editTask,
+	readTask,
+	listTasks,
+	setTaskChecked
+} from './actions';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -180,5 +189,57 @@ describe('atomicity', () => {
 		}
 		// The whole createTask transaction rolled back → no orphan block in the note.
 		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+});
+
+describe('setTaskChecked', () => {
+	it('checks a parent, cascades to todo children, one done line each', async () => {
+		const note = await createNote();
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre' });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hijo'
+		});
+
+		const plan = await setTaskChecked({ noteId: note.id, blockId: parent.id });
+
+		expect(plan.updates).toEqual(
+			expect.arrayContaining([
+				{ id: parent.id, checked: true },
+				{ id: child.id, checked: true }
+			])
+		);
+		expect((await getBlock(parent.id)).checked).toBe(true);
+		expect((await getBlock(child.id)).checked).toBe(true);
+		expect((await listActivityByBlock(parent.id)).at(-1)).toMatchObject({ actor: 'user', action: 'done' });
+		expect((await listActivityByBlock(child.id)).at(-1)).toMatchObject({ actor: 'user', action: 'done' });
+	});
+
+	it('unchecking the last checked child reopens the parent with a reopened line', async () => {
+		const note = await createNote();
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre', checked: true });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hijo',
+			checked: true
+		});
+
+		await setTaskChecked({ noteId: note.id, blockId: child.id });
+
+		expect((await getBlock(parent.id)).checked).toBe(false);
+		expect((await getBlock(child.id)).checked).toBe(false);
+		expect((await listActivityByBlock(parent.id)).at(-1)).toMatchObject({ actor: 'user', action: 'reopened' });
+	});
+
+	it('returns null and writes nothing for a non-todo target', async () => {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'x' });
+		const plan = await setTaskChecked({ noteId: note.id, blockId: block.id });
+		expect(plan).toBeNull();
+		expect(await listActivityByBlock(block.id)).toEqual([]);
 	});
 });

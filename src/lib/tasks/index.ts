@@ -5,6 +5,7 @@ export {
 	addTaskNote,
 	editTask,
 	readTask,
-	listTasks
+	listTasks,
+	setTaskChecked
 } from './actions';
 export { isRedoRequested } from './redo';

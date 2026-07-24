@@ -5,9 +5,9 @@
 		getAgendaHideCompleted,
 		listDatedBlocks,
 		listNotes,
-		setAgendaHideCompleted,
-		toggleTodoCascade
+		setAgendaHideCompleted
 	} from '$lib/storage';
+	import { setTaskChecked } from '$lib/tasks';
 
 	let { onOpen, onDataChanged, version = 0 } = $props();
 
@@ -40,10 +40,11 @@
 	});
 
 	async function toggleTodo(block) {
-		// Route through the shared cascade so checking a parent/child from Agenda
-		// stays consistent with the editor (parent checks children, last child
-		// checks parent). The cascade loads the whole note, not just dated rows.
-		await toggleTodoCascade(block.noteId, block.id);
+		// Route through the task layer so checking a parent/child from Agenda stays
+		// consistent with the editor (parent checks children, last child checks
+		// parent) AND leaves the bitácora line. It loads the whole note, not just
+		// dated rows.
+		await setTaskChecked({ noteId: block.noteId, blockId: block.id });
 		await refresh();
 		onDataChanged();
 	}

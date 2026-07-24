@@ -29,6 +29,7 @@
 		planMoveSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
+	import { setTaskChecked } from '$lib/tasks';
 	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -47,7 +48,6 @@
 		planPromoteChildren,
 		previousVisibleId
 	} from '$lib/blocks/enter';
-	import { planToggleChecked } from '$lib/blocks/cascade';
 	import { buildCopyTree, formatPlainText, formatHtml } from '$lib/copy/format';
 	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writePlainTextToClipboard, writeToClipboard } from '$lib/copy/clipboard';
@@ -1106,10 +1106,18 @@
 	}
 
 	async function handleToggleChecked(block) {
-		const plan = planToggleChecked(blocks, block.id);
+		// La capa de tareas aplica la cascada Y deja la bitácora (done/reopened
+		// por tarea, actor user). El snapshot de Deshacer sale del estado en
+		// memoria — que todavía no mutó — así que tomarlo después del write
+		// preserva el mismo undo de antes.
+		const plan = await setTaskChecked({ noteId: note.id, blockId: block.id });
 		if (!plan) return;
 		recordSnapshot();
-		await applyUpdates(plan.updates);
+		for (const update of plan.updates) {
+			const { id, ...changes } = update;
+			const row = blocks.find((b) => b.id === id);
+			if (row) Object.assign(row, changes);
+		}
 	}
 
 	// --- Multi-block selection ---

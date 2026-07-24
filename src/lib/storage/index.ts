@@ -19,8 +19,7 @@ export {
 	softDeleteBlocks,
 	applyInsertionPlan,
 	listAllBlocks,
-	listDatedBlocks,
-	toggleTodoCascade
+	listDatedBlocks
 } from './blocks';
 export {
 	appendActivity,
