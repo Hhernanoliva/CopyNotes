@@ -92,7 +92,7 @@ export async function getAgentStatus() {
 	if (!isTauriRuntime()) return null;
 	const { invoke } = await import('@tauri-apps/api/core');
 	const raw = await invoke('bridge_read_status');
-	if (!raw) return null;
+	if (typeof raw !== 'string') return null;
 	try {
 		return JSON.parse(raw);
 	} catch {

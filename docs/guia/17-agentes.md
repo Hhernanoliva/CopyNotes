@@ -56,33 +56,34 @@ Esta conexión funciona en la app de escritorio (Mac). En el navegador todavía 
 ## Conectar un agente por MCP (escritorio)
 
 Además de "Visible para agentes", CopyNotes puede conectarse directamente con
-un programa de agente que corre en tu computadora (por ejemplo Claude
-Desktop u OpenCode), usando un protocolo llamado **MCP**. Esto también
-funciona **solo en la app de escritorio**.
+un programa de agente que corre en tu computadora (por ejemplo Claude Code,
+OpenCode o Cursor), usando un protocolo llamado **MCP**. Esto también funciona
+**solo en la app de escritorio**.
 
-En **Configuración** (engranaje ⚙️) › **Agentes**, si estás usando la app de
-escritorio, vas a ver una sección **"Conectar un agente (MCP)"** con dos
-cosas:
+Lo bueno: CopyNotes ya trae adentro todo lo necesario y **rellena las rutas por
+vos**. No tenés que buscar ni pegar ninguna carpeta a mano.
 
-- La **carpeta del buzón**: una ubicación en tu computadora que CopyNotes usa
-  para intercambiar mensajes con el agente. Tiene un botón para copiarla.
-- Un **texto de configuración** (un bloque de código) con todo lo necesario
-  para que un cliente MCP se conecte a CopyNotes. También tiene su botón para
-  copiarlo.
+En **Configuración** (engranaje ⚙️) › **Agentes**, en la app de escritorio, vas
+a ver la sección **"Conectar un agente (MCP)"** con una opción lista para cada
+programa. Elegí la del que uses:
 
-### Pasos para conectar
+- **Claude Code:** copiá el comando (icono de copiar, dos hojas → tilde ✓) y
+  pegalo en tu terminal **una sola vez**.
+- **OpenCode:** copiá el bloque y pegalo en tu archivo
+  `~/.config/opencode/opencode.json`.
+- **Cursor:** tocá el botón **"Añadir a Cursor"** — se abre Cursor y lo agrega
+  solo. Si preferís, abajo tenés el JSON para copiar y pegar a mano en
+  `~/.cursor/mcp.json`.
 
-1. Instalá el programa cliente que vayas a usar (Claude Desktop, OpenCode, u
-   otro que hable MCP).
-2. En Configuración › Agentes, tocá el **icono de copiar** (dos hojas) que
-   está junto al texto de configuración; muestra un instante una tilde ✓
-   para confirmar.
-3. Pegalo en el archivo de configuración de ese cliente, y reemplazá
-   `<ruta-a-CopyNotes>` por la carpeta donde tenés el proyecto CopyNotes en
-   tu computadora (la carpeta del buzón ya viene completa, no hace falta
-   tocarla).
-4. Dejá **CopyNotes abierto**: sin la app abierta, el agente no puede leer ni
-   escribir nada, porque es la app la que vigila esa carpeta y contesta.
+**Importante:** el agente solo funciona con **CopyNotes abierta**. Si cerrás la
+app, deja de leer y escribir hasta que la vuelvas a abrir (es la app la que
+vigila la carpeta del buzón y contesta).
+
+### ¿Se conectó?
+
+Arriba de las opciones, CopyNotes te dice si un agente ya está conectado:
+**"Un agente se conectó"** con hace cuánto lo hizo. Si todavía no conectaste
+ninguno, dice **"Ningún agente conectado todavía"**.
 
 ### Qué puede hacer el agente conectado así
 
