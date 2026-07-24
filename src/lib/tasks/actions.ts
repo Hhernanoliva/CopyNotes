@@ -34,9 +34,8 @@ async function traceWrite({ blockId, changes, actor, action, text }) {
 		});
 		return { block, activity };
 	});
-	// Only bump on an actual mutation — a missing block returns undefined and
-	// must not trigger a re-export of nothing.
-	if (result) bumpAgentData();
+	// updateBlock's safety-net bump already fired on a real write (and skipped a
+	// missing block, which returns 0 rows), so there is no extra bump to do here.
 	return result;
 }
 
@@ -81,9 +80,8 @@ export async function createTask({
 		});
 		return { block, activity };
 	});
-	// createTask always inserts a block (createBlock has no missing-block path), so
-	// unlike the guarded mutators this bump is unconditional.
-	bumpAgentData();
+	// createBlock's safety-net bump (it always inserts) already refreshed the
+	// agent export, so there is no extra bump to do here.
 	return result;
 }
 
@@ -131,6 +129,9 @@ export async function addTaskNote({ blockId, actor = 'user', text }) {
 		});
 		return { activity };
 	});
+	// The one action that writes ONLY an activity row (no block change), so the
+	// storage safety net never fires — this explicit bump is what refreshes the
+	// export when a redo instruction lands. Guarded: a missing block does not bump.
 	if (result) bumpAgentData();
 	return result;
 }
@@ -138,16 +139,29 @@ export async function addTaskNote({ blockId, actor = 'user', text }) {
 // Converting an existing block INTO a todo (slash /todo, type menu, the reused
 // first line of a paste). For the agent the task is born here → a 'created'
 // line. An explicit `checked` wins (a pasted "[x]" line stays done); omitted,
-// the block's previous checked survives — parity with planBlockType.
-export async function convertToTask({ blockId, actor = 'user', checked = undefined }) {
+// the block's previous checked survives — parity with planBlockType. `content`
+// and `html` are optional: pass them to set the text in the SAME write (the
+// paste case, which would otherwise need a separate updateBlock first).
+export async function convertToTask({
+	blockId,
+	actor = 'user',
+	checked = undefined,
+	content = undefined,
+	html = undefined
+}) {
 	const block = await getBlock(blockId);
 	if (!block) return undefined;
 	return traceWrite({
 		blockId,
-		changes: { type: 'todo', checked: checked ?? (block.checked ?? false) },
+		changes: {
+			type: 'todo',
+			checked: checked ?? (block.checked ?? false),
+			...(content !== undefined ? { content } : {}),
+			...(html !== undefined ? { html } : {})
+		},
 		actor,
 		action: 'created',
-		text: block.content ?? ''
+		text: content ?? block.content ?? ''
 	});
 }
 

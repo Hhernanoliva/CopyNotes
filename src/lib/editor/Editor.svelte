@@ -907,19 +907,15 @@
 			block.type = first.type;
 			block.content = first.content;
 			block.html = first.html ?? plainTextToHtml(first.content);
-			const changes = {
-				content: first.content,
-				html: first.html ?? plainTextToHtml(first.content)
-			};
+			const content = first.content;
+			const html = first.html ?? plainTextToHtml(first.content);
 			if (first.type === 'todo') {
 				block.checked = first.checked;
-				// Conversión, no creación: primero el contenido (así la línea
-				// 'created' lo registra), después el tipo por la capa.
-				await updateBlock(block.id, changes);
-				await convertToTask({ blockId: block.id, checked: first.checked });
+				// Conversión por la capa (bitácora 'created'), con el contenido en la
+				// misma escritura.
+				await convertToTask({ blockId: block.id, checked: first.checked, content, html });
 			} else {
-				changes.type = first.type;
-				await updateBlock(block.id, changes);
+				await updateBlock(block.id, { type: first.type, content, html });
 			}
 			startIndex = 1;
 		}

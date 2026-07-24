@@ -276,4 +276,17 @@ describe('convertToTask', () => {
 		const result = await convertToTask({ blockId: block.id, checked: true });
 		expect(result.block.checked).toBe(true);
 	});
+
+	it('sets content and html in the same write when passed (paste first line)', async () => {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'viejo' });
+		const result = await convertToTask({
+			blockId: block.id,
+			content: 'comprar leche',
+			html: 'comprar leche'
+		});
+		expect(result.block.type).toBe('todo');
+		expect(result.block.content).toBe('comprar leche');
+		expect(result.activity.text).toBe('comprar leche');
+	});
 });
