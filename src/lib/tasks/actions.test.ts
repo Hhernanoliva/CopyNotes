@@ -7,6 +7,40 @@ beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
 
+describe('agent data signal', () => {
+	it('bumps the agent-data signal on a task action', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const note = await createNote();
+		const before = agentData.version;
+		await createTask({ noteId: note.id, content: 'x', actor: 'user' });
+		expect(agentData.version).toBeGreaterThan(before);
+	});
+
+	it('does not bump when the mutated block is missing', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const before = agentData.version;
+		await completeTask({ blockId: 'nope', actor: 'agent' });
+		expect(agentData.version).toBe(before);
+	});
+
+	it('does not bump the agent-data signal when addTaskNote targets a missing block', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const before = agentData.version;
+		const res = await addTaskNote({ blockId: 'nope', actor: 'user', text: 'x' });
+		expect(res).toBeUndefined();
+		expect(agentData.version).toBe(before);
+	});
+
+	it('bumps on completeTask when the block exists (traceWrite success path)', async () => {
+		const { agentData } = await import('$lib/bridge/signal.svelte');
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'x', actor: 'user' });
+		const before = agentData.version;
+		await completeTask({ blockId: block.id, actor: 'agent' });
+		expect(agentData.version).toBeGreaterThan(before);
+	});
+});
+
 describe('createTask', () => {
 	it('creates a todo block and one created activity entry', async () => {
 		const note = await createNote();

@@ -29,6 +29,7 @@
 		planMoveSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
+	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
@@ -464,6 +465,11 @@
 			async () => {
 				await updateNote(note.id, { agentVisible: next });
 				onNoteUpdated(note.id, { agentVisible: next });
+				// Bump AFTER the write lands, so a future re-export (P3) reads the
+				// new visibility from the DB — never bump before the persisted value
+				// actually changed, or an export could race the write and still see
+				// the old (hidden) state.
+				bumpAgentData();
 			},
 			{ table: 'notes', id: note.id, changes: { agentVisible: next } }
 		);

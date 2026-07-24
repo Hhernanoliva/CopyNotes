@@ -16,11 +16,12 @@ import {
 	listActivityByBlock
 } from '$lib/storage';
 import { plainTextToHtml } from '$lib/format';
+import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 // Block change + its one bitácora entry commit together or not at all, so an
 // action can never leave a task mutated without its trace (or vice versa).
 async function traceWrite({ blockId, changes, actor, action, text }) {
-	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		const block = await updateBlock(blockId, changes);
 		if (!block) return undefined;
 		const activity = await appendActivity({
@@ -32,6 +33,10 @@ async function traceWrite({ blockId, changes, actor, action, text }) {
 		});
 		return { block, activity };
 	});
+	// Only bump on an actual mutation — a missing block returns undefined and
+	// must not trigger a re-export of nothing.
+	if (result) bumpAgentData();
+	return result;
 }
 
 export async function createTask({ noteId, parentBlockId = null, content = '', html = undefined, actor = 'user' }) {
@@ -44,7 +49,7 @@ export async function createTask({ noteId, parentBlockId = null, content = '', h
 	// insert pre-G1, so this is no regression.
 	const siblings = await listChildBlocks(noteId, parentBlockId);
 	const order = siblings.length;
-	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		const block = await createBlock({
 			noteId,
 			parentBlockId,
@@ -63,6 +68,10 @@ export async function createTask({ noteId, parentBlockId = null, content = '', h
 		});
 		return { block, activity };
 	});
+	// createTask always inserts a block (createBlock has no missing-block path), so
+	// unlike the guarded mutators this bump is unconditional.
+	bumpAgentData();
+	return result;
 }
 
 export async function completeTask({ blockId, actor, text = '' }) {
@@ -76,7 +85,7 @@ export async function reopenTask({ blockId, actor = 'user', text = '' }) {
 // The user's redo channel: an instruction line the agent can read. Stored as
 // plain text on the activity row (never in block.html), rendered escaped.
 export async function addTaskNote({ blockId, actor = 'user', text }) {
-	return db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		const block = await getBlock(blockId);
 		if (!block) return undefined;
 		const activity = await appendActivity({
@@ -88,6 +97,8 @@ export async function addTaskNote({ blockId, actor = 'user', text }) {
 		});
 		return { activity };
 	});
+	if (result) bumpAgentData();
+	return result;
 }
 
 export async function editTask({ blockId, content, html = undefined, actor = 'user' }) {
