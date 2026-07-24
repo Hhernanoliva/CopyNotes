@@ -102,15 +102,24 @@ export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
 	const noteBlocks = await listBlocksByNote(noteId);
 	const plan = planToggleChecked(noteBlocks, blockId);
 	if (!plan) return null;
-	for (const { id, checked } of plan.updates) {
-		await traceWrite({
-			blockId: id,
-			changes: { checked },
-			actor,
-			action: checked ? 'done' : 'reopened',
-			text: ''
-		});
-	}
+	// The whole cascade commits atomically: every affected task's checked flip
+	// AND its bitácora line land together or not at all, so a mid-write failure
+	// can never leave a half-toggled parent/child tree (or a task mutated
+	// without its trace). All affected blocks belong to `noteId` (the cascade
+	// walks only this note's blocks), so appendActivity's noteId is theirs too.
+	// updateBlock's safety-net bump (inside) refreshes the export.
+	await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+		for (const { id, checked } of plan.updates) {
+			await updateBlock(id, { checked });
+			await appendActivity({
+				blockId: id,
+				noteId,
+				actor,
+				action: checked ? 'done' : 'reopened',
+				text: ''
+			});
+		}
+	});
 	return plan;
 }
 

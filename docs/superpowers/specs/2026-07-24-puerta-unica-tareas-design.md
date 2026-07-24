@@ -115,10 +115,11 @@ capa escribe bloques con los mismos campos que antes, así que Deshacer restaura
   escritura lanza, no hay bump (no se anuncia lo que no se escribió).
 - `setTaskChecked` sobre un bloque que dejó de existir → `planToggleChecked` devuelve `null`
   → no escribe ni bumpea (mismo contrato que `toggleTodoCascade` hoy).
-- `traceWrite` ya protege bloque+bitácora en una transacción; la cascada aplica N transacciones
-  (una por bloque afectado) — si una falla a mitad, los bloques ya escritos quedan consistentes
-  cada uno con su línea (mismo perfil de riesgo que el `applyUpdates` actual, que tampoco es
-  atómico entre bloques).
+- `setTaskChecked` envuelve **toda la cascada en una sola transacción** (`db.transaction('rw',
+  blocks, activity)`): cada flip de `checked` y su línea de bitácora commitean juntos o nada.
+  Un fallo a mitad revierte el árbol entero — no quedan padres/hijos a medias ni bitácora
+  huérfana (mejora sobre el `applyUpdates` viejo, que no era atómico entre bloques). Los
+  bumps de `updateBlock` dentro de la transacción refrescan el export al commitear.
 - El debounce usa `setTimeout` del entorno; en unmount se cancela. No hay flush en quit:
   aceptado, acotado por el export de montaje del próximo arranque.
 

@@ -251,6 +251,40 @@ describe('setTaskChecked', () => {
 		expect(plan).toBeNull();
 		expect(await listActivityByBlock(block.id)).toEqual([]);
 	});
+
+	it('is atomic: a mid-cascade write failure rolls back the whole cascade', async () => {
+		const note = await createNote();
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre' });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hijo'
+		});
+
+		// Fail the activity write on the SECOND append, after the first block +
+		// its line already applied inside the transaction. Atomicity must undo them.
+		const activityTable = db.table('activity');
+		const original = activityTable.add.bind(activityTable);
+		let calls = 0;
+		// @ts-expect-error — monkey-patch de prueba
+		activityTable.add = (row) => {
+			calls += 1;
+			if (calls === 2) return Promise.reject(new Error('boom'));
+			return original(row);
+		};
+		try {
+			await expect(setTaskChecked({ noteId: note.id, blockId: parent.id })).rejects.toThrow('boom');
+		} finally {
+			activityTable.add = original;
+		}
+
+		// Nothing stuck: neither block flipped, no orphan bitácora line.
+		expect((await getBlock(parent.id)).checked).toBe(false);
+		expect((await getBlock(child.id)).checked).toBe(false);
+		expect(await listActivityByBlock(parent.id)).toEqual([]);
+		expect(await listActivityByBlock(child.id)).toEqual([]);
+	});
 });
 
 describe('convertToTask', () => {
