@@ -11,42 +11,85 @@ own `package.json`, its own `pnpm-lock.yaml`, and its own `node_modules`. It
 is not part of the SvelteKit build and is not a member of the repo-root pnpm
 workspace (see "Isolation" below).
 
-## What it does (current milestone: M1 — scaffold)
+**CopyNotes (the desktop app) must be open** for any round-trip: it's the
+process that watches the mailbox's `inbox/` folder, answers into `outbox/`,
+and periodically refreshes `export.json`. Without it, tool calls time out
+and resource reads only see whatever `export.json` was last written.
 
-- `lib/mailbox.js` — the buzón client:
-  - `readExport()` reads `<mailbox>/export.json` (agent-visible tasks +
-    bitácora, written by the CopyNotes desktop app). Returns `{ notes: [] }`
-    if the file is missing or unreadable.
-  - `submitChange(change)` writes a change request to
-    `<mailbox>/inbox/<id>.json` (atomically — see below) and polls
-    `<mailbox>/outbox/<id>.json` for the app's result, up to a timeout.
-- `server.js` — connects an MCP server to stdio. Does not yet expose any
-  resources or tools.
+## What it exposes
 
-Resources (exposing notes/tasks to MCP clients) land in **M2**. Tools
-(change-request actions like toggling a task done) land in **M3**. The
-user-facing setup guide (how to point Claude Desktop / OpenCode at this
-server) is **M4** — this milestone is developer scaffolding only.
+### Resources
 
-## Running it
+One resource per note the user has marked **"Visible para agentes"** in the
+app (`copynotes://note/{id}`, listed and read from `lib/resources.js`). Each
+resource's content is that note's **tasks** (todo blocks) plus their
+**bitácora** (an activity trail: who created/completed/reopened/noted each
+task, and when). The app never exposes anything else from the note — no
+prose, no other block types.
 
-CopyNotes (the desktop app) must be open, because it's the process that
-watches `inbox/` and writes `outbox/` results — without it, `submitChange`
-calls will time out and `readExport` will only see whatever `export.json`
-was last written.
+Resource reads always re-read the buzón's `export.json`, so they reflect the
+app's live state (whatever CopyNotes last wrote there) rather than a cached
+snapshot.
+
+### Tools
+
+| Tool | Input | Effect |
+| --- | --- | --- |
+| `create_task` | `{ noteId, content }` | Creates a new todo block in the given note. |
+| `complete_task` | `{ blockId, summary? }` | Marks a task done; leaves a bitácora trace. |
+| `add_note` | `{ blockId, text }` | Appends a note to a task's bitácora. |
+
+Tools don't decide privacy themselves — each one builds a change request and
+hands it to `submitChange()` (`lib/mailbox.js`), which writes it to
+`inbox/<id>.json` and waits for the app's `outbox/<id>.json` answer. The
+app's own ingest gate (`src/lib/bridge/ingest.ts` in the main repo) is the
+sole authority: a rejected change comes back as `{ ok:false, reason }`,
+surfaced here as an MCP tool error. So a tool call can always fail safely if
+the note isn't agent-visible or the request is malformed — the server has no
+way to force it through.
+
+## Install
+
+```sh
+cd mcp
+pnpm install
+```
+
+(Only needed once — see "Isolation" below for why this doesn't touch the
+repo-root lockfile.)
+
+## Run
 
 ```sh
 CN_MAILBOX=/path/to/mailbox node server.js
 ```
 
-The mailbox path is shown inside the CopyNotes app (see Task M4 for the
-in-app copy-this-path UI). The server logs a one-line "running on stdio"
-message to **stderr** on startup — stdout is reserved for the JSON-RPC
-stream and must never be written to directly (any `console.log` there would
-corrupt the protocol).
+The mailbox path is shown inside the CopyNotes app itself: **Configuración
+› Agentes** (desktop build only) shows the exact folder plus a ready-to-paste
+client config. The server logs a one-line "running on stdio" message to
+**stderr** on startup — stdout is reserved for the JSON-RPC stream and must
+never be written to directly (a stray `console.log` there would corrupt the
+protocol).
 
-To wire it into an MCP client, point the client's server launcher at
-`node /absolute/path/to/mcp/server.js` with `CN_MAILBOX` set in its env.
+## Client config
+
+Point an MCP client (Claude Desktop, OpenCode, ...) at this server with its
+launcher config, e.g.:
+
+```json
+{
+  "mcpServers": {
+    "copynotes": {
+      "command": "node",
+      "args": ["<ruta-a-CopyNotes>/mcp/server.js"],
+      "env": { "CN_MAILBOX": "<mailbox path>" }
+    }
+  }
+}
+```
+
+`<ruta-a-CopyNotes>` is wherever this repo lives on disk; `<mailbox path>` is
+the folder shown in Configuración › Agentes.
 
 ## Mailbox folder layout
 
@@ -67,7 +110,7 @@ could let the watcher read a half-written, truncated file and discard it.
 
 ```sh
 pnpm install --ignore-workspace   # first time only, see "Isolation" below
-pnpm test                          # runs mailbox.test.js via Vitest
+pnpm test                          # runs the mailbox/resources/tools unit tests via Vitest
 node --check server.js             # syntax check (server.js blocks on stdio if actually run)
 ```
 
@@ -98,9 +141,9 @@ package's `exports` map and `dist/esm` output — see
 Real import paths used, confirmed to exist in the installed `dist/esm`
 output:
 
-- `@modelcontextprotocol/sdk/server/mcp.js` → `McpServer`
+- `@modelcontextprotocol/sdk/server/mcp.js` → `McpServer`, `ResourceTemplate`
 - `@modelcontextprotocol/sdk/server/stdio.js` → `StdioServerTransport`
 
 `zod@4.4.3` is installed alongside the SDK because tool/resource schema
-registration (`registerTool`/`registerResource`, coming in M3) requires it
-as a peer dependency.
+registration (`registerTool`/`registerResource`) requires it as a peer
+dependency.

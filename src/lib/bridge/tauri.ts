@@ -51,3 +51,12 @@ export async function startBridgeWatch(onIngested) {
 		if (result.ok) onIngested?.();
 	});
 }
+
+// Returns the mailbox folder's absolute path so it can be shown to the user
+// (Settings > Agentes) for pointing an MCP client's CN_MAILBOX at it. null
+// off desktop.
+export async function getMailboxPath() {
+	if (!isTauriRuntime()) return null;
+	const { invoke } = await import('@tauri-apps/api/core');
+	return invoke('bridge_mailbox_path');
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { writeAgentExport, startBridgeWatch } from './tauri';
+import { writeAgentExport, startBridgeWatch, getMailboxPath } from './tauri';
 
 // jsdom has no __TAURI_INTERNALS__, so isTauriRuntime() is false here and both
 // functions must take the no-op branch before ever touching a Tauri import —
@@ -14,5 +14,9 @@ describe('bridge/tauri (off-desktop no-ops)', () => {
 		const un = await startBridgeWatch(() => {});
 		expect(typeof un).toBe('function');
 		expect(() => un()).not.toThrow();
+	});
+
+	it('getMailboxPath resolves to null without Tauri', async () => {
+		await expect(getMailboxPath()).resolves.toBeNull();
 	});
 });

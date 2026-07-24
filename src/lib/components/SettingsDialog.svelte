@@ -1,8 +1,10 @@
 <script>
-	import { X } from '@lucide/svelte';
+	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity } from '$lib/storage';
 	import { reopenTask, addTaskNote } from '$lib/tasks';
+	import { isTauriRuntime } from '$lib/platform';
+	import { getMailboxPath } from '$lib/bridge/tauri';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
 
@@ -10,6 +12,9 @@
 	let activity = $state([]);
 	let redoFor = $state(null); // blockId currently being redone
 	let redoText = $state('');
+	let mailboxPath = $state(null);
+	let copiedField = $state(null); // 'path' | 'config' | null, transient
+	let copyTimer;
 
 	async function submitRedo(entry) {
 		const text = redoText.trim();
@@ -22,10 +27,53 @@
 		onDataChanged?.();
 	}
 
-	// Load the recent bitácora each time the dialog opens (read-only view).
+	// Load the recent bitácora each time the dialog opens (read-only view), and
+	// on desktop also the mailbox path for the MCP connection block below.
 	$effect(() => {
-		if (open) listRecentActivity(20).then((rows) => (activity = rows));
+		if (!open) return;
+		listRecentActivity(20).then((rows) => (activity = rows));
+		if (isTauriRuntime())
+			getMailboxPath()
+				.then((p) => (mailboxPath = p))
+				.catch((error) => console.error('No se pudo obtener la carpeta del buzón', error));
 	});
+	$effect(() => () => clearTimeout(copyTimer));
+
+	const mcpConfig = $derived(
+		mailboxPath
+			? JSON.stringify(
+					{
+						mcpServers: {
+							copynotes: {
+								command: 'node',
+								args: ['<ruta-a-CopyNotes>/mcp/server.js'],
+								env: { CN_MAILBOX: mailboxPath }
+							}
+						}
+					},
+					null,
+					2
+				)
+			: ''
+	);
+
+	function flashCopied(field) {
+		clearTimeout(copyTimer);
+		copiedField = field;
+		copyTimer = setTimeout(() => (copiedField = null), 1200);
+	}
+
+	async function copyMailboxPath() {
+		if (!mailboxPath) return;
+		await navigator.clipboard.writeText(mailboxPath);
+		flashCopied('path');
+	}
+
+	async function copyMcpConfig() {
+		if (!mcpConfig) return;
+		await navigator.clipboard.writeText(mcpConfig);
+		flashCopied('config');
+	}
 
 	const ACTION_LABEL = {
 		created: 'creó una tarea',
@@ -185,6 +233,75 @@
 						</li>
 					{/each}
 				</ul>
+			{/if}
+
+			{#if isTauriRuntime()}
+				{#if mailboxPath}
+					<div class="border-border flex flex-col gap-3 border-t pt-3">
+						<div class="flex flex-col gap-0.5">
+							<h4 class="text-sm font-bold">Conectar un agente (MCP)</h4>
+						</div>
+
+						<div class="flex flex-col gap-1">
+							<span class="text-muted-foreground text-sm">Carpeta del buzón:</span>
+							<div class="flex items-center gap-2">
+								<code
+									class="bg-muted text-foreground border-border min-w-0 flex-1 rounded border px-2 py-1 font-mono text-xs break-all"
+									>{mailboxPath}</code
+								>
+								<button
+									type="button"
+									aria-label="Copiar carpeta del buzón"
+									onclick={copyMailboxPath}
+									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									{#if copiedField === 'path'}
+										<Check size={14} aria-hidden="true" class="text-primary" />
+									{:else}
+										<Copy size={14} aria-hidden="true" />
+									{/if}
+								</button>
+							</div>
+						</div>
+
+						<div class="flex flex-col gap-1">
+							<span class="text-muted-foreground text-sm"
+								>Configuración para pegar en el cliente MCP (Claude Desktop, OpenCode, ...):</span
+							>
+							<div class="relative">
+								<pre
+									class="bg-muted overflow-x-auto rounded-md px-3 py-2 pr-9 font-mono text-xs leading-5"><code
+										>{mcpConfig}</code
+									></pre>
+								<button
+									type="button"
+									aria-label="Copiar configuración MCP"
+									onclick={copyMcpConfig}
+									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring bg-background/80 absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									{#if copiedField === 'config'}
+										<Check size={14} aria-hidden="true" class="text-primary" />
+									{:else}
+										<Copy size={14} aria-hidden="true" />
+									{/if}
+								</button>
+							</div>
+							<p class="text-muted-foreground text-xs">
+								Reemplazá <code class="font-mono">&lt;ruta-a-CopyNotes&gt;</code> por la carpeta donde
+								tenés el proyecto CopyNotes en tu computadora.
+							</p>
+						</div>
+
+						<p class="text-muted-foreground text-xs">
+							CopyNotes tiene que estar abierto para que el agente pueda leer y escribir. Más
+							detalles en la guía (tema 17).
+						</p>
+					</div>
+				{/if}
+			{:else}
+				<p class="text-muted-foreground border-border border-t pt-3 text-sm">
+					La conexión con agentes está disponible solo en la app de escritorio.
+				</p>
 			{/if}
 		</section>
 	</div>
