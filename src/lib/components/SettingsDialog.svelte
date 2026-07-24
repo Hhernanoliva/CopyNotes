@@ -4,7 +4,7 @@
 	import { listRecentActivity } from '$lib/storage';
 	import { reopenTask, addTaskNote } from '$lib/tasks';
 
-	let { open = $bindable(false), scale, onChange } = $props();
+	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
 
 	let dialogEl = $state(null);
 	let activity = $state([]);
@@ -19,6 +19,7 @@
 		redoFor = null;
 		redoText = '';
 		activity = await listRecentActivity(20);
+		onDataChanged?.();
 	}
 
 	// Load the recent bitácora each time the dialog opens (read-only view).

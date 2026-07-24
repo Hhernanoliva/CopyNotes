@@ -540,7 +540,12 @@
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
 	<SearchDialog bind:open={searchOpen} initialQuery={searchSeed} onOpenNote={selectNote} />
 	<HelpDialog bind:open={helpOpen} />
-	<SettingsDialog bind:open={settingsOpen} scale={editorScale} onChange={changeEditorScale} />
+	<SettingsDialog
+		bind:open={settingsOpen}
+		scale={editorScale}
+		onChange={changeEditorScale}
+		onDataChanged={handleDataChanged}
+	/>
 
 	<div class="flex min-w-0 flex-1 flex-col">
 		<header class="flex h-12 shrink-0 items-center gap-2 border-b px-3">

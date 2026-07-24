@@ -90,6 +90,19 @@ test('a redo instruction unchecks the task and records a note', async ({ page })
 
 	await seedAgentDoneTask(page, { noteId: 'e2e-agent-note', blockId: 'e2e-agent-block' });
 
+	// The seeded note isn't auto-opened on boot (it's neither "last opened" nor
+	// rows[0]), so reload to let boot re-read notes and list it in the sidebar,
+	// then open it explicitly to see its checkbox in the editor.
+	await page.reload();
+	await expect(page.getByLabel('Título de la nota')).toBeVisible();
+	await page
+		.getByRole('navigation', { name: 'Lista de notas' })
+		.getByRole('button', { name: 'Nota del agente', exact: true })
+		.click();
+
+	// Confirm the seeded (checked) task is visible in the open note before redoing.
+	await expect(page.locator('[role="checkbox"]').first()).toHaveAttribute('aria-checked', 'true');
+
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	// Both agent `done` entries show a "Rehacer" trigger; clicking one must open
@@ -102,4 +115,9 @@ test('a redo instruction unchecks the task and records a note', async ({ page })
 
 	// The instruction round-trips into the bitácora as a new user note entry.
 	await expect(page.getByText('Rehacer: agregá fuentes')).toBeVisible();
+
+	// Close settings and confirm the task is now unchecked in the note itself —
+	// the open editor must refresh instead of holding the stale in-memory copy.
+	await page.getByRole('button', { name: 'Cerrar' }).click();
+	await expect(page.locator('[role="checkbox"]').first()).toHaveAttribute('aria-checked', 'false');
 });

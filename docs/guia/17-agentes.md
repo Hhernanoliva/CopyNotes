@@ -26,8 +26,9 @@ En **Configuración** (engranaje ⚙️) hay una sección **Agentes** con la lis
 lo último que hizo el agente. Si marcó una tarea como hecha pero el resultado
 no te convenció, en esa misma línea aparece un botón **"Rehacer"**: tocalo,
 escribí una instrucción (por ejemplo "Rehacer: agregá fuentes") y tocá
-**"Enviar"**. Esto destilda la tarea y deja tu instrucción anotada para que el
-agente la lea como un pedido de rehacer.
+**"Enviar"**. Esto destilda la tarea al toque (si la nota está abierta, la vas
+a ver destildarse ahí mismo, sin recargar) y deja tu instrucción anotada para
+que el agente la lea como un pedido de rehacer.
 
 ## Solo en la app de escritorio
 
