@@ -5,16 +5,40 @@
 // relays to the CopyNotes desktop app through the buzón folder — see
 // lib/mailbox.js.
 //
-// Resources (M2: exposing notes/tasks as MCP resources) and tools (M3:
-// change-request tools backed by submitChange) are added in later
-// milestones. This scaffold only establishes the connection.
+// Resources (M2: exposing notes/tasks as MCP resources) are registered
+// below. Tools (M3: change-request tools backed by submitChange) are added
+// in a later milestone.
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { readExport } from './lib/mailbox.js';
+import { notesToResources, noteToResourceContent } from './lib/resources.js';
 
 const server = new McpServer({ name: 'copynotes', version: '0.1.0' });
 
-// resources (M2) + tools (M3) added later
+// One resource per agent-visible note (copynotes://note/<id>). Each list/
+// read re-reads the buzón export so resources reflect the app's live
+// state — the SDK re-invokes these callbacks per request, nothing is
+// cached here.
+server.registerResource(
+	'note',
+	new ResourceTemplate('copynotes://note/{id}', {
+		list: async () => ({ resources: notesToResources(await readExport()) })
+	}),
+	{
+		title: 'Notas visibles para agentes',
+		description: 'Tareas (todos) y su bitácora de las notas que el usuario marcó visibles para agentes.'
+	},
+	async (uri, variables) => {
+		const id = variables.id;
+		const exp = await readExport();
+		const note = (exp.notes ?? []).find((n) => n.id === id);
+		if (!note) return { contents: [] };
+		return {
+			contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(noteToResourceContent(note)) }]
+		};
+	}
+);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
