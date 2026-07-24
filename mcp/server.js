@@ -15,7 +15,7 @@
 import { z } from 'zod';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { readExport, submitChange } from './lib/mailbox.js';
+import { readExport, submitChange, touchAgentStatus } from './lib/mailbox.js';
 import { notesToResources, noteToResourceContent } from './lib/resources.js';
 import { createTaskChange, completeTaskChange, addNoteChange, makeToolHandler } from './lib/tools.js';
 
@@ -53,13 +53,20 @@ server.registerResource(
 // can't be inferred from the result shape without mislabelling a completion
 // as a creation. The change shape must match the app's ingest allow-list
 // exactly — see lib/tools.js's header comment for the mapping.
+// Refresh the liveness heartbeat on every tool call so Settings can show how
+// long ago an agent was active. Wraps submitChange without changing its result.
+const submitWithHeartbeat = async (change) => {
+	await touchAgentStatus();
+	return submitChange(change);
+};
+
 server.registerTool(
 	'create_task',
 	{
 		description: 'Crear una tarea (todo) en una nota visible para agentes.',
 		inputSchema: { noteId: z.string(), content: z.string() }
 	},
-	makeToolHandler(createTaskChange, 'Tarea creada.', submitChange)
+	makeToolHandler(createTaskChange, 'Tarea creada.', submitWithHeartbeat)
 );
 
 server.registerTool(
@@ -68,7 +75,7 @@ server.registerTool(
 		description: 'Marcar una tarea como hecha (deja una traza en la bitácora).',
 		inputSchema: { blockId: z.string(), summary: z.string().optional() }
 	},
-	makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', submitChange)
+	makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', submitWithHeartbeat)
 );
 
 server.registerTool(
@@ -77,11 +84,15 @@ server.registerTool(
 		description: 'Agregar una nota/instrucción a la bitácora de una tarea.',
 		inputSchema: { blockId: z.string(), text: z.string() }
 	},
-	makeToolHandler(addNoteChange, 'Nota agregada a la bitácora.', submitChange)
+	makeToolHandler(addNoteChange, 'Nota agregada a la bitácora.', submitWithHeartbeat)
 );
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
+
+// Announce liveness the moment the transport is up, before any tool call, so
+// Settings shows the agent connected as soon as the client attaches.
+await touchAgentStatus();
 
 // stdout is the JSON-RPC stream — never log there. stderr is safe.
 console.error('copynotes MCP server running on stdio');

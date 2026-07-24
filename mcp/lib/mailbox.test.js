@@ -107,3 +107,22 @@ describe('submitChange', () => {
 		expect(result).toEqual({ ok: false, reason: 'timeout', id: 'change-timeout' });
 	});
 });
+
+describe('touchAgentStatus', () => {
+	it('writes agent-status.json with an ISO lastSeen at the mailbox root', async () => {
+		const { touchAgentStatus } = await import('./mailbox.js');
+		await touchAgentStatus();
+		const raw = await readFile(path.join(mailboxDir, 'agent-status.json'), 'utf8');
+		const parsed = JSON.parse(raw);
+		expect(typeof parsed.lastSeen).toBe('string');
+		expect(new Date(parsed.lastSeen).toString()).not.toBe('Invalid Date');
+	});
+
+	it('leaves no .tmp file behind (atomic write)', async () => {
+		const { touchAgentStatus } = await import('./mailbox.js');
+		await touchAgentStatus();
+		const files = await readdir(mailboxDir);
+		expect(files.some((f) => f.endsWith('.tmp'))).toBe(false);
+		expect(files).toContain('agent-status.json');
+	});
+});
