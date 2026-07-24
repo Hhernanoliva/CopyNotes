@@ -154,6 +154,7 @@ describe('atomicity', () => {
 		// Force the activity write to throw mid-transaction; the block change must roll back too.
 		const activityTable = db.table('activity');
 		const original = activityTable.add.bind(activityTable);
+		// @ts-expect-error — monkey-patch de prueba: un Promise plano alcanza para forzar el fallo
 		activityTable.add = () => Promise.reject(new Error('boom'));
 		try {
 			await expect(completeTask({ blockId: block.id, actor: 'agent' })).rejects.toThrow('boom');
@@ -170,6 +171,7 @@ describe('atomicity', () => {
 		const note = await createNote();
 		const activityTable = db.table('activity');
 		const original = activityTable.add.bind(activityTable);
+		// @ts-expect-error — monkey-patch de prueba: un Promise plano alcanza para forzar el fallo
 		activityTable.add = () => Promise.reject(new Error('boom'));
 		try {
 			await expect(createTask({ noteId: note.id, content: 'T', actor: 'user' })).rejects.toThrow('boom');
