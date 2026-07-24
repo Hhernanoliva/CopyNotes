@@ -46,6 +46,7 @@
 	import { buildSnippetsExport, snippetsExportFileName } from '$lib/export-import';
 	import { saveTextFile } from '$lib/platform';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 	let notes = $state([]);
 	let currentNoteId = $state(null);
@@ -276,6 +277,9 @@
 		// The note's dated rows are gone with it; tell an open Agenda to re-read so
 		// its dates don't linger and open a note that no longer exists.
 		agendaVersion += 1;
+		// Re-exportar para agentes: deleteNote no pasa por handleDataChanged, así que
+		// necesita su propio bump (una nota borrada no puede seguir en export.json).
+		bumpAgentData();
 		toast.success('Nota borrada');
 	}
 
@@ -302,6 +306,8 @@
 				currentNoteId = rows[0]?.id ?? null;
 			}
 			dataVersion += 1;
+			// Re-exportar para agentes: un borrado o un import puede quitar notas visibles.
+			bumpAgentData();
 			return true;
 		} catch {
 			showLoadError();
