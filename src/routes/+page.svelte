@@ -11,6 +11,7 @@
 	import SearchDialog from '$lib/components/SearchDialog.svelte';
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		applySidebarUpdates,
@@ -535,6 +536,8 @@
 		onDataChanged={handleDataChanged}
 		{agendaVersion}
 	/>
+
+	<BridgeLifecycle onAgentIngested={handleDataChanged} />
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
