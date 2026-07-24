@@ -36,7 +36,9 @@ Lo que ve el agente se actualiza solo ante **cualquier** cambio: crear, completa
 reabrir, editar o borrar una tarea, borrar una nota o cambiarle el título. No
 tenés que hacer nada especial. Hay una pequeña espera de **medio segundo** para
 no rehacer la lista con cada tecla mientras escribís: cuando frenás, se pone al
-día sola.
+día sola. La única excepción es **ocultar una nota** (apagar "Visible para
+agentes"): eso saca sus tareas de la vista del agente **al instante**, sin
+esperar, para que nada quede expuesto ni un momento.
 
 ## Tus propias acciones también quedan anotadas
 

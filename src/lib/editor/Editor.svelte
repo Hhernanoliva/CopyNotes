@@ -30,7 +30,7 @@
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
-	import { bumpAgentData } from '$lib/bridge/signal.svelte';
+	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
@@ -465,11 +465,13 @@
 			async () => {
 				await updateNote(note.id, { agentVisible: next });
 				onNoteUpdated(note.id, { agentVisible: next });
-				// Bump AFTER the write lands, so a future re-export (P3) reads the
-				// new visibility from the DB — never bump before the persisted value
-				// actually changed, or an export could race the write and still see
-				// the old (hidden) state.
-				bumpAgentData();
+				// Bump AFTER the write lands, so the re-export reads the new
+				// visibility from the DB — never before the persisted value changed,
+				// or an export could race the write and still see the old state.
+				// Hiding is privacy-sensitive → urgent bump (immediate export, no
+				// debounce); showing can ride the normal debounced path.
+				if (next) bumpAgentData();
+				else bumpAgentDataUrgent();
 			},
 			{ table: 'notes', id: note.id, changes: { agentVisible: next } }
 		);

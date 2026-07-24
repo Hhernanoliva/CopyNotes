@@ -64,8 +64,10 @@ programar el export); el cleanup cancela el timer pendiente.
   cerró con un timer pendiente.
 - El re-export tras **ingesta del agente** (callback de `startBridgeWatch`) sigue inmediato,
   sin debounce — ese camino no cambia.
-- Privacidad: ocultar una nota puede tardar hasta ~500 ms en salir del archivo. Aceptado
-  (la ventana de carrera lectura/escritura ya existe hoy y es del mismo orden).
+- Privacidad: **ocultar** una nota es inmediato, no debounced. `bumpAgentDataUrgent()`
+  (señal `agentData.urgent`) fuerza un `writeAgentExport()` al instante y cancela el debounce
+  pendiente, así una nota recién ocultada no queda en `export.json` ni ~500 ms. Mostrar una
+  nota (no sensible) usa el camino normal agrupado.
 
 ### 3. Bitácora de eventos del usuario — por la capa de tareas
 

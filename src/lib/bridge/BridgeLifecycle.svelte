@@ -15,9 +15,20 @@
 	const exportScheduler = createExportScheduler(() => {
 		writeAgentExport().catch((error) => console.error('agent export failed', error));
 	});
+	// A plain guard (not $state) that lets one effect tell a normal bump from an
+	// urgent one: when agentData.urgent advances, hide-a-note happened → export
+	// NOW and skip the debounce; otherwise fold into the trailing write.
+	let lastUrgent = agentData.urgent;
 	$effect(() => {
 		void agentData.version;
-		exportScheduler.schedule();
+		const urgent = agentData.urgent;
+		if (urgent !== lastUrgent) {
+			lastUrgent = urgent;
+			exportScheduler.cancel();
+			writeAgentExport().catch((error) => console.error('agent export failed', error));
+		} else {
+			exportScheduler.schedule();
+		}
 		return () => exportScheduler.cancel();
 	});
 
