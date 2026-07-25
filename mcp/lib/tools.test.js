@@ -9,7 +9,9 @@ import {
 	completeTaskChange,
 	addNoteChange,
 	toolResult,
-	makeToolHandler
+	makeToolHandler,
+	expandArgs,
+	historyResult
 } from './tools.js';
 
 describe('createTaskChange', () => {
@@ -117,6 +119,58 @@ describe('toolResult', () => {
 
 		expect(result.isError).toBe(true);
 		expect(result.content[0].text).toEqual(expect.any(String));
+	});
+});
+
+const expandPayload = {
+	notes: [
+		{
+			id: 'aaaaaaaa-1111-4111-8111-111111111111',
+			blocks: [
+				{
+					id: 'bbbbbbbb-2222-4222-8222-222222222222',
+					type: 'todo',
+					content: 't',
+					depth: 0,
+					createdBy: 'user',
+					activity: [
+						{ actor: 'user', action: 'created', text: 'Armar demo', at: '2026-07-24T00:00:00Z' },
+						{ actor: 'agente-uuid', action: 'note', text: 'Empiezo por el build', at: '2026-07-25T00:00:00Z' }
+					]
+				}
+			]
+		}
+	]
+};
+
+describe('expandArgs', () => {
+	it('expande noteId y blockId cortos', () => {
+		const res = expandArgs(expandPayload, { noteId: 'aaaaaaaa', blockId: 'bbbbbbbb', content: 'x' });
+		expect(res).toEqual({
+			ok: true,
+			args: {
+				noteId: 'aaaaaaaa-1111-4111-8111-111111111111',
+				blockId: 'bbbbbbbb-2222-4222-8222-222222222222',
+				content: 'x'
+			}
+		});
+	});
+	it('id inexistente → error con reason', () => {
+		expect(expandArgs(expandPayload, { blockId: 'zzzz' })).toEqual({ ok: false, reason: 'no-encontrado' });
+	});
+	it('args sin ids pasan intactos', () => {
+		expect(expandArgs(expandPayload, { content: 'x' })).toEqual({ ok: true, args: { content: 'x' } });
+	});
+});
+
+describe('historyResult', () => {
+	it('devuelve la bitácora compacta, viejas primero, sin UUIDs ni timestamps', () => {
+		const res = historyResult(expandPayload, 'bbbbbbbb');
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toBe('- usuario creó: Armar demo\n- agente anotó: Empiezo por el build');
+	});
+	it('tarea inexistente → isError', () => {
+		expect(historyResult(expandPayload, 'zzzz').isError).toBe(true);
 	});
 });
 

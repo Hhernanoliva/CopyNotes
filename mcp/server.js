@@ -18,7 +18,14 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { readExport, submitChange, touchAgentStatus } from './lib/mailbox.js';
 import { notesToResources, noteToMarkdown } from './lib/resources.js';
 import { buildShortIds } from './lib/ids.js';
-import { createTaskChange, completeTaskChange, addNoteChange, makeToolHandler } from './lib/tools.js';
+import {
+	createTaskChange,
+	completeTaskChange,
+	addNoteChange,
+	toolResult,
+	expandArgs,
+	historyResult
+} from './lib/tools.js';
 
 const server = new McpServer({ name: 'copynotes', version: '0.1.0' });
 
@@ -61,13 +68,25 @@ const submitWithHeartbeat = async (change) => {
 	return submitChange(change);
 };
 
+// build → expand short ids against the live export → submit → result. Agents
+// reference tasks/notes by the short ids the Markdown projection shows them;
+// the change submitted to the app always carries full UUIDs.
+const expandingHandler = (buildChange, okText) => async (args) => {
+	const exp = await readExport();
+	const expanded = expandArgs(exp, args);
+	if (!expanded.ok) {
+		return { content: [{ type: 'text', text: `Rechazado: ${expanded.reason}` }], isError: true };
+	}
+	return toolResult(await submitWithHeartbeat(buildChange(expanded.args)), okText);
+};
+
 server.registerTool(
 	'create_task',
 	{
 		description: 'Crear una tarea (todo) en una nota visible para agentes.',
 		inputSchema: { noteId: z.string(), content: z.string() }
 	},
-	makeToolHandler(createTaskChange, 'Tarea creada.', submitWithHeartbeat)
+	expandingHandler(createTaskChange, 'Tarea creada.')
 );
 
 server.registerTool(
@@ -76,7 +95,7 @@ server.registerTool(
 		description: 'Marcar una tarea como hecha (deja una traza en la bitácora).',
 		inputSchema: { blockId: z.string(), summary: z.string().optional() }
 	},
-	makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', submitWithHeartbeat)
+	expandingHandler(completeTaskChange, 'Tarea marcada como hecha.')
 );
 
 server.registerTool(
@@ -85,7 +104,19 @@ server.registerTool(
 		description: 'Agregar una nota/instrucción a la bitácora de una tarea.',
 		inputSchema: { blockId: z.string(), text: z.string() }
 	},
-	makeToolHandler(addNoteChange, 'Nota agregada a la bitácora.', submitWithHeartbeat)
+	expandingHandler(addNoteChange, 'Nota agregada a la bitácora.')
+);
+
+server.registerTool(
+	'get_task_history',
+	{
+		description: 'Bitácora de una tarea (historial de acciones), bajo demanda.',
+		inputSchema: { blockId: z.string() }
+	},
+	async ({ blockId }) => {
+		await touchAgentStatus();
+		return historyResult(await readExport(), blockId);
+	}
 );
 
 const transport = new StdioServerTransport();

@@ -14,6 +14,8 @@
 // the app derives the actor from its own connected-agent identity, never
 // from the inbound file).
 
+import { expandId } from './ids.js';
+
 export function createTaskChange({ noteId, content }) {
 	return { type: 'createTask', noteId, content };
 }
@@ -54,4 +56,43 @@ export function toolResult(result, okText = 'Listo.') {
 // at addNoteChange) is caught by asserting the exact submitted change shape.
 export function makeToolHandler(buildChange, okText, submitChangeFn) {
 	return async (args) => toolResult(await submitChangeFn(buildChange(args)), okText);
+}
+
+// Agents act with SHORT ids (what the Markdown projection shows them). The
+// server expands them back to real UUIDs before building a change — the app
+// and its ingest gate only ever see full UUIDs.
+export function expandArgs(exportPayload, args) {
+	const resolved = { ...args };
+	for (const key of ['noteId', 'blockId']) {
+		if (resolved[key] === undefined) continue;
+		const res = expandId(exportPayload, resolved[key]);
+		if (!res.ok) return { ok: false, reason: res.reason };
+		resolved[key] = res.id;
+	}
+	return { ok: true, args: resolved };
+}
+
+const HISTORY_TAIL = 10;
+const ACTION_VERBS = { created: 'creó', done: 'completó', reopened: 'reabrió', note: 'anotó' };
+
+// Bitácora on demand: the single read that was ~683 tokens inline is now paid
+// only when the agent explicitly asks for one task's history.
+export function historyResult(exportPayload, blockId) {
+	const expanded = expandId(exportPayload, blockId);
+	if (!expanded.ok) {
+		return { content: [{ type: 'text', text: `Rechazado: ${expanded.reason}` }], isError: true };
+	}
+	for (const note of exportPayload?.notes ?? []) {
+		const task = (note.blocks ?? []).find((b) => b.type === 'todo' && b.id === expanded.id);
+		if (!task) continue;
+		const lines = (task.activity ?? [])
+			.slice(-HISTORY_TAIL)
+			.map((entry) => {
+				const rol = entry.actor === 'user' ? 'usuario' : 'agente';
+				const verbo = ACTION_VERBS[entry.action] ?? entry.action;
+				return `- ${rol} ${verbo}: ${entry.text}`;
+			});
+		return { content: [{ type: 'text', text: lines.join('\n') || 'Sin historial.' }], isError: false };
+	}
+	return { content: [{ type: 'text', text: 'Rechazado: no-encontrado' }], isError: true };
 }
