@@ -1,45 +1,39 @@
-// Pure mappers: export payload (see lib/mailbox.js readExport()) → MCP
-// resource shapes. No fs, no MCP SDK — server.js wires these into
-// registerResource(). Kept pure so they're unit-testable without stdio.
+// Pure mappers: export payload v2 → what an agent reads. Markdown, not JSON:
+// measured on real data it's ~28% cheaper in chars and more in real tokens
+// (no \" \n escaping). Read-only projection — tool calls stay structured.
+// The bitácora is NOT projected here at all: it's on-demand via the
+// get_task_history tool (see server.js), the single biggest token save.
 
-// How many bitácora entries to keep per task when projecting a note's
-// content for an agent. Full history lives in the app; agents only need
-// recent context to act.
-export const ACTIVITY_TAIL_LENGTH = 5;
+const HEADING_MARKS = { heading1: '#', heading2: '##', heading3: '###' };
 
-/**
- * Maps an export payload to the list of MCP resources — one per
- * agent-visible note. Used by the ResourceTemplate's `list` callback.
- */
 export function notesToResources(exportPayload) {
 	const notes = exportPayload?.notes ?? [];
 	return notes.map((note) => ({
 		uri: `copynotes://note/${note.id}`,
 		name: note.title ?? '',
-		mimeType: 'application/json'
+		mimeType: 'text/markdown'
 	}));
 }
 
-function projectActivity(activity) {
-	const list = activity ?? [];
-	return list.slice(-ACTIVITY_TAIL_LENGTH).map(({ actor, action, text, at }) => ({ actor, action, text, at }));
+function blockToMarkdown(block, shortIds) {
+	const indent = '  '.repeat(block.depth ?? 0);
+	if (block.type === 'todo') return `${indent}- [ ] ${shortIds.get(block.id) ?? block.id} ${block.content}`;
+	if (block.type === 'bullet') return `${indent}- ${block.content}`;
+	if (block.type === 'code') return '```\n' + block.content + '\n```';
+	if (HEADING_MARKS[block.type]) return `${HEADING_MARKS[block.type]} ${block.content}`;
+	return block.content; // text
 }
 
-function projectTask(task) {
-	const { id, content, checked, createdBy, activity } = task;
-	return { id, content, checked, createdBy, activity: projectActivity(activity) };
-}
-
-/**
- * Maps a single note (as found in the export payload) to the JSON content
- * returned by a resource `read` — tasks projected to what an agent needs
- * (drops `html`; caps bitácora activity to a short tail).
- */
-export function noteToResourceContent(note) {
-	const tasks = note?.tasks ?? [];
-	return {
-		id: note.id,
-		title: note.title,
-		tasks: tasks.map(projectTask)
-	};
+export function noteToMarkdown(note, shortIds) {
+	const header = note.folder ? `## ${note.title}  ·  ${note.folder}` : `## ${note.title}`;
+	const lines = [header];
+	let previousWasTodo = false;
+	for (const block of note?.blocks ?? []) {
+		const isTodo = block.type === 'todo';
+		// blank line between prose chunks; consecutive todos stay together
+		if (!(previousWasTodo && isTodo)) lines.push('');
+		lines.push(blockToMarkdown(block, shortIds));
+		previousWasTodo = isTodo;
+	}
+	return lines.join('\n');
 }

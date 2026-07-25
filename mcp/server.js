@@ -16,7 +16,8 @@ import { z } from 'zod';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readExport, submitChange, touchAgentStatus } from './lib/mailbox.js';
-import { notesToResources, noteToResourceContent } from './lib/resources.js';
+import { notesToResources, noteToMarkdown } from './lib/resources.js';
+import { buildShortIds } from './lib/ids.js';
 import { createTaskChange, completeTaskChange, addNoteChange, makeToolHandler } from './lib/tools.js';
 
 const server = new McpServer({ name: 'copynotes', version: '0.1.0' });
@@ -32,7 +33,7 @@ server.registerResource(
 	}),
 	{
 		title: 'Notas visibles para agentes',
-		description: 'Tareas (todos) y su bitácora de las notas que el usuario marcó visibles para agentes.'
+		description: 'Cada nota visible para agentes, proyectada como Markdown: contexto + tareas pendientes con id corto.'
 	},
 	async (uri, variables) => {
 		const id = variables.id;
@@ -40,7 +41,7 @@ server.registerResource(
 		const note = (exp.notes ?? []).find((n) => n.id === id);
 		if (!note) return { contents: [] };
 		return {
-			contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(noteToResourceContent(note)) }]
+			contents: [{ uri: uri.href, mimeType: 'text/markdown', text: noteToMarkdown(note, buildShortIds(exp)) }]
 		};
 	}
 );
