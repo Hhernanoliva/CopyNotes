@@ -7,18 +7,42 @@ apagado: el agente no ve nada hasta que vos abrís la puerta.
 ## Hacer una nota visible para agentes
 
 En el encabezado de la nota, al lado del botón de etiquetar, hay un botón con un
-robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer las
-**tareas** de esa nota (los renglones tipo tarea) y su historial. **Nunca** ve
-el resto del texto de la nota, y ninguna nota sin este botón activado sale de la
-app.
+robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer esa nota
+para ayudarte con sus tareas. Ninguna nota sin este botón activado sale de la app.
+
+## Qué lee el agente (y qué NO)
+
+Cuando una nota es visible, el agente ve:
+
+- El **título** de la nota y **en qué carpeta** está.
+- El **texto** de la nota como **contexto**: lo que escribís ahí le sirve para
+  entender de qué se tratan las tareas. Si querés darle instrucciones, escribilas
+  en la nota como texto normal.
+- Solo las **tareas pendientes**. Las que ya marcaste hechas **no** las ve (así
+  no gasta espacio en cosas terminadas).
+
+Lo que el agente **nunca** ve:
+
+- Los **comentarios** de un renglón (el texto que agregás con el botón de
+  comentario, debajo de la tarea): son tuyos, quedan siempre privados.
+- Las tareas ya completadas ni el historial completo (eso lo mira solo si lo
+  necesita, tarea por tarea).
 
 ## Qué puede hacer el agente
 
-- Leer las tareas de las notas que marcaste como visibles.
+- Leer lo de arriba, de las notas que marcaste como visibles.
 - Crear tareas y marcarlas como hechas, dejando siempre una línea en la
   **bitácora** (quién hizo qué y cuándo).
 
-No puede borrar, exportar ni reordenar, y no escribe en el texto de tus notas.
+No puede borrar, exportar ni reordenar, y no reescribe el texto de tus notas.
+
+## Cómo se ve lo que el agente te escribe
+
+Cuando el agente deja una nota sobre una tarea (por ejemplo "empecé por el
+build" o algo que quiere aclararte), aparece **debajo de esa tarea en color
+ámbar y en cursiva, con una marca "IA"**. Así siempre distinguís de un vistazo
+lo que escribió la IA de tu propio texto y de tus comentarios, que quedan
+intactos.
 
 ## Ver la actividad y pedir que lo rehaga
 
@@ -87,8 +111,8 @@ ninguno, dice **"Ningún agente conectado todavía"**.
 
 ### Qué puede hacer el agente conectado así
 
-Una vez conectado, el agente puede leer las **tareas** (y su bitácora) de las
-notas que marcaste como visibles, crear tareas nuevas y marcarlas como
-hechas — siempre dejando una línea en la bitácora, igual que se explica más
-arriba. No ve el resto del texto de tus notas, no borra, no exporta ni
-reordena.
+Una vez conectado, el agente puede leer las notas que marcaste como visibles
+(título, carpeta, el texto como contexto y las tareas pendientes), crear tareas
+nuevas y marcarlas como hechas — siempre dejando una línea en la bitácora, igual
+que se explica más arriba. No ve tus comentarios ni las tareas ya hechas, no
+borra, no exporta ni reordena.

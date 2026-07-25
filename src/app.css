@@ -73,6 +73,8 @@
 	--fmt-color-green: oklch(0.5 0.13 150);
 	--fmt-color-blue: oklch(0.52 0.13 250);
 	--fmt-color-gray: oklch(0.6 0.01 80);
+	/* La "voz" del agente inline (ámbar): contraste AA sobre --background claro */
+	--agent-ink: oklch(0.52 0.13 75);
 }
 
 .dark {
@@ -120,6 +122,8 @@
 	--fmt-color-green: oklch(0.72 0.13 150);
 	--fmt-color-blue: oklch(0.72 0.12 250);
 	--fmt-color-gray: oklch(0.72 0.01 80);
+	/* La "voz" del agente inline (ámbar): más claro para AA sobre fondo oscuro */
+	--agent-ink: oklch(0.8 0.12 82);
 }
 
 @theme inline {
@@ -404,6 +408,22 @@
 .fmt-color-green { color: var(--fmt-color-green); }
 .fmt-color-blue { color: var(--fmt-color-blue); }
 .fmt-color-gray { color: var(--fmt-color-gray); }
+
+/* La voz del agente inline: ámbar + cursiva, con un badge "IA" que la marca
+   como escrita por la IA. Nunca se confunde con el texto del usuario. */
+.agent-note {
+	color: var(--agent-ink);
+}
+.agent-note-badge {
+	border: 1px solid currentColor;
+	border-radius: 0.25rem;
+	padding: 0 0.25rem;
+	margin-right: 0.375rem;
+	font-size: 0.65rem;
+	font-style: normal;
+	font-weight: 600;
+	vertical-align: 0.08em;
+}
 
 .block-editable code {
 	background: var(--muted);
