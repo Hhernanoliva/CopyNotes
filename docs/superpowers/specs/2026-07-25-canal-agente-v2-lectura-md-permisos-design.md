@@ -29,7 +29,7 @@ Texto de contexto de la nota (los bloques de texto que escribió el usuario)…
 **Se excluye (ahorro medido + privacidad):**
 - Tareas **completadas** — no viajan.
 - **Comentarios** (`block.note`) — nunca salen de la app (ver Parte 3).
-- Bloques `createdBy: 'agent'` y notas de bitácora del agente — no se le devuelven al agente (no re-lee lo suyo).
+- Notas de bitácora escritas por el agente — no se le devuelven al agente (no re-lee sus propias anotaciones). Las **tareas pendientes sí se muestran todas**, incluidas las que creó el agente (decisión 2026-07-25: ocultarlas causaría duplicados y tareas que el agente no puede completar).
 - UUIDs de 36 chars → **id corto de 8** (prefijo). El server MCP mantiene el mapa corto→UUID y re-expande al recibir una tool call. El agente jamás ve el UUID largo.
 - Timestamps ISO.
 - **Bitácora inline** → bajo demanda: tool/recurso aparte (`get_task_history` o similar) que el agente pide solo si lo necesita.
@@ -79,7 +79,7 @@ El modelo pasa de doble candado a **candado por tipo de contenido**:
 **Endurecimiento (tests obligatorios):**
 1. Test: nota sin 🤖 no aporta nada al export.
 2. Test: `block.note` jamás aparece en el export, bajo ninguna condición.
-3. Test: contenido `createdBy: 'agent'` (bloques y notas de bitácora del agente) no se devuelve en la proyección de lectura.
+3. Test: las notas de bitácora del agente no se devuelven en la proyección de lectura (las tareas pendientes creadas por el agente sí — ver Parte 1).
 4. `specs/028-agent-beta-local-mcp.md` se actualiza como fuente de verdad del nuevo modelo; `docs/guia/17-agentes.md` en el mismo commit de cada cambio visible.
 
 ## Fuera de alcance (explícito)
