@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildVisibleList, listDescendantIds } from './hierarchy';
+import { buildVisibleList, listDescendantIds, flattenTree } from './hierarchy';
 
 function block(id, parentBlockId = null, order = 0, collapsed = false) {
 	return { id, parentBlockId, order, collapsed };
@@ -54,6 +54,20 @@ describe('buildVisibleList', () => {
 		];
 		const visible = buildVisibleList(blocks);
 		expect(visible.map((row) => row.block.id)).toEqual(['a', 'a1', 'a2']);
+	});
+});
+
+describe('flattenTree', () => {
+	it('devuelve padres antes que hijos, hermanos por order, sin saltar colapsados', () => {
+		const blocks = [
+			{ id: 'b', parentBlockId: null, order: 1, collapsed: false },
+			{ id: 'a', parentBlockId: null, order: 0, collapsed: true },
+			{ id: 'a1', parentBlockId: 'a', order: 0, collapsed: false },
+			{ id: 'a2', parentBlockId: 'a', order: 1, collapsed: false }
+		];
+		const flat = flattenTree(blocks);
+		expect(flat.map(({ block }) => block.id)).toEqual(['a', 'a1', 'a2', 'b']);
+		expect(flat.map(({ depth }) => depth)).toEqual([0, 1, 1, 0]);
 	});
 });
 

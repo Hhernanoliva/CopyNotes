@@ -32,6 +32,22 @@ export function buildVisibleList(blocks) {
 	return visible;
 }
 
+// Orden de documento COMPLETO (para el export al agente): igual que
+// buildVisibleList pero sin saltar descendientes de bloques colapsados —
+// colapsar es presentación, no privacidad.
+export function flattenTree(blocks) {
+	const byParent = childrenByParent(blocks);
+	const flat = [];
+	function walk(parentId, depth) {
+		for (const block of byParent.get(parentId) ?? []) {
+			flat.push({ block, depth });
+			walk(block.id, depth + 1);
+		}
+	}
+	walk(null, 0);
+	return flat;
+}
+
 export function listDescendantIds(blocks, id) {
 	const byParent = childrenByParent(blocks);
 	const ids = [];
