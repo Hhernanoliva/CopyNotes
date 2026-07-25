@@ -158,6 +158,11 @@ describe('expandArgs', () => {
 	it('id inexistente → error con reason', () => {
 		expect(expandArgs(expandPayload, { blockId: 'zzzz' })).toEqual({ ok: false, reason: 'no-encontrado' });
 	});
+	it('noteId se resuelve como nota y blockId como tarea (no cruza tipos)', () => {
+		// 'aaaaaaaa' es una NOTA: sirve como noteId, pero NO como blockId (tarea).
+		expect(expandArgs(expandPayload, { noteId: 'aaaaaaaa' }).ok).toBe(true);
+		expect(expandArgs(expandPayload, { blockId: 'aaaaaaaa' })).toEqual({ ok: false, reason: 'no-encontrado' });
+	});
 	it('args sin ids pasan intactos', () => {
 		expect(expandArgs(expandPayload, { content: 'x' })).toEqual({ ok: true, args: { content: 'x' } });
 	});

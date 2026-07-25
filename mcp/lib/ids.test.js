@@ -43,17 +43,26 @@ describe('buildShortIds', () => {
 });
 
 describe('expandId', () => {
-	it('expande un prefijo único a su UUID', () => {
-		expect(expandId(payload, 'bbbbbbbb')).toEqual({ ok: true, id: 'bbbbbbbb-2222-4222-8222-222222222222' });
+	it('expande un prefijo único de TAREA a su UUID', () => {
+		expect(expandId(payload, 'bbbbbbbb', 'task')).toEqual({ ok: true, id: 'bbbbbbbb-2222-4222-8222-222222222222' });
 	});
-	it('un UUID completo pasa tal cual', () => {
-		expect(expandId(payload, 'aaaaaaaa-1111-4111-8111-111111111111')).toEqual({
+	it('expande un prefijo único de NOTA a su UUID', () => {
+		expect(expandId(payload, 'aaaaaaaa', 'note')).toEqual({ ok: true, id: 'aaaaaaaa-1111-4111-8111-111111111111' });
+	});
+	it('un UUID completo pasa tal cual (del tipo correcto)', () => {
+		expect(expandId(payload, 'aaaaaaaa-1111-4111-8111-111111111111', 'note')).toEqual({
 			ok: true,
 			id: 'aaaaaaaa-1111-4111-8111-111111111111'
 		});
 	});
+	it('no cruza tipos: un prefijo de nota no resuelve como tarea', () => {
+		expect(expandId(payload, 'aaaaaaaa', 'task')).toEqual({ ok: false, reason: 'no-encontrado' });
+	});
+	it('id vacío → no-encontrado (no matchea todo)', () => {
+		expect(expandId(payload, '', 'task')).toEqual({ ok: false, reason: 'no-encontrado' });
+	});
 	it('sin match → no-encontrado; múltiples → ambiguo', () => {
-		expect(expandId(payload, 'zzzz')).toEqual({ ok: false, reason: 'no-encontrado' });
+		expect(expandId(payload, 'zzzz', 'task')).toEqual({ ok: false, reason: 'no-encontrado' });
 		const clash = {
 			notes: [
 				{
@@ -65,6 +74,6 @@ describe('expandId', () => {
 				}
 			]
 		};
-		expect(expandId(clash, 'dddddddd')).toEqual({ ok: false, reason: 'ambiguo' });
+		expect(expandId(clash, 'dddddddd', 'task')).toEqual({ ok: false, reason: 'ambiguo' });
 	});
 });

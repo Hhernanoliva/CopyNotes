@@ -694,7 +694,7 @@
 					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap outline-none"
 				></div>
 			{/if}
-			{#each agentNotes as agentNote (agentNote.text)}
+			{#each agentNotes as agentNote (agentNote.id)}
 				<p
 					class="agent-note mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap italic"
 				>

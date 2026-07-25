@@ -15,13 +15,29 @@ export function notesToResources(exportPayload) {
 	}));
 }
 
+// A fence longer than the longest backtick run in the content, so a code block
+// that itself contains ``` can't close the fence early (min 3 per CommonMark).
+function fenceFor(content) {
+	let longest = 0;
+	for (const run of content.match(/`+/g) ?? []) longest = Math.max(longest, run.length);
+	return '`'.repeat(Math.max(3, longest + 1));
+}
+
 function blockToMarkdown(block, shortIds) {
 	const indent = '  '.repeat(block.depth ?? 0);
 	if (block.type === 'todo') return `${indent}- [ ] ${shortIds.get(block.id) ?? block.id} ${block.content}`;
 	if (block.type === 'bullet') return `${indent}- ${block.content}`;
-	if (block.type === 'code') return '```\n' + block.content + '\n```';
-	if (HEADING_MARKS[block.type]) return `${HEADING_MARKS[block.type]} ${block.content}`;
-	return block.content; // text
+	if (block.type === 'code') {
+		const content = block.content ?? '';
+		const fence = fenceFor(content);
+		const body = content
+			.split('\n')
+			.map((line) => indent + line)
+			.join('\n');
+		return `${indent}${fence}\n${body}\n${indent}${fence}`;
+	}
+	if (HEADING_MARKS[block.type]) return `${indent}${HEADING_MARKS[block.type]} ${block.content}`;
+	return `${indent}${block.content}`; // text
 }
 
 export function noteToMarkdown(note, shortIds) {

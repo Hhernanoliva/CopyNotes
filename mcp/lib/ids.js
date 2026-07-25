@@ -4,17 +4,28 @@
 
 export const SHORT_ID_LENGTH = 8;
 
-// Every id an agent may act on: note ids (create_task) and pending-task ids
-// (complete_task / add_note / historial). Prose blocks are context only.
-function actionableIds(exportPayload) {
+// Note ids (create_task targets these) and pending-task ids (complete_task /
+// add_note / historial target these). Prose blocks are context only. Kept
+// separate so a short id resolves within its OWN kind: a note prefix must
+// never expand to a task UUID or vice versa.
+function noteIds(exportPayload) {
+	return (exportPayload?.notes ?? []).map((note) => note.id);
+}
+
+function taskIds(exportPayload) {
 	const ids = [];
 	for (const note of exportPayload?.notes ?? []) {
-		ids.push(note.id);
 		for (const block of note.blocks ?? []) {
 			if (block.type === 'todo') ids.push(block.id);
 		}
 	}
 	return ids;
+}
+
+// The full pool: short ids must be unique across BOTH kinds so the agent never
+// sees the same short string standing for a note and a task.
+function actionableIds(exportPayload) {
+	return [...noteIds(exportPayload), ...taskIds(exportPayload)];
 }
 
 export function buildShortIds(exportPayload) {
@@ -33,10 +44,12 @@ export function buildShortIds(exportPayload) {
 	return map;
 }
 
-export function expandId(exportPayload, shortOrFullId) {
-	const matches = actionableIds(exportPayload).filter(
-		(id) => id === shortOrFullId || id.startsWith(shortOrFullId)
-	);
+// Resolve a short-or-full id WITHIN its kind ('note' or 'task'). An empty
+// string matches nothing (a bare startsWith('') would match every id).
+export function expandId(exportPayload, shortOrFullId, kind) {
+	if (!shortOrFullId) return { ok: false, reason: 'no-encontrado' };
+	const pool = kind === 'note' ? noteIds(exportPayload) : taskIds(exportPayload);
+	const matches = pool.filter((id) => id === shortOrFullId || id.startsWith(shortOrFullId));
 	const exact = matches.find((id) => id === shortOrFullId);
 	if (exact) return { ok: true, id: exact };
 	if (matches.length === 1) return { ok: true, id: matches[0] };

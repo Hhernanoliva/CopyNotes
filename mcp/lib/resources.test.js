@@ -64,4 +64,24 @@ describe('noteToMarkdown', () => {
 		expect(md).not.toContain('aaaaaaaa-1111');
 		expect(md).not.toContain('2026-07-25T');
 	});
+
+	it('usa un fence más largo si el código contiene backticks triples', () => {
+		const n = { title: 'T', folder: null, blocks: [{ id: 'c', type: 'code', content: 'tiene ``` adentro', depth: 0 }] };
+		const md = noteToMarkdown(n, new Map());
+		expect(md).toBe(['## T', '', '````', 'tiene ``` adentro', '````'].join('\n'));
+	});
+
+	it('indenta código y títulos anidados según depth', () => {
+		const n = {
+			title: 'T',
+			folder: null,
+			blocks: [
+				{ id: 't', type: 'todo', content: 'padre', depth: 0, activity: [] },
+				{ id: 'h', type: 'heading2', content: 'Sub', depth: 1 },
+				{ id: 'c', type: 'code', content: 'x', depth: 1 }
+			]
+		};
+		const md = noteToMarkdown(n, new Map());
+		expect(md).toBe(['## T', '', '- [ ] t padre', '', '  ## Sub', '', '  ```', '  x', '  ```'].join('\n'));
+	});
 });

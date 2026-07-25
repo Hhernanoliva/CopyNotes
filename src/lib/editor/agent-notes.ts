@@ -8,7 +8,7 @@ export function agentNotesByBlock(activityRows) {
 		.filter((row) => row.action === 'note' && row.actor !== 'user')
 		.sort((a, b) => a.seq - b.seq);
 	for (const row of rows) {
-		(byBlock[row.blockId] ??= []).push({ text: row.text });
+		(byBlock[row.blockId] ??= []).push({ id: row.id, text: row.text });
 	}
 	return byBlock;
 }

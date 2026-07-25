@@ -63,21 +63,19 @@ server.registerResource(
 // exactly — see lib/tools.js's header comment for the mapping.
 // Refresh the liveness heartbeat on every tool call so Settings can show how
 // long ago an agent was active. Wraps submitChange without changing its result.
-const submitWithHeartbeat = async (change) => {
-	await touchAgentStatus();
-	return submitChange(change);
-};
-
 // build → expand short ids against the live export → submit → result. Agents
 // reference tasks/notes by the short ids the Markdown projection shows them;
-// the change submitted to the app always carries full UUIDs.
+// the change submitted to the app always carries full UUIDs. The heartbeat is
+// refreshed FIRST — even a call that gets rejected proves an agent is alive, so
+// Settings' "un agente se conectó" must update regardless of the outcome.
 const expandingHandler = (buildChange, okText) => async (args) => {
+	await touchAgentStatus();
 	const exp = await readExport();
 	const expanded = expandArgs(exp, args);
 	if (!expanded.ok) {
 		return { content: [{ type: 'text', text: `Rechazado: ${expanded.reason}` }], isError: true };
 	}
-	return toolResult(await submitWithHeartbeat(buildChange(expanded.args)), okText);
+	return toolResult(await submitChange(buildChange(expanded.args)), okText);
 };
 
 server.registerTool(

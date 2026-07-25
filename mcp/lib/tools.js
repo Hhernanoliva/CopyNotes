@@ -61,11 +61,13 @@ export function makeToolHandler(buildChange, okText, submitChangeFn) {
 // Agents act with SHORT ids (what the Markdown projection shows them). The
 // server expands them back to real UUIDs before building a change — the app
 // and its ingest gate only ever see full UUIDs.
+const ID_KIND = { noteId: 'note', blockId: 'task' };
+
 export function expandArgs(exportPayload, args) {
 	const resolved = { ...args };
 	for (const key of ['noteId', 'blockId']) {
 		if (resolved[key] === undefined) continue;
-		const res = expandId(exportPayload, resolved[key]);
+		const res = expandId(exportPayload, resolved[key], ID_KIND[key]);
 		if (!res.ok) return { ok: false, reason: res.reason };
 		resolved[key] = res.id;
 	}
@@ -78,7 +80,7 @@ const ACTION_VERBS = { created: 'creó', done: 'completó', reopened: 'reabrió'
 // Bitácora on demand: the single read that was ~683 tokens inline is now paid
 // only when the agent explicitly asks for one task's history.
 export function historyResult(exportPayload, blockId) {
-	const expanded = expandId(exportPayload, blockId);
+	const expanded = expandId(exportPayload, blockId, 'task');
 	if (!expanded.ok) {
 		return { content: [{ type: 'text', text: `Rechazado: ${expanded.reason}` }], isError: true };
 	}
