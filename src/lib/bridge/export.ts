@@ -1,24 +1,51 @@
 // The export boundary is the privacy gate: notes whose agentVisible is not true
-// MUST NOT leave the app through the bridge. The agent sees TASKS only (todo
-// blocks) and their bitácora — never a note's prose body.
+// MUST NOT leave the app through the bridge. v2: the agent sees each visible
+// note's PROSE as context plus its tasks, in document (tree) order. A block's
+// comment (`note` field) is physically discarded here — it never leaves the
+// app, no matter what the server does.
+//
+// Completed tasks ARE carried in this payload (with their `checked` flag and
+// bitácora) even though the Markdown projection the agent reads hides them.
+// Two roles are decoupled on purpose: this export.json is the machine-readable
+// substrate the tools resolve short ids and history against, so a task the
+// agent just completed can still be annotated (add_note) or reviewed
+// (get_task_history). The token-saving "agent doesn't see completed tasks"
+// promise is kept by the Markdown filter (lib/resources.js), not by dropping
+// them here — dropping them here made their ids unreachable, breaking the
+// complete-then-comment flow.
 
-import { listNotes, listBlocksByNote, listActivityByBlock } from '$lib/storage';
+import { listNotes, listBlocksByNote, listActivityByBlock, listFolders } from '$lib/storage';
+import { flattenTree } from '$lib/blocks/hierarchy';
 
 export const AGENT_EXPORT_FORMAT = 'copynotes.agent';
-export const AGENT_EXPORT_VERSION = 1;
+export const AGENT_EXPORT_VERSION = 2;
 
-function taskFromBlock(block, activity) {
-	return {
-		id: block.id,
-		content: block.content,
-		html: block.html,
-		checked: block.checked,
-		createdBy: block.createdBy ?? 'user',
-		activity: activity ?? []
-	};
+const CONTEXT_TYPES = new Set(['text', 'bullet', 'heading1', 'heading2', 'heading3', 'code']);
+
+function includeBlock(block) {
+	if (block.type === 'todo') return true; // pending AND completed — the Markdown view filters completed
+	if (!CONTEXT_TYPES.has(block.type)) return false;
+	return (block.content ?? '').trim() !== '';
 }
 
-export function toAgentPayload(notes, blocksByNote, activityByBlock) {
+// Copies ONLY the allow-listed fields. `note` (the user's comment) and `html`
+// are never read here — that omission is the second lock for comments.
+function projectBlock(block, depth, activity) {
+	if (block.type === 'todo') {
+		return {
+			id: block.id,
+			type: 'todo',
+			content: block.content,
+			checked: block.checked === true,
+			depth,
+			createdBy: block.createdBy ?? 'user',
+			activity: activity ?? []
+		};
+	}
+	return { id: block.id, type: block.type, content: block.content, depth };
+}
+
+export function toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById = {}) {
 	const visible = notes.filter((note) => note.agentVisible === true);
 	return {
 		format: AGENT_EXPORT_FORMAT,
@@ -26,23 +53,31 @@ export function toAgentPayload(notes, blocksByNote, activityByBlock) {
 		notes: visible.map((note) => ({
 			id: note.id,
 			title: note.title,
-			tasks: (blocksByNote[note.id] ?? [])
-				.filter((block) => block.type === 'todo')
-				.map((block) => taskFromBlock(block, activityByBlock[block.id]))
+			folder: folderNamesById[note.folderId] ?? null,
+			blocks: flattenTree(blocksByNote[note.id] ?? [])
+				.filter(({ block }) => includeBlock(block))
+				.map(({ block, depth }) =>
+					projectBlock(block, depth, block.type === 'todo' ? activityByBlock[block.id] : undefined)
+				)
 		}))
 	};
 }
 
 export async function buildAgentExport() {
 	const notes = (await listNotes()).filter((note) => note.agentVisible === true);
+	const folderNamesById = {};
+	for (const folder of await listFolders('note')) folderNamesById[folder.id] = folder.name;
 	const blocksByNote = {};
 	const activityByBlock = {};
 	for (const note of notes) {
 		const blocks = await listBlocksByNote(note.id);
 		blocksByNote[note.id] = blocks;
 		for (const block of blocks) {
-			if (block.type === 'todo') activityByBlock[block.id] = await listActivityByBlock(block.id);
+			// Load bitácora for every task, completed included: get_task_history and
+			// add_note resolve against tasks the agent may have just completed.
+			if (block.type === 'todo')
+				activityByBlock[block.id] = await listActivityByBlock(block.id);
 		}
 	}
-	return { ...toAgentPayload(notes, blocksByNote, activityByBlock), exportedAt: new Date().toISOString() };
+	return { ...toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById), exportedAt: new Date().toISOString() };
 }

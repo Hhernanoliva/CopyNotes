@@ -4,7 +4,13 @@
 	import { listRecentActivity } from '$lib/storage';
 	import { reopenTask, addTaskNote } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
-	import { getMailboxPath } from '$lib/bridge/tauri';
+	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
+	import {
+		claudeCodeCommand,
+		openCodeConfig,
+		cursorConfig,
+		cursorDeeplink
+	} from '$lib/bridge/mcp-config';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
 
@@ -13,7 +19,9 @@
 	let redoFor = $state(null); // blockId currently being redone
 	let redoText = $state('');
 	let mailboxPath = $state(null);
-	let copiedField = $state(null); // 'path' | 'config' | null, transient
+	let serverPath = $state(null);
+	let agentStatus = $state(null); // { lastSeen } | null
+	let copiedField = $state(null); // 'path' | 'claude' | 'opencode' | 'cursor' | null
 	let copyTimer;
 
 	async function submitRedo(entry) {
@@ -32,29 +40,44 @@
 	$effect(() => {
 		if (!open) return;
 		listRecentActivity(20).then((rows) => (activity = rows));
-		if (isTauriRuntime())
+		if (isTauriRuntime()) {
 			getMailboxPath()
 				.then((p) => (mailboxPath = p))
 				.catch((error) => console.error('No se pudo obtener la carpeta del buzón', error));
+			getServerPath()
+				.then((p) => (serverPath = p))
+				.catch((error) => console.error('No se pudo obtener la ruta del server MCP', error));
+			getAgentStatus()
+				.then((s) => (agentStatus = s))
+				.catch((error) => console.error('No se pudo leer el estado del agente', error));
+		}
 	});
 	$effect(() => () => clearTimeout(copyTimer));
 
-	const mcpConfig = $derived(
-		mailboxPath
-			? JSON.stringify(
-					{
-						mcpServers: {
-							copynotes: {
-								command: 'node',
-								args: ['<ruta-a-CopyNotes>/mcp/server.js'],
-								env: { CN_MAILBOX: mailboxPath }
-							}
-						}
-					},
-					null,
-					2
-				)
-			: ''
+	// Every per-client string is pre-filled with the app's real serverPath +
+	// mailboxPath, so the user never edits a path by hand. Guarded on both being
+	// present — the whole block hides until then.
+	const paths = $derived(mailboxPath && serverPath ? { serverPath, mailboxPath } : null);
+	const claudeCmd = $derived(paths ? claudeCodeCommand(paths) : '');
+	const openCodeJson = $derived(paths ? openCodeConfig(paths) : '');
+	const cursorJson = $derived(paths ? cursorConfig(paths) : '');
+	const cursorLink = $derived(paths ? cursorDeeplink(paths) : '');
+
+	function haceCuanto(iso) {
+		const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+		if (s < 60) return 'hace instantes';
+		const m = Math.floor(s / 60);
+		if (m < 60) return `hace ${m} min`;
+		const h = Math.floor(m / 60);
+		if (h < 24) return `hace ${h} h`;
+		const d = Math.floor(h / 24);
+		return `hace ${d} d`;
+	}
+
+	const agentSignal = $derived(
+		agentStatus?.lastSeen
+			? `Un agente se conectó — ${haceCuanto(agentStatus.lastSeen)}`
+			: 'Ningún agente conectado todavía'
 	);
 
 	function flashCopied(field) {
@@ -63,16 +86,10 @@
 		copyTimer = setTimeout(() => (copiedField = null), 1200);
 	}
 
-	async function copyMailboxPath() {
-		if (!mailboxPath) return;
-		await navigator.clipboard.writeText(mailboxPath);
-		flashCopied('path');
-	}
-
-	async function copyMcpConfig() {
-		if (!mcpConfig) return;
-		await navigator.clipboard.writeText(mcpConfig);
-		flashCopied('config');
+	async function copyText(text, field) {
+		if (!text) return;
+		await navigator.clipboard.writeText(text);
+		flashCopied(field);
 	}
 
 	const ACTION_LABEL = {
@@ -251,10 +268,12 @@
 			{/if}
 
 			{#if isTauriRuntime()}
-				{#if mailboxPath}
-					<div class="border-border flex flex-col gap-3 border-t pt-3">
+				{#if mailboxPath && serverPath}
+					<div class="border-border flex flex-col gap-4 border-t pt-3">
 						<div class="flex flex-col gap-0.5">
 							<h4 class="text-sm font-bold">Conectar un agente (MCP)</h4>
+							<p class="text-muted-foreground text-xs">El agente solo funciona con CopyNotes abierta.</p>
+							<p class="text-muted-foreground text-sm">{agentSignal}</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -267,7 +286,7 @@
 								<button
 									type="button"
 									aria-label="Copiar carpeta del buzón"
-									onclick={copyMailboxPath}
+									onclick={() => copyText(mailboxPath, 'path')}
 									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
 								>
 									{#if copiedField === 'path'}
@@ -280,37 +299,86 @@
 						</div>
 
 						<div class="flex flex-col gap-1">
-							<span class="text-muted-foreground text-sm"
-								>Configuración para pegar en el cliente MCP (Claude Desktop, OpenCode, ...):</span
-							>
+							<span class="text-foreground text-sm font-semibold">Claude Code</span>
+							<span class="text-muted-foreground text-xs">Pegá este comando en tu terminal una vez.</span>
 							<div class="relative">
 								<pre
 									class="bg-muted overflow-x-auto rounded-md px-3 py-2 pr-9 font-mono text-xs leading-5"><code
-										>{mcpConfig}</code
+										>{claudeCmd}</code
 									></pre>
 								<button
 									type="button"
-									aria-label="Copiar configuración MCP"
-									onclick={copyMcpConfig}
+									aria-label="Copiar comando de Claude Code"
+									onclick={() => copyText(claudeCmd, 'claude')}
 									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring bg-background/80 absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
 								>
-									{#if copiedField === 'config'}
+									{#if copiedField === 'claude'}
 										<Check size={14} aria-hidden="true" class="text-primary" />
 									{:else}
 										<Copy size={14} aria-hidden="true" />
 									{/if}
 								</button>
 							</div>
-							<p class="text-muted-foreground text-xs">
-								Reemplazá <code class="font-mono">&lt;ruta-a-CopyNotes&gt;</code> por la carpeta donde
-								tenés el proyecto CopyNotes en tu computadora.
-							</p>
 						</div>
 
-						<p class="text-muted-foreground text-xs">
-							CopyNotes tiene que estar abierto para que el agente pueda leer y escribir. Más
-							detalles en la guía (tema 17).
-						</p>
+						<div class="flex flex-col gap-1">
+							<span class="text-foreground text-sm font-semibold">OpenCode</span>
+							<span class="text-muted-foreground text-xs"
+								>Pegá esto en <code class="font-mono">~/.config/opencode/opencode.json</code>.</span
+							>
+							<div class="relative">
+								<pre
+									class="bg-muted overflow-x-auto rounded-md px-3 py-2 pr-9 font-mono text-xs leading-5"><code
+										>{openCodeJson}</code
+									></pre>
+								<button
+									type="button"
+									aria-label="Copiar configuración de OpenCode"
+									onclick={() => copyText(openCodeJson, 'opencode')}
+									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring bg-background/80 absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									{#if copiedField === 'opencode'}
+										<Check size={14} aria-hidden="true" class="text-primary" />
+									{:else}
+										<Copy size={14} aria-hidden="true" />
+									{/if}
+								</button>
+							</div>
+						</div>
+
+						<div class="flex flex-col gap-1">
+							<span class="text-foreground text-sm font-semibold">Cursor</span>
+							<span class="text-muted-foreground text-xs"
+								>Un clic para agregarlo, o pegá el JSON en
+								<code class="font-mono">~/.cursor/mcp.json</code>.</span
+							>
+							<a
+								href={cursorLink}
+								class="cn-tap bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring inline-flex w-fit items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+							>
+								Añadir a Cursor
+							</a>
+							<div class="relative mt-1">
+								<pre
+									class="bg-muted overflow-x-auto rounded-md px-3 py-2 pr-9 font-mono text-xs leading-5"><code
+										>{cursorJson}</code
+									></pre>
+								<button
+									type="button"
+									aria-label="Copiar configuración de Cursor"
+									onclick={() => copyText(cursorJson, 'cursor')}
+									class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring bg-background/80 absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									{#if copiedField === 'cursor'}
+										<Check size={14} aria-hidden="true" class="text-primary" />
+									{:else}
+										<Copy size={14} aria-hidden="true" />
+									{/if}
+								</button>
+							</div>
+						</div>
+
+						<p class="text-muted-foreground text-xs">Más detalles en la guía (tema 17).</p>
 					</div>
 				{/if}
 			{:else}

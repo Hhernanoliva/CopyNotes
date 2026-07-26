@@ -3,7 +3,20 @@
 // unchecking a child unchecks its todo ancestors. The cascade only travels
 // through todo→todo edges; any other block type breaks the chain.
 
+// Toggle the target and cascade — the UI's check/uncheck door.
 export function planToggleChecked(blocks, id) {
+	const byId = new Map();
+	for (const block of blocks) byId.set(block.id, block);
+	const target = byId.get(id);
+	if (!target || target.type !== 'todo') return null;
+	return planSetChecked(blocks, id, !target.checked);
+}
+
+// Set the target to an EXPLICIT value and cascade the same way. The agent's
+// complete_task drives the value to true (not a toggle) so completing an
+// already-done task can never accidentally reopen it, while still flowing the
+// value down to todo children and mirroring it up through todo ancestors.
+export function planSetChecked(blocks, id, value) {
 	const byId = new Map();
 	for (const block of blocks) byId.set(block.id, block);
 	const target = byId.get(id);
@@ -15,8 +28,8 @@ export function planToggleChecked(blocks, id) {
 	const desired = new Map();
 	const checkedOf = (block) => (desired.has(block.id) ? desired.get(block.id) : block.checked);
 
-	// Down: the toggled value flows to every todo reachable through todos.
-	const newChecked = !target.checked;
+	// Down: the target value flows to every todo reachable through todos.
+	const newChecked = value;
 	desired.set(id, newChecked);
 	function walkDown(parentId) {
 		for (const child of childrenOf(parentId)) {

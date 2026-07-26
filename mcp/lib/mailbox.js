@@ -110,3 +110,22 @@ export async function submitChange(change, options = {}) {
 
 	return { ok: false, reason: 'timeout', id };
 }
+
+/**
+ * Heartbeat: writes <mailbox>/agent-status.json = { lastSeen } atomically
+ * (tmp+rename). Lives at the mailbox ROOT, not inbox/, so the app's file
+ * watcher never treats it as a change — it's a liveness signal, not a request.
+ * Called on connect and on every tool call so the app can show "connected —
+ * X ago". Failures are swallowed: a heartbeat write must never break a tool.
+ */
+export async function touchAgentStatus() {
+	try {
+		const dir = mailboxDir();
+		const target = path.join(dir, 'agent-status.json');
+		const tmp = path.join(dir, `agent-status.${randomUUID()}.tmp`);
+		await writeFile(tmp, JSON.stringify({ lastSeen: new Date().toISOString() }), 'utf8');
+		await rename(tmp, target);
+	} catch {
+		// best-effort liveness signal
+	}
+}

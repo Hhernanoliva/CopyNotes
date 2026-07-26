@@ -7,18 +7,49 @@ apagado: el agente no ve nada hasta que vos abrís la puerta.
 ## Hacer una nota visible para agentes
 
 En el encabezado de la nota, al lado del botón de etiquetar, hay un botón con un
-robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer las
-**tareas** de esa nota (los renglones tipo tarea) y su historial. **Nunca** ve
-el resto del texto de la nota, y ninguna nota sin este botón activado sale de la
-app.
+robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer esa nota
+para ayudarte con sus tareas. Ninguna nota sin este botón activado sale de la app.
+
+## Qué lee el agente (y qué NO)
+
+Cuando una nota es visible, el agente ve:
+
+- El **título** de la nota y **en qué carpeta** está.
+- El **texto** de la nota como **contexto**: lo que escribís ahí le sirve para
+  entender de qué se tratan las tareas. Si querés darle instrucciones, escribilas
+  en la nota como texto normal.
+- Solo las **tareas pendientes**. Las que ya marcaste hechas **no** las ve (así
+  no gasta espacio en cosas terminadas).
+
+Lo que el agente **nunca** ve:
+
+- Los **comentarios** de un renglón (el texto que agregás con el botón de
+  comentario, debajo de la tarea): son tuyos, quedan siempre privados.
+- Las tareas ya completadas ni el historial completo (eso lo mira solo si lo
+  necesita, tarea por tarea).
 
 ## Qué puede hacer el agente
 
-- Leer las tareas de las notas que marcaste como visibles.
+- **Encontrar y abrir una nota por su nombre, solo.** Le podés hablar natural
+  ("entrá a la nota Compras y hacé lo anotado") y el agente la busca y la lee sin
+  que tengas que darle ningún código ni pegarle nada.
+- Leer lo de arriba, de las notas que marcaste como visibles.
 - Crear tareas y marcarlas como hechas, dejando siempre una línea en la
-  **bitácora** (quién hizo qué y cuándo).
+  **bitácora** (quién hizo qué y cuándo). Si marca como hecha una tarea que
+  tiene subtareas, se tachan también las de adentro — igual que cuando la tachás
+  vos en la app.
+- Dejarte una nota "IA" en una tarea o pedirle su historial **aunque la acabe de
+  completar**: completar una tarea no la hace inalcanzable para el agente.
 
-No puede borrar, exportar ni reordenar, y no escribe en el texto de tus notas.
+No puede borrar, exportar ni reordenar, y no reescribe el texto de tus notas.
+
+## Cómo se ve lo que el agente te escribe
+
+Cuando el agente deja una nota sobre una tarea (por ejemplo "empecé por el
+build" o algo que quiere aclararte), aparece **debajo de esa tarea en color
+ámbar y en cursiva, con una marca "IA"**. Así siempre distinguís de un vistazo
+lo que escribió la IA de tu propio texto y de tus comentarios, que quedan
+intactos.
 
 ## Ver la actividad y pedir que lo rehaga
 
@@ -56,38 +87,39 @@ Esta conexión funciona en la app de escritorio (Mac). En el navegador todavía 
 ## Conectar un agente por MCP (escritorio)
 
 Además de "Visible para agentes", CopyNotes puede conectarse directamente con
-un programa de agente que corre en tu computadora (por ejemplo Claude
-Desktop u OpenCode), usando un protocolo llamado **MCP**. Esto también
-funciona **solo en la app de escritorio**.
+un programa de agente que corre en tu computadora (por ejemplo Claude Code,
+OpenCode o Cursor), usando un protocolo llamado **MCP**. Esto también funciona
+**solo en la app de escritorio**.
 
-En **Configuración** (engranaje ⚙️) › **Agentes**, si estás usando la app de
-escritorio, vas a ver una sección **"Conectar un agente (MCP)"** con dos
-cosas:
+Lo bueno: CopyNotes ya trae adentro todo lo necesario y **rellena las rutas por
+vos**. No tenés que buscar ni pegar ninguna carpeta a mano.
 
-- La **carpeta del buzón**: una ubicación en tu computadora que CopyNotes usa
-  para intercambiar mensajes con el agente. Tiene un botón para copiarla.
-- Un **texto de configuración** (un bloque de código) con todo lo necesario
-  para que un cliente MCP se conecte a CopyNotes. También tiene su botón para
-  copiarlo.
+En **Configuración** (engranaje ⚙️) › **Agentes**, en la app de escritorio, vas
+a ver la sección **"Conectar un agente (MCP)"** con una opción lista para cada
+programa. Elegí la del que uses:
 
-### Pasos para conectar
+- **Claude Code:** copiá el comando (icono de copiar, dos hojas → tilde ✓) y
+  pegalo en tu terminal **una sola vez**.
+- **OpenCode:** copiá el bloque y pegalo en tu archivo
+  `~/.config/opencode/opencode.json`.
+- **Cursor:** tocá el botón **"Añadir a Cursor"** — se abre Cursor y lo agrega
+  solo. Si preferís, abajo tenés el JSON para copiar y pegar a mano en
+  `~/.cursor/mcp.json`.
 
-1. Instalá el programa cliente que vayas a usar (Claude Desktop, OpenCode, u
-   otro que hable MCP).
-2. En Configuración › Agentes, tocá el **icono de copiar** (dos hojas) que
-   está junto al texto de configuración; muestra un instante una tilde ✓
-   para confirmar.
-3. Pegalo en el archivo de configuración de ese cliente, y reemplazá
-   `<ruta-a-CopyNotes>` por la carpeta donde tenés el proyecto CopyNotes en
-   tu computadora (la carpeta del buzón ya viene completa, no hace falta
-   tocarla).
-4. Dejá **CopyNotes abierto**: sin la app abierta, el agente no puede leer ni
-   escribir nada, porque es la app la que vigila esa carpeta y contesta.
+**Importante:** el agente solo funciona con **CopyNotes abierta**. Si cerrás la
+app, deja de leer y escribir hasta que la vuelvas a abrir (es la app la que
+vigila la carpeta del buzón y contesta).
+
+### ¿Se conectó?
+
+Arriba de las opciones, CopyNotes te dice si un agente ya está conectado:
+**"Un agente se conectó"** con hace cuánto lo hizo. Si todavía no conectaste
+ninguno, dice **"Ningún agente conectado todavía"**.
 
 ### Qué puede hacer el agente conectado así
 
-Una vez conectado, el agente puede leer las **tareas** (y su bitácora) de las
-notas que marcaste como visibles, crear tareas nuevas y marcarlas como
-hechas — siempre dejando una línea en la bitácora, igual que se explica más
-arriba. No ve el resto del texto de tus notas, no borra, no exporta ni
-reordena.
+Una vez conectado, el agente puede leer las notas que marcaste como visibles
+(título, carpeta, el texto como contexto y las tareas pendientes), crear tareas
+nuevas y marcarlas como hechas — siempre dejando una línea en la bitácora, igual
+que se explica más arriba. No ve tus comentarios ni las tareas ya hechas, no
+borra, no exporta ni reordena.

@@ -127,3 +127,34 @@ pub fn bridge_write_outbox(app: tauri::AppHandle, id: String, contents: String) 
     fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
 }
+
+// Resolves the packaged MCP server's absolute path so the app can pre-fill it
+// in the per-client MCP config shown in Settings. In a bundled app the server
+// lives under the resource dir; in `tauri dev` it lives in the repo at
+// ../mcp/server.js relative to this crate. Prefer the packaged copy; fall back
+// to the dev path only when the resource is absent.
+#[tauri::command]
+pub fn bridge_server_path(app: tauri::AppHandle) -> Result<String, String> {
+    if let Ok(res) = app.path().resource_dir() {
+        let bundled = res.join("mcp/server.js");
+        if bundled.exists() {
+            return Ok(bundled.to_string_lossy().to_string());
+        }
+    }
+    let dev = Path::new(env!("CARGO_MANIFEST_DIR")).join("../mcp/server.js");
+    Ok(dev.to_string_lossy().to_string())
+}
+
+// Reads the MCP server's liveness heartbeat (agent-status.json at the mailbox
+// root, written by mcp/lib/mailbox.js). Returns the raw JSON text so the
+// webview parses { lastSeen }, or None when no agent has ever connected.
+#[tauri::command]
+pub fn bridge_read_status(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dir = mailbox_dir(&app)?;
+    let status = dir.join("agent-status.json");
+    match fs::read_to_string(&status) {
+        Ok(text) => Ok(Some(text)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}

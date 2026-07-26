@@ -18,14 +18,23 @@ and resource reads only see whatever `export.json` was last written.
 
 ## What it exposes
 
-### Resources
+### Resources (v2 — Markdown projection)
 
 One resource per note the user has marked **"Visible para agentes"** in the
 app (`copynotes://note/{id}`, listed and read from `lib/resources.js`). Each
-resource's content is that note's **tasks** (todo blocks) plus their
-**bitácora** (an activity trail: who created/completed/reopened/noted each
-task, and when). The app never exposes anything else from the note — no
-prose, no other block types.
+resource's content is that note projected as **Markdown** (not JSON — measured
+~28% cheaper in chars, more in real tokens):
+
+- The note **title** and its **folder** name.
+- The note's **prose as context** (text/bullet/heading/code blocks) — the user
+  writes this to tell the agent what the tasks are about.
+- Only the **pending tasks** (completed ones are dropped), each with a **short
+  id** (8-char prefix — see `lib/ids.js`).
+
+Never projected here: the user's per-block **comment** (`block.note`), completed
+tasks, timestamps, long UUIDs, and the **bitácora** — the history is on-demand
+via the `get_task_history` tool, the single biggest token save. Privacy model
+and measurements: `docs/superpowers/specs/2026-07-25-canal-agente-v2-lectura-md-permisos-design.md`.
 
 Resource reads always re-read the buzón's `export.json`, so they reflect the
 app's live state (whatever CopyNotes last wrote there) rather than a cached
@@ -33,11 +42,25 @@ snapshot.
 
 ### Tools
 
+Ids are the **short ids** the Markdown read shows; the server re-expands them to
+full UUIDs (`lib/ids.js` → `expandArgs`) before submitting — a note prefix only
+resolves to a note, a task prefix only to a task.
+
+Discovery + read are also exposed as **tools** (not only as resources): most MCP
+clients don't feed resources to the model on their own — the user has to attach
+them by hand — so a plain prompt like *"open note X and do what it says"* can't
+reach a note through the resource alone. `list_notes` + `read_note` make that
+flow work everywhere with no hand-holding; `read_note` returns the SAME Markdown
+the resource does (same privacy rules, same token cost).
+
 | Tool | Input | Effect |
 | --- | --- | --- |
+| `list_notes` | `{}` | Lists agent-visible notes (name + short id). |
+| `read_note` | `{ note }` | Reads a visible note (by short id or name) as the Markdown projection. |
 | `create_task` | `{ noteId, content }` | Creates a new todo block in the given note. |
-| `complete_task` | `{ blockId, summary? }` | Marks a task done; leaves a bitácora trace. |
-| `add_note` | `{ blockId, text }` | Appends a note to a task's bitácora. |
+| `complete_task` | `{ blockId, summary? }` | Marks a task done (cascades to todo children like the UI); leaves a bitácora trace. |
+| `add_note` | `{ blockId, text }` | Appends a note to a task's bitácora (shown amber "IA" under the task in the app). |
+| `get_task_history` | `{ blockId }` | Returns a task's bitácora on demand (compact, no UUIDs/timestamps). |
 
 Tools don't decide privacy themselves — each one builds a change request and
 hands it to `submitChange()` (`lib/mailbox.js`), which writes it to
@@ -57,6 +80,13 @@ pnpm install
 
 (Only needed once — see "Isolation" below for why this doesn't touch the
 repo-root lockfile.)
+
+> **Dev vs Build (importante):** para **desarrollar/testear** usá `pnpm install`
+> (el de acá arriba). Para **empaquetar la app** (`pnpm tauri build`) hace falta
+> un `node_modules` **plano** distinto — receta completa en
+> [§ Empaquetado dentro de la app](#empaquetado-dentro-de-la-app-tauri-resource).
+> Correr los tests reinstala en modo dev, así que **siempre rehacé el paso plano
+> justo antes de buildear**.
 
 ## Run
 
@@ -147,3 +177,45 @@ output:
 `zod@4.4.3` is installed alongside the SDK because tool/resource schema
 registration (`registerTool`/`registerResource`) requires it as a peer
 dependency.
+
+## Empaquetado dentro de la app (Tauri resource)
+
+El server MCP viaja **dentro** del `.app` como recurso Tauri — no se publica en
+npm. `src-tauri/tauri.conf.json` declara en `bundle.resources`:
+
+```json
+"resources": {
+  "../mcp/server.js": "mcp/server.js",
+  "../mcp/lib": "mcp/lib",
+  "../mcp/node_modules": "mcp/node_modules"
+}
+```
+
+En runtime el comando Rust `bridge_server_path` resuelve
+`resource_dir()/mcp/server.js` (o, en `tauri dev`, el `../mcp/server.js` del
+repo). La app rellena esa ruta en Ajustes › Agentes.
+
+### Riesgo: `node_modules` con symlinks
+
+`pnpm install` deja `mcp/node_modules` con **symlinks** al store `.pnpm`. Tauri
+copia archivos, no symlinks → hay que producir un `node_modules` **plano** antes
+de bundlear. Paso de build (GATE manual, en la Mac):
+
+```bash
+# 1) node_modules plano y solo de producción (deja zod, quita vitest):
+cd mcp && pnpm install --config.node-linker=hoisted --prod && cd ..
+# 2) build del .app (mcp/ viaja en los recursos):
+export PATH="$HOME/.cargo/bin:$PATH" && pnpm tauri build
+# 3) verificar que el server viajó:
+find src-tauri/target -name server.js -path '*Resources/mcp*' | head
+```
+
+Para volver al entorno de desarrollo (recuperar vitest y los symlinks):
+
+```bash
+cd mcp && pnpm install
+```
+
+> Nota: los `*.test.js` dentro de `lib/` viajan en el bundle pero son inertes en
+> runtime (nadie los importa). Excluirlos moviéndolos a `mcp/test/` es un
+> follow-up de limpieza, no bloqueante para la beta.

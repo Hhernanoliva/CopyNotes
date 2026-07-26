@@ -77,3 +77,25 @@ export async function getMailboxPath() {
 	const { invoke } = await import('@tauri-apps/api/core');
 	return invoke('bridge_mailbox_path');
 }
+
+// Returns the packaged MCP server's absolute path so Settings can pre-fill it
+// in each client's config. null off desktop.
+export async function getServerPath() {
+	if (!isTauriRuntime()) return null;
+	const { invoke } = await import('@tauri-apps/api/core');
+	return invoke('bridge_server_path');
+}
+
+// Reads the MCP server's liveness heartbeat so Settings can show "un agente se
+// conectó — hace X". Returns { lastSeen } or null (off desktop / never seen).
+export async function getAgentStatus() {
+	if (!isTauriRuntime()) return null;
+	const { invoke } = await import('@tauri-apps/api/core');
+	const raw = await invoke('bridge_read_status');
+	if (typeof raw !== 'string') return null;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return null;
+	}
+}

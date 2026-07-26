@@ -8,6 +8,7 @@
 		findOrCreateTag,
 		getNote,
 		listBlocksByNote,
+		listActivityByNote,
 		listSnippets,
 		listTags,
 		listTagsForMany,
@@ -30,6 +31,7 @@
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
+	import { agentNotesByBlock } from './agent-notes';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -92,6 +94,10 @@
 
 	let note = $state(null);
 	let blocks = $state([]);
+	// La voz del agente por bloque (bitácora action:'note', actor ≠ user). Se
+	// recarga con la nota; el editor se re-monta tras cada cambio de agente
+	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
+	let agentNotes = $state({});
 	let focusBlockId = $state(null);
 	// Plain-text caret offset to restore when focusBlockId lands (or null for
 	// caret-at-end). Set by slash-menu flows so the caret returns to where the
@@ -359,11 +365,17 @@
 		// window widens under I/O contention — caught by the e2e suite).
 		note = null;
 		blocks = [];
+		agentNotes = {};
 		(async () => {
-			const [loadedNote, loadedBlocks] = await Promise.all([getNote(id), listBlocksByNote(id)]);
+			const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
+				getNote(id),
+				listBlocksByNote(id),
+				listActivityByNote(id)
+			]);
 			if (cancelled) return;
 			note = loadedNote;
 			blocks = loadedBlocks;
+			agentNotes = agentNotesByBlock(loadedActivity);
 			activeBlockId = null;
 			history.reset();
 			lastTextBlockId = null;
@@ -1716,6 +1728,7 @@
 					block={row.block}
 					depth={row.depth}
 					hasChildren={row.hasChildren}
+					agentNotes={agentNotes[row.block.id] ?? []}
 					focused={focusBlockId === row.block.id}
 					flash={flashBlockIds.has(row.block.id)}
 					pulseMenu={pulseMenuBlockId === row.block.id}

@@ -1,38 +1,66 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { db, createNote, updateNote, createBlock } from '$lib/storage';
+import { db, createNote, updateNote, createBlock, createFolder } from '$lib/storage';
 import { buildAgentExport, toAgentPayload } from './export';
 
-describe('toAgentPayload (agent-visibility gate)', () => {
-	it('includes only agentVisible notes, excluding hidden ones', () => {
+describe('toAgentPayload v2 (proyección + gate de privacidad)', () => {
+	it('nota sin 🤖 no aporta NADA (ni título, ni prosa, ni tareas)', () => {
 		const notes = [
-			{ id: 'n1', title: 'Visible', agentVisible: true },
-			{ id: 'n2', title: 'Privada', agentVisible: false }
+			{ id: 'n1', title: 'Visible', agentVisible: true, folderId: null },
+			{ id: 'n2', title: 'Privada', agentVisible: false, folderId: null }
 		];
 		const blocksByNote = {
-			n1: [{ id: 'b1', type: 'todo', content: 'hacer', html: 'hacer', checked: false, createdBy: 'user' }],
-			n2: [{ id: 'b2', type: 'todo', content: 'secreto', html: 'secreto', checked: false, createdBy: 'user' }]
+			n1: [{ id: 'b1', parentBlockId: null, order: 0, type: 'todo', content: 'hacer', checked: false, createdBy: 'user', note: '' }],
+			n2: [{ id: 'b2', parentBlockId: null, order: 0, type: 'text', content: 'secreto', checked: false, createdBy: 'user', note: '' }]
 		};
-		const activityByBlock = { b1: [], b2: [] };
-
-		const payload = toAgentPayload(notes, blocksByNote, activityByBlock);
-
+		const payload = toAgentPayload(notes, blocksByNote, {}, {});
+		expect(payload.version).toBe(2);
 		expect(payload.notes.map((n) => n.id)).toEqual(['n1']);
 		const flat = JSON.stringify(payload);
 		expect(flat).not.toContain('secreto');
 		expect(flat).not.toContain('Privada');
 	});
 
-	it('exposes only todo blocks as tasks', () => {
-		const notes = [{ id: 'n1', title: 'V', agentVisible: true }];
+	it('incluye prosa como contexto y tareas pendientes, en orden de árbol, con depth', () => {
+		const notes = [{ id: 'n1', title: 'V', agentVisible: true, folderId: 'f1' }];
 		const blocksByNote = {
 			n1: [
-				{ id: 'b1', type: 'todo', content: 't', html: 't', checked: true, createdBy: 'agent' },
-				{ id: 'b2', type: 'text', content: 'prosa', html: 'prosa', checked: false, createdBy: 'user' }
+				{ id: 'p1', parentBlockId: null, order: 0, type: 'text', content: 'contexto', checked: false, createdBy: 'user', note: '' },
+				{ id: 't1', parentBlockId: null, order: 1, type: 'todo', content: 'pendiente', checked: false, createdBy: 'agent-uuid', note: '' },
+				{ id: 't1a', parentBlockId: 't1', order: 0, type: 'todo', content: 'subtarea', checked: false, createdBy: 'user', note: '' }
 			]
 		};
-		const payload = toAgentPayload(notes, blocksByNote, { b1: [], b2: [] });
-		expect(payload.notes[0].tasks.map((t) => t.id)).toEqual(['b1']);
+		const payload = toAgentPayload(notes, blocksByNote, { t1: [{ action: 'created' }] }, { f1: 'Trabajo' });
+		const note = payload.notes[0];
+		expect(note.folder).toBe('Trabajo');
+		expect(note.blocks.map((b) => b.id)).toEqual(['p1', 't1', 't1a']);
+		expect(note.blocks.map((b) => b.depth)).toEqual([0, 0, 1]);
+		expect(note.blocks[1].createdBy).toBe('agent-uuid');
+		expect(note.blocks[1].activity).toEqual([{ action: 'created' }]);
+		expect(note.blocks[0].activity).toBeUndefined();
+	});
+
+	it('conserva completadas con su flag checked (el Markdown las oculta, no el export); descarta separadores y prosa vacía; comentario y html JAMÁS viajan', () => {
+		const notes = [{ id: 'n1', title: 'V', agentVisible: true, folderId: null }];
+		const blocksByNote = {
+			n1: [
+				{ id: 'done', parentBlockId: null, order: 0, type: 'todo', content: 'hecha', checked: true, createdBy: 'user', note: '' },
+				{ id: 'sep', parentBlockId: null, order: 1, type: 'separator', content: '', checked: false, createdBy: 'user', note: '' },
+				{ id: 'empty', parentBlockId: null, order: 2, type: 'text', content: '   ', checked: false, createdBy: 'user', note: '' },
+				{ id: 'ok', parentBlockId: null, order: 3, type: 'todo', content: 'pendiente', checked: false, createdBy: 'user', html: '<b>pendiente</b>', note: 'comentario privado' }
+			]
+		};
+		const payload = toAgentPayload(notes, blocksByNote, { done: [{ action: 'done' }], ok: [] }, {});
+		// Completed task is carried (so tools can still resolve/annotate it), separators
+		// and empty prose are dropped. The completed task keeps checked:true + its bitácora.
+		expect(payload.notes[0].blocks.map((b) => b.id)).toEqual(['done', 'ok']);
+		expect(payload.notes[0].blocks.find((b) => b.id === 'done')).toMatchObject({ checked: true, activity: [{ action: 'done' }] });
+		expect(payload.notes[0].blocks.find((b) => b.id === 'ok').checked).toBe(false);
+		expect(payload.notes[0].folder).toBeNull();
+		const flat = JSON.stringify(payload);
+		// Comment and html are the double-locked secrets — never, regardless of checked.
+		expect(flat).not.toContain('comentario privado');
+		expect(flat).not.toContain('<b>');
 	});
 });
 
@@ -58,5 +86,30 @@ describe('buildAgentExport (privacy gate over real storage)', () => {
 		const flat = JSON.stringify(payload);
 		expect(flat).not.toContain('secreto');
 		expect(flat).not.toContain('Privada');
+	});
+
+	it('conserva una tarea completada con su bitácora (para add_note / get_task_history)', async () => {
+		const { completeTask } = await import('$lib/tasks');
+		const note = await createNote({ title: 'V' });
+		await updateNote(note.id, { agentVisible: true });
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'hacer' });
+		await completeTask({ blockId: block.id, actor: 'agent', text: 'listo' });
+
+		const payload = await buildAgentExport();
+		const exported = payload.notes[0].blocks.find((b) => b.id === block.id);
+		expect(exported.checked).toBe(true);
+		expect(exported.activity.map((e) => e.action)).toContain('done');
+	});
+
+	it('trae el nombre de la carpeta de la nota y nunca el comentario de un bloque', async () => {
+		const folder = await createFolder('note', 'Trabajo');
+		const note = await createNote({ title: 'Con carpeta' });
+		await updateNote(note.id, { agentVisible: true, folderId: folder.id });
+		await createBlock({ noteId: note.id, type: 'todo', content: 'tarea', note: 'privadísimo' });
+
+		const payload = await buildAgentExport();
+		const exported = payload.notes.find((n) => n.id === note.id);
+		expect(exported.folder).toBe('Trabajo');
+		expect(JSON.stringify(payload)).not.toContain('privadísimo');
 	});
 });
