@@ -24,7 +24,9 @@ import {
 	addNoteChange,
 	toolResult,
 	expandArgs,
-	historyResult
+	historyResult,
+	listNotesResult,
+	readNoteResult
 } from './lib/tools.js';
 
 const server = new McpServer({ name: 'copynotes', version: '0.1.0' });
@@ -78,11 +80,20 @@ const expandingHandler = (buildChange, okText) => async (args) => {
 	return toolResult(await submitChange(buildChange(expanded.args)), okText);
 };
 
+// Tool descriptions and per-arg .describe() strings are written to GUIDE the
+// model, not just to document: they name WHEN to reach for each tool and, for
+// add_note vs complete_task's summary, draw the line the model kept missing
+// ("leave a comment" → add_note, not the completion summary). Cheap — they ride
+// in the schema that's sent anyway — and materially improve tool selection.
 server.registerTool(
 	'create_task',
 	{
-		description: 'Crear una tarea (todo) en una nota visible para agentes.',
-		inputSchema: { noteId: z.string(), content: z.string() }
+		description:
+			'Crear una tarea nueva (checkbox) dentro de una nota visible. Usala cuando el usuario pide agregar un pendiente o tarea a una nota.',
+		inputSchema: {
+			noteId: z.string().describe('Id corto de la nota (lo devuelven list_notes / read_note).'),
+			content: z.string().describe('Texto de la tarea.')
+		}
 	},
 	expandingHandler(createTaskChange, 'Tarea creada.')
 );
@@ -90,8 +101,15 @@ server.registerTool(
 server.registerTool(
 	'complete_task',
 	{
-		description: 'Marcar una tarea como hecha (deja una traza en la bitácora).',
-		inputSchema: { blockId: z.string(), summary: z.string().optional() }
+		description:
+			'Marcar una tarea como hecha. Si tiene subtareas, se completan también. Deja una traza en la bitácora. NO es un comentario visible: para dejar una nota bajo la tarea usá add_note.',
+		inputSchema: {
+			blockId: z.string().describe('Id corto de la tarea a completar.'),
+			summary: z
+				.string()
+				.optional()
+				.describe('Cierre breve opcional para la bitácora. No aparece como comentario "IA".')
+		}
 	},
 	expandingHandler(completeTaskChange, 'Tarea marcada como hecha.')
 );
@@ -99,17 +117,54 @@ server.registerTool(
 server.registerTool(
 	'add_note',
 	{
-		description: 'Agregar una nota/instrucción a la bitácora de una tarea.',
-		inputSchema: { blockId: z.string(), text: z.string() }
+		description:
+			'Dejar un comentario/aviso/anotación del agente en una tarea (ej: "ya terminé", "empecé por X", "encontré un problema", "lo dejé a medias"). Aparece bajo la tarea como nota "IA", visible para el usuario. Usala SIEMPRE que te pidan escribir, comentar, avisar o anotar algo sobre una tarea.',
+		inputSchema: {
+			blockId: z.string().describe('Id corto de la tarea donde dejar el comentario.'),
+			text: z.string().describe('El comentario a mostrar bajo la tarea.')
+		}
 	},
 	expandingHandler(addNoteChange, 'Nota agregada a la bitácora.')
+);
+
+// Discovery + read as tools so a natural prompt reaches a note without the user
+// attaching a resource by hand (most clients don't feed resources to the model).
+server.registerTool(
+	'list_notes',
+	{
+		description:
+			'Listar las notas que el usuario marcó visibles para agentes (nombre + id corto de cada una). Usala primero cuando el usuario menciona una nota por su nombre y necesitás su id, o para ver qué hay disponible.',
+		inputSchema: {}
+	},
+	async () => {
+		await touchAgentStatus();
+		return listNotesResult(await readExport());
+	}
+);
+
+server.registerTool(
+	'read_note',
+	{
+		description:
+			'Leer una nota (por su id corto o por su nombre) como Markdown: el contexto que escribió el usuario + las tareas pendientes, cada una con su id corto. Usala apenas te pidan trabajar sobre una nota, para ver qué hay que hacer y obtener los ids de las tareas.',
+		inputSchema: {
+			note: z
+				.string()
+				.describe('Id corto (8 chars) o nombre de la nota. El nombre puede ser parcial si es inequívoco.')
+		}
+	},
+	async ({ note }) => {
+		await touchAgentStatus();
+		return readNoteResult(await readExport(), note);
+	}
 );
 
 server.registerTool(
 	'get_task_history',
 	{
-		description: 'Bitácora de una tarea (historial de acciones), bajo demanda.',
-		inputSchema: { blockId: z.string() }
+		description:
+			'Ver la bitácora (historial) de una tarea: quién la creó, completó, reabrió o comentó. Bajo demanda — pedila solo si necesitás el contexto de una tarea puntual.',
+		inputSchema: { blockId: z.string().describe('Id corto de la tarea.') }
 	},
 	async ({ blockId }) => {
 		await touchAgentStatus();

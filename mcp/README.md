@@ -46,10 +46,19 @@ Ids are the **short ids** the Markdown read shows; the server re-expands them to
 full UUIDs (`lib/ids.js` → `expandArgs`) before submitting — a note prefix only
 resolves to a note, a task prefix only to a task.
 
+Discovery + read are also exposed as **tools** (not only as resources): most MCP
+clients don't feed resources to the model on their own — the user has to attach
+them by hand — so a plain prompt like *"open note X and do what it says"* can't
+reach a note through the resource alone. `list_notes` + `read_note` make that
+flow work everywhere with no hand-holding; `read_note` returns the SAME Markdown
+the resource does (same privacy rules, same token cost).
+
 | Tool | Input | Effect |
 | --- | --- | --- |
+| `list_notes` | `{}` | Lists agent-visible notes (name + short id). |
+| `read_note` | `{ note }` | Reads a visible note (by short id or name) as the Markdown projection. |
 | `create_task` | `{ noteId, content }` | Creates a new todo block in the given note. |
-| `complete_task` | `{ blockId, summary? }` | Marks a task done; leaves a bitácora trace. |
+| `complete_task` | `{ blockId, summary? }` | Marks a task done (cascades to todo children like the UI); leaves a bitácora trace. |
 | `add_note` | `{ blockId, text }` | Appends a note to a task's bitácora (shown amber "IA" under the task in the app). |
 | `get_task_history` | `{ blockId }` | Returns a task's bitácora on demand (compact, no UUIDs/timestamps). |
 

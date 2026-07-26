@@ -14,7 +14,8 @@
 // the app derives the actor from its own connected-agent identity, never
 // from the inbound file).
 
-import { expandId } from './ids.js';
+import { expandId, buildShortIds } from './ids.js';
+import { noteToMarkdown } from './resources.js';
 
 export function createTaskChange({ noteId, content }) {
 	return { type: 'createTask', noteId, content };
@@ -72,6 +73,58 @@ export function expandArgs(exportPayload, args) {
 		resolved[key] = res.id;
 	}
 	return { ok: true, args: resolved };
+}
+
+// Discovery + read as TOOLS, not only resources. Most MCP clients don't feed
+// resources to the model on their own (the user must attach them), so a plain
+// prompt like "entrá a la nota X y ejecutá lo anotado" can't reach the note.
+// Tools are always model-visible, so these two make that flow work everywhere
+// with no hand-holding. read_note returns the SAME Markdown the resource does
+// (lib/resources.js) — same privacy rules, same token cost, another door.
+export function listNotesResult(exportPayload) {
+	const notes = exportPayload?.notes ?? [];
+	if (notes.length === 0) {
+		return { content: [{ type: 'text', text: 'No hay notas visibles para agentes.' }], isError: false };
+	}
+	const shortIds = buildShortIds(exportPayload);
+	const lines = notes.map((note) => {
+		const short = shortIds.get(note.id) ?? note.id;
+		const folder = note.folder ? `  ·  ${note.folder}` : '';
+		return `- ${short}  ${note.title ?? ''}${folder}`;
+	});
+	return { content: [{ type: 'text', text: lines.join('\n') }], isError: false };
+}
+
+// Resolve a note by short id / full id first, then by exact title
+// (case-insensitive), then by a UNIQUE title substring. Ambiguous name → error
+// rather than guessing, so the agent picks a precise reference.
+function resolveNote(exportPayload, ref) {
+	if (!ref) return { ok: false, reason: 'no-encontrado' };
+	const notes = exportPayload?.notes ?? [];
+	const byId = expandId(exportPayload, ref, 'note');
+	if (byId.ok) {
+		const found = notes.find((note) => note.id === byId.id);
+		if (found) return { ok: true, note: found };
+	}
+	const lower = ref.toLowerCase();
+	const exact = notes.filter((note) => (note.title ?? '').toLowerCase() === lower);
+	if (exact.length === 1) return { ok: true, note: exact[0] };
+	if (exact.length > 1) return { ok: false, reason: 'ambiguo' };
+	const partial = notes.filter((note) => (note.title ?? '').toLowerCase().includes(lower));
+	if (partial.length === 1) return { ok: true, note: partial[0] };
+	if (partial.length > 1) return { ok: false, reason: 'ambiguo' };
+	return { ok: false, reason: 'no-encontrado' };
+}
+
+export function readNoteResult(exportPayload, ref) {
+	const resolved = resolveNote(exportPayload, ref);
+	if (!resolved.ok) {
+		return { content: [{ type: 'text', text: `Rechazado: ${resolved.reason}` }], isError: true };
+	}
+	return {
+		content: [{ type: 'text', text: noteToMarkdown(resolved.note, buildShortIds(exportPayload)) }],
+		isError: false
+	};
 }
 
 const HISTORY_TAIL = 10;

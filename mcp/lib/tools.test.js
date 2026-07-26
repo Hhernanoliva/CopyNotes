@@ -11,7 +11,9 @@ import {
 	toolResult,
 	makeToolHandler,
 	expandArgs,
-	historyResult
+	historyResult,
+	listNotesResult,
+	readNoteResult
 } from './tools.js';
 
 describe('createTaskChange', () => {
@@ -176,6 +178,95 @@ describe('historyResult', () => {
 	});
 	it('tarea inexistente → isError', () => {
 		expect(historyResult(expandPayload, 'zzzz').isError).toBe(true);
+	});
+	// Bug #2 regression: a task the agent just COMPLETED must stay resolvable —
+	// the export carries completed todos so its short id still expands, and both
+	// get_task_history and add_note (via expandArgs) work on it. If completed
+	// tasks were ever dropped from the export again, these two would break.
+	it('resuelve una tarea COMPLETADA para historial y para add_note (via expandArgs)', () => {
+		const payload = {
+			notes: [
+				{
+					id: 'aaaaaaaa-1111-4111-8111-111111111111',
+					title: 'N',
+					blocks: [
+						{
+							id: 'ffffffff-6666-4666-8666-666666666666',
+							type: 'todo',
+							content: 'hecha',
+							checked: true,
+							depth: 0,
+							activity: [{ actor: 'user', action: 'done', text: 'listo', at: '2026-07-26T00:00:00Z' }]
+						}
+					]
+				}
+			]
+		};
+		const hist = historyResult(payload, 'ffffffff');
+		expect(hist.isError).toBe(false);
+		expect(hist.content[0].text).toBe('- usuario completó: listo');
+		expect(expandArgs(payload, { blockId: 'ffffffff', text: 'x' })).toEqual({
+			ok: true,
+			args: { blockId: 'ffffffff-6666-4666-8666-666666666666', text: 'x' }
+		});
+	});
+});
+
+const notesPayload = {
+	notes: [
+		{
+			id: 'aaaaaaaa-1111-4111-8111-111111111111',
+			title: 'Probando MCP',
+			folder: 'Trabajo',
+			blocks: [
+				{ id: 'p1', type: 'text', content: 'Contexto de la nota', depth: 0 },
+				{ id: 'cccccccc-3333-4333-8333-333333333333', type: 'todo', content: 'Pendiente', checked: false, depth: 0, activity: [] },
+				{ id: 'dddddddd-4444-4444-8444-444444444444', type: 'todo', content: 'Hecha', checked: true, depth: 0, activity: [] }
+			]
+		},
+		{ id: 'eeeeeeee-5555-4555-8555-555555555555', title: 'Otra nota', folder: null, blocks: [] }
+	]
+};
+
+describe('listNotesResult', () => {
+	it('lista cada nota visible con id corto, título y carpeta', () => {
+		const res = listNotesResult(notesPayload);
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toBe('- aaaaaaaa  Probando MCP  ·  Trabajo\n- eeeeeeee  Otra nota');
+	});
+	it('sin notas visibles avisa en texto, sin error', () => {
+		const res = listNotesResult({ notes: [] });
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toContain('No hay notas');
+	});
+});
+
+describe('readNoteResult', () => {
+	it('resuelve por nombre y devuelve Markdown, ocultando la tarea completada', () => {
+		const res = readNoteResult(notesPayload, 'Probando MCP');
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toContain('## Probando MCP  ·  Trabajo');
+		expect(res.content[0].text).toContain('Pendiente');
+		expect(res.content[0].text).not.toContain('Hecha');
+	});
+	it('resuelve por id corto', () => {
+		const res = readNoteResult(notesPayload, 'aaaaaaaa');
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toContain('Probando MCP');
+	});
+	it('resuelve por substring único del título (case-insensitive)', () => {
+		const res = readNoteResult(notesPayload, 'probando');
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toContain('Probando MCP');
+	});
+	it('nombre inexistente → isError', () => {
+		expect(readNoteResult(notesPayload, 'no existe').isError).toBe(true);
+	});
+	it('substring ambiguo (en más de un título) → isError con reason ambiguo', () => {
+		// 'o' aparece en 'Probando MCP' y en 'Otra nota'.
+		const res = readNoteResult(notesPayload, 'o');
+		expect(res.isError).toBe(true);
+		expect(res.content[0].text).toContain('ambiguo');
 	});
 });
 
