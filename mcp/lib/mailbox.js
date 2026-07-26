@@ -16,8 +16,24 @@ const READ_EXPORT_RETRY_DELAY_MS = 20;
 const DEFAULT_SUBMIT_TIMEOUT_MS = 10000;
 const DEFAULT_POLL_INTERVAL_MS = 100;
 
+// A change that timed out (no outbox answer yet) keeps its generated id for this
+// long, keyed by its content. If the model reacts to the timeout by RESENDING
+// the same request, it reuses that id instead of minting a new one — so the app,
+// which dedupes by id (src/lib/bridge/ingest.ts), applies it AT MOST once. The
+// window is short so an intentional identical request later (e.g. "add that same
+// task again") still gets a fresh id and goes through. A confirmed request drops
+// its key immediately (see submitChange), so only unconfirmed ids linger.
+const RETRY_IDEMPOTENCY_TTL_MS = 30000;
+const pendingRequestIds = new Map(); // contentKey -> { id, expires }
+
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Stable key from the change's semantic fields (keys sorted) so the same logical
+// request maps to the same entry regardless of property order.
+function contentKey(change) {
+	return JSON.stringify(change, Object.keys(change ?? {}).sort());
 }
 
 function mailboxDir() {
@@ -76,10 +92,20 @@ export async function submitChange(change, options = {}) {
 	const { timeoutMs = DEFAULT_SUBMIT_TIMEOUT_MS, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS } =
 		options;
 
-	// A missing OR empty/blank caller id gets a fresh UUID — otherwise an
-	// empty-string id would produce `inbox/.json`. A real non-empty id passes
-	// through unchanged so idempotency keys stay intact.
-	const id = typeof change?.id === 'string' && change.id.trim() ? change.id : randomUUID();
+	// A caller-supplied id passes through unchanged (its own idempotency key). A
+	// missing/blank one gets a UUID — but first we check the retry memo: if an
+	// identical, still-unconfirmed request is within its TTL, reuse its id so a
+	// resend can't duplicate. Otherwise mint a fresh id and remember it.
+	const providedId = typeof change?.id === 'string' && change.id.trim() ? change.id : null;
+	let memoKey = null;
+	let id = providedId;
+	if (!id) {
+		memoKey = contentKey(change);
+		const now = Date.now();
+		const memo = pendingRequestIds.get(memoKey);
+		id = memo && memo.expires > now ? memo.id : randomUUID();
+		pendingRequestIds.set(memoKey, { id, expires: now + RETRY_IDEMPOTENCY_TTL_MS });
+	}
 	const dir = mailboxDir();
 	const inboxDir = path.join(dir, 'inbox');
 	const outboxDir = path.join(dir, 'outbox');
@@ -100,6 +126,9 @@ export async function submitChange(change, options = {}) {
 		try {
 			const raw = await readFile(outboxPath, 'utf8');
 			const result = JSON.parse(raw);
+			// A definitive answer arrived — drop the memo so a LATER identical
+			// request gets a fresh id (only unconfirmed ids are reused).
+			if (memoKey) pendingRequestIds.delete(memoKey);
 			return { ...result, id };
 		} catch {
 			// Not there yet (ENOENT), or a partial write mid-flight (JSON parse
@@ -108,6 +137,8 @@ export async function submitChange(change, options = {}) {
 		await sleep(pollIntervalMs);
 	}
 
+	// Timeout: keep the memo so a resend within the TTL reuses this id and the
+	// app's dedupe guarantees the change is applied at most once.
 	return { ok: false, reason: 'timeout', id };
 }
 

@@ -9,6 +9,9 @@ import {
 	completeTaskChange,
 	addNoteChange,
 	toolResult,
+	createTaskResult,
+	rejectionText,
+	resolveNote,
 	makeToolHandler,
 	expandArgs,
 	historyResult,
@@ -109,11 +112,15 @@ describe('toolResult', () => {
 		expect(result.content[0].text).toContain('not-allowed');
 	});
 
-	it('maps the M1 timeout shape ({ ok:false, reason:\'timeout\' }) to isError: true', () => {
+	it('maps the timeout shape to isError:true and tells the model NOT to resend (id echoed)', () => {
+		// The request is already in the buzón and the app applies it at most once,
+		// so a blind resend is the real duplicate risk — the wording must say stop,
+		// not retry — and echo the id so a human can trace it.
 		const result = toolResult({ ok: false, reason: 'timeout', id: 'abc' });
 
 		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('timeout');
+		expect(result.content[0].text).toContain('abc');
+		expect(result.content[0].text).toMatch(/no la reenv[ií]es/i);
 	});
 
 	it('is robust to a missing/undefined result (no unhandled throw)', () => {
@@ -242,10 +249,12 @@ describe('listNotesResult', () => {
 });
 
 describe('readNoteResult', () => {
-	it('resuelve por nombre y devuelve Markdown, ocultando la tarea completada', () => {
+	it('resuelve por nombre y devuelve Markdown con el id de la nota en el encabezado, ocultando la tarea completada', () => {
 		const res = readNoteResult(notesPayload, 'Probando MCP');
 		expect(res.isError).toBe(false);
-		expect(res.content[0].text).toContain('## Probando MCP  ·  Trabajo');
+		// id-first en el encabezado (como list_notes), para que create_task no
+		// necesite un list_notes extra para conocer el id de la nota.
+		expect(res.content[0].text).toContain('## aaaaaaaa  Probando MCP  ·  Trabajo');
 		expect(res.content[0].text).toContain('Pendiente');
 		expect(res.content[0].text).not.toContain('Hecha');
 	});
@@ -262,11 +271,74 @@ describe('readNoteResult', () => {
 	it('nombre inexistente → isError', () => {
 		expect(readNoteResult(notesPayload, 'no existe').isError).toBe(true);
 	});
-	it('substring ambiguo (en más de un título) → isError con reason ambiguo', () => {
-		// 'o' aparece en 'Probando MCP' y en 'Otra nota'.
+	it('substring ambiguo (en más de un título) → isError con reason ambiguo Y los candidatos (id + título)', () => {
+		// 'o' aparece en 'Probando MCP' y en 'Otra nota'. La respuesta lista ambas
+		// con su id corto, para que el modelo elija sin llamar a list_notes.
 		const res = readNoteResult(notesPayload, 'o');
 		expect(res.isError).toBe(true);
 		expect(res.content[0].text).toContain('ambiguo');
+		expect(res.content[0].text).toContain('aaaaaaaa  Probando MCP');
+		expect(res.content[0].text).toContain('eeeeeeee  Otra nota');
+	});
+});
+
+describe('resolveNote', () => {
+	it('resuelve por id corto y por nombre (parcial único), devolviendo la nota', () => {
+		expect(resolveNote(notesPayload, 'aaaaaaaa').note.title).toBe('Probando MCP');
+		expect(resolveNote(notesPayload, 'probando').note.title).toBe('Probando MCP');
+	});
+	it('nombre ambiguo → { ok:false, reason:\'ambiguo\', candidates:[{short,title}] }', () => {
+		const res = resolveNote(notesPayload, 'o');
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('ambiguo');
+		expect(res.candidates).toEqual([
+			{ short: 'aaaaaaaa', title: 'Probando MCP' },
+			{ short: 'eeeeeeee', title: 'Otra nota' }
+		]);
+	});
+	it('inexistente → no-encontrado, sin candidatos', () => {
+		expect(resolveNote(notesPayload, 'zzz')).toEqual({ ok: false, reason: 'no-encontrado' });
+	});
+});
+
+describe('createTaskResult', () => {
+	it('devuelve el id corto (8 chars) de la tarea creada en el mensaje de éxito', () => {
+		const res = createTaskResult({
+			ok: true,
+			result: { block: { id: '6ca816b6-7777-4777-8777-777777777777' }, activity: {} }
+		});
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toBe('Tarea creada: 6ca816b6');
+	});
+	it('cae a \'Tarea creada.\' si el resultado no trae block.id', () => {
+		const res = createTaskResult({ ok: true, result: {} });
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toBe('Tarea creada.');
+	});
+	it('un rechazo se enruta por toolResult (isError, con la razón)', () => {
+		const res = createTaskResult({ ok: false, reason: 'not-agent-visible' });
+		expect(res.isError).toBe(true);
+		expect(res.content[0].text).toContain('not-agent-visible');
+	});
+	it('un timeout se enruta por toolResult (mensaje \'no reenviar\')', () => {
+		const res = createTaskResult({ ok: false, reason: 'timeout', id: 'zzz' });
+		expect(res.isError).toBe(true);
+		expect(res.content[0].text).toMatch(/no la reenv[ií]es/i);
+	});
+});
+
+describe('rejectionText', () => {
+	it('timeout: menciona el id y pide no reenviar', () => {
+		expect(rejectionText('timeout', undefined, 'abc')).toMatch(/abc/);
+		expect(rejectionText('timeout', undefined, 'abc')).toMatch(/no la reenv[ií]es/i);
+	});
+	it('ambiguo con candidatos: los lista con id + título', () => {
+		const text = rejectionText('ambiguo', [{ short: 'a1', title: 'Uno' }, { short: 'b2', title: 'Dos' }]);
+		expect(text).toContain('- a1  Uno');
+		expect(text).toContain('- b2  Dos');
+	});
+	it('razón simple: \'Rechazado: <razón>\'', () => {
+		expect(rejectionText('not-a-task')).toBe('Rechazado: not-a-task');
 	});
 });
 

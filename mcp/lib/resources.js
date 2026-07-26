@@ -41,7 +41,14 @@ function blockToMarkdown(block, shortIds) {
 }
 
 export function noteToMarkdown(note, shortIds) {
-	const header = note.folder ? `## ${note.title}  ·  ${note.folder}` : `## ${note.title}`;
+	// Note's OWN short id goes in the header, id-first like list_notes, so an
+	// agent that read the note by name still has the id create_task needs — no
+	// extra list_notes round-trip just to learn it. Omitted only when there's no
+	// id to show (never happens with real export data; keeps the projection clean).
+	const short = shortIds.get(note.id) ?? note.id;
+	const prefix = short ? `${short}  ` : '';
+	const titleAndFolder = note.folder ? `${note.title}  ·  ${note.folder}` : `${note.title}`;
+	const header = `## ${prefix}${titleAndFolder}`;
 	const lines = [header];
 	let previousWasTodo = false;
 	for (const block of note?.blocks ?? []) {

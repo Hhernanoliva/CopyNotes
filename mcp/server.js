@@ -23,6 +23,9 @@ import {
 	completeTaskChange,
 	addNoteChange,
 	toolResult,
+	createTaskResult,
+	rejectionText,
+	resolveNote,
 	expandArgs,
 	historyResult,
 	listNotesResult,
@@ -85,17 +88,34 @@ const expandingHandler = (buildChange, okText) => async (args) => {
 // add_note vs complete_task's summary, draw the line the model kept missing
 // ("leave a comment" → add_note, not the completion summary). Cheap — they ride
 // in the schema that's sent anyway — and materially improve tool selection.
+// create_task has its own handler (not expandingHandler) because it accepts a
+// note NAME or short id (resolveNote), not only a short id, and because its
+// success answer returns the NEW task's short id (createTaskResult) so the model
+// can act on it without a re-read. An ambiguous name comes back with candidates.
 server.registerTool(
 	'create_task',
 	{
 		description:
-			'Crear una tarea nueva (checkbox) dentro de una nota visible. Usala cuando el usuario pide agregar un pendiente o tarea a una nota.',
+			'Crear una tarea nueva (checkbox) dentro de una nota visible. Usala cuando el usuario pide agregar un pendiente o tarea a una nota. Devuelve el id corto de la tarea creada.',
 		inputSchema: {
-			noteId: z.string().describe('Id corto de la nota (lo devuelven list_notes / read_note).'),
+			noteId: z
+				.string()
+				.describe('Id corto o nombre de la nota (list_notes / read_note los muestran). El nombre puede ser parcial si es inequívoco.'),
 			content: z.string().describe('Texto de la tarea.')
 		}
 	},
-	expandingHandler(createTaskChange, 'Tarea creada.')
+	async ({ noteId, content }) => {
+		await touchAgentStatus();
+		const exp = await readExport();
+		const resolved = resolveNote(exp, noteId);
+		if (!resolved.ok) {
+			return {
+				content: [{ type: 'text', text: rejectionText(resolved.reason, resolved.candidates) }],
+				isError: true
+			};
+		}
+		return createTaskResult(await submitChange(createTaskChange({ noteId: resolved.note.id, content })));
+	}
 );
 
 server.registerTool(
@@ -133,7 +153,7 @@ server.registerTool(
 	'list_notes',
 	{
 		description:
-			'Listar las notas que el usuario marcó visibles para agentes (nombre + id corto de cada una). Usala primero cuando el usuario menciona una nota por su nombre y necesitás su id, o para ver qué hay disponible.',
+			'Listar las notas visibles para agentes (nombre + id corto de cada una). Usala SOLO para descubrir qué notas hay o para desambiguar un nombre. Si el usuario ya te dio un nombre de nota, NO la uses: llamá directo a read_note (o create_task), que ya resuelven por nombre.',
 		inputSchema: {}
 	},
 	async () => {

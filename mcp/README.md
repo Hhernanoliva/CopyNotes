@@ -55,12 +55,20 @@ the resource does (same privacy rules, same token cost).
 
 | Tool | Input | Effect |
 | --- | --- | --- |
-| `list_notes` | `{}` | Lists agent-visible notes (name + short id). |
-| `read_note` | `{ note }` | Reads a visible note (by short id or name) as the Markdown projection. |
-| `create_task` | `{ noteId, content }` | Creates a new todo block in the given note. |
+| `list_notes` | `{}` | Lists agent-visible notes (name + short id). **Discovery/disambiguation only** — if the user already named a note, call `read_note`/`create_task` directly (both resolve by name). |
+| `read_note` | `{ note }` | Reads a visible note (by short id or name) as Markdown. The note's OWN short id is in the header (id-first, like `list_notes`), so no extra `list_notes` is needed to learn it. |
+| `create_task` | `{ noteId, content }` | Creates a todo block. `noteId` accepts a note **name or short id**. Success answer echoes the new task's short id (`Tarea creada: <short>`) so it can be acted on without a re-read. |
 | `complete_task` | `{ blockId, summary? }` | Marks a task done (cascades to todo children like the UI); leaves a bitácora trace. |
 | `add_note` | `{ blockId, text }` | Appends a note to a task's bitácora (shown amber "IA" under the task in the app). |
 | `get_task_history` | `{ blockId }` | Returns a task's bitácora on demand (compact, no UUIDs/timestamps). |
+
+**Shorter trips, fewer duplicates.** Each tool answer is shaped to avoid the next
+call: `read_note` carries the note id `create_task` needs; `create_task` returns
+the new task id; an ambiguous note name comes back with the candidate ids
+(`Rechazado: ambiguo. ¿Cuál? …`) instead of forcing a `list_notes`. On a
+`submitChange` timeout the request stays in the buzón and the answer says *not to
+resend* — and a resend within a short window reuses the same request id, so the
+app's ingest dedupe (`getProcessedChange`) applies it at most once.
 
 Tools don't decide privacy themselves — each one builds a change request and
 hands it to `submitChange()` (`lib/mailbox.js`), which writes it to

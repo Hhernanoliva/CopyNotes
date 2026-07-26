@@ -14,7 +14,7 @@
 // the app derives the actor from its own connected-agent identity, never
 // from the inbound file).
 
-import { expandId, buildShortIds } from './ids.js';
+import { expandId, buildShortIds, SHORT_ID_LENGTH } from './ids.js';
 import { noteToMarkdown } from './resources.js';
 
 export function createTaskChange({ noteId, content }) {
@@ -44,8 +44,41 @@ export function toolResult(result, okText = 'Listo.') {
 		return { content: [{ type: 'text', text: okText }], isError: false };
 	}
 	return {
-		content: [{ type: 'text', text: `Rechazado: ${result?.reason ?? 'desconocido'}` }],
+		content: [{ type: 'text', text: rejectionText(result?.reason, result?.candidates, result?.id) }],
 		isError: true
+	};
+}
+
+// One place to phrase a rejection so every tool speaks the same way:
+//  - 'timeout' is NOT a failure the model should retry blindly: the request is
+//    already in the buzón and the app applies it at most once (ingest.ts dedupes
+//    by id, and submitChange reuses the id on a retry). So the message tells the
+//    model to STOP, not to resend — a blind resend is what risks duplicates.
+//  - 'ambiguo' carries the candidate notes (id + title) so the model can pick
+//    the right one WITHOUT a recovery list_notes call.
+export function rejectionText(reason, candidates, id) {
+	if (reason === 'timeout') {
+		const idPart = id ? ` (id: ${id})` : '';
+		return `Sin confirmación todavía${idPart}. La solicitud quedó en el buzón y se aplica una sola vez; NO la reenvíes.`;
+	}
+	if (reason === 'ambiguo' && candidates?.length) {
+		const lines = candidates.map((c) => `- ${c.short}  ${c.title}`).join('\n');
+		return `Rechazado: ambiguo. ¿Cuál?\n${lines}`;
+	}
+	return `Rechazado: ${reason ?? 'desconocido'}`;
+}
+
+// create_task's success answer carries the NEW task's short id so the model can
+// immediately comment on or complete it without a re-read. The short id is the
+// UUID's first SHORT_ID_LENGTH chars — the same prefix buildShortIds will assign
+// once the task lands in the next export (it only lengthens on a rare collision).
+export function createTaskResult(result) {
+	if (!result?.ok) return toolResult(result);
+	const id = result?.result?.block?.id;
+	const short = typeof id === 'string' && id ? id.slice(0, SHORT_ID_LENGTH) : null;
+	return {
+		content: [{ type: 'text', text: short ? `Tarea creada: ${short}` : 'Tarea creada.' }],
+		isError: false
 	};
 }
 
@@ -97,8 +130,10 @@ export function listNotesResult(exportPayload) {
 
 // Resolve a note by short id / full id first, then by exact title
 // (case-insensitive), then by a UNIQUE title substring. Ambiguous name → error
-// rather than guessing, so the agent picks a precise reference.
-function resolveNote(exportPayload, ref) {
+// rather than guessing — but the error carries the candidate notes (id + title)
+// so the caller can disambiguate without a second list_notes call. Exported so
+// create_task can accept a note NAME, not only its short id.
+export function resolveNote(exportPayload, ref) {
 	if (!ref) return { ok: false, reason: 'no-encontrado' };
 	const notes = exportPayload?.notes ?? [];
 	const byId = expandId(exportPayload, ref, 'note');
@@ -109,17 +144,29 @@ function resolveNote(exportPayload, ref) {
 	const lower = ref.toLowerCase();
 	const exact = notes.filter((note) => (note.title ?? '').toLowerCase() === lower);
 	if (exact.length === 1) return { ok: true, note: exact[0] };
-	if (exact.length > 1) return { ok: false, reason: 'ambiguo' };
+	if (exact.length > 1) return ambiguousNote(exportPayload, exact);
 	const partial = notes.filter((note) => (note.title ?? '').toLowerCase().includes(lower));
 	if (partial.length === 1) return { ok: true, note: partial[0] };
-	if (partial.length > 1) return { ok: false, reason: 'ambiguo' };
+	if (partial.length > 1) return ambiguousNote(exportPayload, partial);
 	return { ok: false, reason: 'no-encontrado' };
+}
+
+function ambiguousNote(exportPayload, matches) {
+	const shortIds = buildShortIds(exportPayload);
+	return {
+		ok: false,
+		reason: 'ambiguo',
+		candidates: matches.map((note) => ({ short: shortIds.get(note.id) ?? note.id, title: note.title ?? '' }))
+	};
 }
 
 export function readNoteResult(exportPayload, ref) {
 	const resolved = resolveNote(exportPayload, ref);
 	if (!resolved.ok) {
-		return { content: [{ type: 'text', text: `Rechazado: ${resolved.reason}` }], isError: true };
+		return {
+			content: [{ type: 'text', text: rejectionText(resolved.reason, resolved.candidates) }],
+			isError: true
+		};
 	}
 	return {
 		content: [{ type: 'text', text: noteToMarkdown(resolved.note, buildShortIds(exportPayload)) }],

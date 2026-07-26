@@ -37,7 +37,7 @@ describe('noteToMarkdown', () => {
 		const md = noteToMarkdown(note, buildShortIds(payload));
 		expect(md).toBe(
 			[
-				'## Proyecto X  ·  Trabajo',
+				'## aaaaaaaa  Proyecto X  ·  Trabajo',
 				'',
 				'## Contexto',
 				'',
@@ -53,9 +53,10 @@ describe('noteToMarkdown', () => {
 		);
 	});
 
-	it('sin carpeta la cabecera es solo el título', () => {
-		const md = noteToMarkdown({ ...note, folder: null, blocks: [] }, new Map());
-		expect(md).toBe('## Proyecto X');
+	it('sin carpeta la cabecera es id corto + título', () => {
+		const n = { ...note, folder: null, blocks: [] };
+		const md = noteToMarkdown(n, buildShortIds({ notes: [n] }));
+		expect(md).toBe('## aaaaaaaa  Proyecto X');
 	});
 
 	it('NO filtra bitácora ni UUIDs largos ni timestamps', () => {
