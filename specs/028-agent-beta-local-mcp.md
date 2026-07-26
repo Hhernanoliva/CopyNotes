@@ -77,6 +77,16 @@ candado por contenido):
   (no re-lee lo suyo); las **tareas pendientes creadas por el agente sí** se
   muestran (ocultarlas causaría duplicados y tareas que no podría completar).
 
+**Descubrimiento + lectura como tools:** además de exponer las notas como
+**recursos** MCP, hay dos tools de solo-lectura — `list_notes` (notas visibles:
+nombre + id corto) y `read_note` (una nota por id corto o **nombre** → el mismo
+Markdown que el recurso). Motivo: la mayoría de clientes no le pasan los recursos
+al modelo por su cuenta (el usuario tiene que adjuntarlos a mano), así que un
+prompt natural ("entrá a la nota X y hacé lo anotado") no llega a la nota por el
+recurso. Las tools sí son siempre visibles para el modelo → el flujo anda sin
+que el usuario pegue ids. Mismas reglas de privacidad (solo notas 🤖, sin
+comentarios, completadas ocultas en el Markdown).
+
 **Escritura:** sin cambios de poder — mismas 3 tools (`create_task`,
 `complete_task`, `add_note`) + `get_task_history`. La "voz" del agente reutiliza
 `add_note` (bitácora, `action: 'note'`, `actor` = agente) y la app la muestra
@@ -170,7 +180,14 @@ without redesign.
   tasks with short ids); the bitácora is not inline, only via `get_task_history`.
 - Every agent write produces exactly one activity entry.
 - Completing a task sets `checked = true` **and** appends a `done` entry carrying
-  actor and timestamp.
+  actor and timestamp. Completion **cascades exactly like the UI** (specs/003): the
+  done value flows to todo children and mirrors up through todo ancestors, in one
+  atomic write; the agent's summary lands on the target's `done` line, cascaded
+  blocks get an empty one. Completing an already-done task never reopens it.
+- (v2) Completed tasks are **hidden from the Markdown read** but still carried in
+  `export.json` (with `checked` + bitácora), so `add_note` and `get_task_history`
+  work on a task the agent has just completed — the short-id pool resolves against
+  the export, not the pruned Markdown.
 - Uncheck + a user `note` entry round-trips as "reopen/redo" the agent can read.
 - The bridge is desktop-only; the browser build exposes no agent surface.
 - The agent cannot delete, export, or bulk-reorder in v1.

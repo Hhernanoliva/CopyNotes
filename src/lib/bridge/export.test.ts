@@ -40,7 +40,7 @@ describe('toAgentPayload v2 (proyección + gate de privacidad)', () => {
 		expect(note.blocks[0].activity).toBeUndefined();
 	});
 
-	it('excluye completadas, separadores, prosa vacía; comentario y html JAMÁS viajan', () => {
+	it('conserva completadas con su flag checked (el Markdown las oculta, no el export); descarta separadores y prosa vacía; comentario y html JAMÁS viajan', () => {
 		const notes = [{ id: 'n1', title: 'V', agentVisible: true, folderId: null }];
 		const blocksByNote = {
 			n1: [
@@ -50,12 +50,16 @@ describe('toAgentPayload v2 (proyección + gate de privacidad)', () => {
 				{ id: 'ok', parentBlockId: null, order: 3, type: 'todo', content: 'pendiente', checked: false, createdBy: 'user', html: '<b>pendiente</b>', note: 'comentario privado' }
 			]
 		};
-		const payload = toAgentPayload(notes, blocksByNote, { ok: [] }, {});
-		expect(payload.notes[0].blocks.map((b) => b.id)).toEqual(['ok']);
+		const payload = toAgentPayload(notes, blocksByNote, { done: [{ action: 'done' }], ok: [] }, {});
+		// Completed task is carried (so tools can still resolve/annotate it), separators
+		// and empty prose are dropped. The completed task keeps checked:true + its bitácora.
+		expect(payload.notes[0].blocks.map((b) => b.id)).toEqual(['done', 'ok']);
+		expect(payload.notes[0].blocks.find((b) => b.id === 'done')).toMatchObject({ checked: true, activity: [{ action: 'done' }] });
+		expect(payload.notes[0].blocks.find((b) => b.id === 'ok').checked).toBe(false);
 		expect(payload.notes[0].folder).toBeNull();
 		const flat = JSON.stringify(payload);
+		// Comment and html are the double-locked secrets — never, regardless of checked.
 		expect(flat).not.toContain('comentario privado');
-		expect(flat).not.toContain('hecha');
 		expect(flat).not.toContain('<b>');
 	});
 });
@@ -82,6 +86,19 @@ describe('buildAgentExport (privacy gate over real storage)', () => {
 		const flat = JSON.stringify(payload);
 		expect(flat).not.toContain('secreto');
 		expect(flat).not.toContain('Privada');
+	});
+
+	it('conserva una tarea completada con su bitácora (para add_note / get_task_history)', async () => {
+		const { completeTask } = await import('$lib/tasks');
+		const note = await createNote({ title: 'V' });
+		await updateNote(note.id, { agentVisible: true });
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'hacer' });
+		await completeTask({ blockId: block.id, actor: 'agent', text: 'listo' });
+
+		const payload = await buildAgentExport();
+		const exported = payload.notes[0].blocks.find((b) => b.id === block.id);
+		expect(exported.checked).toBe(true);
+		expect(exported.activity.map((e) => e.action)).toContain('done');
 	});
 
 	it('trae el nombre de la carpeta de la nota y nunca el comentario de un bloque', async () => {

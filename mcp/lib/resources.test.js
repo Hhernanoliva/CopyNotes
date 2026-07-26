@@ -71,6 +71,20 @@ describe('noteToMarkdown', () => {
 		expect(md).toBe(['## T', '', '````', 'tiene ``` adentro', '````'].join('\n'));
 	});
 
+	it('oculta las tareas completadas aunque viajen en el export', () => {
+		const n = {
+			title: 'T',
+			folder: null,
+			blocks: [
+				{ id: 'p', type: 'todo', content: 'pendiente', checked: false, depth: 0, activity: [] },
+				{ id: 'd', type: 'todo', content: 'completada', checked: true, depth: 0, activity: [] }
+			]
+		};
+		const md = noteToMarkdown(n, new Map());
+		expect(md).toContain('pendiente');
+		expect(md).not.toContain('completada');
+	});
+
 	it('indenta código y títulos anidados según depth', () => {
 		const n = {
 			title: 'T',

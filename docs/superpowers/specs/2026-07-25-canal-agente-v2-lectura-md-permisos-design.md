@@ -27,7 +27,7 @@ Texto de contexto de la nota (los bloques de texto que escribió el usuario)…
 - **Texto de la nota como contexto**: bloques `text`, `bullet`, `heading`, `code` (código en fence ```). Es la parte que escala con lo que el usuario escriba; decisión consciente — es exactamente lo que el usuario quiere que el agente vea.
 
 **Se excluye (ahorro medido + privacidad):**
-- Tareas **completadas** — no viajan.
+- Tareas **completadas** — **no aparecen en el Markdown** que lee el agente (ahorro medido). Corrección 2026-07-25: **sí viajan en el `export.json`** (con su flag `checked` y su bitácora) porque ese archivo es el sustrato con el que las tools resuelven ids cortos e historial. Descartarlas del export dejaba sus ids irresolubles y rompía el flujo "completar y después comentar / ver historial" (`add_note` y `get_task_history` fallaban con `no-encontrado`). El ahorro de tokens lo garantiza el filtro del Markdown (`mcp/lib/resources.js`), no el descarte en el export. Los **comentarios** (`block.note`) sí se descartan siempre en el export (doble cerrojo).
 - **Comentarios** (`block.note`) — nunca salen de la app (ver Parte 3).
 - Notas de bitácora escritas por el agente — no se le devuelven al agente (no re-lee sus propias anotaciones). Las **tareas pendientes sí se muestran todas**, incluidas las que creó el agente (decisión 2026-07-25: ocultarlas causaría duplicados y tareas que el agente no puede completar).
 - UUIDs de 36 chars → **id corto de 8** (prefijo). El server MCP mantiene el mapa corto→UUID y re-expande al recibir una tool call. El agente jamás ve el UUID largo.
@@ -74,7 +74,8 @@ El modelo pasa de doble candado a **candado por tipo de contenido**:
 | Prosa (bloques de texto) de nota 🤖 | **Candado simple**: la bandera. Sale solo si el usuario marcó la nota — opt-in consciente. |
 | Prosa de nota NO 🤖 | No sale nada: ni título, ni prosa, ni tareas. |
 | Comentarios (`block.note`) | **Doble candado**: se descartan físicamente en el export, de cualquier nota. Nunca salen. |
-| Tareas completadas, bitácora inline, timestamps, UUIDs | No viajan (economía + menos superficie). |
+| Tareas completadas | Ocultas en el **Markdown** (economía). Viajan en el `export.json` con `checked` + bitácora para resolver ids/historial (corrección 2026-07-25). |
+| Bitácora inline en la lectura, timestamps, UUIDs largos | No viajan al Markdown (economía + menos superficie); la bitácora se pide con `get_task_history`. |
 
 **Endurecimiento (tests obligatorios):**
 1. Test: nota sin 🤖 no aporta nada al export.

@@ -30,9 +30,16 @@ Lo que el agente **nunca** ve:
 
 ## Qué puede hacer el agente
 
+- **Encontrar y abrir una nota por su nombre, solo.** Le podés hablar natural
+  ("entrá a la nota Compras y hacé lo anotado") y el agente la busca y la lee sin
+  que tengas que darle ningún código ni pegarle nada.
 - Leer lo de arriba, de las notas que marcaste como visibles.
 - Crear tareas y marcarlas como hechas, dejando siempre una línea en la
-  **bitácora** (quién hizo qué y cuándo).
+  **bitácora** (quién hizo qué y cuándo). Si marca como hecha una tarea que
+  tiene subtareas, se tachan también las de adentro — igual que cuando la tachás
+  vos en la app.
+- Dejarte una nota "IA" en una tarea o pedirle su historial **aunque la acabe de
+  completar**: completar una tarea no la hace inalcanzable para el agente.
 
 No puede borrar, exportar ni reordenar, y no reescribe el texto de tus notas.
 

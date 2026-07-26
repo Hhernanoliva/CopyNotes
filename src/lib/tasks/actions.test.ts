@@ -101,6 +101,36 @@ describe('completeTask', () => {
 	});
 });
 
+describe('completeTask cascade (agent path)', () => {
+	it('completing a parent cascades to its todo children, summary on the parent line', async () => {
+		const note = await createNote();
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'Tareas' });
+		const childA = await createBlock({ noteId: note.id, parentBlockId: parent.id, type: 'todo', content: 'a' });
+		const childB = await createBlock({ noteId: note.id, parentBlockId: parent.id, type: 'todo', content: 'b' });
+
+		const { block } = await completeTask({ blockId: parent.id, actor: 'agent', text: 'terminé todo' });
+
+		expect(block.checked).toBe(true);
+		expect((await getBlock(childA.id)).checked).toBe(true);
+		expect((await getBlock(childB.id)).checked).toBe(true);
+		// The agent's summary lands on the target's bitácora, children get an empty done line.
+		expect((await listActivityByBlock(parent.id)).at(-1)).toMatchObject({ action: 'done', text: 'terminé todo' });
+		expect((await listActivityByBlock(childA.id)).at(-1)).toMatchObject({ action: 'done', text: '' });
+	});
+
+	it('completing an already-done task still records the summary and never reopens it', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'ya hecha', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent', text: 'primera' });
+		await completeTask({ blockId: block.id, actor: 'agent', text: 'segunda' });
+
+		expect((await getBlock(block.id)).checked).toBe(true);
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'done']);
+		expect(log.at(-1).text).toBe('segunda');
+	});
+});
+
 describe('reopen / note / edit', () => {
 	it('reopen unchecks and traces; addTaskNote records an instruction', async () => {
 		const note = await createNote();

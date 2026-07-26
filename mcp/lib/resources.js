@@ -45,6 +45,10 @@ export function noteToMarkdown(note, shortIds) {
 	const lines = [header];
 	let previousWasTodo = false;
 	for (const block of note?.blocks ?? []) {
+		// Completed tasks are carried in the export (so tools can still resolve
+		// and annotate them) but hidden from the agent's context here — the
+		// token-saving "agent doesn't see completed tasks" promise lives here.
+		if (block.type === 'todo' && block.checked === true) continue;
 		const isTodo = block.type === 'todo';
 		// blank line between prose chunks; consecutive todos stay together
 		if (!(previousWasTodo && isTodo)) lines.push('');

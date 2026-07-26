@@ -16,7 +16,7 @@ import {
 	listActivityByBlock
 } from '$lib/storage';
 import { plainTextToHtml } from '$lib/format';
-import { planToggleChecked } from '$lib/blocks/cascade';
+import { planToggleChecked, planSetChecked } from '$lib/blocks/cascade';
 import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
 // Block change + its one bitácora entry commit together or not at all, so an
@@ -85,8 +85,50 @@ export async function createTask({
 	return result;
 }
 
+// Completing a task cascades the SAME way the UI does (specs/003): the done
+// value flows to todo children and mirrors up through todo ancestors, all in
+// ONE atomic write. Without this the agent could tick a parent while its
+// subtasks stayed open — the exact mismatch the UI never allows. The agent's
+// summary lands on the target's bitácora line; cascaded blocks get an empty
+// 'done' line, matching setTaskChecked.
 export async function completeTask({ blockId, actor, text = '' }) {
-	return traceWrite({ blockId, changes: { checked: true }, actor, action: 'done', text });
+	const block = await getBlock(blockId);
+	if (!block) return undefined;
+	const noteBlocks = await listBlocksByNote(block.noteId);
+	const plan = planSetChecked(noteBlocks, blockId, true);
+	if (!plan) return undefined; // not a todo (the ingest gate already guards this)
+
+	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
+		let target;
+		for (const { id, checked } of plan.updates) {
+			const updated = await updateBlock(id, { checked });
+			const activity = await appendActivity({
+				blockId: id,
+				noteId: block.noteId,
+				actor,
+				action: checked ? 'done' : 'reopened',
+				text: id === blockId ? text : ''
+			});
+			if (id === blockId) target = { block: updated, activity };
+		}
+		// Target already done (nothing flipped for it): still record the agent's
+		// completion intent + summary so an idempotent complete leaves a trace.
+		if (!target) {
+			const activity = await appendActivity({
+				blockId,
+				noteId: block.noteId,
+				actor,
+				action: 'done',
+				text
+			});
+			target = { block, activity };
+		}
+		return target;
+	});
+	// updateBlock's safety-net bump fired on any real flip; when nothing flipped
+	// (only the fallback activity line was written) refresh the export here.
+	if (plan.updates.length === 0) bumpAgentData();
+	return result;
 }
 
 export async function reopenTask({ blockId, actor = 'user', text = '' }) {

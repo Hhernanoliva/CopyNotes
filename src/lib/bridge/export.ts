@@ -1,8 +1,18 @@
 // The export boundary is the privacy gate: notes whose agentVisible is not true
 // MUST NOT leave the app through the bridge. v2: the agent sees each visible
-// note's PROSE as context plus its PENDING tasks, in document (tree) order.
-// A block's comment (`note` field) and completed tasks are physically
-// discarded here — they never leave the app, no matter what the server does.
+// note's PROSE as context plus its tasks, in document (tree) order. A block's
+// comment (`note` field) is physically discarded here — it never leaves the
+// app, no matter what the server does.
+//
+// Completed tasks ARE carried in this payload (with their `checked` flag and
+// bitácora) even though the Markdown projection the agent reads hides them.
+// Two roles are decoupled on purpose: this export.json is the machine-readable
+// substrate the tools resolve short ids and history against, so a task the
+// agent just completed can still be annotated (add_note) or reviewed
+// (get_task_history). The token-saving "agent doesn't see completed tasks"
+// promise is kept by the Markdown filter (lib/resources.js), not by dropping
+// them here — dropping them here made their ids unreachable, breaking the
+// complete-then-comment flow.
 
 import { listNotes, listBlocksByNote, listActivityByBlock, listFolders } from '$lib/storage';
 import { flattenTree } from '$lib/blocks/hierarchy';
@@ -13,7 +23,7 @@ export const AGENT_EXPORT_VERSION = 2;
 const CONTEXT_TYPES = new Set(['text', 'bullet', 'heading1', 'heading2', 'heading3', 'code']);
 
 function includeBlock(block) {
-	if (block.type === 'todo') return block.checked !== true;
+	if (block.type === 'todo') return true; // pending AND completed — the Markdown view filters completed
 	if (!CONTEXT_TYPES.has(block.type)) return false;
 	return (block.content ?? '').trim() !== '';
 }
@@ -26,6 +36,7 @@ function projectBlock(block, depth, activity) {
 			id: block.id,
 			type: 'todo',
 			content: block.content,
+			checked: block.checked === true,
 			depth,
 			createdBy: block.createdBy ?? 'user',
 			activity: activity ?? []
@@ -62,7 +73,9 @@ export async function buildAgentExport() {
 		const blocks = await listBlocksByNote(note.id);
 		blocksByNote[note.id] = blocks;
 		for (const block of blocks) {
-			if (block.type === 'todo' && block.checked !== true)
+			// Load bitácora for every task, completed included: get_task_history and
+			// add_note resolve against tasks the agent may have just completed.
+			if (block.type === 'todo')
 				activityByBlock[block.id] = await listActivityByBlock(block.id);
 		}
 	}
