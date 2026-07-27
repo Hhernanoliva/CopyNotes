@@ -1,5 +1,9 @@
 # 029 - Cloud Sync Path (Pro): Accounts, Seams, Conflicts
 
+> **Read `030` alongside this spec.** `030` (2026-07-27) makes this road
+> zero-knowledge: records are encrypted on the device before upload, and two
+> items below are marked superseded by it.
+
 ## Objective
 
 Record the complete, buildable road to **optional** cloud sync with accounts — a
@@ -38,6 +42,9 @@ beta (`028`).
   storage): login with Google/Apple, per-user row isolation, and encryption in
   transit/at rest out of the box — chosen to avoid hand-rolling security. Named as
   the leading candidate, not locked; `010` keeps the backend open.
+  **Superseded by `030` (2026-07-27):** Supabase-provided encryption is not
+  enough, because Supabase itself can read it. Records are encrypted **on the
+  device before upload**; Supabase stores ciphertext and never holds the key.
 - **Consent + privacy.** Nothing leaves the device without explicit account
   creation and upload consent. Each user reads only their own rows (enforced
   server-side). The free/local tier keeps zero server-side personal data.
@@ -84,7 +91,11 @@ Exception: **settings** stay last-write-wins keyed preferences, not documents
   the task-action layer (the sync seam).
 - Every persisted entity has stable id + timestamps + soft delete (settings
   excepted per `002`).
-- A "changed since T" query exists or is trivially addable over the repositories.
+- ~~A "changed since T" query exists or is trivially addable over the
+  repositories.~~ **Superseded by `030` (2026-07-27): false as written.**
+  `storage/ids.ts` timestamps are wall-clock to the millisecond, so same-ms
+  writes tie and a backwards clock hides a change. `030` Phase 1 replaces this
+  with the monotonic `seq` pattern already proven in `storage/activity.ts`.
 - Adding `ownerId` later is an additive migration, not a rewrite (the v1→v5
   pattern proves this is cheap here).
 - The agent beta's new data (`activity`, `agentVisible`, `createdBy`) is itself

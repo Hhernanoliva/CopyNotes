@@ -35,6 +35,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 27. `027-settings-text-size.md`
 28. `028-agent-beta-local-mcp.md`
 29. `029-cloud-sync-path.md`
+30. `030-zero-knowledge-sync.md`
 
 ## Required Sections For Specs
 

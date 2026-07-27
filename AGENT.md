@@ -98,6 +98,7 @@ A feature is not done until: the app runs without errors; risky logic has Vitest
 | Settings dialog + text size (Configuración) | `027` |
 | Agent beta: local MCP, task-action layer, activity log | `028` |
 | Cloud sync path (Pro): accounts, seams, conflicts | `029` |
+| Zero-knowledge sync: encryption at the upload edge | `030` |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 
