@@ -74,6 +74,10 @@ describe('submitChange', () => {
 			await readFile(path.join(mailboxDir, 'inbox', 'change-1.json'), 'utf8')
 		);
 		expect(written).toMatchObject(change);
+
+		// The answer was consumed, so it must not stay on disk: one file per
+		// change, each carrying the user's own task text, piled up forever.
+		expect(await readdir(path.join(mailboxDir, 'outbox'))).toEqual([]);
 	});
 
 	it('assigns a random id when the change has none', async () => {

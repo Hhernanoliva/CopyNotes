@@ -8,7 +8,7 @@
 //   outbox/<id>.json  — results written by the app, one per inbox request
 
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const READ_EXPORT_RETRIES = 3;
@@ -128,6 +128,11 @@ export async function submitChange(change, options = {}) {
 		try {
 			const raw = await readFile(outboxPath, 'utf8');
 			const result = JSON.parse(raw);
+			// The answer was read, so the file has no reader left. Leaving it kept
+			// one file per change on disk forever, each with the user's own task
+			// text inside; the app dedupes by change id, so a resend still gets the
+			// same answer without this copy.
+			await unlink(outboxPath).catch(() => {});
 			// A definitive answer arrived — drop the memo so a LATER identical
 			// request gets a fresh id (only unconfirmed ids are reused).
 			if (memoKey) pendingRequestIds.delete(memoKey);

@@ -19,12 +19,14 @@ fn restrict(path: &Path, mode: u32) {
 #[cfg(not(unix))]
 fn restrict(_path: &Path, _mode: u32) {}
 
-// A file processed more than this long ago is history nobody reads. Keeping
-// them forever left a growing pile of the user's own task text on disk.
+// A file older than this is history nobody reads. Keeping them forever left a
+// growing pile of the user's own task text on disk. Applies to inbox/processed/
+// (requests already applied) and to outbox/ (answers the client read and
+// deleted itself — what stays here is an answer nobody ever came back for).
 const PROCESSED_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
-fn prune_processed(processed: &Path) {
-    let Ok(entries) = fs::read_dir(processed) else {
+fn prune_stale_files(dir: &Path) {
+    let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
     let now = SystemTime::now();
@@ -107,9 +109,10 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
     let processed = inbox.join("processed");
     fs::create_dir_all(&processed).map_err(|e| e.to_string())?;
     restrict(&processed, 0o700);
-    // Sweep the old pile once per app start. Cheap, and it never runs while an
+    // Sweep the old piles once per app start. Cheap, and it never runs while an
     // agent is mid-request because the watcher has not started yet.
-    prune_processed(&processed);
+    prune_stale_files(&processed);
+    prune_stale_files(&dir.join("outbox"));
 
     std::thread::spawn(move || {
         let (tx, rx) = channel();
@@ -216,10 +219,10 @@ mod tests {
     use super::*;
     use std::fs::File;
 
-    // prune_processed deletes files, so the cutoff gets its own check: a fresh
+    // prune_stale_files deletes files, so the cutoff gets its own check: a fresh
     // request must survive the sweep that clears an ancient one.
     #[test]
-    fn prune_processed_deletes_only_files_past_the_ttl() {
+    fn prune_stale_files_deletes_only_files_past_the_ttl() {
         let dir = std::env::temp_dir().join(format!("cn-prune-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -238,7 +241,7 @@ mod tests {
             .set_times(times)
             .unwrap();
 
-        prune_processed(&dir);
+        prune_stale_files(&dir);
 
         assert!(fresh.exists(), "a recent processed file must survive");
         assert!(!old.exists(), "a processed file past the TTL must be removed");
