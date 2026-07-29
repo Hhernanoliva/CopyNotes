@@ -79,16 +79,21 @@ escucha `securitypolicyviolation` y falla si algún script, fuente o imagen
 queda bloqueado. También avisa cuando los hashes se desactualicen al subir de
 versión mode-watcher: la consola imprime el hash nuevo para pegar.
 
-### Lo que falta verificar en la Mac
+### Verificado en la Mac ✅ (2026-07-29)
 
-La comunicación interna de Tauri (`ipc:`) no se puede probar desde acá. En la
-Mac: `pnpm tauri dev`, abrir la consola y confirmar que **no** hay violaciones
-de CSP y que el buzón/agentes siguen funcionando.
+`pnpm tauri dev`: consola **sin una sola violación de CSP**, y un agente real
+creó una tarea y marcó hechas (visto en Configuración > Agentes). O sea que la
+comunicación interna de Tauri (`ipc:`) pasa la política sin tocarla.
 
-Si apareciera bloqueado el script propio de Tauri (`__TAURI_INTERNALS__`), el
-plan B es mover la política a `tauri.conf.json` — ahí Tauri le agrega su propio
-nonce solo — y dejar la web cubierta con una cabecera en Vercel. Volver atrás es
-revertir un commit.
+Plan B que quedó sin usar, por si alguna vez aparece bloqueado el script propio
+de Tauri (`__TAURI_INTERNALS__`): mover la política a `tauri.conf.json` — ahí
+Tauri le agrega su propio nonce solo — y cubrir la web con una cabecera en
+Vercel. Volver atrás es revertir un commit.
+
+Ruido de consola **pre-existente, no de la CSP**: `manifest.webmanifest` da 404
+en `pnpm dev`. El plugin PWA lo genera solo en el build real
+(`devOptions: { enabled: false }`); en el build está. Verificado corriendo el
+`vite.config.ts` de `eb08976`, que da el mismo 404.
 
 ## Gates al cerrar
 
@@ -116,8 +121,7 @@ Nada de esto se puede verificar desde acá:
   (`ls -la` debería mostrar `drwx------` y `-rw-------`).
 - Poda de `processed/` al arrancar la app.
 - Aviso de export viejo visto desde un cliente MCP real.
-- **CSP en la ventana de Tauri**: `pnpm tauri dev`, consola abierta, sin
-  violaciones, y el buzón/agentes andando (ver el plan B más arriba).
+- ~~CSP en la ventana de Tauri~~ — **hecho 2026-07-29**, ver arriba.
 - Recordatorio de build: `pnpm tauri build --bundles app` (el DMG revienta en su
   Mac) y `cd mcp && pnpm install --config.node-linker=hoisted --prod` para dejar
   `node_modules` plano; `pnpm install` restaura dev.
