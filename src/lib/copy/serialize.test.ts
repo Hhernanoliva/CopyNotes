@@ -1,5 +1,14 @@
-import { describe, expect, it } from 'vitest';
-import { treeToNode, flattenNode, serializeForest, deserializeForest } from './serialize';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	treeToNode,
+	flattenNode,
+	serializeForest,
+	deserializeForest,
+	rememberCopy,
+	recallCopy,
+	purgeStaleCopy,
+	COPY_BUFFER_TTL_MS
+} from './serialize';
 
 function tree(block, children = []) {
 	return { block, children };
@@ -90,5 +99,69 @@ describe('serialize/deserialize forest', () => {
 		expect(deserializeForest(undefined)).toBeNull();
 		expect(deserializeForest('not json')).toBeNull();
 		expect(deserializeForest('[]')).toBeNull();
+	});
+});
+
+// The copy buffer holds real note text in localStorage (spec 030 phase 0), so
+// it must not outlive its window. These tests run under the node project, which
+// has no localStorage — a minimal in-memory stub stands in for it.
+describe('copy buffer lifetime', () => {
+	const STORE_KEY = 'copynotes:clipboard';
+	let store;
+
+	beforeEach(() => {
+		store = new Map();
+		globalThis.localStorage = {
+			getItem: (k) => (store.has(k) ? store.get(k) : null),
+			setItem: (k, v) => void store.set(k, String(v)),
+			removeItem: (k) => void store.delete(k),
+			clear: () => store.clear(),
+			key: (i) => [...store.keys()][i] ?? null,
+			get length() {
+				return store.size;
+			}
+		};
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		delete globalThis.localStorage;
+	});
+
+	it('recalls a payload copied moments ago', () => {
+		rememberCopy('hola', 'PAYLOAD');
+		expect(recallCopy('hola')).toBe('PAYLOAD');
+	});
+
+	it('forgets — and erases — a payload older than the window', () => {
+		rememberCopy('hola', 'PAYLOAD');
+		vi.advanceTimersByTime(COPY_BUFFER_TTL_MS + 1);
+		expect(recallCopy('hola')).toBeNull();
+		expect(store.has(STORE_KEY)).toBe(false);
+	});
+
+	it('purges a stale entry at boot but keeps a fresh one', () => {
+		rememberCopy('hola', 'PAYLOAD');
+		purgeStaleCopy();
+		expect(store.has(STORE_KEY)).toBe(true);
+		vi.advanceTimersByTime(COPY_BUFFER_TTL_MS + 1);
+		purgeStaleCopy();
+		expect(store.has(STORE_KEY)).toBe(false);
+	});
+
+	// Entries written before this fix carry no timestamp. They are the ones most
+	// likely to have been sitting on disk for months, so they must go on sight.
+	it('treats a legacy entry with no timestamp as stale', () => {
+		store.set(STORE_KEY, JSON.stringify({ text: 'hola', payload: 'PAYLOAD' }));
+		expect(recallCopy('hola')).toBeNull();
+		expect(store.has(STORE_KEY)).toBe(false);
+	});
+
+	it('survives a corrupted entry without throwing', () => {
+		store.set(STORE_KEY, 'not json');
+		expect(recallCopy('hola')).toBeNull();
+		purgeStaleCopy();
+		expect(store.has(STORE_KEY)).toBe(false);
 	});
 });

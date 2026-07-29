@@ -41,6 +41,7 @@
 		updateFolder,
 		updateSnippet
 	} from '$lib/storage';
+	import { purgeStaleCopy } from '$lib/copy/serialize';
 	import { planDelete, planFolderDelete, planMoveToContainer, planReorder } from '$lib/organize';
 	import { seedDemoNote, shouldSeedDemoNote } from '$lib/onboarding';
 	import { buildSnippetsExport, snippetsExportFileName } from '$lib/export-import';
@@ -117,6 +118,9 @@
 				// Writes the previous page journaled while dying (reload/close inside
 				// the save debounce) must land before anything reads.
 				await replayJournal();
+				// Drop a copy buffer that outlived its window, so old note text does
+				// not sit in localStorage forever (spec 030 phase 0).
+				purgeStaleCopy();
 				let [rows, lastId, snippetRows, savedScale] = await Promise.all([
 					listNotes(),
 					getLastOpenedNoteId(),

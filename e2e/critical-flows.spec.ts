@@ -332,7 +332,13 @@ test('paste falls back to the localStorage buffer when only text/plain arrives',
 		const payload = JSON.stringify([
 			{ type: 'code', content: 'saludar()', checked: false, note: '', tags: [], children: [] }
 		]);
-		localStorage.setItem('copynotes:clipboard', JSON.stringify({ text: 'saludar()', payload }));
+		// `at` is what rememberCopy writes now: the buffer expires after a day so
+		// note text does not sit in localStorage forever (spec 030 phase 0). An
+		// entry without it counts as stale and is ignored.
+		localStorage.setItem(
+			'copynotes:clipboard',
+			JSON.stringify({ text: 'saludar()', payload, at: Date.now() })
+		);
 	});
 	await first.evaluate((el) => {
 		const dt = new DataTransfer();

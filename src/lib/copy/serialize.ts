@@ -52,9 +52,33 @@ export function normalizeNewlines(text) {
 	return (text ?? '').replace(/\r\n?/g, '\n');
 }
 
+// This buffer holds real note text, so it must not live on disk forever
+// (spec 030 phase 0). A day covers any realistic copy→paste session, including
+// "copy now, paste after lunch"; past that the entry is erased rather than just
+// ignored, because ignored plaintext is still plaintext on disk.
+export const COPY_BUFFER_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Entries written before the TTL existed carry no `at`. They are the ones most
+// likely to have been sitting there for months, so a missing timestamp counts
+// as stale rather than as "fresh enough".
+function isStale(stored) {
+	return !stored || typeof stored.at !== 'number' || Date.now() - stored.at > COPY_BUFFER_TTL_MS;
+}
+
+function forget() {
+	try {
+		localStorage.removeItem(STORE_KEY);
+	} catch {
+		// Nothing to clean up if storage is unavailable.
+	}
+}
+
 export function rememberCopy(text, payload) {
 	try {
-		localStorage.setItem(STORE_KEY, JSON.stringify({ text: normalizeNewlines(text), payload }));
+		localStorage.setItem(
+			STORE_KEY,
+			JSON.stringify({ text: normalizeNewlines(text), payload, at: Date.now() })
+		);
 	} catch {
 		// localStorage unavailable (SSR, privacy mode) — the custom format and
 		// line parser still cover paste.
@@ -62,14 +86,36 @@ export function rememberCopy(text, payload) {
 }
 
 export function recallCopy(text) {
+	let stored = null;
 	try {
 		const raw = localStorage.getItem(STORE_KEY);
 		if (!raw) return null;
-		const stored = JSON.parse(raw);
-		return stored && stored.text === normalizeNewlines(text) ? stored.payload : null;
+		stored = JSON.parse(raw);
 	} catch {
+		// Unreadable or corrupted — drop it instead of leaving it behind.
+		forget();
 		return null;
 	}
+	if (isStale(stored)) {
+		forget();
+		return null;
+	}
+	return stored.text === normalizeNewlines(text) ? stored.payload : null;
+}
+
+// Called once at boot: expiring only on read would leave the last copied note
+// on disk indefinitely for anyone who copies something and never pastes again.
+export function purgeStaleCopy() {
+	let stored = null;
+	try {
+		const raw = localStorage.getItem(STORE_KEY);
+		if (!raw) return;
+		stored = JSON.parse(raw);
+	} catch {
+		forget();
+		return;
+	}
+	if (isStale(stored)) forget();
 }
 
 // Parse a clipboard payload back to a forest, or null when it is missing or not
