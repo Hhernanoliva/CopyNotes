@@ -17,7 +17,47 @@ export default defineConfig({
 			// prerendered (see +layout.ts) and there are no server routes, so we
 			// ship it as static files. This is what makes the PWA service worker
 			// serve correctly and keeps a future Tauri/desktop path simple.
-			adapter: adapter()
+			adapter: adapter(),
+
+			// Strict CSP (spec 030, phase 0). SvelteKit emits it as a <meta> tag in
+			// the prerendered HTML, so the same policy covers the web build and the
+			// Tauri window (which loads that same HTML). `tauri.conf.json` keeps
+			// `csp: null` on purpose: a second policy there would intersect with
+			// this one and silently block whatever the two disagree on.
+			//
+			// `hash` mode because the shell is prerendered — a nonce cannot be
+			// generated at request time when there are no requests.
+			csp: {
+				mode: 'hash',
+				directives: {
+					'default-src': ['self'],
+					// The two hashes are mode-watcher's anti-flash snippet, which it
+					// inlines in <head> so the saved theme is applied before first paint
+					// (minified in the build, verbatim in dev — hence one hash each).
+					// SvelteKit only hashes the scripts it emits itself, so this one is
+					// ours to keep. Both change if mode-watcher is upgraded or the
+					// <ModeWatcher> props in +layout.svelte change;
+					// e2e/security-csp.spec.ts fails loudly when that happens, and the
+					// browser console prints the new hash to paste here.
+					'script-src': [
+						'self',
+						'sha256-eQzd7ECZTdExOJtFu68TzJ+cdLj0fuHaxMDIJBtXfhU=',
+						'sha256-F7rYmbyEd7GImsIVVBGqp/pxi6c/HrA2mOw1Ek7e1FM='
+					],
+					// Inline `style="..."` attributes come from Svelte components and
+					// third-party UI (sonner, shadcn). Inline styles cannot exfiltrate
+					// data on their own; inline scripts are the ones that matter.
+					'style-src': ['self', 'unsafe-inline'],
+					'img-src': ['self', 'data:'],
+					'font-src': ['self'],
+					// No backend. `ipc:`/`ipc.localhost` is how the desktop app talks to
+					// its own Rust side (mailbox, agent status). Nothing else may leave.
+					'connect-src': ['self', 'ipc:', 'http://ipc.localhost'],
+					'object-src': ['none'],
+					'base-uri': ['self'],
+					'form-action': ['none']
+				}
+			}
 		}),
 		// PWA: installable + offline. We register the service worker ourselves
 		// (virtual:pwa-register/svelte in PwaLifecycle.svelte), so injectRegister

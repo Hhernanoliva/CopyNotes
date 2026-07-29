@@ -71,6 +71,20 @@ agent channel (`028`).
 Small, cheap, worth doing regardless of whether cloud sync ever ships:
 
 - **Enable a strict CSP.** `src-tauri/tauri.conf.json` has `"csp": null`.
+
+  **Where it landed (2026-07-29):** in SvelteKit's `csp` config
+  (`vite.config.ts`), not in `tauri.conf.json`. SvelteKit ships the policy as a
+  `<meta>` tag in the prerendered HTML and as a response header in dev, so one
+  policy covers the web build, `pnpm dev` and the Tauri window — which loads
+  that same HTML. A second policy in `tauri.conf.json` would not add cover: the
+  browser enforces every policy it is given, so the two would intersect and
+  silently block anything they disagreed on. `csp: null` stays on purpose.
+
+  The policy is `default-src 'self'` with no `connect-src` beyond `'self'` and
+  the desktop IPC origins, so a compromised dependency has nowhere to send a
+  note. `script-src` carries two hashes for mode-watcher's anti-flash snippet
+  (minified and unminified); `e2e/security-csp.spec.ts` fails if any script,
+  font or image is ever blocked, because the failure mode of a CSP is silence.
 - **Honest agent-consent copy.** `editor/Editor.svelte:1680` promises agents see
   "las tareas de esta nota", but the v2 export also sends prose — text, bullets,
   headings and code blocks (`bridge/export.ts:23`). Fix the wording to match
