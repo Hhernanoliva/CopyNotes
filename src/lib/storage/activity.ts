@@ -1,38 +1,40 @@
 import { db } from './db';
 import { createId, now } from './ids';
+import { nextChangeSeq } from './change-seq';
 import { trackPendingWrite } from './pending-writes';
 
 const activity = db.table('activity');
 
-// Causal order via a monotonic `seq` assigned inside the append transaction.
-// Two entries appended in the same millisecond used to tie on `at` and fall
-// back to a random-uuid tiebreak, which could reorder them unpredictably;
-// `seq` makes insertion order deterministic regardless of the wall clock.
-// `at` stays on the row for display only.
+// Causal order via a monotonic `seq`. Two entries appended in the same
+// millisecond used to tie on `at` and fall back to a random-uuid tiebreak,
+// which could reorder them unpredictably; `seq` makes insertion order
+// deterministic regardless of the wall clock. `at` stays on the row for display
+// only. `seq` is NOT the sync counter: a restore keeps it, so the bitácora reads
+// in its original order even though the sync stamp is rewritten.
 function bySeqAsc(a, b) {
 	return (a.seq ?? 0) - (b.seq ?? 0);
 }
 
 export function appendActivity({ blockId, noteId, actor, action, text = '' }) {
-	return trackPendingWrite(() =>
-		db.transaction('rw', activity, async () => {
-			const rows = await activity.toArray();
-			const maxSeq = rows.reduce((m, r) => (typeof r.seq === 'number' && r.seq > m ? r.seq : m), -1);
-			const row = {
-				id: createId(),
-				blockId,
-				noteId,
-				actor,
-				action,
-				text,
-				seq: maxSeq + 1,
-				at: now(),
-				deletedAt: null
-			};
-			await activity.add(row);
-			return row;
-		})
-	);
+	return trackPendingWrite(async () => {
+		const row = {
+			id: createId(),
+			blockId,
+			noteId,
+			actor,
+			action,
+			text,
+			// The shared monotonic counter (spec 030 phase 1) instead of a max over
+			// the table: that read grew with the bitácora, on every single append.
+			// Both are monotonic, so the order is the same, and old rows keep their
+			// small numbers — appended earlier, sorted earlier.
+			seq: nextChangeSeq(),
+			at: now(),
+			deletedAt: null
+		};
+		await activity.add(row);
+		return row;
+	});
 }
 
 export async function listActivityByBlock(blockId) {
