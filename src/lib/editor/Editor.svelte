@@ -1677,7 +1677,7 @@
 				aria-label="Visible para agentes"
 				aria-pressed={note.agentVisible === true}
 				use:tooltip={note.agentVisible
-					? 'Los agentes pueden ver las tareas de esta nota'
+					? 'Los agentes pueden leer el texto y las tareas de esta nota'
 					: 'Los agentes no ven esta nota'}
 				class="focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-md transition-[color,opacity] duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {note.agentVisible
 					? 'text-primary opacity-100'
