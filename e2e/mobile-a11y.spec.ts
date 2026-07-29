@@ -134,6 +134,10 @@ test('el checkbox de tarea tiene área táctil de 44px', async ({ page }) => {
 
 test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ page }) => {
 	await page.goto('/');
+	// La app tiene que estar viva antes de tocar nada: el título aparece cuando
+	// la nota ya se leyó de la base, y eso solo pasa después de la hidratación.
+	// Un clic anterior a eso no hace nada y la barra nunca se abre.
+	await expect(page.getByRole('textbox', { name: 'Título de la nota' })).toBeVisible();
 
 	// La barra lateral arranca cerrada en pantalla angosta; se abre con el botón.
 	await page.getByRole('button', { name: 'Mostrar lista de notas' }).click();
@@ -151,17 +155,26 @@ test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ pag
 test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }) => {
 	await page.goto('/');
 
-	const first = page.locator('main [data-block-id] .block-editable').first();
+	const rows = page.locator('main [data-block-id]');
+	const first = rows.first().locator('.block-editable');
 	await first.click();
 	await page.keyboard.press('ControlOrMeta+A');
 	await first.pressSequentially('borrame');
+
+	// El renglón nuevo nace cuando la base confirma la escritura: hay que
+	// esperarlo, o "quedo yo" se escribe en un renglón viejo de la nota demo y
+	// el foco vuelve solo al renglón nuevo cuando aparece.
+	const rowCount = await rows.count();
 	await first.press('Enter');
-	await page.locator('main [data-block-id] .block-editable').nth(1).pressSequentially('quedo yo');
+	await expect(rows).toHaveCount(rowCount + 1);
+	await rows.nth(1).locator('.block-editable').pressSequentially('quedo yo');
 
 	// Los controles salen solo en la fila activa: hay que enfocar la primera
 	// para que aparezca su menú (mismo flujo que hace el usuario al tacto).
 	await first.click();
-	await page.getByRole('button', { name: 'Más acciones' }).first().click();
+	// Acotado a la primera fila: todas las filas tienen el botón, oculto salvo
+	// en la activa, y un .first() global apuntaba al oculto de otra fila.
+	await rows.first().getByRole('button', { name: 'Más acciones' }).click();
 	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
 
 	await expect(page.getByText('borrame')).toHaveCount(0);

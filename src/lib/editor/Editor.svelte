@@ -1551,10 +1551,12 @@
 			const kept = strippedSlashFields(row, anchor, slash.query, true);
 			row.content = kept.content;
 			row.html = kept.html;
-			await updateBlock(row.id, { content: kept.content, html: kept.html });
 			slash = { blockId: slash.blockId, anchor, query: '', index: 0, mode: 'snippets', snippets };
+			// Caret before the write, for the same reason as below: typing to filter
+			// the snippet list must not race a database round-trip.
 			focusBlockId = row.id;
 			focusCaret = anchor + 1;
+			await updateBlock(row.id, { content: kept.content, html: kept.html });
 			return;
 		}
 		// Strip the "/query" span; whatever the user had typed around it stays,
@@ -1563,21 +1565,17 @@
 		slash = null;
 		row.content = stripped.content;
 		row.html = stripped.html;
-		await updateBlock(row.id, { content: stripped.content, html: stripped.html });
-		if (HEADING_TYPES.includes(command.id)) {
-			// Headings are a type change, not an insert, so no new block is created.
-			await setBlockType(row, command.id);
-			focusBlockId = row.id;
-			focusCaret = anchor;
-			return;
-		}
+		const textWrite = { content: stripped.content, html: stripped.html };
+
 		if (command.id === 'date') {
 			// The block keeps its type — a date is a field, not a block type.
+			await updateBlock(row.id, textWrite);
 			datePanelFor = row.id;
 			datePanelCaret = anchor;
 			return;
 		}
 		if (command.id === 'separator') {
+			await updateBlock(row.id, textWrite);
 			if (stripped.content === '') {
 				row.type = 'separator';
 				await updateBlock(row.id, { type: 'separator' });
@@ -1591,17 +1589,35 @@
 			if (separator) await handleEnter(separator, 'text');
 			return;
 		}
+
+		// Everything below lands the caret back where the "/" was, and the caret
+		// is placed by an effect that runs after the row re-renders. So every
+		// change the row *shows* is applied first, then the caret is claimed, and
+		// only then does anything touch the database: awaiting a write before
+		// claiming it left the caret unplaced for two round-trips — long enough
+		// for a character typed right after Enter to land at the start of the line
+		// instead of at the "/".
+		if (HEADING_TYPES.includes(command.id)) {
+			// Headings are a type change, not an insert, so no new block is created.
+			const changes = planBlockType(row, command.id);
+			Object.assign(row, changes);
+			focusBlockId = row.id;
+			focusCaret = anchor;
+			await updateBlock(row.id, { ...textWrite, ...changes });
+			return;
+		}
 		row.type = command.id;
 		if (command.id === 'code') row.html = row.content;
-		if (command.id === 'todo') {
-			// La tarea nace acá: la capa escribe el tipo y la línea 'created'.
-			row.checked = false;
-			await convertToTask({ blockId: row.id, checked: false });
-		} else {
-			await updateBlock(row.id, { type: command.id, html: row.html });
-		}
+		if (command.id === 'todo') row.checked = false;
 		focusBlockId = row.id;
 		focusCaret = anchor;
+		if (command.id === 'todo') {
+			// La tarea nace acá: la capa escribe el tipo y la línea 'created'.
+			await updateBlock(row.id, textWrite);
+			await convertToTask({ blockId: row.id, checked: false });
+		} else {
+			await updateBlock(row.id, { ...textWrite, type: command.id, html: row.html });
+		}
 	}
 
 	async function handleDatePick(block, day) {

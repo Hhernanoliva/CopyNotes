@@ -31,6 +31,26 @@ test('the slash menu opens after typed text and the caret returns to the "/" pos
 	await expect(first).toHaveText('Hola mundo!');
 });
 
+// Regression: the caret used to be claimed only after the database writes the
+// conversion, so a character typed in that window landed at offset 0 ("!Hola
+// mundo"). No waiting in between here on purpose — that IS the test.
+test('a character typed right after picking lands where the "/" was', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Hola mundo');
+	await page.keyboard.type('/');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.keyboard.type('tarea');
+
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('!');
+
+	await expect(first).toHaveText('Hola mundo!');
+});
+
 test('the slash menu works mid-text and strips only the "/query" span', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();

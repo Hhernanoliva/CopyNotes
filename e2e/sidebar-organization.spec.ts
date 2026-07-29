@@ -138,7 +138,10 @@ test('folders: file a snippet by dragging, collapse persists, delete restores co
 		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
 		await page.getByRole('textbox', { name: 'Texto', exact: true }).fill(text);
 		await page.getByRole('button', { name: 'Guardar snippet' }).click();
-		await expect(page.getByText('Snippet guardado')).toBeVisible();
+		// .first(): dos guardados seguidos en menos de 1,8 s dejan dos avisos
+		// apilados, que es lo correcto en la app. Sin acotar, el segundo ciclo
+		// encontraba dos y fallaba por ambigüedad.
+		await expect(page.getByText('Snippet guardado').first()).toBeVisible();
 	}
 	// Create a folder with the dedicated folder button; it opens in rename mode.
 	await page.getByRole('button', { name: 'Nueva carpeta de snippets' }).click();
@@ -176,7 +179,10 @@ test('backup roundtrip keeps folders and membership', async ({ page }) => {
 		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
 		await page.getByRole('textbox', { name: 'Texto', exact: true }).fill(text);
 		await page.getByRole('button', { name: 'Guardar snippet' }).click();
-		await expect(page.getByText('Snippet guardado')).toBeVisible();
+		// .first(): dos guardados seguidos en menos de 1,8 s dejan dos avisos
+		// apilados, que es lo correcto en la app. Sin acotar, el segundo ciclo
+		// encontraba dos y fallaba por ambigüedad.
+		await expect(page.getByText('Snippet guardado').first()).toBeVisible();
 	}
 	await page.getByRole('button', { name: 'Nueva carpeta de snippets' }).click();
 	const folderInput = page.getByLabel('Nuevo nombre de la carpeta');
