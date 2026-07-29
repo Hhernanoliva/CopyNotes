@@ -32,11 +32,12 @@ para que el cierre solo haga la escritura sincrónica ya preparada.
 | `1fa48b7` | Buffer de copia caduca a las 24 h (`copy/serialize.ts`) |
 | `bfcdbf4` | Bitácora en el respaldo — **formatVersion 5** |
 
-### En `feat/buzon-endurecido` (1 commit, sin mergear)
+### En `feat/buzon-endurecido` (2 commits, sin mergear)
 
 | Commit | Qué |
 |---|---|
 | `77ff212` | Permisos 0700/0600 en el buzón, poda de `inbox/processed/` a 7 días, aviso de export viejo |
+| `efe6cb3` | CSP estricta (item 5, cierra la fase 0) |
 
 Detalles que no se deducen del diff:
 
@@ -53,28 +54,41 @@ Detalles que no se deducen del diff:
   el definitivo nunca exista abierto ni un instante.
 - Un `mtime` en el futuro (reloj corrido) cuenta como reciente y **no** se borra.
 
-## Pendiente: item 5, CSP estricta
+## Item 5, CSP estricta — hecho (`efe6cb3`)
 
-Único item de fase 0 sin hacer. `src-tauri/tauri.conf.json` tiene
-`"security": { "csp": null }`.
+**Dónde quedó: en la configuración de SvelteKit (`vite.config.ts`), no en
+`tauri.conf.json`.** SvelteKit la publica como `<meta>` dentro del HTML y como
+cabecera en desarrollo, así que una sola política cubre la web, `pnpm dev` y la
+ventana de Tauri — que carga ese mismo HTML. Una segunda política en
+`tauri.conf.json` no habría sumado: el navegador aplica **todas** las que
+recibe, o sea que se cruzan y bloquean en silencio cualquier cosa en la que no
+coincidan. `csp: null` en Tauri se queda a propósito.
 
-**Reversibilidad: alta.** Una línea, ningún dato tocado, ninguna migración. El
-riesgo no es no poder volver — es que **rompa en silencio** (un ícono que no
-carga, un botón que no responde, sin cartel de error).
+La política: `default-src 'self'`, y `connect-src` solo hacia sí misma y hacia
+los orígenes IPC del escritorio. Traducido: una dependencia comprometida no
+tiene a dónde mandar una nota.
 
-Plan acordado, sin empezar:
+Lo que apareció al probarla: la CSP **bloqueaba el script anti-parpadeo de
+mode-watcher** (el que aplica el tema guardado antes del primer pintado).
+SvelteKit solo firma los scripts que emite él. Arreglado con dos hashes en
+`script-src` — dos porque en desarrollo el script viaja sin minificar y en el
+build minificado.
 
-1. Escribir la política.
-2. **Probarla contra la app web** (`pnpm dev` + los 93 e2e). Agarra roturas de
-   estilos, scripts, fuentes e hidratación de Svelte — es el mismo bundle.
-3. Aplicarla al escritorio, en **commit propio** para que revertir sea uno solo.
-4. Hernan corre `pnpm tauri dev` y mira la consola: las violaciones de CSP se
-   anuncian con nombre y apellido.
-5. Ajustar según lo que aparezca.
+Guarda contra el riesgo real (romper sin avisar): `e2e/security-csp.spec.ts`
+escucha `securitypolicyviolation` y falla si algún script, fuente o imagen
+queda bloqueado. También avisa cuando los hashes se desactualicen al subir de
+versión mode-watcher: la consola imprime el hash nuevo para pegar.
 
-Lo que el paso 2 **no** cubre: la comunicación interna Tauri (`ipc:`,
-`http://ipc.localhost`). Eso solo se ve en la Mac. El skill `verify` maneja la
-app web, no el envoltorio de escritorio.
+### Lo que falta verificar en la Mac
+
+La comunicación interna de Tauri (`ipc:`) no se puede probar desde acá. En la
+Mac: `pnpm tauri dev`, abrir la consola y confirmar que **no** hay violaciones
+de CSP y que el buzón/agentes siguen funcionando.
+
+Si apareciera bloqueado el script propio de Tauri (`__TAURI_INTERNALS__`), el
+plan B es mover la política a `tauri.conf.json` — ahí Tauri le agrega su propio
+nonce solo — y dejar la web cubierta con una cabecera en Vercel. Volver atrás es
+revertir un commit.
 
 ## Gates al cerrar
 
@@ -84,12 +98,15 @@ app web, no el envoltorio de escritorio.
 | MCP | 72/72 ✅ |
 | Rust (`cargo test`) | 1/1 ✅ — nuevo, cubre la poda |
 | svelte-check | 2 errores **pre-existentes** en `db.migrations.test.ts` |
-| e2e | 92-93 de 93 |
+| e2e | 94/94 ✅ (con la CSP puesta) |
 
-**Flakes conocidos bajo carga, verdes aislados, NO son de esta tanda:**
-`sidebar-organization` toast "Snippet guardado" (dos toasts superpuestos →
-strict mode violation) y `dates:144` menú `/fecha`. La rama del buzón **no toca
-`src/` ni `e2e/`**, así que no puede causar fallos de la app web.
+**Sobre el flake del toast "Snippet guardado"** (`sidebar-organization`, dos
+toasts superpuestos → strict mode violation): la nota anterior decía "verde
+aislado". No lo es — falla ~2 de cada 3 corridas aisladas, **también sin la
+CSP**. Se verificó con `git stash` para no colgarle a la CSP una falla ajena.
+Sigue sin arreglar: el test exige un solo toast, pero que se apilen dos en menos
+de 1,8 s es comportamiento correcto de la app. Arreglo natural = `.first()` en
+la aserción, dos líneas. Sin hacer, fuera del alcance de este item.
 
 ## Gate manual (Mac de Hernan)
 
@@ -99,6 +116,8 @@ Nada de esto se puede verificar desde acá:
   (`ls -la` debería mostrar `drwx------` y `-rw-------`).
 - Poda de `processed/` al arrancar la app.
 - Aviso de export viejo visto desde un cliente MCP real.
+- **CSP en la ventana de Tauri**: `pnpm tauri dev`, consola abierta, sin
+  violaciones, y el buzón/agentes andando (ver el plan B más arriba).
 - Recordatorio de build: `pnpm tauri build --bundles app` (el DMG revienta en su
   Mac) y `cd mcp && pnpm install --config.node-linker=hoisted --prod` para dejar
   `node_modules` plano; `pnpm install` restaura dev.
@@ -107,7 +126,7 @@ Nada de esto se puede verificar desde acá:
 
 - `main` = `bfcdbf4`, **5 commits por delante de `origin/main`, sin push**.
   Subirlo dispara deploy de producción en Vercel. Hernan todavía no lo autorizó.
-- `feat/buzon-endurecido` = `77ff212`, sale de `main`, sin mergear.
+- `feat/buzon-endurecido` = `efe6cb3`, sale de `main`, sin mergear.
 - `feat/conectar-mcp` quedó en `840eb8a` — ya está contenida en `main`, se puede
   borrar.
 - Todos los commits verificados **sin trazas de agente** (regla del repo hacia
