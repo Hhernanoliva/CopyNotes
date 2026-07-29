@@ -139,8 +139,8 @@ describe('db migrations v1 → v5', () => {
 		});
 		await migrate();
 
-		// verno is Dexie's on-disk version number; v7 is the latest declared.
-		expect(db.verno).toBe(7);
+		// verno is Dexie's on-disk version number; v8 is the latest declared.
+		expect(db.verno).toBe(8);
 		const b1 = await db.table('blocks').get('b1');
 		expect(b1.html).toBe('texto');
 	});
@@ -190,5 +190,16 @@ describe('db migrations v1 → v7', () => {
 		// Indexed, not just present: the "changed since X" query is a range scan.
 		const changed = await db.table('notes').where('changeSeq').above(0).toArray();
 		expect(changed.map((row) => row.id).sort()).toEqual(['n1', 'n2']);
+	});
+
+	it('v8: exposes an empty vault table without touching the notes', async () => {
+		await seedLegacyV1({
+			notes: [{ id: 'n1', title: 'vieja', updatedAt: '2026-01-01T00:00:00.000Z' }]
+		});
+		await migrate();
+
+		expect(db.tables.some((table) => table.name === 'vault')).toBe(true);
+		expect(await db.table('vault').count()).toBe(0);
+		expect((await db.table('notes').get('n1')).title).toBe('vieja');
 	});
 });

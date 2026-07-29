@@ -149,6 +149,46 @@ one when it has a caller.
   automated test proving one account cannot read another's.
 - Explicit consent before the first upload. Nothing leaves the device without it.
 
+**Where the local half landed (2026-07-29).** Everything that needs no account
+is built and tested; the cloud half waits on a Supabase project (Hernan chose
+email magic-link login for the beta, so no Google/Apple console work is needed).
+
+- `sync/records.ts` — `encryptRecord`/`decryptRecord`, AES-GCM-256 with a fresh
+  random IV per write. **The record's identity is the additional authenticated
+  data (`table:id`)**, so whoever holds the database cannot move a blob to
+  another row or another table: it stops decrypting. In the clear: `id`, table,
+  `changeSeq` (the version marker) and the tombstone flag — nothing else, proved
+  by a test that greps the payload for the note text, the private comment, the
+  due date, the block type and the relation ids.
+- `sync/vault.ts` — the vault key is a **non-extractable `CryptoKey`** held in
+  the new v8 `vault` table. **Deviation from this spec's "OS keychain on
+  desktop":** the Tauri window is a browser, so the same non-extractable key
+  covers desktop and web with one mechanism and no Rust dependency, and the
+  guarantee is the same one that matters here — not even our own code can read
+  the bytes out. The threat model already excludes an attacker at an unlocked,
+  authorised machine, which is the only case a keychain would improve.
+- Recovery code: 120 random bits as Crockford base32 (`XXXX-XXXX-…`, six groups,
+  no I/L/O/U so it survives being read out loud), wrapping the key via
+  PBKDF2-SHA256 at 600k rounds. Typing is forgiving (case, spacing, `O`→`0`,
+  `I`/`L`→`1`). The code is never stored — a test asserts it is absent from the
+  stored row.
+- The `vault` table is not in `SYNCED_TABLES` and not in `storage/backup.ts`'s
+  table list, so the key never rides inside a plaintext JSON backup. Tested.
+- `navigator.storage.persist()` is requested **at vault creation, not at boot**
+  (the browser-eviction risk below): a local-only user never sees the permission
+  prompt Firefox shows for it.
+- **The pending-changes outbox table in the Data Model below is not needed.**
+  Phase 1's indexed `changeSeq` already answers "what is not uploaded yet" —
+  `where('changeSeq').above(lastUploaded)`, tombstones included, offline edits
+  included, with no second write per edit and no table to keep consistent. The
+  upload high-water mark is one preference. Decided while building; revisit only
+  if per-record retry state turns out to be needed.
+
+Still to build, all of it needing the account: the Supabase project and schema,
+magic-link auth, Row-Level Security plus the cross-account test, `ownerId`, the
+upload loop, the consent gate, and the screens that show the recovery code and
+the warning.
+
 ### Phase 3 — Download, merge, conflicts without losing text
 
 - Edits to different blocks merge automatically.

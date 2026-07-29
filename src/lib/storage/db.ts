@@ -126,6 +126,14 @@ db.version(7)
 		}
 	});
 
+// v8 (spec 030 phase 2): the vault key. One row, device-local — it is neither a
+// synced table nor part of the JSON backup (`storage/backup.ts` lists its
+// tables explicitly), because the whole point is that the key never travels in
+// the clear. See `sync/vault.ts` for what the row holds.
+db.version(8).stores({
+	vault: 'id'
+});
+
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
 // added later cannot forget it, and a change sync never sees is a change lost.
