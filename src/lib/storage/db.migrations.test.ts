@@ -139,8 +139,8 @@ describe('db migrations v1 → v5', () => {
 		});
 		await migrate();
 
-		// verno is Dexie's on-disk version number; v6 is the latest declared.
-		expect(db.verno).toBe(6);
+		// verno is Dexie's on-disk version number; v7 is the latest declared.
+		expect(db.verno).toBe(7);
 		const b1 = await db.table('blocks').get('b1');
 		expect(b1.html).toBe('texto');
 	});
@@ -160,5 +160,35 @@ describe('db migrations v1 → v6', () => {
 		// The new table exists and starts empty.
 		expect(db.tables.some((t) => t.name === 'activity')).toBe(true);
 		expect(await db.table('activity').count()).toBe(0);
+	});
+});
+
+describe('db migrations v1 → v7', () => {
+	it('v7: stamps rows that predate the change counter, and indexes it', async () => {
+		await seedLegacyV1({
+			notes: [
+				{ id: 'n1', title: 'una', updatedAt: '2026-01-01T00:00:00.000Z' },
+				{ id: 'n2', title: 'otra', updatedAt: '2026-01-02T00:00:00.000Z' }
+			],
+			blocks: [{ id: 'b1', noteId: 'n1', parentBlockId: null, content: 'texto' }],
+			tags: [{ id: 't1', name: 'alfa' }]
+		});
+		await migrate();
+
+		const rows = [
+			await db.table('notes').get('n1'),
+			await db.table('notes').get('n2'),
+			await db.table('blocks').get('b1'),
+			await db.table('tags').get('t1')
+		];
+		for (const row of rows) {
+			expect(typeof row.changeSeq).toBe('number');
+		}
+		// Distinct stamps, so a legacy database can be uploaded record by record.
+		expect(new Set(rows.map((row) => row.changeSeq)).size).toBe(rows.length);
+
+		// Indexed, not just present: the "changed since X" query is a range scan.
+		const changed = await db.table('notes').where('changeSeq').above(0).toArray();
+		expect(changed.map((row) => row.id).sort()).toEqual(['n1', 'n2']);
 	});
 });

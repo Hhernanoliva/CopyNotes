@@ -21,11 +21,29 @@ const TABLES = [
 	'settings'
 ];
 
+// The change counter (spec 030 phase 1) is per-device bookkeeping and never
+// leaves through here: a row is re-stamped when it is written, so a counter
+// inside a backup file could never match the restored row again — and the merge
+// compares whole records, so it would read every row as a conflict and
+// duplicate the whole database on a second import of the same file. This dump
+// feeds both sides of that comparison (the file and the local rows), so
+// dropping it here keeps them comparable. Later sync-only fields (`ownerId`)
+// belong on this same list.
+const LOCAL_ONLY_FIELDS = ['changeSeq'];
+
+function withoutLocalOnlyFields(rows) {
+	return rows.map((row) => {
+		const copy = { ...row };
+		for (const field of LOCAL_ONLY_FIELDS) delete copy[field];
+		return copy;
+	});
+}
+
 export async function dumpAllTables() {
 	await settlePendingWrites();
 	return db.transaction('r', TABLES, async () => {
 		const entries = await Promise.all(
-			TABLES.map(async (name) => [name, await db.table(name).toArray()])
+			TABLES.map(async (name) => [name, withoutLocalOnlyFields(await db.table(name).toArray())])
 		);
 		return Object.fromEntries(entries);
 	});

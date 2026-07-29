@@ -242,4 +242,37 @@ describe('backup roundtrip', () => {
 		const history = await listActivityByBlock(task.id);
 		expect(history.map((row) => row.text)).toEqual(['listo']);
 	});
+
+	// The change counter (spec 030 phase 1) is per-device bookkeeping and is
+	// re-stamped when a row is written, so if it travelled inside the file its
+	// value would never match the restored row again — and the merge, which
+	// compares whole records, would read every single row as a conflict and
+	// duplicate the entire database on a second import.
+	it('importing the same backup twice adds nothing (spec 030 phase 1)', async () => {
+		const note = await createNote({ title: 'Proyecto' });
+		const task = await createBlock({ noteId: note.id, type: 'todo', content: 'Tarea' });
+		await appendActivity({
+			blockId: task.id,
+			noteId: note.id,
+			actor: 'user',
+			action: 'done',
+			text: 'listo'
+		});
+
+		const backup = buildBackup(await dumpAllTables(), { appVersion: '0.0.1', exportedAt: iso });
+		for (const rows of Object.values(backup.data)) {
+			for (const row of rows) expect(row.changeSeq).toBe(undefined);
+		}
+
+		const first = planMerge(await dumpAllTables(), backup.data);
+		expect(first.summary.conflicts).toBe(0);
+		expect(first.summary.notes.added).toBe(0);
+
+		// Same file again over the same database: still nothing to add.
+		await applyMergePlan(first);
+		const second = planMerge(await dumpAllTables(), backup.data);
+		expect(second.summary.conflicts).toBe(0);
+		expect(await db.table('notes').count()).toBe(1);
+		expect(await db.table('blocks').count()).toBe(1);
+	});
 });

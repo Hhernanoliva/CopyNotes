@@ -1,5 +1,6 @@
 import Dexie from 'dexie';
 import { htmlToPlainText, plainTextToHtml } from '$lib/format';
+import { nextChangeSeq } from './change-seq';
 
 // Schema strings only declare indexes; records can hold more fields.
 // Soft-deleted rows stay in the tables and are filtered out by the repositories.
@@ -87,3 +88,54 @@ db.version(5)
 db.version(6).stores({
 	activity: 'id, blockId, noteId, at'
 });
+
+// The tables a future sync uploads. `settings` is out: preferences stay
+// last-write-wins keyed values (spec 002), not documents with a history.
+export const SYNCED_TABLES = [
+	'notes',
+	'blocks',
+	'snippets',
+	'tags',
+	'tagAssignments',
+	'folders',
+	'activity'
+];
+
+// v7 (spec 030 phase 1): index the change counter on every synced table, so
+// "what changed since X" is an index range instead of a full scan. Existing
+// rows are stamped in the upgrade — a row without the field is absent from the
+// index, and would be invisible to the first upload.
+db.version(7)
+	.stores({
+		notes: 'id, updatedAt, changeSeq',
+		blocks: 'id, noteId, parentBlockId, dueDate, changeSeq',
+		snippets: 'id, updatedAt, changeSeq',
+		tags: 'id, name, changeSeq',
+		tagAssignments: 'id, tagId, [targetType+targetId], changeSeq',
+		folders: 'id, kind, changeSeq',
+		activity: 'id, blockId, noteId, at, changeSeq'
+	})
+	.upgrade(async (tx) => {
+		for (const name of SYNCED_TABLES) {
+			await tx
+				.table(name)
+				.toCollection()
+				.modify((row) => {
+					row.changeSeq = nextChangeSeq();
+				});
+		}
+	});
+
+// Every write to a synced table carries a change stamp. One hook per table
+// instead of a stamp at each of the ~20 repository write sites: a write path
+// added later cannot forget it, and a change sync never sees is a change lost.
+// Covers add, bulkAdd, put, update, bulkPut and modify — verified against the
+// real Dexie build, not assumed.
+for (const name of SYNCED_TABLES) {
+	const table = db.table(name);
+	table.hook('creating', (primaryKey, row) => {
+		row.changeSeq = nextChangeSeq();
+	});
+	// Returning extra modifications is how the updating hook adds a field.
+	table.hook('updating', () => ({ changeSeq: nextChangeSeq() }));
+}

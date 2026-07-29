@@ -114,8 +114,11 @@ Exception: **settings** stay last-write-wins keyed preferences, not documents
 
 Now (readiness):
 
-- The "changed since T" helper returns only records updated after T, including
-  soft-deleted tombstones.
+- ~~The "changed since T" helper returns only records updated after T, including
+  soft-deleted tombstones.~~ **Replaced by `030` Phase 1 (built 2026-07-29):**
+  the query is `changeSeq`, not a timestamp —
+  `table.where('changeSeq').above(mark)`, tombstones included because a soft
+  delete is a write like any other. Covered by `storage/change-seq.test.ts`.
 - Creating any entity yields a stable id and timestamps (shared with `002`/`010`).
 
 Future (with the build):

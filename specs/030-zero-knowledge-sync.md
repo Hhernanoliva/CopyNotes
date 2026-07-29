@@ -113,6 +113,26 @@ that to every synced table. Do not invent a new mechanism.
 This phase is required no matter which sync design wins, so it is safe to build
 before any backend exists.
 
+**Where it landed (2026-07-29):** `storage/change-seq.ts` holds one counter for
+the whole database — `next = max(now, last + 1)`, with the high-water mark
+mirrored to `localStorage` so a restart, or a clock the OS moves backwards,
+cannot hand out a number twice. `activity.seq` is left alone: it orders the
+bitácora for display and must not shift under a restore.
+
+The stamp is applied by **Dexie `creating`/`updating` hooks registered once per
+synced table in `db.ts`**, not at the ~20 repository write sites. A write path
+added later cannot forget to stamp, and a change sync never sees is a change
+lost; the hooks were verified to fire for `add`, `bulkAdd`, `put`, `update`,
+`bulkPut` and `modify`. Restores and undo re-stamp on purpose — locally they
+*are* new changes.
+
+Migration v7 indexes `changeSeq` on the seven synced tables (`SYNCED_TABLES` in
+`db.ts`; `settings` stays out per `002`) and stamps pre-existing rows, because a
+row missing the field is absent from the index and would be invisible to the
+first upload. "What changed since X" is therefore
+`table.where('changeSeq').above(mark)` — no helper was added, Phase 2 can name
+one when it has a caller.
+
 ### Phase 2 — Encryption at the upload edge, accounts, upload
 
 - Generate a random **vault key** on the device. It never leaves in plaintext.
