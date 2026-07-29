@@ -226,4 +226,58 @@ describe('planMerge', () => {
 			expect(plan.inserts.folders).toEqual([]);
 		});
 	});
+
+	// spec 030 phase 0: the bitácora is part of the backup now.
+	describe('activity', () => {
+		function activity(id, blockId, noteId, overrides = {}) {
+			return {
+				id,
+				blockId,
+				noteId,
+				actor: 'user',
+				action: 'done',
+				text: '',
+				seq: 0,
+				at: iso,
+				deletedAt: null,
+				...overrides
+			};
+		}
+
+		it('inserts incoming history lines', () => {
+			const incoming = {
+				...emptyTables(),
+				notes: [note('n1')],
+				blocks: [block('b1', 'n1')],
+				activity: [activity('a1', 'b1', 'n1')]
+			};
+			const plan = planMerge(emptyTables(), incoming);
+			expect(plan.inserts.activity).toHaveLength(1);
+			expect(plan.summary.activity.added).toBe(1);
+		});
+
+		it('follows its task to the new id when the block was remapped', () => {
+			const local = { ...emptyTables(), blocks: [block('b1', 'n1', { content: 'Distinto' })] };
+			const incoming = {
+				...emptyTables(),
+				blocks: [block('b1', 'n1')],
+				activity: [activity('a1', 'b1', 'n1')]
+			};
+			const plan = planMerge(local, incoming, { createId: () => 'fresh' });
+			expect(plan.inserts.activity[0].blockId).toBe('fresh');
+		});
+
+		it('skips a history line that is already there', () => {
+			const local = { ...emptyTables(), activity: [activity('a1', 'b1', 'n1')] };
+			const incoming = { ...emptyTables(), activity: [activity('a1', 'b1', 'n1')] };
+			const plan = planMerge(local, incoming);
+			expect(plan.inserts.activity).toEqual([]);
+			expect(plan.summary.activity.skipped).toBe(1);
+		});
+
+		it('merging an older backup with no activity key plans no inserts', () => {
+			const plan = planMerge(emptyTables(), { ...emptyTables(), activity: undefined });
+			expect(plan.inserts.activity).toEqual([]);
+		});
+	});
 });

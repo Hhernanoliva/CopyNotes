@@ -82,7 +82,13 @@ down):
 > `null` (the item lands in the root list). Such a drop produces a warning,
 > never a rejection. Older backups (versions 1–3) carry no folders; on import
 > they get a `sortOrder` assigned from their previous visible order
-> (`ensureSidebarOrder`). `SUPPORTED_VERSIONS = [1, 2, 3, 4]`.
+> (`ensureSidebarOrder`).
+
+> **`formatVersion` 5 (spec 030 phase 0):** adds the `activity` array — the
+> per-task bitácora from spec `028`. Until this version the bitácora was
+> excluded from the backup and *cleared* on restore, so every round-trip
+> silently erased user-visible history. Older backups (versions 1–4) carry no
+> `activity`; it defaults to `[]` on import. `SUPPORTED_VERSIONS = [1, 2, 3, 4, 5]`.
 
 ## Data Entities
 
@@ -311,6 +317,57 @@ Required fields:
 - `createdAt`
 - `updatedAt`
 - `deletedAt`
+
+### Activity (formatVersion 5, spec 028 + 030)
+
+One line of a task's bitácora: who did what to a task and when.
+
+```json
+{
+  "id": "activity_123",
+  "blockId": "block_123",
+  "noteId": "note_123",
+  "actor": "user",
+  "action": "done",
+  "text": "",
+  "seq": 0,
+  "at": "2026-07-27T10:00:00.000Z",
+  "deletedAt": null
+}
+```
+
+Required fields:
+
+- `id`
+- `blockId` — the task this line belongs to
+- `noteId`
+- `actor` — `"user"` or the connected agent's id
+- `action` — `created`, `done`, `reopened`, `note`, `edited`
+- `at`
+- `deletedAt`
+
+Optional fields:
+
+- `text` — the trace/comment line; defaults to `""`
+- `seq` — the device-local monotonic ordering counter (spec `028`). Carried so
+  an imported history keeps its internal order.
+
+Rules:
+
+- `action` is validated as a **plain string, not a picklist**. An unrecognised
+  verb from a newer app is kept and shown as-is; losing user history is worse
+  than showing a stray label. (Block `type` stays a picklist because an unknown
+  type would strand real content.)
+- An activity row whose `blockId` or `noteId` resolves to nothing — neither in
+  the backup nor already local — is **dropped with a warning, never a
+  rejection**. A stray history line must not cost the user the whole restore.
+  This is the same best-effort posture the `formatVersion` 4 organization
+  fields use, and the opposite of a dangling block, which is a hard error.
+- On safe merge, a history line follows its task: if the block or note was
+  remapped because of an id conflict, `blockId`/`noteId` are remapped with it.
+- `seq` values from an imported history may interleave with local ones; order
+  within a single task's imported history is preserved, which is what the UI
+  reads.
 
 ### Setting
 
@@ -542,6 +599,9 @@ Rules:
 - Safe merge with no conflicts.
 - Safe merge with ID conflicts and remapping.
 - Replace-all validation fails without deleting existing data.
+- Export and import a task's bitácora (round-trip keeps the history line).
+- A backup with no `activity` array (versions 1–4) imports with an empty one.
+- A dangling activity row is dropped with a warning, not a rejection.
 
 ## Agent Notes
 

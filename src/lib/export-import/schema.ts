@@ -9,10 +9,11 @@ import { BLOCK_TYPES } from '../format/blocktype';
 export const SUPPORTED_FORMAT = 'copynotes.backup';
 // Version 2 added the heading block types; version 3 added the optional block
 // dueDate; version 4 (spec 022) added the folders table plus the optional
-// sortOrder/folderId organization fields. Shapes are otherwise identical, so
-// older versions import with no migration.
-export const SUPPORTED_VERSIONS = [1, 2, 3, 4];
-export const CURRENT_VERSION = 4;
+// sortOrder/folderId organization fields; version 5 (spec 030 phase 0) added
+// the activity table so the task bitácora survives a backup round-trip.
+// Shapes are otherwise identical, so older versions import with no migration.
+export const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5];
+export const CURRENT_VERSION = 5;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -99,6 +100,23 @@ const tagAssignmentSchema = v.looseObject({
 	deletedAt: nullableTimestamp
 });
 
+// One line of a task's bitácora (spec 028). `action` is a plain string, not a
+// picklist: a history verb an older app doesn't recognise should still be kept
+// and shown as-is — losing user history is worse than showing a stray label.
+// `seq` is the device-local ordering counter; it is carried so an imported
+// history keeps its internal order.
+const activitySchema = v.looseObject({
+	id: v.string(),
+	blockId: v.string(),
+	noteId: v.string(),
+	actor: v.string(),
+	action: v.string(),
+	text: v.optional(v.string(), ''),
+	seq: v.optional(v.number()),
+	at: isoTimestamp,
+	deletedAt: nullableTimestamp
+});
+
 const settingSchema = v.looseObject({
 	key: v.string(),
 	value: v.unknown(),
@@ -117,6 +135,7 @@ const backupSchema = v.looseObject({
 		tags: v.array(tagSchema),
 		tagAssignments: v.array(tagAssignmentSchema),
 		folders: v.optional(v.array(folderSchema), []),
+		activity: v.optional(v.array(activitySchema), []),
 		settings: v.array(settingSchema)
 	})
 });
@@ -155,6 +174,21 @@ function normalizeOrganization(data) {
 	return touched;
 }
 
+// A bitácora line whose task is gone has nothing to attach to. Unlike a
+// dangling block — which is a hard error, because it would strand real content
+// — a stray history line is dropped with a warning: the backup is the user's
+// safety net, and one lost log line must never cost them the whole restore.
+function dropDanglingActivity(data, existing) {
+	const noteIds = new Set([...data.notes.map((note) => note.id), ...existing.existingNoteIds]);
+	const blockIds = new Set([...data.blocks.map((block) => block.id), ...existing.existingBlockIds]);
+	const kept = data.activity.filter(
+		(row) => blockIds.has(row.blockId) && noteIds.has(row.noteId)
+	);
+	const dropped = data.activity.length - kept.length;
+	data.activity = kept;
+	return dropped;
+}
+
 function formatIssues(issues) {
 	return issues.map((issue) => {
 		const path = (issue.path ?? []).map((segment) => segment.key).join('.');
@@ -188,7 +222,16 @@ function referenceErrors(data, existing) {
 	return errors;
 }
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
+const TABLES = [
+	'notes',
+	'blocks',
+	'snippets',
+	'tags',
+	'tagAssignments',
+	'folders',
+	'activity',
+	'settings'
+];
 
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
@@ -229,6 +272,12 @@ export function validateBackup(raw, existingIds = undefined) {
 			'Se descartaron datos de orden o carpeta inválidos; esos elementos quedan en la lista general.'
 		);
 	}
+	const droppedActivity = dropDanglingActivity(backup.data, existing);
+	if (droppedActivity > 0) {
+		warnings.push(
+			`Se descartaron ${droppedActivity} línea(s) de bitácora cuya tarea ya no existe; el resto del respaldo se importa igual.`
+		);
+	}
 	const counts = {
 		notes: backup.data.notes.length,
 		blocks: backup.data.blocks.length,
@@ -236,6 +285,7 @@ export function validateBackup(raw, existingIds = undefined) {
 		tags: backup.data.tags.length,
 		tagAssignments: backup.data.tagAssignments.length,
 		folders: backup.data.folders.length,
+		activity: backup.data.activity.length,
 		settings: backup.data.settings.length
 	};
 	for (const table of TABLES) {

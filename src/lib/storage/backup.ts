@@ -7,7 +7,19 @@ import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
+// `activity` (the task bitácora) is part of the portable backup as of spec 030
+// phase 0: it is user-visible history, and leaving it out meant every
+// backup/restore round-trip silently erased it.
+const TABLES = [
+	'notes',
+	'blocks',
+	'snippets',
+	'tags',
+	'tagAssignments',
+	'folders',
+	'activity',
+	'settings'
+];
 
 export async function dumpAllTables() {
 	await settlePendingWrites();
@@ -41,11 +53,7 @@ export async function applyMergePlan(plan) {
 export async function replaceAllTables(data) {
 	await settlePendingWrites();
 	return trackPendingWrite(() =>
-		db.transaction('rw', [...TABLES, 'activity'], async () => {
-			// The device-local bitácora is not part of the portable backup, but a
-			// full restore must not leave stale activity rows that would re-attach
-			// to restored/renamed tasks. Clear it — nothing to repopulate.
-			await db.table('activity').clear();
+		db.transaction('rw', TABLES, async () => {
 			for (const name of TABLES) {
 				await db.table(name).clear();
 				const rows = data[name] ?? [];

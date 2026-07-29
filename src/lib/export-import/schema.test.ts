@@ -31,6 +31,21 @@ function makeBlock(overrides = {}) {
 	};
 }
 
+function makeActivity(overrides = {}) {
+	return {
+		id: 'activity_1',
+		blockId: 'block_1',
+		noteId: 'note_1',
+		actor: 'user',
+		action: 'done',
+		text: '',
+		seq: 0,
+		at: iso,
+		deletedAt: null,
+		...overrides
+	};
+}
+
 function makeBackup(data = {}, overrides = {}) {
 	const full = {
 		notes: [],
@@ -308,7 +323,7 @@ describe('validateBackup', () => {
 			expect(validateBackup(backup).ok).toBe(false);
 		});
 		it('still rejects unsupported future versions', () => {
-			const backup = makeBackup({}, { formatVersion: 5 });
+			const backup = makeBackup({}, { formatVersion: 6 });
 			expect(validateBackup(backup).ok).toBe(false);
 		});
 	});
@@ -371,6 +386,62 @@ describe('validateBackup', () => {
 			const result = validateBackup(backup);
 			expect(result.ok).toBe(true);
 			expect(result.backup.data.notes[0].folderId).toBeNull();
+		});
+	});
+
+	// formatVersion 5 (spec 030 phase 0): the bitácora travels in the backup.
+	describe('activity (formatVersion 5)', () => {
+		it('accepts a backup carrying activity rows', () => {
+			const backup = makeBackup(
+				{ notes: [makeNote()], blocks: [makeBlock()], activity: [makeActivity()] },
+				{ formatVersion: 5 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.activity).toHaveLength(1);
+			expect(result.backup.counts.activity).toBe(1);
+		});
+
+		it('defaults activity to an empty array for older backups that lack it', () => {
+			const result = validateBackup(makeBackup({}, { formatVersion: 4 }));
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.activity).toEqual([]);
+		});
+
+		// A history line is secondary data. Losing one must never cost the user
+		// the whole restore, so a dangling row is dropped with a warning rather
+		// than rejected the way a dangling block is.
+		it('drops an activity row whose block is missing, with a warning', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote()],
+					blocks: [makeBlock()],
+					activity: [makeActivity(), makeActivity({ id: 'activity_2', blockId: 'ghost' })]
+				},
+				{ formatVersion: 5 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.activity.map((row) => row.id)).toEqual(['activity_1']);
+			expect(result.warnings.length).toBeGreaterThan(0);
+		});
+
+		it('keeps an unknown action verb instead of rejecting the backup', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote()],
+					blocks: [makeBlock()],
+					activity: [makeActivity({ action: 'algo-nuevo' })]
+				},
+				{ formatVersion: 5 }
+			);
+			expect(validateBackup(backup).ok).toBe(true);
+		});
+
+		it('rejects a formatVersion newer than this app understands', () => {
+			const result = validateBackup(makeBackup({}, { formatVersion: 6 }));
+			expect(result.ok).toBe(false);
+			expect(result.errors[0]).toContain('6');
 		});
 	});
 });

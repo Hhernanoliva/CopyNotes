@@ -4,7 +4,16 @@
 import { CURRENT_VERSION, SUPPORTED_FORMAT } from './schema';
 import { isBackupSafe } from '../storage/settings-registry';
 
-const TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'settings'];
+const TABLES = [
+	'notes',
+	'blocks',
+	'snippets',
+	'tags',
+	'tagAssignments',
+	'folders',
+	'activity',
+	'settings'
+];
 
 export function buildBackup(tables, meta) {
 	const { appVersion, exportedAt, source = 'pwa' } = meta;

@@ -4,6 +4,7 @@ import { db } from './db';
 import { createNote, softDeleteNote } from './notes';
 import { createBlock } from './blocks';
 import { createTag, assignTag, listTagsFor } from './tags';
+import { appendActivity, listActivityByBlock } from './activity';
 import { setSetting, getSetting } from './settings';
 import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 import { trackPendingWrite } from './pending-writes';
@@ -132,7 +133,41 @@ describe('replaceAllTables', () => {
 		expect(await getSetting('theme')).toBe('dark');
 	});
 
-	it('clears prior activity rows (device-local bitácora is not part of the backup)', async () => {
+	// spec 030 phase 0: the bitácora travels in the backup, so a restore installs
+	// the incoming history instead of dropping it on the floor.
+	it('replaces prior activity rows with the incoming bitácora', async () => {
+		await db.table('activity').add({
+			id: 'old',
+			blockId: 'b',
+			noteId: 'n',
+			actor: 'agent',
+			action: 'done',
+			text: '',
+			seq: 0,
+			at: iso,
+			deletedAt: null
+		});
+		await replaceAllTables({
+			...emptyTables(),
+			folders: [],
+			activity: [
+				{
+					id: 'incoming',
+					blockId: 'b2',
+					noteId: 'n2',
+					actor: 'user',
+					action: 'done',
+					text: '',
+					seq: 0,
+					at: iso,
+					deletedAt: null
+				}
+			]
+		});
+		expect((await db.table('activity').toArray()).map((row) => row.id)).toEqual(['incoming']);
+	});
+
+	it('clears prior activity when restoring a backup that carries none', async () => {
 		await db.table('activity').add({
 			id: 'old',
 			blockId: 'b',
@@ -182,5 +217,29 @@ describe('backup roundtrip', () => {
 		const tagsOnNote = await listTagsFor('note', note.id);
 		expect(tagsOnNote.map((row) => row.name)).toEqual(['demo']);
 		expect(await getSetting('theme')).toBe('dark');
+	});
+
+	it('a task history line survives export → clear → import (spec 030 phase 0)', async () => {
+		const note = await createNote({ title: 'Proyecto' });
+		const task = await createBlock({ noteId: note.id, type: 'todo', content: 'Tarea' });
+		await appendActivity({
+			blockId: task.id,
+			noteId: note.id,
+			actor: 'user',
+			action: 'done',
+			text: 'listo'
+		});
+
+		const backup = buildBackup(await dumpAllTables(), { appVersion: '0.0.1', exportedAt: iso });
+		const validated = validateBackup(JSON.parse(JSON.stringify(backup)));
+		expect(validated.ok).toBe(true);
+
+		await Promise.all(db.tables.map((table) => table.clear()));
+
+		const plan = planMerge(await dumpAllTables(), validated.backup.data);
+		await applyMergePlan(plan);
+
+		const history = await listActivityByBlock(task.id);
+		expect(history.map((row) => row.text)).toEqual(['listo']);
 	});
 });

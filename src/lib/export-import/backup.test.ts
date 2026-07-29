@@ -18,7 +18,7 @@ describe('buildBackup', () => {
 			{ appVersion: '0.0.1', exportedAt: iso }
 		);
 		expect(backup.format).toBe('copynotes.backup');
-		expect(backup.formatVersion).toBe(4);
+		expect(backup.formatVersion).toBe(5);
 		expect(backup.app).toEqual({ name: 'CopyNotes', version: '0.0.1' });
 		expect(backup.exportedAt).toBe(iso);
 		expect(backup.counts.notes).toBe(1);
@@ -55,6 +55,46 @@ describe('buildBackup', () => {
 		const backup = buildBackup({}, { appVersion: '0.0.1', exportedAt: iso });
 		expect(backup.data.folders).toEqual([]);
 		expect(backup.counts.folders).toBe(0);
+	});
+
+	it('carries the bitácora so a restore keeps task history (spec 030 phase 0)', () => {
+		const backup = buildBackup(
+			{
+				notes: [{ id: 'note_1', title: 'Demo', createdAt: iso, updatedAt: iso, deletedAt: null }],
+				blocks: [
+					{
+						id: 'block_1',
+						noteId: 'note_1',
+						parentBlockId: null,
+						type: 'todo',
+						content: 'Tarea',
+						order: 1000,
+						collapsed: false,
+						checked: true,
+						createdAt: iso,
+						updatedAt: iso,
+						deletedAt: null
+					}
+				],
+				activity: [
+					{
+						id: 'activity_1',
+						blockId: 'block_1',
+						noteId: 'note_1',
+						actor: 'user',
+						action: 'done',
+						text: '',
+						seq: 0,
+						at: iso,
+						deletedAt: null
+					}
+				]
+			},
+			{ appVersion: '0.0.1', exportedAt: iso }
+		);
+		expect(backup.data.activity).toHaveLength(1);
+		expect(backup.counts.activity).toBe(1);
+		expect(validateBackup(backup).ok).toBe(true);
 	});
 
 	it('records whether a backup came from the PWA or desktop app', () => {

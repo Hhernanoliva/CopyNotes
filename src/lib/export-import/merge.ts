@@ -83,6 +83,15 @@ export function planMerge(local, incoming, options = undefined) {
 		if (row.folderId) row.folderId = toFolder(row.folderId);
 	}
 
+	// The bitácora rides along with its task: if the block or note got a fresh id
+	// because of a conflict, its history has to follow, or it would point at
+	// nothing and be dropped on the next validation.
+	const activity = planTable(local.activity ?? [], incoming.activity ?? [], new Map(), createId);
+	for (const row of activity.inserts) {
+		row.blockId = toBlock(row.blockId);
+		row.noteId = toNote(row.noteId);
+	}
+
 	const targetRemaps = { note: toNote, block: toBlock, snippet: mapped(snippetRemap) };
 	const toTag = mapped(tagRemap);
 	// Semantic duplicates (same tag on the same target under another id) would
@@ -107,7 +116,7 @@ export function planMerge(local, incoming, options = undefined) {
 		(row) => !localSettingKeys.has(row.key)
 	);
 
-	const tables = { notes, blocks, snippets, tags, folders, tagAssignments: assignments };
+	const tables = { notes, blocks, snippets, tags, folders, tagAssignments: assignments, activity };
 	const entries = Object.entries(tables);
 	const inserts = Object.fromEntries(entries.map(([name, table]) => [name, table.inserts]));
 	const conflicts = entries.reduce((total, [, table]) => total + table.conflicts, 0);

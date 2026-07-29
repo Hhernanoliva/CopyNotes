@@ -33,6 +33,8 @@ Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los
 
 El respaldo también incluye tus preferencias seguras y las restaura: el tema (claro/oscuro), si ya viste la bienvenida y **Ocultar completadas** de la Agenda, entre otras. Solo viajan las preferencias inofensivas; nada delicado se escribe nunca en el archivo. Cuando importás y conservás lo tuyo, una preferencia que ya tengas puesta en este equipo manda: no se pisa con la del archivo.
 
+Además viaja la **bitácora** de tus tareas: quién marcó cada cosa y cuándo, vos o un agente. Antes se perdía al restaurar; ahora vuelve con el resto. Si alguna línea de la bitácora quedó apuntando a una tarea que ya no está en el archivo, se descarta esa línea sola y el respaldo se importa igual.
+
 ### Reemplazar todo (con cuidado)
 
 En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo lo del respaldo. Pide una confirmación explícita y te recuerda descargar un respaldo de lo actual antes. No se puede deshacer.
