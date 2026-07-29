@@ -6,6 +6,28 @@
 
 const HEADING_MARKS = { heading1: '#', heading2: '##', heading3: '###' };
 
+// The app rewrites export.json on boot and after every change, so a stale
+// `exportedAt` means CopyNotes has not run in a while and what the agent reads
+// may lag the real notes. We WARN rather than refuse (spec 030 D2): reading
+// with the app closed is a deliberate feature, and writes still queue in inbox/
+// until the app opens. A day is the threshold — daily use refreshes the file.
+export const EXPORT_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+export function staleExportNotice(exportPayload, now = Date.now()) {
+	const at = Date.parse(exportPayload?.exportedAt ?? '');
+	if (!Number.isFinite(at)) return null; // nothing to judge — stay quiet
+	const age = now - at;
+	if (age <= EXPORT_STALE_AFTER_MS) return null;
+	const days = Math.floor(age / EXPORT_STALE_AFTER_MS);
+	const when = days === 1 ? 'hace 1 día' : `hace ${days} días`;
+	return `⚠️ CopyNotes no se abrió desde ${when}: lo que sigue puede estar desactualizado. Los cambios que pidas quedan en espera y se aplican cuando la app se abra.`;
+}
+
+export function withStaleNotice(body, exportPayload, now = Date.now()) {
+	const notice = staleExportNotice(exportPayload, now);
+	return notice ? `${notice}\n\n${body}` : body;
+}
+
 export function notesToResources(exportPayload) {
 	const notes = exportPayload?.notes ?? [];
 	return notes.map((note) => ({

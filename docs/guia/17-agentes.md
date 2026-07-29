@@ -106,9 +106,14 @@ programa. Elegí la del que uses:
   solo. Si preferís, abajo tenés el JSON para copiar y pegar a mano en
   `~/.cursor/mcp.json`.
 
-**Importante:** el agente solo funciona con **CopyNotes abierta**. Si cerrás la
-app, deja de leer y escribir hasta que la vuelvas a abrir (es la app la que
-vigila la carpeta del buzón y contesta).
+**Importante: con CopyNotes cerrada las cosas cambian.** El agente todavía puede
+**leer** lo último que la app le dejó anotado, pero eso puede haber quedado
+viejo. Si pasó más de un día sin abrir CopyNotes, el agente te avisa antes de
+contestarte: *"CopyNotes no se abrió desde hace X días: lo que sigue puede estar
+desactualizado"*. En cambio, lo que le pidas **cambiar** (crear una tarea,
+marcarla hecha, dejar un comentario) **queda en espera** y se aplica solo cuando
+volvés a abrir la app — es la app la que vigila la carpeta del buzón y contesta.
+Nada se pierde: espera ahí hasta que abras.
 
 ### ¿Se conectó?
 

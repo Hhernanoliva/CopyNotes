@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { notesToResources, noteToMarkdown } from './resources.js';
+import { notesToResources, noteToMarkdown, staleExportNotice, withStaleNotice } from './resources.js';
 import { buildShortIds } from './ids.js';
 
 const note = {
@@ -98,5 +98,35 @@ describe('noteToMarkdown', () => {
 		};
 		const md = noteToMarkdown(n, new Map());
 		expect(md).toBe(['## T', '', '- [ ] t padre', '', '  ## Sub', '', '  ```', '  x', '  ```'].join('\n'));
+	});
+});
+
+describe('staleExportNotice', () => {
+	const at = '2026-07-20T10:00:00.000Z';
+	const day = 24 * 60 * 60 * 1000;
+	const parsed = Date.parse(at);
+
+	it('says nothing while the buzón is fresh', () => {
+		expect(staleExportNotice({ exportedAt: at }, parsed + day - 1)).toBeNull();
+	});
+
+	it('warns once the buzón has gone a day without an update', () => {
+		const notice = staleExportNotice({ exportedAt: at }, parsed + 3 * day);
+		expect(notice).toContain('3 días');
+		expect(notice).toContain('en espera');
+	});
+
+	it('says nothing when there is no timestamp to judge', () => {
+		expect(staleExportNotice({}, parsed)).toBeNull();
+		expect(staleExportNotice({ exportedAt: 'no es fecha' }, parsed)).toBeNull();
+		expect(staleExportNotice(undefined, parsed)).toBeNull();
+	});
+
+	it('puts the warning above the content, separated from it', () => {
+		const fresh = withStaleNotice('CUERPO', { exportedAt: at }, parsed);
+		expect(fresh).toBe('CUERPO');
+		const stale = withStaleNotice('CUERPO', { exportedAt: at }, parsed + 3 * day);
+		expect(stale.startsWith('⚠️')).toBe(true);
+		expect(stale.endsWith('\n\nCUERPO')).toBe(true);
 	});
 });

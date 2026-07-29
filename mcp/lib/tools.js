@@ -15,7 +15,7 @@
 // from the inbound file).
 
 import { expandId, buildShortIds, SHORT_ID_LENGTH } from './ids.js';
-import { noteToMarkdown } from './resources.js';
+import { noteToMarkdown, withStaleNotice } from './resources.js';
 
 export function createTaskChange({ noteId, content }) {
 	return { type: 'createTask', noteId, content };
@@ -125,7 +125,10 @@ export function listNotesResult(exportPayload) {
 		const folder = note.folder ? `  ·  ${note.folder}` : '';
 		return `- ${short}  ${note.title ?? ''}${folder}`;
 	});
-	return { content: [{ type: 'text', text: lines.join('\n') }], isError: false };
+	return {
+		content: [{ type: 'text', text: withStaleNotice(lines.join('\n'), exportPayload) }],
+		isError: false
+	};
 }
 
 // Resolve a note by short id / full id first, then by exact title
@@ -169,7 +172,15 @@ export function readNoteResult(exportPayload, ref) {
 		};
 	}
 	return {
-		content: [{ type: 'text', text: noteToMarkdown(resolved.note, buildShortIds(exportPayload)) }],
+		content: [
+			{
+				type: 'text',
+				text: withStaleNotice(
+					noteToMarkdown(resolved.note, buildShortIds(exportPayload)),
+					exportPayload
+				)
+			}
+		],
 		isError: false
 	};
 }

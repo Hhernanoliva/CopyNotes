@@ -110,13 +110,15 @@ export async function submitChange(change, options = {}) {
 	const inboxDir = path.join(dir, 'inbox');
 	const outboxDir = path.join(dir, 'outbox');
 
-	await mkdir(inboxDir, { recursive: true });
+	// Owner-only, like the app writes its side of the buzón (spec 030 phase 0):
+	// an inbox request carries the task text the user asked for.
+	await mkdir(inboxDir, { recursive: true, mode: 0o700 });
 
 	const payload = { ...change, id };
 	const finalPath = path.join(inboxDir, `${id}.json`);
 	const tmpPath = path.join(inboxDir, `${id}.json.tmp`);
 
-	await writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
+	await writeFile(tmpPath, JSON.stringify(payload, null, 2), { encoding: 'utf8', mode: 0o600 });
 	await rename(tmpPath, finalPath);
 
 	const outboxPath = path.join(outboxDir, `${id}.json`);
@@ -154,7 +156,10 @@ export async function touchAgentStatus() {
 		const dir = mailboxDir();
 		const target = path.join(dir, 'agent-status.json');
 		const tmp = path.join(dir, `agent-status.${randomUUID()}.tmp`);
-		await writeFile(tmp, JSON.stringify({ lastSeen: new Date().toISOString() }), 'utf8');
+		await writeFile(tmp, JSON.stringify({ lastSeen: new Date().toISOString() }), {
+			encoding: 'utf8',
+			mode: 0o600
+		});
 		await rename(tmp, target);
 	} catch {
 		// best-effort liveness signal

@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readExport, submitChange, touchAgentStatus } from './lib/mailbox.js';
-import { notesToResources, noteToMarkdown } from './lib/resources.js';
+import { notesToResources, noteToMarkdown, withStaleNotice } from './lib/resources.js';
 import { buildShortIds } from './lib/ids.js';
 import {
 	createTaskChange,
@@ -53,7 +53,13 @@ server.registerResource(
 		const note = (exp.notes ?? []).find((n) => n.id === id);
 		if (!note) return { contents: [] };
 		return {
-			contents: [{ uri: uri.href, mimeType: 'text/markdown', text: noteToMarkdown(note, buildShortIds(exp)) }]
+			contents: [
+				{
+					uri: uri.href,
+					mimeType: 'text/markdown',
+					text: withStaleNotice(noteToMarkdown(note, buildShortIds(exp)), exp)
+				}
+			]
 		};
 	}
 );

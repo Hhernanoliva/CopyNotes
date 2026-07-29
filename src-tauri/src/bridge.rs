@@ -2,8 +2,49 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::channel;
+use std::time::{Duration, SystemTime};
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::{Emitter, Manager};
+
+// The mailbox carries the user's note text in the clear, so it must not be
+// readable by every process running as another user on the machine (spec 030
+// phase 0). Owner-only: 0700 for the folders, 0600 for the files. Best-effort —
+// a filesystem that cannot express these modes must not break the bridge.
+#[cfg(unix)]
+fn restrict(path: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(mode));
+}
+
+#[cfg(not(unix))]
+fn restrict(_path: &Path, _mode: u32) {}
+
+// A file processed more than this long ago is history nobody reads. Keeping
+// them forever left a growing pile of the user's own task text on disk.
+const PROCESSED_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
+fn prune_processed(processed: &Path) {
+    let Ok(entries) = fs::read_dir(processed) else {
+        return;
+    };
+    let now = SystemTime::now();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        // A file whose mtime is in the future (clock skew) yields an Err from
+        // duration_since — treat it as fresh and leave it alone.
+        let age = entry
+            .metadata()
+            .and_then(|meta| meta.modified())
+            .ok()
+            .and_then(|modified| now.duration_since(modified).ok());
+        if age.is_some_and(|age| age > PROCESSED_TTL) {
+            let _ = fs::remove_file(&path);
+        }
+    }
+}
 
 // The Rust side owns the mailbox folder under the app's data dir. The webview
 // never touches the filesystem directly; it calls these commands.
@@ -11,6 +52,8 @@ fn mailbox_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let base = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let dir = base.join("mailbox");
     fs::create_dir_all(dir.join("inbox")).map_err(|e| e.to_string())?;
+    restrict(&dir, 0o700);
+    restrict(&dir.join("inbox"), 0o700);
     Ok(dir)
 }
 
@@ -26,6 +69,9 @@ pub fn bridge_write_export(app: tauri::AppHandle, contents: String) -> Result<St
     let target = dir.join("export.json");
     let tmp = dir.join("export.json.tmp");
     fs::write(&tmp, contents).map_err(|e| e.to_string())?;
+    // Lock it down BEFORE the rename, so the final path is never briefly
+    // world-readable.
+    restrict(&tmp, 0o600);
     fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
 }
@@ -60,6 +106,10 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
     let inbox = dir.join("inbox");
     let processed = inbox.join("processed");
     fs::create_dir_all(&processed).map_err(|e| e.to_string())?;
+    restrict(&processed, 0o700);
+    // Sweep the old pile once per app start. Cheap, and it never runs while an
+    // agent is mid-request because the watcher has not started yet.
+    prune_processed(&processed);
 
     std::thread::spawn(move || {
         let (tx, rx) = channel();
@@ -121,9 +171,11 @@ pub fn bridge_write_outbox(app: tauri::AppHandle, id: String, contents: String) 
     let dir = mailbox_dir(&app)?;
     let outbox = dir.join("outbox");
     fs::create_dir_all(&outbox).map_err(|e| e.to_string())?;
+    restrict(&outbox, 0o700);
     let target = outbox.join(format!("{id}.json"));
     let tmp = outbox.join(format!("{id}.json.tmp"));
     fs::write(&tmp, contents).map_err(|e| e.to_string())?;
+    restrict(&tmp, 0o600);
     fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
     Ok(target.to_string_lossy().to_string())
 }
@@ -156,5 +208,41 @@ pub fn bridge_read_status(app: tauri::AppHandle) -> Result<Option<String>, Strin
         Ok(text) => Ok(Some(text)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+
+    // prune_processed deletes files, so the cutoff gets its own check: a fresh
+    // request must survive the sweep that clears an ancient one.
+    #[test]
+    fn prune_processed_deletes_only_files_past_the_ttl() {
+        let dir = std::env::temp_dir().join(format!("cn-prune-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let fresh = dir.join("fresh.json");
+        let old = dir.join("old.json");
+        fs::write(&fresh, "{}").unwrap();
+        fs::write(&old, "{}").unwrap();
+
+        let long_ago = SystemTime::now() - PROCESSED_TTL - Duration::from_secs(60);
+        let times = fs::FileTimes::new().set_modified(long_ago);
+        File::options()
+            .write(true)
+            .open(&old)
+            .unwrap()
+            .set_times(times)
+            .unwrap();
+
+        prune_processed(&dir);
+
+        assert!(fresh.exists(), "a recent processed file must survive");
+        assert!(!old.exists(), "a processed file past the TTL must be removed");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }
