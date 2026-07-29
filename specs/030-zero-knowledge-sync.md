@@ -183,11 +183,18 @@ email magic-link login for the beta, so no Google/Apple console work is needed).
   included, with no second write per edit and no table to keep consistent. The
   upload high-water mark is one preference. Decided while building; revisit only
   if per-record retry state turns out to be needed.
+- `sync/pending.ts` — `listPendingUploads()` (oldest change first, batched) plus
+  `markUploadedThrough()`, which only ever moves forward. **Consent is
+  structural, not a reminder someone has to honour: without it
+  `listPendingUploads` returns nothing**, so an uploader physically cannot find
+  records to send. Both new preferences (`syncConsent`, `syncUploadedThrough`)
+  are `backupSafe: false` in `settings-registry.ts` — a consent decision is per
+  device, and a restored cursor would silently skip records.
 
 Still to build, all of it needing the account: the Supabase project and schema,
 magic-link auth, Row-Level Security plus the cross-account test, `ownerId`, the
-upload loop, the consent gate, and the screens that show the recovery code and
-the warning.
+upload loop itself, and the screens (login, the consent request, and the one
+that shows the recovery code with its warning).
 
 ### Phase 3 — Download, merge, conflicts without losing text
 

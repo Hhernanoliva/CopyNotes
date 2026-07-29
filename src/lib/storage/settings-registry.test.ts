@@ -12,7 +12,9 @@ describe('settings registry', () => {
 				'agendaHideCompleted',
 				'editorTextScale',
 				'connectedAgent',
-				'processedChanges'
+				'processedChanges',
+				'syncConsent',
+				'syncUploadedThrough'
 			].sort()
 		);
 	});
