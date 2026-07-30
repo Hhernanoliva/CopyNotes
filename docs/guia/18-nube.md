@@ -89,8 +89,16 @@ En el segundo dispositivo (otra computadora, la app de escritorio, el navegador)
    **código de recuperación**. Pegalo y tocá **Traer mis notas**.
 3. Vas a ver "Trayendo tus notas…" y aparecen.
 
-Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro (hoy
-tarda hasta 30 segundos; **Sincronizar ahora** lo apura).
+Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro.
+
+**¿Cuánto tarda?** Si los dos dispositivos están abiertos al mismo tiempo, unos
+**2 o 3 segundos** después de que dejás de escribir. Si el otro está cerrado,
+CopyNotes se toma con calma: revisa cada 30 segundos, porque no hay apuro cuando
+no hay nadie del otro lado. **Sincronizar ahora** lo fuerza siempre.
+
+Mientras estás escribiendo, la app **no** te refresca la nota bajo los dedos:
+espera a que hagas una pausa para meter lo que llegó, así nunca se te mueve el
+cursor a mitad de una frase.
 
 El código es lo único que abre la bóveda: si lo escribís mal, no pasa nada, no se
 rompe nada, simplemente no abre. Podés reintentar.

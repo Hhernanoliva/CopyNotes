@@ -27,6 +27,7 @@ import {
 import { encryptRecord } from './records';
 import { downloadAll } from './download';
 import { countConflicts } from './conflicts';
+import { nudgePeers } from './live';
 import { getRecoveryBlob, getVaultKey } from './vault';
 import { syncStatus } from './status.svelte';
 import { now } from '../storage/ids';
@@ -137,7 +138,11 @@ export async function syncNow() {
 				uploaded += count;
 				if (count < BATCH) break;
 			}
-			if (uploaded) syncStatus.lastUploadAt = now();
+			if (uploaded) {
+				syncStatus.lastUploadAt = now();
+				// One message per batch, and only when somebody is listening.
+				nudgePeers();
+			}
 		}
 		// Downloading needs no upload consent: joining the account with the recovery
 		// code is the request, and a device that never consented has nothing of its

@@ -28,7 +28,8 @@ sincronizaron.
    plan Free. Guardar la contraseña de la base de datos en el gestor de
    contraseñas (no se vuelve a mostrar y no es la contraseña de tu cuenta).
 2. **SQL Editor** → pegar todo `schema.sql` → Run. Se puede volver a correr sin
-   romper nada.
+   romper nada, y **hay que volver a correrlo cada vez que ese archivo cambie**
+   (la última vez sumó la política del canal en vivo).
 3. **Authentication › Sign In / Providers › Email**: dejar Email habilitado y
    **apagar "Confirm email"**. Sin apagarlo, crear una cuenta dispara un mail de
    confirmación, y este proyecto no tiene con qué enviarlo: la cuenta queda

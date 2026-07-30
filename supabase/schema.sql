@@ -113,3 +113,22 @@ for all
 to authenticated
 using (owner_id = auth.uid())
 with check (owner_id = auth.uid());
+
+-- ---------------------------------------------------------------------------
+-- The live channel (spec 030 phase 3)
+-- ---------------------------------------------------------------------------
+--
+-- Devices of one account share a private realtime topic named `cuenta:<uuid>`.
+-- Nothing on it carries note content: presence says who is connected, and the
+-- broadcast is an empty "come and look" that ends in the ordinary encrypted
+-- download. But without this policy the topic would be public, and any signed-up
+-- user who guessed an account id could watch when that person is online and
+-- editing. That is metadata this product promises not to hand out.
+
+drop policy if exists own_channel on realtime.messages;
+
+create policy own_channel on realtime.messages
+for all
+to authenticated
+using (realtime.topic() = 'cuenta:' || auth.uid()::text)
+with check (realtime.topic() = 'cuenta:' || auth.uid()::text);

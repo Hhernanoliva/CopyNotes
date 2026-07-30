@@ -296,10 +296,33 @@ nothing on another one.
 - The count shown is the standing pile (`countConflicts()`), not what the last
   run happened to find: a conflict stays open until someone decides it.
 
-Still to build: phase 3's stable list positions — see the deviation below — and
-the "in seconds" work (upload on idle + presence + a single broadcast nudge,
-switched on only while a second device is actually connected, which is what keeps
-Supabase's per-message realtime billing near zero).
+**Where "in seconds" landed (2026-07-30).** `sync/live.ts`: one private realtime
+channel per account, carrying presence (who is connected) and one empty
+broadcast — "come and look" — after an upload. The looking is the ordinary
+encrypted download, so the channel never sees a word.
+
+- **The cost rule is the design.** Supabase bills realtime by the message
+  (US$2,50 per million, 5 M included in Pro). Sending one per record, or sending
+  while nobody listens, is the difference between ~US$50 and ~US$1.250 a month at
+  10.000 active users. So: **nothing is sent unless presence reports another
+  device**, and it is one message per upload batch, not per record. A
+  single-device user — the majority — generates none. Tested in `live.test.ts`,
+  because this is the rule most likely to be "simplified" away later.
+- Upload also switches from the 30 s clock to 1,5 s after the last keystroke
+  **only while a peer is connected**; alone, nothing changes.
+- The channel is **private**, with an RLS policy on `realtime.messages` keyed to
+  `cuenta:<uid>` (in `supabase/schema.sql`). Without it the topic would be public
+  and any signed-up user who guessed an account id could watch when that person
+  is online — metadata this product promises not to hand out. Joining waits for
+  `realtime.setAuth()`, or the private join is rejected.
+- CSP needed the `wss:` twin of the project origin; a policy that allows the
+  https host but not the socket fails silently, which is this app's oldest trap.
+- **The editor is not refreshed under someone's fingers.** A refresh re-mounts
+  the editor (`{#key currentNoteId:dataVersion}`), harmless at 30-second
+  intervals and not at two seconds, so `CloudLifecycle` waits for ~2 s of typing
+  silence before applying what arrived.
+
+Still to build: phase 3's stable list positions — see the deviation below.
 
 **Deviation, deliberate: list order stays sequential integers.** This phase was
 supposed to replace `sortOrder` with stable positions. It is not text, so a

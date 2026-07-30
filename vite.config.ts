@@ -75,8 +75,19 @@ export default defineConfig({
 						// The cast is only for SvelteKit's CSP types, which describe a host
 						// as a literal template; a value read from the environment is a
 						// plain string.
+						//
+						// The `wss:` twin is the realtime channel (spec 030 phase 3): same
+						// host, different scheme, and a CSP that allows one but not the
+						// other fails silently — no error on screen, just a channel that
+						// never connects.
 						...(PUBLIC_SUPABASE_URL
-							? [PUBLIC_SUPABASE_URL as `https://${string}.${string}`]
+							? [
+									PUBLIC_SUPABASE_URL as `https://${string}.${string}`,
+									PUBLIC_SUPABASE_URL.replace(
+										/^https:/,
+										'wss:'
+									) as `wss://${string}.${string}`
+								]
 							: [])
 					],
 					'object-src': ['none'],
