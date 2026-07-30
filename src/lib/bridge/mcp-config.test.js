@@ -5,7 +5,9 @@ import {
 	cursorConfig,
 	cursorServerObject,
 	cursorDeeplink,
-	toBase64Utf8
+	toBase64Utf8,
+	isAgentActive,
+	AGENT_ACTIVE_MS
 } from './mcp-config';
 
 // A mailbox path WITH a space (the real one lives under "Application Support")
@@ -82,5 +84,33 @@ describe('toBase64Utf8', () => {
 	it('survives non-ASCII (accents/ñ) round-trip', () => {
 		const s = 'ñandú café';
 		expect(decodeURIComponent(escape(atob(toBase64Utf8(s))))).toBe(s);
+	});
+});
+
+describe('isAgentActive', () => {
+	const now = Date.parse('2026-07-30T12:00:00.000Z');
+	const ago = (ms) => new Date(now - ms).toISOString();
+
+	it('counts a touch from a minute ago', () => {
+		expect(isAgentActive(ago(60_000), now)).toBe(true);
+	});
+
+	it('goes cold past the window — the stale "se conectó" card is the whole bug', () => {
+		expect(isAgentActive(ago(AGENT_ACTIVE_MS + 1), now)).toBe(false);
+		expect(isAgentActive(ago(7 * 24 * 60 * 60 * 1000), now)).toBe(false);
+	});
+
+	it('treats the boundary as still active', () => {
+		expect(isAgentActive(ago(AGENT_ACTIVE_MS), now)).toBe(true);
+	});
+
+	it('says no for a missing or unreadable stamp instead of throwing', () => {
+		expect(isAgentActive(null, now)).toBe(false);
+		expect(isAgentActive(undefined, now)).toBe(false);
+		expect(isAgentActive('no es una fecha', now)).toBe(false);
+	});
+
+	it('does not call a clock-skewed future stamp stale', () => {
+		expect(isAgentActive(new Date(now + 60_000).toISOString(), now)).toBe(true);
 	});
 });

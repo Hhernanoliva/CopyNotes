@@ -1,7 +1,23 @@
-// Pure builders for the per-client MCP config strings shown in Settings >
-// Agentes. No DOM, no Tauri — given { serverPath, mailboxPath } they return the
-// exact command / JSON / deeplink each client expects. See the design spec
+// Pure logic behind Settings > Agentes. No DOM, no Tauri — given
+// { serverPath, mailboxPath } the builders return the exact command / JSON /
+// deeplink each client expects. See the design spec
 // 2026-07-24-conectar-mcp-por-cliente-design.md for the confirmed 2026 formats.
+
+// How long an agent's last touch still counts as "using CopyNotes".
+export const AGENT_ACTIVE_MS = 5 * 60 * 1000;
+
+// `agent-status.json` is stamped when an agent boots the MCP server and on
+// every tool call, so it records ACTIVITY, not an open connection: nothing
+// clears it when the client quits. The card used to read it as "Un agente se
+// conectó — hace 7 d", which sounds like someone is in the room. There is no
+// way to know whether the process is still alive, so the wording talks about
+// what the file actually proves and stops claiming a live link once it is cold.
+export function isAgentActive(lastSeen, now = Date.now()) {
+	if (!lastSeen) return false;
+	const at = new Date(lastSeen).getTime();
+	if (Number.isNaN(at)) return false;
+	return now - at <= AGENT_ACTIVE_MS;
+}
 
 // UTF-8-safe base64 (btoa alone throws on non-Latin1). Mirror decode:
 // decodeURIComponent(escape(atob(b64))).

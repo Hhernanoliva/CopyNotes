@@ -9,7 +9,8 @@
 		claudeCodeCommand,
 		openCodeConfig,
 		cursorConfig,
-		cursorDeeplink
+		cursorDeeplink,
+		isAgentActive
 	} from '$lib/bridge/mcp-config';
 	import {
 		cloudConfigured,
@@ -266,10 +267,13 @@
 		return `hace ${d} d`;
 	}
 
+	// Activity, not presence: see `isAgentActive` for why the old wording lied.
 	const agentSignal = $derived(
-		agentStatus?.lastSeen
-			? `Un agente se conectó — ${haceCuanto(agentStatus.lastSeen)}`
-			: 'Ningún agente conectado todavía'
+		!agentStatus?.lastSeen
+			? 'Ningún agente se conectó todavía'
+			: isAgentActive(agentStatus.lastSeen)
+				? `Un agente está usando CopyNotes — ${haceCuanto(agentStatus.lastSeen)}`
+				: `Sin actividad de agentes — la última, ${haceCuanto(agentStatus.lastSeen)}`
 	);
 
 	function flashCopied(field) {

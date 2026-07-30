@@ -118,11 +118,20 @@ marcarla hecha, dejar un comentario) **queda en espera** y se aplica solo cuando
 volvés a abrir la app — es la app la que vigila la carpeta del buzón y contesta.
 Nada se pierde: espera ahí hasta que abras.
 
-### ¿Se conectó?
+### ¿Hay un agente trabajando?
 
-Arriba de las opciones, CopyNotes te dice si un agente ya está conectado:
-**"Un agente se conectó"** con hace cuánto lo hizo. Si todavía no conectaste
-ninguno, dice **"Ningún agente conectado todavía"**.
+Arriba de las opciones, CopyNotes te dice qué está pasando:
+
+- **"Un agente está usando CopyNotes"** con hace cuánto: hubo movimiento en los
+  últimos minutos.
+- **"Sin actividad de agentes — la última, hace X"**: hubo un agente antes, pero
+  hace rato que no toca nada.
+- **"Ningún agente se conectó todavía"**: nunca hubo uno.
+
+CopyNotes te cuenta **actividad**, no si el programa del agente sigue abierto.
+Eso no lo puede saber: solo se entera cuando el agente le pide o le cambia algo.
+Por eso, si dejás Claude Code abierto sin pedirle nada, después de un rato el
+cartel va a decir que no hay actividad — y está bien dicho.
 
 ### Qué puede hacer el agente conectado así
 
