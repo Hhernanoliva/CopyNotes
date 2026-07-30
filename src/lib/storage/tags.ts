@@ -2,7 +2,7 @@ import { db } from './db';
 import { createId, now } from './ids';
 import { normalizeTagName, tagNamesMatch } from '../tags/names';
 import { sortBySidebarOrder } from '../organize';
-import { shiftRootDown } from './organize';
+import { topSortOrder } from './organize';
 import { trackPendingWrite } from './pending-writes';
 
 const tags = db.table('tags');
@@ -11,13 +11,13 @@ const tagAssignments = db.table('tagAssignments');
 export function createTag(fields) {
 	return trackPendingWrite(async () => {
 		const { name, color = null } = fields;
-		await shiftRootDown('tag');
+		const sortOrder = await topSortOrder('tag');
 		const timestamp = now();
 		const tag = {
 			id: createId(),
 			name,
 			color,
-			sortOrder: 0,
+			sortOrder,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			deletedAt: null

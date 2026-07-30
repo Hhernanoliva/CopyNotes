@@ -4,7 +4,6 @@ import {
 	buildSidebarTree,
 	planDelete,
 	planFolderDelete,
-	planInsertAtTop,
 	planMoveToContainer,
 	planReorder,
 	sortBySidebarOrder
@@ -61,15 +60,6 @@ describe('planDelete', () => {
 	});
 	it('returns no updates for an unknown id', () => {
 		expect(planDelete([row('a', 0)], 'ghost').updates).toEqual([]);
-	});
-});
-
-describe('planInsertAtTop', () => {
-	it('shifts every row down one', () => {
-		expect(planInsertAtTop([row('a', 0), row('b', 1)])).toEqual([
-			{ id: 'a', sortOrder: 1 },
-			{ id: 'b', sortOrder: 2 }
-		]);
 	});
 });
 

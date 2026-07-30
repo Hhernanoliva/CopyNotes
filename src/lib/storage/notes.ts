@@ -1,7 +1,7 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { sortBySidebarOrder } from '../organize';
-import { shiftRootDown } from './organize';
+import { topSortOrder } from './organize';
 import { trackPendingWrite } from './pending-writes';
 import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
@@ -13,12 +13,12 @@ const notes = db.table('notes');
 
 export function createNote({ title = '' } = {}) {
 	return trackPendingWrite(async () => {
-		await shiftRootDown('note');
+		const sortOrder = await topSortOrder('note');
 		const timestamp = now();
 		const note = {
 			id: createId(),
 			title,
-			sortOrder: 0,
+			sortOrder,
 			folderId: null,
 			agentVisible: false,
 			createdAt: timestamp,

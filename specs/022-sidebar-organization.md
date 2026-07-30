@@ -53,10 +53,13 @@ Approved design decisions:
 - New pure-logic module **`src/lib/organize/`**: reorder/move plans over
   `{id, sortOrder, folderId}` rows (node-tested, no DOM). Same philosophy
   as `src/lib/blocks/`: UI applies plans, never invents order math.
-- Ordering model: **gapless integers per container** (container = root list
-  or one folder; tags have only root). Every mutation renumbers its
-  container(s); lists are small, renumbering is cheap and keeps invariants
-  trivial.
+- Ordering model: **numbers to sort by, ascending, per container** (container =
+  root list or one folder; tags have only root). Reorder, move and delete
+  renumber their container(s); lists are small and renumbering keeps those
+  invariants trivial. ~~gapless integers~~ **Amended 2026-07-30 (spec 030):**
+  creating no longer renumbers, so gaps and negative values are normal. Nothing
+  may assume `sortOrder === index`, that orders start at 0, or that they are
+  contiguous — only that ascending order is the visible order.
 - The root container is one sequence over the **union of folders and loose
   items** (folders intermix with notes/snippets, per Slice C): one shared
   `sortOrder` sequence per kind, folder or not. A folder's contents form
@@ -70,8 +73,10 @@ Approved design decisions:
   - Drop between two items reorders within the container. (Folder targets
     arrive with Slice C.)
   - Escape or dropping outside any list cancels the drag.
-- New items (`createNote`, `createSnippet`, `createTag`) enter at
-  `sortOrder 0` of the root, shifting the rest down.
+- New items (`createNote`, `createSnippet`, `createTag`, `createFolder`) enter at
+  the **top of the root**, taking a position one below the current lowest
+  (`topSortOrder` in `storage/organize.ts`). They do not shift the rest: a
+  renumbered row is a changed row, and a changed row re-uploads to the cloud.
 
 ### Slice C — Folders (Notas and Snippets)
 

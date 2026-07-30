@@ -43,10 +43,6 @@ export function planDelete(container, deletedId) {
 	return { updates: renumber(remaining) };
 }
 
-export function planInsertAtTop(container) {
-	return sortBySidebarOrder(container).map((row, index) => ({ id: row.id, sortOrder: index + 1 }));
-}
-
 export function planMoveToContainer(source, target, movedId, targetIndex, folderId) {
 	const sortedSource = sortBySidebarOrder(source);
 	const moved = sortedSource.find((row) => row.id === movedId);

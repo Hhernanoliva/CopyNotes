@@ -337,11 +337,22 @@ encrypted download, so the channel never sees a word.
 
 Still to build: phase 3's stable list positions — see the deviation below.
 
-**Deviation, deliberate: list order stays sequential integers.** This phase was
-supposed to replace `sortOrder` with stable positions. It is not text, so a
-disagreement between devices reorders a list at worst, never loses a word; and
-the change touches every drag-and-drop path in the app. Deferred until the
-churn is a real complaint rather than a predicted one.
+~~**Deviation, deliberate: list order stays sequential integers.**~~ **Closed
+2026-07-30, in the half that mattered.** Creating a row no longer renumbers the
+list: `storage/organize.ts`'s `topSortOrder(kind)` hands the new row a position
+one below the current lowest, so a new note uploads its own record and nothing
+else (`sync/upload.test.ts` asserts 2 records, not 3). Orders are now plain
+numbers to sort by, gaps and negatives included, and `normalizeSidebarOrder`
+only repairs a container that is genuinely unorderable — a row with no usable
+`sortOrder`, or two rows claiming the same one. Closing gaps on every import
+would have undone the saving and made a restored backup differ from the file it
+came from, which reads as a conflict on the next import.
+
+Deliberately still open: **drag-and-drop and delete still renumber** their
+container. Both are honest work (you did reorder the list) and rare next to
+creating notes, and full fractional positions would touch every drag path. The
+remaining exposure is that two devices reordering the same list concurrently
+can disagree — which reorders a list at worst, never loses a word.
 
 - Edits to different blocks merge automatically.
 - The same block edited on two devices keeps **both** versions and asks.

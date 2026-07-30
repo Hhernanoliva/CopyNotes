@@ -1,20 +1,20 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { sortBySidebarOrder } from '../organize';
-import { shiftRootDown } from './organize';
+import { topSortOrder } from './organize';
 import { trackPendingWrite } from './pending-writes';
 
 const folders = db.table('folders');
 
 export function createFolder(kind, name) {
 	return trackPendingWrite(async () => {
-		await shiftRootDown(kind);
+		const sortOrder = await topSortOrder(kind);
 		const timestamp = now();
 		const folder = {
 			id: createId(),
 			kind,
 			name,
-			sortOrder: 0,
+			sortOrder,
 			collapsed: false,
 			createdAt: timestamp,
 			updatedAt: timestamp,

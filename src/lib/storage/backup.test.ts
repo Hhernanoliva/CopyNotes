@@ -93,10 +93,12 @@ describe('applyMergePlan', () => {
 			inserts: {
 				...emptyTables(),
 				notes: [
+					// No sortOrder: an old backup's row, which is the case that still
+					// forces normalization to write. A row that already has a usable
+					// position is left alone now, gap or no gap.
 					{
 						id: 'note_new',
 						title: 'Importada',
-						sortOrder: 9,
 						createdAt: iso,
 						updatedAt: iso,
 						deletedAt: null

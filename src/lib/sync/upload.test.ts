@@ -134,12 +134,12 @@ describe('what reaches the server', () => {
 
 		expect(rowsFor('vaults')).toHaveLength(1);
 		expect(rowsFor('vaults')[0]).not.toHaveProperty('key');
-		// Three record uploads, not two: creating a note calls shiftRootDown, which
-		// renumbers the notes above it, and a renumbered row is a changed row. Spec
-		// 030 phase 3 already names the fix (stable positions instead of sequential
-		// `sortOrder` integers); until then a new note re-uploads its siblings'
-		// small rows.
-		expect(rowsFor('records')).toHaveLength(3);
+		// Two record uploads, one per note. Creating a note used to renumber every
+		// sibling above it, and a renumbered row is a changed row, so one new note
+		// re-uploaded the whole sidebar. A new row now takes a position below the
+		// lowest one instead (spec 030's "stable positions"), so nothing it did not
+		// touch is sent.
+		expect(rowsFor('records')).toHaveLength(2);
 	});
 });
 

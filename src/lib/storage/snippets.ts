@@ -1,7 +1,7 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { sortBySidebarOrder } from '../organize';
-import { shiftRootDown } from './organize';
+import { topSortOrder } from './organize';
 import { trackPendingWrite } from './pending-writes';
 
 const snippets = db.table('snippets');
@@ -16,7 +16,7 @@ export function createSnippet(fields) {
 			sourceBlockId = null,
 			isFavorite = false
 		} = fields ?? {};
-		await shiftRootDown('snippet');
+		const sortOrder = await topSortOrder('snippet');
 		const timestamp = now();
 		const snippet = {
 			id: createId(),
@@ -26,7 +26,7 @@ export function createSnippet(fields) {
 			sourceNoteId,
 			sourceBlockId,
 			isFavorite,
-			sortOrder: 0,
+			sortOrder,
 			folderId: null,
 			createdAt: timestamp,
 			updatedAt: timestamp,
