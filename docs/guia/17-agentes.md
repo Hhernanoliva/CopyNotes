@@ -83,6 +83,9 @@ lee.
 ## Solo en la app de escritorio
 
 Esta conexión funciona en la app de escritorio (Mac). En el navegador todavía no.
+Ojo con la diferencia: **la nube sí anda en el navegador, los agentes no**. Si
+usás CopyNotes en el navegador vas a tener tus notas sincronizadas, pero ningún
+agente va a poder leerlas desde ahí.
 
 ## Conectar un agente por MCP (escritorio)
 
@@ -128,3 +131,40 @@ Una vez conectado, el agente puede leer las notas que marcaste como visibles
 nuevas y marcarlas como hechas — siempre dejando una línea en la bitácora, igual
 que se explica más arriba. No ve tus comentarios ni las tareas ya hechas, no
 borra, no exporta ni reordena.
+
+## Agentes y nube
+
+Si además activaste la nube (ver **[La nube](18-nube.md)**), las dos cosas
+conviven así:
+
+- **Lo que hace el agente se sincroniza.** Una tarea que te creó o completó
+  viaja a tus otros dispositivos igual que si la hubieras escrito vos. No tenés
+  que hacer nada.
+- **Lo que hiciste en otra máquina le llega al agente** cuando abrís CopyNotes
+  acá. Con la app cerrada, el agente sigue leyendo la última copia que le dejó
+  esta computadora, aunque en la otra hayas escrito después.
+- **La marca "Visible para agentes" viaja con la nota.** Si la prendiste en una
+  computadora, la nota también está visible para el agente de la otra.
+- **Permitir agentes no es lo mismo que permitir la nube.** Son dos permisos
+  distintos: si nunca tocaste **"Permitir y subir"**, nada sale de tu
+  dispositivo, ni siquiera lo que escribió el agente.
+
+### La copia que lee el agente no está cifrada
+
+Para que el agente pueda leer tus notas **con CopyNotes cerrada**, la app le
+deja una copia en un archivo de tu disco. Esa copia **no está cifrada**: la
+protegen los permisos del archivo (solo tu usuario de la computadora puede
+abrirlo), no la bóveda.
+
+Qué significa en la práctica:
+
+- Solo contiene las notas que marcaste **visibles para agentes**. El resto no
+  está ahí.
+- Los **comentarios de tus renglones nunca** se copian a ese archivo, ni siquiera
+  de las notas visibles.
+- Lo que se sube a la nube sí va cifrado, siempre. Esto es una copia **local**,
+  en tu máquina, no en el servidor.
+- Si no querés que exista, no marques ninguna nota como visible para agentes.
+
+Es el precio de que el agente funcione sin tener la app abierta. Preferimos
+decirlo antes que dejarlo escondido.

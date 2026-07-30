@@ -100,7 +100,19 @@ proyecta en la lectura Markdown.
 
 ## What Does NOT Enter
 
-- No cloud, no accounts, no multi-device (that is `029`).
+- ~~No cloud, no accounts, no multi-device (that is `029`).~~ **Superseded
+  2026-07-30:** `029`/`030` phases 0–3 are in production, and the two channels
+  coexist without either knowing about the other. What that means, verified in
+  `bridge/ingest.test.ts` ("agent writes and the cloud"): an agent write lands
+  through the ordinary repositories, so `db.ts`'s per-table hooks stamp its
+  `changeSeq` and it uploads encrypted like any local edit; a cloud arrival
+  reaches the agent through `handleExternalChange` → `bumpAgentData()`, which
+  re-exports the mailbox; and `agentVisible` rides on the note row, which is a
+  synced table, so visibility follows the note across devices. Upload consent and
+  agent visibility stay independent permissions — `sync/pending.ts` hands out
+  nothing before consent, whoever wrote it. Still out of scope: an agent reading
+  a device whose app is closed sees that device's last export, and the browser
+  build has no agent surface at all.
 - No multiple simultaneous agents (single-agent v1).
 - No agent writing prose or free note content — agents act on **tasks and
   structured metadata only**, never rewrite a note's body. (v2: the agent *reads*

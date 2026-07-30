@@ -12,6 +12,11 @@ Tus notas se **cifran en tu dispositivo antes de salir**. El servidor guarda alg
 que no puede leer: ni la empresa que aloja los datos, ni nosotros, ni alguien que
 se robe la base de datos.
 
+Eso vale para lo que **sale** hacia el servidor. Dentro de tu propia computadora
+las notas se guardan como siempre, sin cifrar — y si usás **agentes**, hay además
+una copia local en claro de las notas que marcaste visibles, explicada en
+**[Agentes](17-agentes.md)**.
+
 ## Entrar
 
 1. Escribí tu email y una contraseña.
@@ -89,7 +94,8 @@ En el segundo dispositivo (otra computadora, la app de escritorio, el navegador)
    **código de recuperación**. Pegalo y tocá **Traer mis notas**.
 3. Vas a ver "Trayendo tus notas…" y aparecen.
 
-Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro.
+Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro. Y si en
+alguno tenés un **agente** conectado, lo que él haga también viaja igual.
 
 **¿Cuánto tarda?** Si los dos dispositivos están abiertos al mismo tiempo, unos
 **2 o 3 segundos** después de que dejás de escribir. Si el otro está cerrado,

@@ -380,7 +380,14 @@ intercepting traffic. None of them can turn stored bytes into readable notes.
 **Not protected against:** anyone with access to an unlocked, already-authorised
 device; the local disk at rest (that is FileVault's / BitLocker's job); the
 clipboard and screenshots; text the user deliberately shares with an agent
-wired to a remote model.
+wired to a remote model; and **the agent mailbox itself — `export.json` is a
+plaintext mirror of every agent-visible note, sitting on the local disk behind
+file permissions only** (D2 above; `restrict()` in `src-tauri/src/bridge.rs` is
+best-effort and a no-op off Unix). It is bounded — only notes the user marked
+visible, and block comments are never copied into it — but it is the one place
+where readable note text exists outside the vault, and the phase 4 audit must
+see it named. It only exists on a device where the desktop app ran; the browser
+build has no agent surface. Documented for users in `docs/guia/17-agentes.md`.
 
 **Metadata Supabase still sees:** account identity, IP address, approximate
 record counts, payload sizes, and sync timing. This is unavoidable in this

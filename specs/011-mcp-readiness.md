@@ -58,7 +58,11 @@ Future flows:
 - MVP architecture keeps data access and app actions clean enough to expose later.
 - MCP concepts do not pollute normal user UI.
 - Agent tasks can be modeled with normal todos/checks.
-- MCP timing remains post-MVP and probably post-sync/accounts.
+- ~~MCP timing remains post-MVP and probably post-sync/accounts.~~ **Reversed by
+  what shipped:** the agent channel landed first (`028`, 2026-07-24) and
+  encrypted sync followed (`029`/`030`, phases 0–3 in production 2026-07-30).
+  The order did not hurt: agent writes go through the ordinary repositories, so
+  `db.ts`'s per-table hooks stamp them for upload like any keystroke.
 - The codebase has a clear place for future MCP contracts.
 
 ## Minimum Tests

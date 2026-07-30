@@ -2,7 +2,7 @@
 
 ## Lo básico
 
-- **Tus notas viven en este dispositivo.** No hay cuenta ni nube: todo se guarda automáticamente en el navegador.
+- **Tus notas viven en este dispositivo.** No necesitás cuenta: todo se guarda automáticamente en el navegador y funciona sin conexión. Si querés tenerlas en más de un dispositivo, hay una nube opcional y cifrada — ver **[La nube](18-nube.md)**.
 - **Guardado automático.** Mientras escribís, arriba a la derecha aparece "Guardando…" y después "Guardado". No hay botón de guardar. Aunque cierres la pestaña o recargues justo después de escribir, las últimas teclas no se pierden: quedan anotadas y se aplican al volver a abrir.
 - **Si el guardado local no responde.** CopyNotes cierra el editor para no arriesgar cambios. Muestra **Volver a intentar** para que recargues cuando el almacenamiento del dispositivo vuelva a estar disponible.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
