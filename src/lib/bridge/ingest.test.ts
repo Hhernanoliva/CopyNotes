@@ -10,6 +10,7 @@ import {
 	getBlock
 } from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
+import { grantUploadConsent, listPendingUploads } from '$lib/sync/pending';
 import { ingestAgentChange } from './ingest';
 
 beforeEach(async () => {
@@ -186,5 +187,80 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(await listTasks(note.id)).toHaveLength(1); // applied exactly once
 		expect(a.ok).toBe(true);
 		expect(b).toEqual(a); // second delivery sees the recorded result
+	});
+});
+
+// The seam between the two channels that were built in isolation: the agent
+// (028) and encrypted sync (029/030). Nothing wires them together on purpose —
+// agent writes land through the ordinary repositories, so `db.ts`'s per-table
+// hooks stamp them like any keystroke. That is the whole mechanism, and its
+// failure would be silent: the agent would keep working, the screen would look
+// right, and nothing it wrote would ever reach the second device.
+describe('agent writes and the cloud', () => {
+	it('queues an agent-created task for upload like any local edit', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		await grantUploadConsent();
+
+		const res = await ingestAgentChange({
+			type: 'createTask',
+			noteId: note.id,
+			content: 'tarea del agente',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(true);
+
+		const [task] = await listTasks(note.id);
+		const pending = await listPendingUploads();
+
+		const block = pending.find((p) => p.table === 'blocks' && p.row.id === task.id);
+		expect(block).toBeDefined();
+		expect(block.row.changeSeq).toBeGreaterThan(0);
+		// The bitácora entry is a synced record too: the history of who did what
+		// has to travel, or the other device shows a task nobody created.
+		expect(pending.some((p) => p.table === 'activity' && p.row.blockId === task.id)).toBe(true);
+	});
+
+	it('queues an agent completion, not just the creation', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: note.id, content: 'tarea', actor: 'user' });
+		await grantUploadConsent();
+
+		const before = (await listPendingUploads()).find(
+			(p) => p.table === 'blocks' && p.row.id === block.id
+		);
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			noteId: note.id,
+			blockId: block.id,
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(true);
+
+		const after = (await listPendingUploads()).find(
+			(p) => p.table === 'blocks' && p.row.id === block.id
+		);
+		expect(after.row.checked).toBe(true);
+		// A fresh stamp, not the one the creation left: an edit on top of an
+		// already-pending record still has to be recognised as newer.
+		expect(after.row.changeSeq).toBeGreaterThan(before.row.changeSeq);
+	});
+
+	it('sends nothing the user has not consented to, whoever wrote it', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+
+		const res = await ingestAgentChange({
+			type: 'createTask',
+			noteId: note.id,
+			content: 'tarea del agente',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(true);
+
+		// Visible to the agent is not the same permission as visible to the cloud.
+		expect(await listPendingUploads()).toEqual([]);
 	});
 });

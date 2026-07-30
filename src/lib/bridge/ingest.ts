@@ -109,6 +109,16 @@ async function ingestAgentChangeUnsafe(change) {
 // record sequence is atomic: a duplicate id delivered while its first delivery
 // is still in flight waits, then sees the recorded result instead of
 // re-applying. The webview is the only applier, so a per-process chain suffices.
+//
+// Sync (030) needs nothing added here. An agent write is an ordinary repository
+// write, so `db.ts`'s hooks stamp it and it uploads encrypted like any keystroke
+// (proved in `ingest.test.ts` › "agent writes and the cloud"). A record parked
+// in `conflicts` is no exception: `sync/download.ts` leaves the local row
+// untouched while a conflict stands, so an agent editing it behaves exactly like
+// the user editing it — the parked remote version keeps waiting for a decision.
+// The dedupe ledger lives in `settings`, which does not sync: that is correct,
+// because a change already applied here has arrived on the other device as data,
+// not as a request to replay.
 let ingestChain = Promise.resolve();
 export function ingestAgentChange(change) {
 	const run = ingestChain.then(
