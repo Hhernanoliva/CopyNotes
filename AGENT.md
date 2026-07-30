@@ -36,6 +36,7 @@ Web-first and client-side: still **no server routes and no backend code of ours*
 - **`putFromCloud` in `storage/db.ts` is the only way a downloaded record may be written.** Any other path stamps it as a local change, and the two devices bounce it between them for ever.
 - **Nothing leaves without consent**, and the gate is structural: `sync/pending.ts` returns an empty list until it is granted, so an uploader cannot find anything to send.
 - **Realtime is sent only when a second device is actually connected** (`sync/live.ts`). It is billed per message; "just send always" is the difference between a US$25/month project and a US$1.250 one at scale.
+- **A change arriving from outside never re-mounts the editor.** See the editor rule below — it is the invariant that broke first when sync got fast.
 
 ## Application Architecture
 
@@ -72,6 +73,7 @@ Rules that keep agents safe here:
 - Pure logic (hierarchy, formatters, search, merge plans) lives in plain modules with Vitest coverage, separate from rendering.
 - State: Svelte runes/stores for UI/session state (current note, selection, panels, query); anything that must survive a refresh flows through storage. No external state library.
 - Editor is isolated behind boundaries (editor UI / block model / persistence / copy formatting / shortcuts) so a future editor swap can't force a rewrite.
+- **Changes that arrive from outside the app — the cloud, an agent — update the open note in place; they never re-mount the editor.** `+page.svelte` keeps two doors on purpose: `handleDataChanged` (which bumps `dataVersion` and rebuilds the editor) is only for import/restore, where nothing on screen is worth preserving; everything else goes through `handleExternalChange` → `Editor.refreshFromStorage()`. Re-mounting drops the caret and, mid-typing, splits the line being written — invisible while sync was slow, constant once it took seconds. The safety rule lives in `editor/reconcile.ts`: **storage decides order and existence, but a row is never replaced while the caret is in it or while its save is in flight**, and a row skipped that way must be retried when the caret leaves.
 
 ## Quality Bar
 
