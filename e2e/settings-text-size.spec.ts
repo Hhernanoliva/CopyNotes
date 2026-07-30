@@ -48,16 +48,20 @@ test('A− se deshabilita en el mínimo (90%)', async ({ page }) => {
 	await expect(shrink).toBeDisabled();
 });
 
-// Nube (spec 030 fase 2). La suite corre sin proyecto Supabase configurado, que
-// es exactamente el caso de una instalación 100% local: la sección tiene que
-// abrirse, decirlo y no pedir nada.
-test('la sección Nube se abre y avisa que no hay nube configurada', async ({ page }) => {
+// Nube (spec 030 fase 2). Prueba de humo: la sección se abre sin romper, tanto
+// en una build con proyecto Supabase como en una sin él. Deliberadamente NO
+// afirma en cuál de los dos estados está: eso depende de si la máquina que corre
+// la suite tiene un `.env`, y una prueba que cambia de resultado según eso no
+// prueba nada. Los dos estados los cubre `sync/supabase.test.ts`, con el entorno
+// fijado.
+test('la sección Nube se abre sin romper el diálogo', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Nube' })).toBeVisible();
-	await expect(page.getByText('no tiene una nube configurada')).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Enviar código' })).toHaveCount(0);
+	await expect(page.getByText('Se cifran acá, antes de salir')).toBeVisible();
+	// El diálogo sigue vivo debajo: la sección nueva no tapó ni rompió el resto.
+	await expect(page.getByRole('heading', { name: 'Agentes' })).toBeVisible();
 });
 
 test.describe('con movimiento reducido', () => {
