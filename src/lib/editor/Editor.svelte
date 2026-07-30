@@ -1658,7 +1658,7 @@
 			slash.index = moveSelection(slash.index, -1, slashCommands.length);
 			return;
 		}
-		if (key === 'Enter') {
+		if (key === 'Enter' || key === 'Tab') {
 			const command = slashCommands[slash.index];
 			if (command) applySlashCommand(command);
 			else slash = null;
@@ -1746,6 +1746,7 @@
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}
 					focused={focusBlockId === row.block.id}
+					active={activeBlockId === row.block.id}
 					flash={flashBlockIds.has(row.block.id)}
 					pulseMenu={pulseMenuBlockId === row.block.id}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}

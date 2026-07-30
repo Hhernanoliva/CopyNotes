@@ -5,8 +5,8 @@
 
 <script>
 	import { onMount, tick } from 'svelte';
-	import { scale } from 'svelte/transition';
-	import { ChevronRight, Check, Copy, CopyPlus, GripVertical } from '@lucide/svelte';
+	import { fade, scale } from 'svelte/transition';
+	import { ChevronRight, Check, Copy, CopyPlus, GripVertical, Plus } from '@lucide/svelte';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
 	import DatePanel from './DatePanel.svelte';
@@ -32,6 +32,7 @@
 		hasChildren = false,
 		agentNotes = [],
 		focused = false,
+		active = false,
 		flash = false,
 		pulseMenu = false,
 		placeholder = '',
@@ -132,6 +133,12 @@
 	const isLongCode = $derived(codeLineCount > 12);
 	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
 	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
+
+	// El botón + es una alternativa de mouse a tipear "/", pensada para quien
+	// no conoce el atajo (spec: docs/superpowers/specs/2026-07-30-plus-boton-linea-activa-design.md).
+	const showPlus = $derived(
+		active && block.content === '' && block.type !== 'code' && block.type !== 'separator'
+	);
 
 	const today = $derived(currentDay());
 	const dueLabel = $derived(block.dueDate ? badgeLabel(block.dueDate, today) : '');
@@ -302,7 +309,7 @@
 	function handleKeydown(event) {
 		if (slashOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
 			event.preventDefault();
-			onSlashKey(event.key === 'Tab' ? 'Escape' : event.key);
+			onSlashKey(event.key);
 			return;
 		}
 		// Inline formatting shortcuts work even when the floating toolbar is not
@@ -513,6 +520,15 @@
 		focusBlockSurface(true);
 	}
 
+	// Dispara el mismo evento `input` nativo que ya maneja handleInput cuando
+	// el usuario tipea "/" a mano — mismo pipeline que abre el menú, cero
+	// estado nuevo. Precedente en este archivo: document.execCommand('insertLineBreak')
+	// ya simula una tecla física dentro del mismo flujo de eventos.
+	function insertSlashTrigger() {
+		el?.focus();
+		document.execCommand('insertText', false, '/');
+	}
+
 	const ariaLabels = {
 		text: 'Bloque de texto',
 		bullet: 'Viñeta',
@@ -534,18 +550,39 @@
 >
 	<!-- Grip handle: grab to move this row (and any active selection). Shown on
 	     hover/focus. Not editable, so dragging never fights text selection.
-	     Keyboard users move rows with Alt+↑/↓, so this stays out of the tab order. -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div
-		aria-hidden="true"
-		use:tooltip={'Arrastrar para mover'}
-		onpointerdown={(event) => {
-			event.stopPropagation();
-			onDragHandle?.(block.id, event);
-		}}
-		class="cn-affordance cn-tap text-faint hover:text-foreground flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
-	>
-		<GripVertical size={14} aria-hidden="true" />
+	     Keyboard users move rows with Alt+↑/↓, so this stays out of the tab order.
+	     On the active empty line it swaps for a "+" that opens the same menu as
+	     typing "/" — a mouse-first alternative for people who don't know the
+	     shortcut. -->
+	<div class="relative flex h-7 w-4 shrink-0 items-center justify-center">
+		{#if showPlus}
+			<button
+				type="button"
+				aria-label="Agregar bloque"
+				use:tooltip={'Agregar (o escribí "/")'}
+				onclick={insertSlashTrigger}
+				in:fade={{ duration: ready ? motionDuration(MOTION.fast) : 0 }}
+				out:fade={{ duration: motionDuration(MOTION.fast) }}
+				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring absolute flex h-7 w-4 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<Plus size={14} aria-hidden="true" />
+			</button>
+		{:else}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				aria-hidden="true"
+				use:tooltip={'Arrastrar para mover'}
+				onpointerdown={(event) => {
+					event.stopPropagation();
+					onDragHandle?.(block.id, event);
+				}}
+				in:fade={{ duration: ready ? motionDuration(MOTION.fast) : 0 }}
+				out:fade={{ duration: motionDuration(MOTION.fast) }}
+				class="cn-affordance cn-tap text-faint hover:text-foreground absolute flex h-7 w-4 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+			>
+				<GripVertical size={14} aria-hidden="true" />
+			</div>
+		{/if}
 	</div>
 	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
 		{#if hasChildren}

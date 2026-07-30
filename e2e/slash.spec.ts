@@ -51,6 +51,45 @@ test('a character typed right after picking lands where the "/" was', async ({ p
 	await expect(first).toHaveText('Hola mundo!');
 });
 
+test('Tab picks the highlighted command, same as Enter', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Hola mundo');
+
+	const menu = page.locator('#slash-menu');
+	await page.keyboard.type('/tarea');
+	await expect(menu).toBeVisible();
+
+	await page.keyboard.press('Tab');
+	await expect(menu).toBeHidden();
+	await expect(first).toHaveText('Hola mundo');
+	await expect(page.locator('main [role="checkbox"]').first()).toBeVisible();
+});
+
+test('the "+" button opens the same menu as typing "/"', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeHidden();
+
+	const plusButton = page.getByRole('button', { name: 'Agregar bloque' });
+	await expect(plusButton).toBeVisible();
+	await plusButton.click();
+	await expect(menu).toBeVisible();
+
+	await page.keyboard.type('tarea');
+	await page.keyboard.press('Enter');
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]').first()).toBeVisible();
+});
+
 test('the slash menu works mid-text and strips only the "/query" span', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
