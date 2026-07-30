@@ -161,7 +161,9 @@ for (const name of SYNCED_TABLES) {
 	// Returning extra modifications is how the updating hook adds a field; a key
 	// set to undefined is how Dexie deletes one.
 	table.hook('updating', (modifications) =>
-		modifications.fromCloud ? { fromCloud: undefined } : { changeSeq: nextChangeSeq() }
+		Object.hasOwn(modifications, 'fromCloud')
+			? { fromCloud: undefined }
+			: { changeSeq: nextChangeSeq() }
 	);
 }
 

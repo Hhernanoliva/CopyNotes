@@ -6,7 +6,6 @@
 	import { Toaster } from 'svelte-sonner';
 	import { getTheme } from '$lib/storage';
 	import { startTodayClock } from '$lib/dates';
-	import { startUploadClock } from '$lib/sync/upload';
 	import { browserThemeColors } from '$lib/theme/browser-colors';
 	import { isTauriRuntime } from '$lib/platform';
 	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
@@ -35,10 +34,6 @@
 	// without a reload. Cleanup clears the timer and listeners.
 	$effect(() => startTodayClock());
 
-	// Cloud upload clock (spec 030 phase 2). Every gate — no project configured,
-	// no session, no vault, no consent — lives inside the loop, so on a local-only
-	// install this ticks against a closed door and does nothing.
-	$effect(() => startUploadClock());
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>

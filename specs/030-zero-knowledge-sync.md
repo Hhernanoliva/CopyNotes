@@ -241,6 +241,51 @@ has nothing to restore from until download lands.
 
 ### Phase 3 — Download, merge, conflicts without losing text
 
+**Where the download half landed (2026-07-30).** A second device joins the vault
+with its recovery code and pulls everything down; conflicts are detected and
+counted but not yet resolvable on screen (next slice).
+
+- **The trap this phase turns on: `storage/db.ts`'s hooks stamp every write.** A
+  record saved as it comes down would look like a local change, upload again, be
+  downloaded by the other device, and bounce for ever. `putFromCloud()` is the
+  only door in: it marks the row with a transient `fromCloud` flag the hooks
+  consume and delete, so the counter it arrived with survives. **The flag is
+  explicit rather than an "applying remote" mode on purpose** — a mode would span
+  `await`s, and an ordinary save landing inside that window would silently lose
+  its stamp, which is losing the change.
+- **New field `cloudSeq`** = the version the server already holds. Without it a
+  freshly joined device sees everything it just downloaded as pending, re-uploads
+  the lot, and shows "822 cambios sin subir" right after syncing. A local edit
+  re-stamps `changeSeq`, the two stop matching, and the record is pending again.
+  It never travels: stripped in `encryptRecord` and in `backup.ts`'s
+  `LOCAL_ONLY_FIELDS`, for the same reason `changeSeq` is — elsewhere the claim
+  is false, and a false claim there is a change that never uploads.
+- `sync/download.ts` reads by the server's own `server_seq` (the trigger-stamped
+  sequence, which cannot tie the way a timestamp can), and the merge policy lives
+  in one `decide()` function: unknown record → apply; same counter → my own echo;
+  **local has unsent changes → conflict, touch nothing**; otherwise the newer
+  counter wins. Cross-device comparison of `changeSeq` is legitimate because
+  phase 1 derives it from the clock; a skewed clock can lose a race but never
+  text, because the loser lands in the conflict branch.
+- Batches are applied record by record, **not** in one transaction: an
+  interruption leaves the cursor where it was, the batch is read again, and
+  applying the same version twice writes the same bytes.
+- **Download does not require upload consent.** Joining the account with the
+  recovery code *is* the request, and a device that never consented has nothing
+  of its own up there.
+- `sync/CloudLifecycle.svelte` (modelled on `bridge/BridgeLifecycle.svelte`) owns
+  the clock and refreshes the screen through the same `handleDataChanged()` the
+  agent bridge already uses — but only when something actually landed.
+
+Still to build: the conflict screen (both versions, pick one), the delete-here /
+edit-there rule, and phase 3's stable list positions — see the deviation below.
+
+**Deviation, deliberate: list order stays sequential integers.** This phase was
+supposed to replace `sortOrder` with stable positions. It is not text, so a
+disagreement between devices reorders a list at worst, never loses a word; and
+the change touches every drag-and-drop path in the app. Deferred until the
+churn is a real complaint rather than a predicted one.
+
 - Edits to different blocks merge automatically.
 - The same block edited on two devices keeps **both** versions and asks.
 - Delete on one device + edit on another keeps the edit as a recoverable version.

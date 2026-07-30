@@ -80,9 +80,28 @@ Escribí tranquilo. Todo se guarda local como siempre y se sube cuando vuelve la
 conexión; nada se duplica y nada se pierde. Cerrar CopyNotes nunca espera a
 internet.
 
-## Todavía no
+## Abrir tus notas en otro dispositivo
 
-Esta primera versión **sube**, pero todavía no baja. Es decir: sirve para tener
-una copia cifrada de tus notas en la nube, y el paso siguiente —verlas en un
-segundo dispositivo, con las dos versiones a la vista si editaste lo mismo en
-los dos— viene después.
+En el segundo dispositivo (otra computadora, la app de escritorio, el navegador):
+
+1. **Configuración › Nube** → entrá con el mismo email y contraseña.
+2. Como esa cuenta ya tiene notas guardadas, en vez de "Crear bóveda" te pide el
+   **código de recuperación**. Pegalo y tocá **Traer mis notas**.
+3. Vas a ver "Trayendo tus notas…" y aparecen.
+
+Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro (hoy
+tarda hasta 30 segundos; **Sincronizar ahora** lo apura).
+
+El código es lo único que abre la bóveda: si lo escribís mal, no pasa nada, no se
+rompe nada, simplemente no abre. Podés reintentar.
+
+## Si editás lo mismo en los dos lados
+
+Si el mismo renglón cambió en los dos dispositivos, **no se pisa nada**: se
+respeta lo que escribiste en el dispositivo que estás usando y la app te avisa
+en Configuración › Nube ("2 cambios llegaron de otro dispositivo sobre algo que
+también editaste acá").
+
+La pantalla para ver las dos versiones enfrentadas y elegir cuál queda es lo
+próximo que viene. Hasta entonces nada se pierde, pero esa decisión todavía no
+la podés tomar desde la app.

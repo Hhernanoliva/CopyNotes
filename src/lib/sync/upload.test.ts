@@ -27,7 +27,14 @@ vi.mock('./supabase', () => ({
 				sent.push([table, rows]);
 				return replies.shift() ?? { error: null };
 			},
-			select: () => ({ maybeSingle: async () => ({ data: serverVault.row, error: null }) })
+			// Two readers hang off select(): `maybeSingle` for the account's wrapped
+			// vault key, and the gt/order/limit chain the download loop uses. This
+			// fake server never has anything to send down — the merge itself is
+			// covered in download.test.ts.
+			select: () => ({
+				maybeSingle: async () => ({ data: serverVault.row, error: null }),
+				gt: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) })
+			})
 		})
 	})
 }));

@@ -6,6 +6,14 @@ export const syncStatus = $state({
 	pending: 0,
 	uploading: false,
 	lastUploadAt: null,
+	// Records that came down and were left alone because this device has its own
+	// unsent version of them (spec 030 phase 3). Phase 2 of that plan gives them
+	// a screen; until then the number is the honest thing to show.
+	conflicts: 0,
+	// Bumped whenever something from the cloud actually landed in the database.
+	// `CloudLifecycle` watches it to refresh the screen — the same job the agent
+	// bridge does with `agentData.version`.
+	appliedVersion: 0,
 	// Spanish, already user-facing: this string is rendered as-is.
 	error: null
 });

@@ -12,6 +12,7 @@
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
+	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
 	import {
 		applySidebarUpdates,
@@ -548,6 +549,10 @@
 	/>
 
 	<BridgeLifecycle onAgentIngested={handleDataChanged} />
+
+	<!-- La nube: sube, baja, y avisa cuando algo llegó de otro dispositivo. Misma
+	     puerta de recarga que usan los agentes. -->
+	<CloudLifecycle onCloudChanged={handleDataChanged} />
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />

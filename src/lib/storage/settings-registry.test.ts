@@ -14,7 +14,8 @@ describe('settings registry', () => {
 				'connectedAgent',
 				'processedChanges',
 				'syncConsent',
-				'syncUploadedThrough'
+				'syncUploadedThrough',
+				'syncDownloadedThrough'
 			].sort()
 		);
 	});

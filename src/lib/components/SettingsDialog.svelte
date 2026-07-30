@@ -21,9 +21,10 @@
 		signUpWithPassword,
 		signOut
 	} from '$lib/sync/supabase';
-	import { createVault, hasVault } from '$lib/sync/vault';
+	import { createVault, hasVault, restoreVault } from '$lib/sync/vault';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
-	import { cloudVaultExists, syncNow } from '$lib/sync/upload';
+	import { cloudVaultBlob, cloudVaultExists, syncNow } from '$lib/sync/upload';
+	import { downloadAll } from '$lib/sync/download';
 	import { syncStatus } from '$lib/sync/status.svelte';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
@@ -44,7 +45,11 @@
 	// asks for two decisions at once.
 	let cloudSession = $state(null);
 	let vaultReady = $state(false);
+	let accountHasVault = $state(false);
 	let consentGiven = $state(false);
+	let joinCode = $state('');
+	// { applied } while the first full download runs, null otherwise.
+	let downloading = $state(null);
 	let cloudEmail = $state('');
 	let cloudCode = $state('');
 	let cloudPassword = $state('');
@@ -61,6 +66,9 @@
 		vaultReady = await hasVault();
 		consentGiven = await hasUploadConsent();
 		syncStatus.pending = await countPendingUploads();
+		// Only worth asking the server when this device has no vault of its own:
+		// the answer decides between "create one" and "join the one that exists".
+		accountHasVault = vaultReady || (cloudSession ? await cloudVaultExists() : false);
 	}
 
 	// Every cloud button funnels through here: one place that shows the spinner
@@ -114,14 +122,38 @@
 	function makeVault() {
 		return cloudAction(async () => {
 			// Two vaults on one account = records nobody can read on both devices.
+			// When one already exists, this device joins it instead (below).
 			if (await cloudVaultExists()) {
-				throw new Error(
-					'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Abrir tus notas en un segundo dispositivo llega en el próximo paso; por ahora seguí usando el dispositivo original.'
-				);
+				accountHasVault = true;
+				throw new Error('Esta cuenta ya tiene una bóveda: sumá este dispositivo con tu código.');
 			}
 			const { recoveryCode: code } = await createVault();
 			recoveryCode = code;
 			recoverySaved = false;
+		});
+	}
+
+	// Second device: the wrapped key comes from the server, the code from the
+	// user. A wrong code fails inside restoreVault and leaves nothing behind.
+	function joinVault() {
+		return cloudAction(async () => {
+			const blob = await cloudVaultBlob();
+			if (!blob) throw new Error('Esta cuenta todavía no tiene una bóveda.');
+			await restoreVault(joinCode, blob);
+			joinCode = '';
+			downloading = { applied: 0 };
+			try {
+				const result = await downloadAll({
+					onProgress: (progress) => (downloading = progress)
+				});
+				downloading = null;
+				onDataChanged?.();
+				if (!result.applied) {
+					throw new Error('La bóveda se abrió, pero todavía no había notas guardadas en la nube.');
+				}
+			} finally {
+				downloading = null;
+			}
 		});
 	}
 
@@ -486,6 +518,36 @@
 						</div>
 					{/if}
 				</div>
+			{:else if !vaultReady && accountHasVault}
+				<!-- Segundo dispositivo: la llave envuelta está en el servidor, el código
+				     lo tiene el usuario. Sin el código, lo del servidor es ruido. -->
+				<div class="flex flex-col gap-2">
+					<p class="text-muted-foreground text-sm">
+						Esta cuenta ya tiene notas guardadas. Para abrirlas acá hace falta el
+						<span class="text-foreground font-medium">código de recuperación</span> que guardaste
+						en el otro dispositivo. Nosotros no lo tenemos.
+					</p>
+					<input
+						id="cloud-join-code"
+						bind:value={joinCode}
+						aria-label="Código de recuperación"
+						placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+						class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 font-mono text-sm outline-none"
+					/>
+					<button
+						type="button"
+						onclick={joinVault}
+						disabled={cloudBusy || joinCode.trim().length < 24}
+						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+					>
+						Traer mis notas
+					</button>
+					{#if downloading}
+						<p class="text-muted-foreground text-sm" aria-live="polite">
+							Trayendo tus notas… {downloading.applied}
+						</p>
+					{/if}
+				</div>
 			{:else if !vaultReady}
 				<div class="flex flex-col gap-2">
 					<p class="text-muted-foreground text-sm">
@@ -532,7 +594,7 @@
 					</p>
 					<p class="text-sm" aria-live="polite">
 						{#if syncStatus.uploading}
-							Subiendo…
+							Sincronizando…
 						{:else if syncStatus.pending === 0}
 							Todo subido.
 						{:else}
@@ -542,6 +604,16 @@
 							<span class="text-faint">Última subida {haceCuanto(syncStatus.lastUploadAt)}.</span>
 						{/if}
 					</p>
+					{#if syncStatus.conflicts}
+						<p class="text-sm">
+							{syncStatus.conflicts}
+							{syncStatus.conflicts === 1 ? 'cambio' : 'cambios'} llegaron de otro dispositivo sobre
+							algo que también editaste acá. <span class="text-muted-foreground"
+								>Por ahora se respeta lo tuyo y no se pisa nada; la pantalla para elegir cuál
+								queda es el paso siguiente.</span
+							>
+						</p>
+					{/if}
 					<div class="flex items-center gap-2">
 						<button
 							type="button"

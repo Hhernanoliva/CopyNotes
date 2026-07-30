@@ -25,6 +25,7 @@ import {
 	markUploadedThrough
 } from './pending';
 import { encryptRecord } from './records';
+import { downloadAll } from './download';
 import { getRecoveryBlob, getVaultKey } from './vault';
 import { syncStatus } from './status.svelte';
 import { now } from '../storage/ids';
@@ -103,11 +104,20 @@ async function uploadVaultBlob(client) {
 // nothing to restore from until download exists), so until then the honest move
 // is to refuse early and say why.
 export async function cloudVaultExists() {
+	return Boolean(await cloudVaultBlob());
+}
+
+// The wrapped key this account's other device left behind. Useless without the
+// recovery code, which is what the joining screen asks for.
+export async function cloudVaultBlob() {
 	const client = supabase();
-	if (!client) return false;
-	const { data, error } = await client.from('vaults').select('owner_id').maybeSingle();
+	if (!client) return null;
+	const { data, error } = await client
+		.from('vaults')
+		.select('salt, iv, wrapped')
+		.maybeSingle();
 	if (error) throw new Error(error.message);
-	return Boolean(data);
+	return data ?? null;
 }
 
 // The one entry point. Safe to call from a timer, a button, or the "connection
@@ -118,15 +128,23 @@ export async function syncNow() {
 	syncStatus.error = null;
 	try {
 		const gate = await ready();
-		if (!gate) return;
-		await uploadVaultBlob(gate.client);
-		let uploaded = 0;
-		for (let batch = 0; batch < MAX_BATCHES; batch++) {
-			const count = await uploadBatch(gate.client, gate.key);
-			uploaded += count;
-			if (count < BATCH) break;
+		if (gate) {
+			await uploadVaultBlob(gate.client);
+			let uploaded = 0;
+			for (let batch = 0; batch < MAX_BATCHES; batch++) {
+				const count = await uploadBatch(gate.client, gate.key);
+				uploaded += count;
+				if (count < BATCH) break;
+			}
+			if (uploaded) syncStatus.lastUploadAt = now();
 		}
-		if (uploaded) syncStatus.lastUploadAt = now();
+		// Downloading needs no upload consent: joining the account with the recovery
+		// code is the request, and a device that never consented has nothing of its
+		// own up there anyway. Upload first, so my own records come back as an echo
+		// the merge already knows to ignore.
+		const down = await downloadAll({});
+		syncStatus.conflicts = down.conflicts;
+		if (down.applied) syncStatus.appliedVersion++;
 	} catch (error) {
 		// Never rethrown: a failed upload is a status line, not a broken app. The
 		// next run retries the same batch.

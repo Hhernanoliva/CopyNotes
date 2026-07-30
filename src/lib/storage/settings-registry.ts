@@ -23,7 +23,8 @@ export const KEY = {
 	connectedAgent: 'connectedAgent',
 	processedChanges: 'processedChanges',
 	syncConsent: 'syncConsent',
-	syncUploadedThrough: 'syncUploadedThrough'
+	syncUploadedThrough: 'syncUploadedThrough',
+	syncDownloadedThrough: 'syncDownloadedThrough'
 };
 
 export const SETTINGS = {
@@ -36,7 +37,8 @@ export const SETTINGS = {
 	[KEY.connectedAgent]: { backupSafe: false }, // Local MCP connection identity — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.processedChanges]: { backupSafe: false }, // Local agent-change dedupe ledger — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.syncConsent]: { backupSafe: false }, // Consent to upload (spec 030 phase 2) — a decision per device, never restored from a file.
-	[KEY.syncUploadedThrough]: { backupSafe: false } // How far the change counter was uploaded — meaningless on another device, and restoring it would skip records.
+	[KEY.syncUploadedThrough]: { backupSafe: false }, // How far the change counter was uploaded — meaningless on another device, and restoring it would skip records.
+	[KEY.syncDownloadedThrough]: { backupSafe: false } // How far the server's own sequence was read (spec 030 phase 3) — restoring it on another device would skip everything before it, silently.
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);
