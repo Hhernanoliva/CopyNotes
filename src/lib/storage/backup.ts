@@ -29,7 +29,12 @@ const TABLES = [
 // feeds both sides of that comparison (the file and the local rows), so
 // dropping it here keeps them comparable. Later sync-only fields (`ownerId`)
 // belong on this same list.
-const LOCAL_ONLY_FIELDS = ['changeSeq'];
+//
+// `cloudSeq` (spec 030 phase 3) joins it for the same reason and one more: it
+// says "the server already has this exact version". Restored onto another
+// device, or after the row was edited, that claim is false — and a false claim
+// there means a change that never uploads.
+const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq'];
 
 function withoutLocalOnlyFields(rows) {
 	return rows.map((row) => {

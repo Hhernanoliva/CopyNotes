@@ -261,7 +261,13 @@ describe('backup roundtrip', () => {
 
 		const backup = buildBackup(await dumpAllTables(), { appVersion: '0.0.1', exportedAt: iso });
 		for (const rows of Object.values(backup.data)) {
-			for (const row of rows) expect(row.changeSeq).toBe(undefined);
+			for (const row of rows) {
+				expect(row.changeSeq).toBe(undefined);
+				// Same reasoning, spec 030 phase 3: restored elsewhere, "the server
+				// already has this version" is false, and a false claim there is a
+				// change that never uploads.
+				expect(row.cloudSeq).toBe(undefined);
+			}
 		}
 
 		const first = planMerge(await dumpAllTables(), backup.data);

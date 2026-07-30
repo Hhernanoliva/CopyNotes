@@ -139,11 +139,39 @@ db.version(8).stores({
 // added later cannot forget it, and a change sync never sees is a change lost.
 // Covers add, bulkAdd, put, update, bulkPut and modify — verified against the
 // real Dexie build, not assumed.
+//
+// The single exception is a record arriving FROM the cloud (spec 030 phase 3):
+// it is not a local change. Stamping it would queue it for upload, the other
+// device would download it, stamp it there, and the two would bounce the same
+// record between them for ever. `putFromCloud` below is the only way in, and it
+// marks the row with a transient `fromCloud` flag that these hooks consume.
+//
+// The flag is explicit rather than a "we are downloading right now" mode on
+// purpose: a mode would span `await`s, and any ordinary save landing in that
+// window would silently lose its stamp — which means losing the change.
 for (const name of SYNCED_TABLES) {
 	const table = db.table(name);
 	table.hook('creating', (primaryKey, row) => {
+		if (row.fromCloud) {
+			delete row.fromCloud;
+			return;
+		}
 		row.changeSeq = nextChangeSeq();
 	});
-	// Returning extra modifications is how the updating hook adds a field.
-	table.hook('updating', () => ({ changeSeq: nextChangeSeq() }));
+	// Returning extra modifications is how the updating hook adds a field; a key
+	// set to undefined is how Dexie deletes one.
+	table.hook('updating', (modifications) =>
+		modifications.fromCloud ? { fromCloud: undefined } : { changeSeq: nextChangeSeq() }
+	);
+}
+
+// Write a record exactly as the other device had it.
+//
+// `cloudSeq` records which version the server already holds. Without it the row
+// would look pending the moment it lands (its counter is above this device's
+// upload mark) and a fresh device would immediately re-upload everything it just
+// downloaded. A later local edit re-stamps `changeSeq`, the two stop matching,
+// and the record becomes pending again — which is exactly right.
+export function putFromCloud(tableName, row) {
+	return db.table(tableName).put({ ...row, cloudSeq: row.changeSeq, fromCloud: true });
 }

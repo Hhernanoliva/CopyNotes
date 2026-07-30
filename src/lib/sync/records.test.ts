@@ -35,6 +35,17 @@ describe('record encryption', () => {
 		expect(back).toEqual({ ...block, changeSeq: undefined });
 	});
 
+	// `cloudSeq` is this device's note to itself about which version the server
+	// already holds (`storage/db.ts`'s putFromCloud). It is meaningless to anyone
+	// else and a lie once the row travels, so it must not be uploaded.
+	it('leaves the local upload bookkeeping behind', async () => {
+		const payload = await encryptRecord(key, 'blocks', { ...block, cloudSeq: 1785362000000 });
+		const back = await decryptRecord(key, payload);
+
+		expect(back.cloudSeq).toBeUndefined();
+		expect(JSON.stringify(payload)).not.toContain('cloudSeq');
+	});
+
 	// The acceptance criterion of spec 030: what is stored on the server must be
 	// unreadable. Anything meaningful lives inside the blob.
 	it('leaks no note content, no private comment and no relation in the clear', async () => {

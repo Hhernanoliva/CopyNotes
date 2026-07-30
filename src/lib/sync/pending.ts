@@ -39,11 +39,19 @@ export async function markUploadedThrough(seq) {
 // this number, and it is the honest answer to "is everything up there?". Behind
 // the same consent gate as the door below: before consent there is nothing
 // pending, because nothing may go up.
+// A record that came down from the cloud and was not touched since carries
+// `cloudSeq === changeSeq`: the server already has that exact version, so
+// sending it back is pure ping-pong. Any local edit re-stamps `changeSeq` and
+// the two stop matching, which is what makes it pending again.
+const changedSinceCloud = (row) => row.cloudSeq !== row.changeSeq;
+
 export async function countPendingUploads() {
 	if (!(await hasUploadConsent())) return 0;
 	const mark = await uploadedThrough();
 	const counts = await Promise.all(
-		SYNCED_TABLES.map((table) => db.table(table).where('changeSeq').above(mark).count())
+		SYNCED_TABLES.map((table) =>
+			db.table(table).where('changeSeq').above(mark).filter(changedSinceCloud).count()
+		)
 	);
 	return counts.reduce((total, count) => total + count, 0);
 }
@@ -55,7 +63,13 @@ export async function listPendingUploads({ limit = 200 } = {}) {
 	const mark = await uploadedThrough();
 	const batches = await Promise.all(
 		SYNCED_TABLES.map(async (table) => {
-			const rows = await db.table(table).where('changeSeq').above(mark).limit(limit).toArray();
+			const rows = await db
+				.table(table)
+				.where('changeSeq')
+				.above(mark)
+				.filter(changedSinceCloud)
+				.limit(limit)
+				.toArray();
 			return rows.map((row) => ({ table, row }));
 		})
 	);

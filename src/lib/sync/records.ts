@@ -22,8 +22,10 @@ function identity(table, id) {
 
 export async function encryptRecord(key, table, row) {
 	// The change counter travels in the clear as the version marker, so it does
-	// not need a second copy inside the blob.
-	const { changeSeq, ...content } = row;
+	// not need a second copy inside the blob. `cloudSeq` is this device's note to
+	// self about which version the server already has (see `putFromCloud`); it
+	// means nothing anywhere else and never leaves.
+	const { changeSeq, cloudSeq, ...content } = row;
 	const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
 	const blob = await crypto.subtle.encrypt(
 		{ name: 'AES-GCM', iv, additionalData: identity(table, row.id) },
