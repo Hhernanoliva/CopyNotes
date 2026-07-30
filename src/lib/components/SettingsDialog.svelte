@@ -23,7 +23,7 @@
 	} from '$lib/sync/supabase';
 	import { createVault, hasVault } from '$lib/sync/vault';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
-	import { syncNow } from '$lib/sync/upload';
+	import { cloudVaultExists, syncNow } from '$lib/sync/upload';
 	import { syncStatus } from '$lib/sync/status.svelte';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
@@ -113,6 +113,12 @@
 
 	function makeVault() {
 		return cloudAction(async () => {
+			// Two vaults on one account = records nobody can read on both devices.
+			if (await cloudVaultExists()) {
+				throw new Error(
+					'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Abrir tus notas en un segundo dispositivo llega en el próximo paso; por ahora seguí usando el dispositivo original.'
+				);
+			}
 			const { recoveryCode: code } = await createVault();
 			recoveryCode = code;
 			recoverySaved = false;

@@ -94,6 +94,22 @@ async function uploadVaultBlob(client) {
 	vaultBlobSent = true;
 }
 
+// Does this account already have a vault, created on another device?
+//
+// A second device must never create its own: the key would be a different one,
+// and from then on each device would upload records the other cannot open, with
+// `vaults` holding whichever wrapped key arrived last. Joining an existing vault
+// with the recovery code is phase 3 (`restoreVault` is built and tested, it has
+// nothing to restore from until download exists), so until then the honest move
+// is to refuse early and say why.
+export async function cloudVaultExists() {
+	const client = supabase();
+	if (!client) return false;
+	const { data, error } = await client.from('vaults').select('owner_id').maybeSingle();
+	if (error) throw new Error(error.message);
+	return Boolean(data);
+}
+
 // The one entry point. Safe to call from a timer, a button, or the "connection
 // came back" event: overlapping calls collapse into the one already running.
 export async function syncNow() {

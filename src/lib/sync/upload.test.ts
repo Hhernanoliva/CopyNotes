@@ -15,6 +15,8 @@ import { createVault } from './vault';
 const sent = vi.hoisted(() => []);
 // Queue of replies; empty means "everything worked".
 const replies = vi.hoisted(() => []);
+// What the server answers when asked whether this account already has a vault.
+const serverVault = vi.hoisted(() => ({ row: null }));
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
@@ -24,7 +26,8 @@ vi.mock('./supabase', () => ({
 			upsert: async (rows) => {
 				sent.push([table, rows]);
 				return replies.shift() ?? { error: null };
-			}
+			},
+			select: () => ({ maybeSingle: async () => ({ data: serverVault.row, error: null }) })
 		})
 	})
 }));
@@ -37,6 +40,7 @@ async function loadUpload() {
 	return {
 		syncNow: upload.syncNow,
 		startUploadClock: upload.startUploadClock,
+		cloudVaultExists: upload.cloudVaultExists,
 		syncStatus: status.syncStatus
 	};
 }
@@ -48,7 +52,22 @@ function rowsFor(table) {
 beforeEach(async () => {
 	sent.length = 0;
 	replies.length = 0;
+	serverVault.row = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
+});
+
+describe('a second device', () => {
+	it('can tell that the account already has a vault, so it never creates a rival one', async () => {
+		// Two vaults on one account means two different keys, and from then on each
+		// device uploads records the other cannot decrypt. Joining an existing vault
+		// with the recovery code is phase 3; until then the screen must refuse.
+		const { cloudVaultExists } = await loadUpload();
+
+		expect(await cloudVaultExists()).toBe(false);
+
+		serverVault.row = { owner_id: 'cuenta-1' };
+		expect(await cloudVaultExists()).toBe(true);
+	});
 });
 
 describe('the consent gate', () => {
