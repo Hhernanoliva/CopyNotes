@@ -15,6 +15,7 @@
 		"test:e2e:webkit": "playwright test --project=webkit",
 		"test:e2e:all": "playwright test",
 		"test": "npm run test:unit -- --run",
+		"rls:check": "node --env-file=.env scripts/rls-check.mjs",
 		"tauri": "tauri"
 	},
 	"devDependencies": {
@@ -46,6 +47,7 @@
 	},
 	"dependencies": {
 		"@fontsource/atkinson-hyperlegible": "^5.2.8",
+		"@supabase/supabase-js": "^2.111.0",
 		"@tauri-apps/api": "^2.11.1",
 		"dexie": "^4.4.4",
 		"mode-watcher": "^1.1.0",

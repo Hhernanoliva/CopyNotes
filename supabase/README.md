@@ -1,0 +1,77 @@
+# La nube de CopyNotes (Supabase)
+
+Esta carpeta no es código de la app: es lo que hay que configurar **una vez** en
+el panel de Supabase, guardado acá para que quede a la vista y se pueda repetir.
+
+Spec: `specs/030-zero-knowledge-sync.md`, fase 2.
+
+## Qué guarda el servidor
+
+Dos tablas, definidas en `schema.sql`:
+
+- `records` — una fila por registro sincronizado, con el contenido convertido en
+  un **blob ilegible**. En claro solo viaja lo que hace falta para archivar la
+  fila: de qué tabla es, su id (un UUID sin significado), el número de versión y
+  si está borrada.
+- `vaults` — la copia **envuelta** de la llave de la bóveda. Sin el código de
+  recuperación (que se muestra una vez en el dispositivo y no se guarda en
+  ningún lado) es ruido. Está ahí para que un segundo dispositivo pueda
+  recuperar la llave.
+
+Supabase no puede leer ninguna nota. Sí ve, inevitablemente: que la cuenta
+existe, su email, la IP, cuántos registros hay, cuánto pesan y a qué hora se
+sincronizaron.
+
+## Preparar el proyecto (una vez)
+
+1. **Crear el proyecto**: nombre `copynotes`, región *South America (São Paulo)*,
+   plan Free. Guardar la contraseña de la base de datos en el gestor de
+   contraseñas (no se vuelve a mostrar y no es la contraseña de tu cuenta).
+2. **SQL Editor** → pegar todo `schema.sql` → Run. Se puede volver a correr sin
+   romper nada.
+3. **Authentication › Sign In / Providers › Email**: dejar Email habilitado.
+   Desactivar "Confirm email" no hace falta: el código de 6 dígitos ya confirma
+   el email.
+4. **Authentication › Emails › Magic Link**: este es el paso que se olvida. La
+   plantilla que viene de fábrica manda solo un enlace, y CopyNotes pide un
+   **código**. Hay que dejar `{{ .Token }}` en el cuerpo del mail, por ejemplo:
+
+   ```html
+   <h2>Tu código para entrar a CopyNotes</h2>
+   <p>Escribí este código en la app:</p>
+   <p style="font-size:28px;letter-spacing:4px"><b>{{ .Token }}</b></p>
+   <p>Vence en 10 minutos. Si no lo pediste, ignorá este mensaje.</p>
+   ```
+
+   Sin `{{ .Token }}` el email llega sin código y no hay forma de entrar.
+5. **Authentication › Sign In / Providers › Email › Email OTP Expiration**:
+   600 segundos (10 minutos).
+6. **Project Settings › API**: copiar `Project URL` y la clave `anon public` al
+   `.env` local (ver `.env.example`) y a **Vercel › Settings › Environment
+   Variables**. Con `adapter-static` los valores se hornean en el build, así que
+   sin cargarlos en Vercel la web queda sin nube.
+
+> La clave `service_role` **no** va a Vercel ni al repo. Se saltea el candado por
+> usuario. Vive solo en el `.env` de una máquina de desarrollo y solo la usa
+> `pnpm rls:check`.
+
+## Probar el candado
+
+```bash
+pnpm rls:check
+```
+
+Crea dos cuentas de prueba, guarda una fila con cada una **usando el mismo id**,
+y verifica cinco cosas: que cada cuenta ve su fila, que pedir las filas de la
+otra devuelve cero, que no se puede insertar a nombre de otra, que no se puede
+sobrescribir su fila, y que la llave envuelta tampoco se puede leer. Después
+borra las dos cuentas.
+
+No corre en `pnpm test` porque necesita el proyecto real y la clave
+`service_role`. Hay que correrlo a mano cada vez que se toque `schema.sql`.
+
+## Por qué no hay Supabase CLI ni migraciones
+
+Son dos tablas y un archivo que se pega en el editor. Cuando haya un segundo
+cambio de esquema —la fase 3 (bajar y unir cambios) es el candidato— ese es el
+momento de agregar `supabase/migrations/` y el CLI, no antes.

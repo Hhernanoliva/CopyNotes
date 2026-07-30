@@ -1,10 +1,23 @@
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 
+// The Supabase project URL is needed twice: the client uses it to talk, and the
+// CSP below has to allow talking to it. Read once, here, so the two can never
+// disagree — a CSP that forbids the host the client calls fails silently, which
+// is the worst failure mode this app has. The mode is fixed because these
+// variables live in plain `.env` and in the host's environment (Vercel), never
+// in a `.env.<mode>` file, so there is no per-mode value to pick up.
+const { PUBLIC_SUPABASE_URL } = loadEnv('production', '.', 'PUBLIC_');
+
 export default defineConfig({
+	// Exposes PUBLIC_* to import.meta.env (sync/supabase.ts). Unlike
+	// $env/static/public it yields `undefined` instead of breaking the build when
+	// the variable is absent, which is what keeps a clone with no .env buildable.
+	envPrefix: ['VITE_', 'PUBLIC_'],
 	plugins: [
 		tailwindcss(),
 		sveltekit({
@@ -50,9 +63,22 @@ export default defineConfig({
 					'style-src': ['self', 'unsafe-inline'],
 					'img-src': ['self', 'data:'],
 					'font-src': ['self'],
-					// No backend. `ipc:`/`ipc.localhost` is how the desktop app talks to
-					// its own Rust side (mailbox, agent status). Nothing else may leave.
-					'connect-src': ['self', 'ipc:', 'http://ipc.localhost'],
+					// `ipc:`/`ipc.localhost` is how the desktop app talks to its own Rust
+					// side (mailbox, agent status). The Supabase project — and only that
+					// one project, only when configured — is the single outside host
+					// allowed: login and encrypted upload (spec 030 phase 2). A build
+					// without the variable keeps the old "nothing leaves" policy.
+					'connect-src': [
+						'self',
+						'ipc:',
+						'http://ipc.localhost',
+						// The cast is only for SvelteKit's CSP types, which describe a host
+						// as a literal template; a value read from the environment is a
+						// plain string.
+						...(PUBLIC_SUPABASE_URL
+							? [PUBLIC_SUPABASE_URL as `https://${string}.${string}`]
+							: [])
+					],
 					'object-src': ['none'],
 					'base-uri': ['self'],
 					'form-action': ['none']
