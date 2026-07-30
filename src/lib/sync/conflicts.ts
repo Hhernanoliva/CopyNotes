@@ -33,6 +33,20 @@ export function listConflicts() {
 	return conflicts().orderBy('at').reverse().toArray();
 }
 
+// Los conflictos de un conjunto de renglones, listos para mostrarlos EN el
+// renglón. Es donde la persona los va a entender: un aviso en Configuración
+// sobre "un registro" no le dice cuál de sus líneas está en discusión.
+export async function conflictsByBlock(blockIds) {
+	if (!blockIds.length) return {};
+	const rows = await conflicts().where('table').equals('blocks').toArray();
+	const wanted = new Set(blockIds);
+	const found = {};
+	for (const row of rows) {
+		if (wanted.has(row.recordId)) found[row.recordId] = row;
+	}
+	return found;
+}
+
 export function countConflicts() {
 	return conflicts().count();
 }

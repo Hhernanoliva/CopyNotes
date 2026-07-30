@@ -17,11 +17,19 @@
 // pasada, cuando el cursor se movió y el guardado terminó.
 export function reconcileBlocks(current, incoming, protectedIds) {
 	const byId = new Map(current.map((block) => [block.id, block]));
+	// Los que se dejaron pasar. El que llama tiene que volver a intentarlo cuando
+	// el cursor se vaya: si no, ese renglon se queda con la version vieja para
+	// siempre, y peor, la proxima edicion la vuelve a subir pisando la del otro
+	// dispositivo.
+	const deferred = [];
 	// El orden y la existencia los manda el almacenamiento: es donde ya se
 	// aplicaron la unión y los borrados.
-	const next = incoming.map((row) =>
-		protectedIds.has(row.id) && byId.has(row.id) ? byId.get(row.id) : row
-	);
+	const next = incoming.map((row) => {
+		const mine = byId.get(row.id);
+		if (!protectedIds.has(row.id) || !mine) return row;
+		deferred.push(row.id);
+		return mine;
+	});
 
 	// Un renglón protegido que el almacenamiento todavía no conoce: recién
 	// creado, con su escritura en vuelo. Desaparecerlo bajo el cursor sería el
@@ -32,5 +40,5 @@ export function reconcileBlocks(current, incoming, protectedIds) {
 		next.splice(Math.min(index, next.length), 0, block);
 	});
 
-	return next;
+	return { blocks: next, deferred };
 }

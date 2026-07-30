@@ -11,7 +11,7 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [block('a', 'vieja'), block('b', 'otra')];
 		const incoming = [block('a', 'nueva'), block('b', 'otra')];
 
-		const next = reconcileBlocks(current, incoming, new Set());
+		const { blocks: next } = reconcileBlocks(current, incoming, new Set());
 
 		expect(next.map((row) => row.content)).toEqual(['nueva', 'otra']);
 	});
@@ -21,7 +21,7 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [mine, block('b', 'otra')];
 		const incoming = [block('a', 'lo que escribió el otro'), block('b', 'otra')];
 
-		const next = reconcileBlocks(current, incoming, new Set(['a']));
+		const { blocks: next } = reconcileBlocks(current, incoming, new Set(['a']));
 
 		// El mismo objeto, no una copia: nada re-renderiza ese renglón.
 		expect(next[0]).toBe(mine);
@@ -33,7 +33,7 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [block('a', 'una'), pendiente];
 		const incoming = [block('a', 'una'), block('b', 'la versión vieja del servidor')];
 
-		const next = reconcileBlocks(current, incoming, new Set(['b']));
+		const { blocks: next } = reconcileBlocks(current, incoming, new Set(['b']));
 
 		expect(next[1]).toBe(pendiente);
 	});
@@ -42,7 +42,7 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [block('a', 'una'), block('vieja', 'se borró en el otro dispositivo')];
 		const incoming = [block('nueva', 'llegó de allá'), block('a', 'una')];
 
-		const next = reconcileBlocks(current, incoming, new Set());
+		const { blocks: next } = reconcileBlocks(current, incoming, new Set());
 
 		expect(next.map((row) => row.id)).toEqual(['nueva', 'a']);
 	});
@@ -54,18 +54,31 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [block('a', 'una'), recien, block('b', 'otra')];
 		const incoming = [block('a', 'una'), block('b', 'otra')];
 
-		const next = reconcileBlocks(current, incoming, new Set(['nuevo']));
+		const { blocks: next } = reconcileBlocks(current, incoming, new Set(['nuevo']));
 
 		expect(next.map((row) => row.id)).toEqual(['a', 'nuevo', 'b']);
 		expect(next[1]).toBe(recien);
+	});
+
+	it('avisa qué renglones quedaron esperando, para poder reintentarlo', () => {
+		// Sin este aviso, un renglón protegido se queda con la versión vieja hasta
+		// que llegue OTRO cambio de la nube — y si mientras tanto lo editás, subís
+		// esa versión vieja y pisás la del otro dispositivo.
+		const current = [block('a', 'lo mío'), block('b', 'otra')];
+		const incoming = [block('a', 'lo del otro'), block('b', 'otra')];
+
+		const { deferred } = reconcileBlocks(current, incoming, new Set(['a']));
+
+		expect(deferred).toEqual(['a']);
+		expect(reconcileBlocks(current, incoming, new Set()).deferred).toEqual([]);
 	});
 
 	it('un renglón deja de estar protegido y recién ahí toma lo que llegó', () => {
 		const current = [block('a', 'lo mío')];
 		const incoming = [block('a', 'lo del otro dispositivo')];
 
-		const protegido = reconcileBlocks(current, incoming, new Set(['a']));
-		const libre = reconcileBlocks(protegido, incoming, new Set());
+		const protegido = reconcileBlocks(current, incoming, new Set(['a'])).blocks;
+		const libre = reconcileBlocks(protegido, incoming, new Set()).blocks;
 
 		expect(protegido[0].content).toBe('lo mío');
 		expect(libre[0].content).toBe('lo del otro dispositivo');

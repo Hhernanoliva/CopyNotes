@@ -6,7 +6,15 @@
 <script>
 	import { onMount, tick } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
-	import { ChevronRight, Check, Copy, CopyPlus, GripVertical, Plus } from '@lucide/svelte';
+	import {
+		ChevronRight,
+		Check,
+		Copy,
+		CopyPlus,
+		GitCompare,
+		GripVertical,
+		Plus
+	} from '@lucide/svelte';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
 	import DatePanel from './DatePanel.svelte';
@@ -31,6 +39,11 @@
 		depth = 0,
 		hasChildren = false,
 		agentNotes = [],
+		// El mismo renglón cambió acá y en otro dispositivo: { remote } o null.
+		conflict = null,
+		conflictOpen = false,
+		onConflictToggle,
+		onConflictResolve,
 		focused = false,
 		active = false,
 		flash = false,
@@ -730,6 +743,58 @@
 					onblur={handleNoteBlur}
 					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap outline-none"
 				></div>
+			{/if}
+			{#if conflict}
+				<!-- El mismo renglón se editó acá y en otro dispositivo. No se pisó
+				     nada: la decisión se toma acá, en el renglón, no escondida en una
+				     pantalla de configuración. -->
+				<div class="mt-1 flex flex-col gap-1">
+					<button
+						type="button"
+						aria-expanded={conflictOpen}
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => onConflictToggle?.(block)}
+						class="cn-tap text-cn-conflict hover:bg-accent focus-visible:ring-ring flex w-fit items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+					>
+						<GitCompare size={13} aria-hidden="true" />
+						Hay otra versión de este renglón
+					</button>
+
+					{#if conflictOpen}
+						<div class="border-cn-conflict flex flex-col gap-2 rounded-md border p-2 text-sm">
+							<div class="flex flex-col gap-0.5">
+								<span class="text-muted-foreground text-xs">Lo tuyo, en este dispositivo:</span>
+								<span class="bg-muted rounded px-2 py-1">{block.content || '(vacío)'}</span>
+							</div>
+							<div class="flex flex-col gap-0.5">
+								<span class="text-muted-foreground text-xs">Lo del otro dispositivo:</span>
+								<span class="bg-muted rounded px-2 py-1"
+									>{conflict.remote?.deletedAt
+										? '(se borró en el otro dispositivo)'
+										: conflict.remote?.content || '(vacío)'}</span
+								>
+							</div>
+							<div class="flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onmousedown={(event) => event.preventDefault()}
+									onclick={() => onConflictResolve?.(block, 'mine')}
+									class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
+								>
+									Quedarme con el mío
+								</button>
+								<button
+									type="button"
+									onmousedown={(event) => event.preventDefault()}
+									onclick={() => onConflictResolve?.(block, 'theirs')}
+									class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									Traer el otro
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
 			{/if}
 			{#each agentNotes as agentNote (agentNote.id)}
 				<p

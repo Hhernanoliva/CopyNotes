@@ -33,6 +33,7 @@
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
 	import { reconcileBlocks } from './reconcile';
+	import { conflictsByBlock, keepLocal, takeRemote } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -99,6 +100,15 @@
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
 	let agentNotes = $state({});
+	// { [blockId]: { id, remote } } — el mismo renglón cambió acá y en otro
+	// dispositivo. Se muestra en el renglón, no escondido en Configuración.
+	let conflicts = $state({});
+	// Un renglón protegido se salteó en la última reconciliación y hay que
+	// reintentarlo cuando el cursor se vaya. Plano, no $state: lo leen efectos
+	// que no deben depender de él.
+	let deferredRefresh = false;
+	// Renglón cuyo conflicto está abierto para elegir versión.
+	let conflictOpenFor = $state(null);
 	let focusBlockId = $state(null);
 	// Plain-text caret offset to restore when focusBlockId lands (or null for
 	// caret-at-end). Set by slash-menu flows so the caret returns to where the
@@ -367,6 +377,8 @@
 		note = null;
 		blocks = [];
 		agentNotes = {};
+		conflicts = {};
+		deferredRefresh = false;
 		(async () => {
 			const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
 				getNote(id),
@@ -377,6 +389,9 @@
 			note = loadedNote;
 			blocks = loadedBlocks;
 			agentNotes = agentNotesByBlock(loadedActivity);
+			conflictsByBlock(loadedBlocks.map((row) => row.id)).then((found) => {
+				if (!cancelled) conflicts = found;
+			});
 			activeBlockId = null;
 			history.reset();
 			lastTextBlockId = null;
@@ -1517,7 +1532,11 @@
 	// Un cambio llegó de afuera (la nube, un agente) y hay que mostrarlo SIN
 	// re-montar el editor: re-montarlo tira el foco y puede partir en dos el
 	// renglón que se está escribiendo. Ver `editor/reconcile.ts`.
-	export async function refreshFromStorage() {
+	// `force` son renglones que se actualizan aunque estén protegidos: los usa una
+	// decisión explícita de la persona (elegir qué versión queda), que casi
+	// siempre se toma parada sobre ese mismo renglón. Sin esto, su elección
+	// quedaría esperando a que mueva el cursor.
+	export async function refreshFromStorage(force) {
 		const id = noteId;
 		const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
 			getNote(id),
@@ -1534,13 +1553,42 @@
 			const [kind, entityId] = key.split(':');
 			if (kind === 'block' || kind === 'note') guarded.add(entityId);
 		}
+		for (const blockId of force ?? []) guarded.delete(blockId);
 
-		blocks = reconcileBlocks(blocks, loadedBlocks, guarded);
+		const reconciled = reconcileBlocks(blocks, loadedBlocks, guarded);
+		blocks = reconciled.blocks;
+		// Los que quedaron esperando se reintentan cuando el cursor se va (efecto
+		// más abajo). Sin eso, ese renglón se queda con la versión vieja hasta el
+		// próximo cambio de la nube, y editarlo sube esa versión vieja.
+		deferredRefresh = reconciled.deferred.length > 0;
+		conflicts = await conflictsByBlock(loadedBlocks.map((row) => row.id));
 		agentNotes = agentNotesByBlock(loadedActivity);
 		// El título se edita en su propio campo: sólo se pisa si nadie lo está
 		// escribiendo en este momento.
 		if (!pending.has(`title:${id}`)) note.title = loadedNote.title;
 		note.agentVisible = loadedNote.agentVisible;
+	}
+
+	// El cursor se fue de un renglón que había quedado esperando: ahora sí se
+	// puede traer lo que llegó. Sin esto, ese renglón se queda con la versión
+	// vieja hasta el próximo cambio de la nube — y editarlo la vuelve a subir,
+	// pisando la del otro dispositivo.
+	$effect(() => {
+		void activeBlockId;
+		if (!deferredRefresh) return;
+		refreshFromStorage().catch(() => {
+			// Un fallo de lectura acá no rompe nada: se reintenta en la próxima.
+		});
+	});
+
+	// Elegir qué versión queda, desde el propio renglón.
+	async function resolveConflict(blockId, choice) {
+		const conflict = conflicts[blockId];
+		if (!conflict) return;
+		await (choice === 'mine' ? keepLocal(conflict.id) : takeRemote(conflict.id));
+		conflictOpenFor = null;
+		await refreshFromStorage([blockId]);
+		bumpAgentData();
 	}
 
 	// Called from the page when the user inserts from the snippets library.
@@ -1775,6 +1823,11 @@
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}
+					conflict={conflicts[row.block.id] ?? null}
+					conflictOpen={conflictOpenFor === row.block.id}
+					onConflictToggle={(block) =>
+						(conflictOpenFor = conflictOpenFor === block.id ? null : block.id)}
+					onConflictResolve={(block, choice) => resolveConflict(block.id, choice)}
 					focused={focusBlockId === row.block.id}
 					active={activeBlockId === row.block.id}
 					flash={flashBlockIds.has(row.block.id)}

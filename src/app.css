@@ -75,6 +75,9 @@
 	--fmt-color-gray: oklch(0.6 0.01 80);
 	/* La "voz" del agente inline (ámbar): contraste AA sobre --background claro */
 	--agent-ink: oklch(0.52 0.13 75);
+	/* "Este renglón cambió en dos lados" (spec 030 fase 3). Violeta: no es un
+	   error (nada se perdió) ni la voz del agente; es una decisión pendiente. */
+	--cn-conflict: oklch(0.5 0.15 300);
 }
 
 .dark {
@@ -124,6 +127,8 @@
 	--fmt-color-gray: oklch(0.72 0.01 80);
 	/* La "voz" del agente inline (ámbar): más claro para AA sobre fondo oscuro */
 	--agent-ink: oklch(0.8 0.12 82);
+	/* Idem, aclarado para AA sobre fondo oscuro. */
+	--cn-conflict: oklch(0.78 0.13 300);
 }
 
 @theme inline {
@@ -413,6 +418,14 @@
    como escrita por la IA. Nunca se confunde con el texto del usuario. */
 .agent-note {
 	color: var(--agent-ink);
+}
+
+/* El renglón que cambió en dos dispositivos a la vez. */
+.text-cn-conflict {
+	color: var(--cn-conflict);
+}
+.border-cn-conflict {
+	border-color: var(--cn-conflict);
 }
 .agent-note-badge {
 	border: 1px solid currentColor;

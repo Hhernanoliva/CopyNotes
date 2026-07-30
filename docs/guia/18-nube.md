@@ -109,16 +109,20 @@ rompe nada, simplemente no abre. Podés reintentar.
 Puede pasar: cambiaste el mismo renglón en la computadora y en el teléfono, o
 editaste algo sin conexión mientras el otro dispositivo también lo cambiaba.
 
-**Nunca se pisa nada.** Lo que ves en pantalla sigue siendo lo tuyo, y en
-**Configuración › Nube** aparece un aviso: *"2 cambios en conflicto"*. Tocás
-**Revisar** y ves las dos versiones, una debajo de la otra:
+**Nunca se pisa nada.** Lo que ves en pantalla sigue siendo lo tuyo, y **debajo
+del renglón en cuestión** aparece un aviso en violeta:
 
-- **Lo tuyo, en este dispositivo**
-- **Lo del otro dispositivo**
+> ⧉ Hay otra versión de este renglón
 
-Y dos botones: **Quedarme con el mío** o **Traer el otro**. Elegís y listo. Si te
-quedás con el tuyo, el otro dispositivo termina recibiéndolo; si traés el otro,
+Tocalo y se abren las dos versiones, una debajo de la otra —**lo tuyo, en este
+dispositivo** y **lo del otro dispositivo**— con dos botones: **Quedarme con el
+mío** o **Traer el otro**. Elegís ahí mismo, sin salir de la nota. Si te quedás
+con el tuyo, el otro dispositivo termina recibiéndolo; si traés el otro,
 reemplaza lo que tenías acá.
+
+En **Configuración › Nube** también ves cuántos conflictos hay abiertos, por si
+alguno cayó en algo que no es un renglón (el nombre de una etiqueta, una
+carpeta).
 
 Si en un dispositivo **borraste** algo que en el otro seguiste editando, gana la
 edición: la nota no se borra sola, y el borrado te aparece como conflicto para
