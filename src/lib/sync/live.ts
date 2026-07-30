@@ -67,16 +67,29 @@ export function startLiveChannel({ userId, onNudge }) {
 	// A private topic is checked against the policy above using the session
 	// token, and the realtime socket only learns that token when it is handed
 	// over. Subscribing before this resolves gets the join rejected.
+	syncStatus.live = 'conectando';
 	Promise.resolve(client.realtime.setAuth())
 		.then(() => {
-			channel?.subscribe((status) => {
-				if (status === 'SUBSCRIBED') channel.track({ at: Date.now() });
+			channel?.subscribe((status, error) => {
+				if (status === 'SUBSCRIBED') {
+					syncStatus.live = 'listo';
+					channel.track({ at: Date.now() });
+					return;
+				}
+				// CHANNEL_ERROR / TIMED_OUT / CLOSED. Worth surfacing rather than
+				// swallowing: when the channel is down everything still works, just
+				// at the slow pace, and a silent slowdown is impossible to diagnose.
+				syncStatus.live = error?.message ?? String(status).toLowerCase();
 			});
 		})
-		.catch((error) => console.error('No se pudo autorizar el canal de la nube', error));
+		.catch((error) => {
+			syncStatus.live = error?.message ?? 'sin autorización';
+			console.error('No se pudo autorizar el canal de la nube', error);
+		});
 
 	return () => {
 		syncStatus.peers = 0;
+		syncStatus.live = 'apagado';
 		channel?.unsubscribe();
 		channel = null;
 	};

@@ -14,6 +14,10 @@ export const syncStatus = $state({
 	// on its quiet 30-second clock and sends no realtime message at all — the rule
 	// that keeps the cloud bill near zero (see `live.ts`).
 	peers: 0,
+	// 'apagado' | 'conectando' | 'listo' | the failure, in words. A channel that
+	// is down is not a broken app — everything works at the slow pace — which is
+	// exactly why it has to be visible instead of silent.
+	live: 'apagado',
 	// Bumped whenever something from the cloud actually landed in the database.
 	// `CloudLifecycle` watches it to refresh the screen — the same job the agent
 	// bridge does with `agentData.version`.

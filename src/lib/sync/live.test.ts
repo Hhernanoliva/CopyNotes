@@ -14,6 +14,7 @@ const channelSpy = vi.hoisted(() => ({
 	sent: [],
 	handlers: {},
 	tracked: false,
+	subscribeCallback: null,
 	unsubscribed: false,
 	presence: {}
 }));
@@ -31,6 +32,7 @@ vi.mock('./supabase', () => ({
 					return channel;
 				},
 				subscribe: (callback) => {
+					channelSpy.subscribeCallback = callback;
 					callback('SUBSCRIBED');
 					return channel;
 				},
@@ -58,6 +60,7 @@ beforeEach(() => {
 	channelSpy.handlers = {};
 	channelSpy.presence = {};
 	channelSpy.tracked = false;
+	channelSpy.subscribeCallback = null;
 	channelSpy.unsubscribed = false;
 	syncStatus.peers = 0;
 });
@@ -73,6 +76,15 @@ describe('the channel', () => {
 		await vi.waitFor(() => expect(channelSpy.tracked).toBe(true));
 		stop();
 		expect(channelSpy.unsubscribed).toBe(true);
+	});
+
+	it('says out loud when it could not join, because the app keeps working slowly', async () => {
+		startLiveChannel({ userId: 'cuenta-1', onNudge: () => {} });
+		await vi.waitFor(() => expect(channelSpy.subscribeCallback).toBeTruthy());
+
+		channelSpy.subscribeCallback('CHANNEL_ERROR', new Error('no autorizado'));
+
+		expect(syncStatus.live).toBe('no autorizado');
 	});
 
 	it('does not open at all without a session', () => {

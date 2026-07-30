@@ -35,6 +35,14 @@ export default defineConfig({
 		command: 'pnpm build && pnpm preview --port 4173',
 		url: 'http://localhost:4173',
 		reuseExistingServer: !process.env.CI,
-		timeout: 120_000
+		timeout: 120_000,
+		// Built WITHOUT a cloud project, on purpose. A developer machine has a real
+		// `.env`, and with it every test page would open a websocket and call
+		// Supabase a second after loading: tests that touch the network are slower,
+		// impossible to run offline, and — measured here — enough to make
+		// timing-sensitive layout assertions flake. Empty values win over the .env
+		// file, so this is also what makes the "local-only install" state
+		// deterministic for the tests that assert it.
+		env: { PUBLIC_SUPABASE_URL: '', PUBLIC_SUPABASE_ANON_KEY: '' }
 	}
 });

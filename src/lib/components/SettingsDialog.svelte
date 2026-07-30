@@ -646,6 +646,20 @@
 							<span class="text-faint">Última subida {haceCuanto(syncStatus.lastUploadAt)}.</span>
 						{/if}
 					</p>
+					<p class="text-faint text-xs">
+						{#if syncStatus.peers > 0}
+							En vivo: {syncStatus.peers}
+							{syncStatus.peers === 1 ? 'dispositivo más conectado' : 'dispositivos más conectados'}
+							— los cambios viajan en segundos.
+						{:else if syncStatus.live === 'listo'}
+							Sin otros dispositivos conectados: se sincroniza cada 30 segundos.
+						{:else if syncStatus.live === 'conectando'}
+							Conectando el canal en vivo…
+						{:else if syncStatus.live !== 'apagado'}
+							Canal en vivo no disponible ({syncStatus.live}): igual se sincroniza cada 30
+							segundos.
+						{/if}
+					</p>
 					{#if syncStatus.conflicts}
 						<div class="border-border flex flex-col gap-2 rounded-md border p-3">
 							<p class="text-sm">

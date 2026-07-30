@@ -10,6 +10,32 @@ function scaleVar(page) {
 	);
 }
 
+// El valor tal como quedó en la base local, no el que se ve en pantalla. Se
+// guarda en IndexedDB, y una recarga disparada en el mismo instante del clic
+// puede matar esa escritura antes de que aterrice — así que "persiste tras
+// recargar" solo se puede afirmar después de comprobar que se guardó.
+function storedScale(page) {
+	return page.evaluate(
+		() =>
+			new Promise((resolve) => {
+				const open = indexedDB.open('copynotes');
+				open.onerror = () => resolve(null);
+				open.onsuccess = () => {
+					try {
+						const request = open.result
+							.transaction('settings', 'readonly')
+							.objectStore('settings')
+							.get('editorTextScale');
+						request.onsuccess = () => resolve(request.result?.value ?? null);
+						request.onerror = () => resolve(null);
+					} catch {
+						resolve(null);
+					}
+				};
+			})
+	);
+}
+
 function firstBlockFontPx(page) {
 	return page
 		.locator('main [data-block-id] .block-editable')
@@ -31,9 +57,16 @@ test('A+ agranda el texto de la nota y persiste tras recargar', async ({ page })
 	expect(await scaleVar(page)).toBe('1.1');
 	expect(await firstBlockFontPx(page)).toBeGreaterThan(beforePx);
 
+	// Primero que quede guardado; recién ahí tiene sentido recargar.
+	await expect.poll(() => storedScale(page)).toBe(1.1);
+
 	await page.reload();
 	await page.locator('main [data-block-id] .block-editable').first().waitFor();
-	expect(await scaleVar(page)).toBe('1.1');
+	// La preferencia se aplica DESPUÉS de que el editor ya está en pantalla, así
+	// que medir apenas aparece el primer renglón a veces agarra el 100% inicial.
+	// Lo que se afirma es que el tamaño elegido sobrevive a la recarga, no en qué
+	// milisegundo se aplica.
+	await expect.poll(() => scaleVar(page)).toBe('1.1');
 	expect(await firstBlockFontPx(page)).toBeGreaterThan(beforePx);
 });
 
@@ -48,19 +81,18 @@ test('A− se deshabilita en el mínimo (90%)', async ({ page }) => {
 	await expect(shrink).toBeDisabled();
 });
 
-// Nube (spec 030 fase 2). Prueba de humo: la sección se abre sin romper, tanto
-// en una build con proyecto Supabase como en una sin él. Deliberadamente NO
-// afirma en cuál de los dos estados está: eso depende de si la máquina que corre
-// la suite tiene un `.env`, y una prueba que cambia de resultado según eso no
-// prueba nada. Los dos estados los cubre `sync/supabase.test.ts`, con el entorno
-// fijado.
-test('la sección Nube se abre sin romper el diálogo', async ({ page }) => {
+// Nube (spec 030). La suite se compila sin proyecto Supabase (ver
+// playwright.config.ts), que es exactamente el caso de una instalación 100%
+// local: la sección tiene que abrirse, decirlo, y no pedir nada. Los dos estados
+// del interruptor los cubre `sync/supabase.test.ts` con el entorno fijado.
+test('la sección Nube avisa que no hay nube configurada y no pide nada', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Nube' })).toBeVisible();
-	await expect(page.getByText('Se cifran acá, antes de salir')).toBeVisible();
-	// El diálogo sigue vivo debajo: la sección nueva no tapó ni rompió el resto.
+	await expect(page.getByText('no tiene una nube configurada')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Entrar' })).toHaveCount(0);
+	// El diálogo sigue vivo debajo: la sección no tapó ni rompió el resto.
 	await expect(page.getByRole('heading', { name: 'Agentes' })).toBeVisible();
 });
 

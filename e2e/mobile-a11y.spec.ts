@@ -26,10 +26,18 @@ test('la fecha queda arriba en una línea de varios renglones', async ({ page })
 	// El comando "/fecha" ya se consumió: el renglón vuelve a su texto y no
 	// quedan reflows pendientes que muevan el badge mientras lo medimos.
 	await expect(row.locator('.block-editable').first()).not.toContainText('/fecha');
-	const editBox = await row.locator('.block-editable').first().boundingBox();
-	const badgeBox = await badge.boundingBox();
-	// el tope del badge se alinea con el primer renglón del texto (no centrado)
-	expect(badgeBox.y - editBox.y).toBeLessThan(16);
+	// El chip de fecha entra con una animación de rebote (spec 024), así que medir
+	// apenas aparece devuelve la posición de un fotograma intermedio. Se re-mide
+	// hasta que se asienta: la afirmación sigue siendo "termina alineado arriba",
+	// y deja de depender de en qué momento del rebote cayó la medición.
+	await expect
+		.poll(async () => {
+			const editBox = await row.locator('.block-editable').first().boundingBox();
+			const badgeBox = await badge.boundingBox();
+			return badgeBox.y - editBox.y;
+		})
+		// el tope del badge se alinea con el primer renglón del texto (no centrado)
+		.toBeLessThan(16);
 });
 
 test('la barra de formato no supera el ancho de la pantalla', async ({ page }) => {

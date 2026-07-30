@@ -4,7 +4,7 @@
 	// which does this for changes an agent makes from outside the app.
 	import { startUploadClock, syncNow } from '$lib/sync/upload';
 	import { startLiveChannel } from '$lib/sync/live';
-	import { currentSession } from '$lib/sync/supabase';
+	import { supabase } from '$lib/sync/supabase';
 	import { syncStatus } from '$lib/sync/status.svelte';
 	import { agentData } from '$lib/bridge/signal.svelte';
 	import { createExportScheduler } from '$lib/bridge/schedule';
@@ -21,25 +21,38 @@
 	// consent, no vault), so this is inert on a local-only install.
 	$effect(() => startUploadClock());
 
-	// One websocket per account, opened once the session is known. It is what
-	// tells this device whether anybody else is connected — the switch that keeps
-	// a single-device user from ever sending a realtime message.
+	// One websocket per account, and it has to FOLLOW the session rather than be
+	// opened once at mount: logging in happens inside a page that is already
+	// loaded, so a channel started only at mount would stay off until the next
+	// reload — the app would work, quietly, at the slow 30-second pace.
+	// `onAuthStateChange` emits the initial session too, so it covers both.
 	$effect(() => {
+		const client = supabase();
+		if (!client) return;
+
 		let stop = null;
-		let disposed = false;
-		currentSession()
-			.then((session) => {
-				if (!session || disposed) return;
-				stop = startLiveChannel({
-					userId: session.user.id,
-					// The nudge carries nothing: "come and look", and the looking goes
-					// through the same encrypted download path as always.
-					onNudge: () => syncNow()
-				});
-			})
-			.catch((error) => console.error('No se pudo abrir el canal de la nube', error));
+		let joined = null;
+
+		const follow = (session) => {
+			const userId = session?.user?.id ?? null;
+			// Token refreshes fire every hour with the same account: tearing the
+			// channel down and up would drop presence for no reason.
+			if (userId === joined) return;
+			stop?.();
+			stop = null;
+			joined = userId;
+			if (!userId) return;
+			stop = startLiveChannel({
+				userId,
+				// The nudge carries nothing: "come and look", and the looking goes
+				// through the same encrypted download path as always.
+				onNudge: () => syncNow()
+			});
+		};
+
+		const { data } = client.auth.onAuthStateChange((_event, session) => follow(session));
 		return () => {
-			disposed = true;
+			data.subscription.unsubscribe();
 			stop?.();
 		};
 	});
