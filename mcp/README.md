@@ -211,11 +211,19 @@ de bundlear. Paso de build (GATE manual, en la Mac):
 
 ```bash
 # 1) node_modules plano y solo de producción (deja zod, quita vitest):
-cd mcp && pnpm install --config.node-linker=hoisted --prod && cd ..
+#    usá SIEMPRE el script (no el comando pnpm suelto a mano): instalar el
+#    modo plano ENCIMA de un node_modules de dev (symlinks) deja zod y
+#    @modelcontextprotocol/sdk metidos en carpetas ".ignored_zod" /
+#    ".ignored_sdk" en vez de "zod" / "sdk" — el import falla en runtime
+#    (ERR_MODULE_NOT_FOUND) aunque el paquete esté físicamente ahí. El
+#    script hace el rm -rf primero para que esto no dependa de acordarse.
+#    Repro'd 2026-07-29.
+cd mcp && pnpm run build:flat && cd ..
 # 2) build del .app (mcp/ viaja en los recursos):
 export PATH="$HOME/.cargo/bin:$PATH" && pnpm tauri build
-# 3) verificar que el server viajó:
+# 3) verificar que el server viajó y que ningún paquete quedó ".ignored_*":
 find src-tauri/target -name server.js -path '*Resources/mcp*' | head
+find src-tauri/target -iname '.ignored_*' -path '*Resources/mcp*'
 ```
 
 Para volver al entorno de desarrollo (recuperar vitest y los symlinks):
