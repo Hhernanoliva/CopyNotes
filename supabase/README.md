@@ -29,10 +29,30 @@ sincronizaron.
    contraseñas (no se vuelve a mostrar y no es la contraseña de tu cuenta).
 2. **SQL Editor** → pegar todo `schema.sql` → Run. Se puede volver a correr sin
    romper nada.
-3. **Authentication › Sign In / Providers › Email**: dejar Email habilitado.
-   Desactivar "Confirm email" no hace falta: el código de 6 dígitos ya confirma
-   el email.
-4. **Authentication › Emails › Magic Link**: este es el paso que se olvida. La
+3. **Authentication › Sign In / Providers › Email**: dejar Email habilitado y
+   **apagar "Confirm email"**. Sin apagarlo, crear una cuenta dispara un mail de
+   confirmación, y este proyecto no tiene con qué enviarlo: la cuenta queda
+   creada pero sin poder entrar. La app lo detecta y lo dice con todas las
+   letras, pero el arreglo está acá.
+
+## Cómo se entra (y cómo se cambia)
+
+`PUBLIC_SUPABASE_EMAIL_CODE` decide, y los dos caminos son código vivo:
+
+| Valor | Cómo entra el usuario | Qué necesita |
+|---|---|---|
+| cualquiera menos `true` (por defecto) | email + contraseña | nada; "Confirm email" apagado |
+| `true` | código de 6 dígitos por email | SMTP con **dominio propio verificado** |
+
+**Por qué el default es contraseña (2026-07-30).** Se probó Resend por SMTP con
+su remitente prestado `onboarding@resend.dev` y rechaza el envío con
+`Domain is not verified`: ese atajo solo vale desde su API de prueba, no por
+SMTP. Sin un dominio verificado no hay forma de que llegue el código, y sin
+código nadie entra. Los pasos 4 y 5 de abajo son el camino ya preparado para el
+día que exista ese dominio: verificarlo en el proveedor, poner el remitente
+(`hola@tudominio`), pegar la plantilla, y cambiar la variable a `true`.
+
+4. **Authentication › Emails › Magic Link** (solo para el modo código). La
    plantilla que viene de fábrica manda solo un enlace, y CopyNotes pide un
    **código**. Hay que dejar `{{ .Token }}` en el cuerpo del mail, por ejemplo:
 
@@ -43,9 +63,13 @@ sincronizaron.
    <p>Vence en 10 minutos. Si no lo pediste, ignorá este mensaje.</p>
    ```
 
-   Sin `{{ .Token }}` el email llega sin código y no hay forma de entrar.
+   Sin `{{ .Token }}` el email llega sin código y no hay forma de entrar. La
+   misma plantilla hay que dejarla en **Confirm sign up**: la primera vez la
+   cuenta no existe todavía y Supabase usa esa otra.
 5. **Authentication › Sign In / Providers › Email › Email OTP Expiration**:
-   600 segundos (10 minutos).
+   600 segundos (10 minutos). También hay un **Minimum interval per user** (60 s
+   por defecto) en la pantalla de SMTP: dos pedidos seguidos, el segundo se
+   rechaza.
 6. **Project Settings › API**: copiar `Project URL` y la clave `anon public` al
    `.env` local (ver `.env.example`) y a **Vercel › Settings › Environment
    Variables**. Con `adapter-static` los valores se hornean en el build, así que

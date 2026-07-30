@@ -127,12 +127,18 @@ export function startUploadClock() {
 	// A build with no Supabase project never ticks at all: no timer, no database
 	// read every 30 seconds for an answer that cannot change.
 	if (typeof window === 'undefined' || !cloudConfigured()) return () => {};
+	// The first run is DEFERRED, never synchronous. `syncNow` reads and writes
+	// `syncStatus`, so calling it inside the caller's `$effect` body would
+	// register that read as a dependency of the effect and the write would
+	// re-trigger it — an infinite loop that freezes the tab. It also has no
+	// business competing with the first paint.
+	const first = setTimeout(syncNow, 1000);
 	const timer = setInterval(syncNow, INTERVAL_MS);
 	// Coming back online is the moment a backlog exists; do not make the user
 	// wait out the interval for it.
 	window.addEventListener('online', syncNow);
-	syncNow();
 	return () => {
+		clearTimeout(first);
 		clearInterval(timer);
 		window.removeEventListener('online', syncNow);
 	};

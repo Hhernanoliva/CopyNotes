@@ -14,8 +14,11 @@
 	import {
 		cloudConfigured,
 		currentSession,
+		emailCodeLogin,
 		requestCode,
 		signInWithCode,
+		signInWithPassword,
+		signUpWithPassword,
 		signOut
 	} from '$lib/sync/supabase';
 	import { createVault, hasVault } from '$lib/sync/vault';
@@ -44,6 +47,7 @@
 	let consentGiven = $state(false);
 	let cloudEmail = $state('');
 	let cloudCode = $state('');
+	let cloudPassword = $state('');
 	let codeSent = $state(false);
 	let cloudBusy = $state(false);
 	let cloudError = $state(null);
@@ -87,6 +91,23 @@
 			await signInWithCode(cloudEmail.trim(), cloudCode);
 			cloudCode = '';
 			codeSent = false;
+		});
+	}
+
+	// Password mode: two explicit buttons instead of guessing whether the account
+	// exists. Guessing turns a typo in the password into "creating an account",
+	// and the error message stops being true.
+	function enterWithPassword() {
+		return cloudAction(async () => {
+			await signInWithPassword(cloudEmail.trim(), cloudPassword);
+			cloudPassword = '';
+		});
+	}
+
+	function createWithPassword() {
+		return cloudAction(async () => {
+			await signUpWithPassword(cloudEmail.trim(), cloudPassword);
+			cloudPassword = '';
 		});
 	}
 
@@ -378,24 +399,61 @@
 			{:else if !cloudSession}
 				<div class="flex flex-col gap-2">
 					<label class="text-muted-foreground text-sm" for="cloud-email">Tu email</label>
-					<div class="flex items-center gap-2">
+					<input
+						id="cloud-email"
+						type="email"
+						autocomplete="email"
+						bind:value={cloudEmail}
+						placeholder="vos@ejemplo.com"
+						class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 text-sm outline-none"
+					/>
+
+					{#if !emailCodeLogin()}
+						<!-- Password mode: the default, because it needs no mail provider.
+						     The code-by-email block below is the same feature with a mail
+						     provider behind it; PUBLIC_SUPABASE_EMAIL_CODE picks one. -->
+						<label class="text-muted-foreground mt-1 text-sm" for="cloud-password">Contraseña</label
+						>
 						<input
-							id="cloud-email"
-							type="email"
-							autocomplete="email"
-							bind:value={cloudEmail}
-							placeholder="vos@ejemplo.com"
-							class="border-border min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1.5 text-sm outline-none"
+							id="cloud-password"
+							type="password"
+							autocomplete="current-password"
+							bind:value={cloudPassword}
+							placeholder="········"
+							class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 text-sm outline-none"
 						/>
+						<div class="mt-1 flex items-center gap-2">
+							<button
+								type="button"
+								onclick={enterWithPassword}
+								disabled={cloudBusy || !cloudEmail.trim() || !cloudPassword}
+								class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Entrar
+							</button>
+							<button
+								type="button"
+								onclick={createWithPassword}
+								disabled={cloudBusy || !cloudEmail.trim() || !cloudPassword}
+								class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Crear cuenta
+							</button>
+						</div>
+						<p class="text-faint text-xs">
+							La primera vez, "Crear cuenta". Guardá la contraseña donde guardás las demás: por
+							ahora no hay "olvidé mi contraseña".
+						</p>
+					{:else}
 						<button
 							type="button"
 							onclick={sendCode}
 							disabled={cloudBusy || !cloudEmail.trim()}
-							class="bg-primary text-primary-foreground focus-visible:ring-ring shrink-0 rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							class="bg-primary text-primary-foreground focus-visible:ring-ring mt-1 self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
 						>
 							{codeSent ? 'Reenviar' : 'Enviar código'}
 						</button>
-					</div>
+					{/if}
 
 					{#if codeSent}
 						<p class="text-muted-foreground text-sm">

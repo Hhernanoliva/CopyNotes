@@ -34,7 +34,11 @@ vi.mock('./supabase', () => ({
 async function loadUpload() {
 	vi.resetModules();
 	const [upload, status] = await Promise.all([import('./upload'), import('./status.svelte')]);
-	return { syncNow: upload.syncNow, syncStatus: status.syncStatus };
+	return {
+		syncNow: upload.syncNow,
+		startUploadClock: upload.startUploadClock,
+		syncStatus: status.syncStatus
+	};
 }
 
 function rowsFor(table) {
@@ -110,6 +114,25 @@ describe('what reaches the server', () => {
 		// `sortOrder` integers); until then a new note re-uploads its siblings'
 		// small rows.
 		expect(rowsFor('records')).toHaveLength(3);
+	});
+});
+
+describe('the clock', () => {
+	it('never syncs synchronously, so the $effect that starts it cannot loop', async () => {
+		// Regression: `syncNow` reads and writes `syncStatus`. Started synchronously
+		// from a Svelte effect, that read became a dependency and the write
+		// re-triggered the effect for ever, freezing the tab. Nothing may reach the
+		// status — or the network — before the caller's effect has finished.
+		await createVault();
+		await grantUploadConsent();
+		await createNote({ title: 'una' });
+		const { startUploadClock, syncStatus } = await loadUpload();
+
+		const stop = startUploadClock();
+
+		expect(syncStatus.uploading).toBe(false);
+		expect(sent).toEqual([]);
+		stop();
 	});
 });
 

@@ -199,12 +199,18 @@ email magic-link login for the beta, so no Google/Apple console work is needed).
   (`pnpm rls:check`) proves it against the real project with two throwaway
   accounts that deliberately share one record id. It is a script, not part of
   `pnpm test`: it needs the service_role key, which only exists locally.
-- **Login is a 6-digit email code, not a magic link.** The desktop app is a
-  webview with no URL bar to return to, so a link would need OS deep-link
-  plumbing; a typed code behaves identically on desktop and web with the same
-  Supabase API (`signInWithOtp` / `verifyOtp`). The Supabase "Magic Link" email
-  template must contain `{{ .Token }}` or the mail arrives with no code —
-  documented in `supabase/README.md`.
+- **Two login paths, one variable (`PUBLIC_SUPABASE_EMAIL_CODE`).** A 6-digit
+  email code (`signInWithOtp` / `verifyOtp`) — never a magic link, because the
+  desktop app is a webview with no URL bar to return to — and email + password.
+  **Password ships as the default**, and the reason is worth recording: with the
+  project's own mail service Supabase does not let you edit the template at all
+  (so `{{ .Token }}` cannot be added, and the mail carries only a link), and
+  Resend over SMTP refuses its own borrowed `onboarding@resend.dev` sender with
+  `Domain is not verified` — that shortcut only works from their test API. No
+  verified sending domain, no code, nobody logs in. The code path stays live
+  code behind the variable, so the day a domain exists the migration is one
+  value. Password mode requires "Confirm email" OFF in Supabase, and the app says
+  so by name when a sign-up comes back without a session.
 - **Deviation: no local `ownerId` column.** Postgres fills `owner_id` from
   `default auth.uid()` and RLS enforces it; a device has exactly one owner, so
   the local column would hold one repeated value. Additive if a second owner per

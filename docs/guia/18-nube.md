@@ -12,14 +12,21 @@ Tus notas se **cifran en tu dispositivo antes de salir**. El servidor guarda alg
 que no puede leer: ni la empresa que aloja los datos, ni nosotros, ni alguien que
 se robe la base de datos.
 
-## Entrar con tu email
+## Entrar
 
-1. Escribí tu email y tocá **Enviar código**.
-2. Te llega un mail con un **código de 6 dígitos**. Vence en 10 minutos.
-3. Escribí el código y tocá **Entrar**.
+1. Escribí tu email y una contraseña.
+2. La primera vez tocá **Crear cuenta**. Después, siempre **Entrar**.
 
-No hay contraseña que recordar. La primera vez que entrás, la cuenta se crea
-sola. Si el código no llega, tocá **Reenviar**.
+Guardá esa contraseña donde guardás las demás: por ahora **no hay "olvidé mi
+contraseña"**, porque CopyNotes todavía no manda mails.
+
+Aunque la perdieras, tus notas siguen enteras en tu dispositivo — la contraseña
+abre la cuenta, no las notas. Lo que abre las notas es el código de recuperación
+de acá abajo, y son dos cosas distintas a propósito.
+
+> Más adelante el ingreso va a ser con un **código de 6 dígitos** que llega por
+> email, sin contraseña. Ya está construido; espera a que CopyNotes tenga su
+> propio dominio de correo.
 
 ## El código de recuperación (esto es lo que no hay que perder)
 
@@ -38,8 +45,7 @@ Copialo y guardalo donde guardás tus contraseñas.
 - Si lo perdés **y** perdés tus dispositivos, tus notas **no se pueden
   recuperar**. Ese es el precio de que nadie más pueda leerlas.
 
-Cambiar la contraseña de tu cuenta no descifra ninguna nota: son dos cosas
-distintas a propósito.
+Cambiar la contraseña de tu cuenta no descifra ninguna nota.
 
 ## Dar el permiso
 
