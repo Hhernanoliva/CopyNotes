@@ -8,7 +8,7 @@ CopyNotes is a simple local-first notes organizer inspired by Workflowy, Bear, a
 
 Primary audience: general users who want a simpler alternative to large note-taking tools (Bear/Notion/Workflowy users who don't want a heavy workspace).
 
-**Status:** the MVP (spec 017, stages 0–7) is complete; current work is post-MVP hardening. The MVP completion checklist and quality gates are in `specs/017-mvp-implementation-plan.md`.
+**Status:** the MVP (spec 017, stages 0–7) is complete; current work is post-MVP. Two things shipped past it and change the map below: the **agent beta** (local MCP, spec 028) and **optional encrypted cloud sync** (specs 029/030, phases 0–3 in production 2026-07-30). The MVP completion checklist and quality gates are in `specs/017-mvp-implementation-plan.md`.
 
 ## Collaboration Style
 
@@ -16,21 +16,26 @@ Explain product and technical decisions to Hernan in clear Spanish, assuming he 
 
 ## Product Principles
 
-- **Local-first, no account.** Data lives on the device (Dexie/IndexedDB), autosaves, works offline, installs as PWA. Backup/export is part of trust, not an extra.
-- **Privacy.** Without sync, everything is local. Future sync requires an account or explicit consent — never silently move private notes to a remote service.
+- **Local-first, no account required.** Data lives on the device (Dexie/IndexedDB), autosaves, works offline, installs as PWA. Backup/export is part of trust, not an extra. An account exists now, but it is opt-in and adds a second copy — it never becomes the source of truth.
+- **Privacy.** Without sync, everything is local. With sync, notes are encrypted on the device first: the server stores ciphertext and cannot read a word, and nothing is uploaded before explicit consent. **Never claim "zero-knowledge" publicly until the independent audit in `030` phase 4.**
 - **Copying is a first-class workflow.** Block-only and block-with-children copy, clean output in other tools.
 - **Narrow scope.** Write, organize, copy, reuse, backup. NOT a Notion competitor: no workspace databases, complex tables, heavy dashboards, or enterprise collaboration.
-- **No user-facing AI.** No AI chat or assistant in the product. MCP readiness (agents connecting from outside) is a future phase — see specs 011/012.
-- **Monetization:** free core experience; future Pro may add sync, advanced themes/exports/templates. Never paywall basic local note-taking.
+- **No user-facing AI.** No AI chat or assistant in the product. Agents connect from **outside** through MCP (beta, desktop; specs 011/012/023/028) and only reach what the user made visible.
+- **Monetization:** free core experience; cloud sync is the intended Pro value (built, not yet paywalled), alongside advanced themes/exports/templates. Never paywall basic local note-taking.
 - **Dark-first, calm, Bear-like.** Behavior over polish, but never careless UI; everything themeable through tokens (spec 016).
 
 ## Technical Direction
 
 Stack: SvelteKit + Svelte 5, TypeScript tooling with plain-JS style code, Tailwind, shadcn-svelte + Bits UI, Lucide, mode-watcher, svelte-sonner, Dexie.js, Valibot, @vite-pwa/sveltekit (adapter-static), Vitest + Playwright. Library decisions are locked in `specs/014` (UI) and `specs/015` (non-UI) — read them before installing or replacing anything, including the editor (custom block editor; spec 015 has the revisit triggers).
 
-Web-first, client-side only (no server routes, no hosted DB, no login). Tauri is the preferred future desktop wrapper: keep browser APIs (persistence, file import/export, clipboard, PWA, shortcuts) wrapped behind small internal utilities so a desktop port stays easy.
+Web-first and client-side: still **no server routes and no backend code of ours** (adapter-static). Since 2026-07-30 there is one external service, and only for people who opt in: **Supabase** provides the account (email + password today) and stores **ciphertext**. It is not a hosted copy of the app's data model — it holds one opaque blob per record plus the few fields needed to file it. The device remains the source of truth; the app is fully usable offline, forever, with no account. Tauri is the preferred desktop wrapper: keep browser APIs (persistence, file import/export, clipboard, PWA, shortcuts) wrapped behind small internal utilities so a desktop port stays easy.
 
-Future sync (spec 010) is expected as an early post-MVP feature: stable IDs + timestamps everywhere, soft delete, storage layer as the only data path, backend choice open, conflicts must never silently lose text.
+**Sync is built, not future** (specs 029/030, replacing the "backend open" language of spec 010): records are encrypted on the device before upload, the vault key never leaves it, and no conflict is ever resolved by a silent last-write-wins. Anything touching this must keep four invariants:
+
+- **Encryption belongs to the upload edge**, never to local storage — local rows stay plaintext so indexes, speed and the unload journal are unchanged (decision D1 in `030`).
+- **`putFromCloud` in `storage/db.ts` is the only way a downloaded record may be written.** Any other path stamps it as a local change, and the two devices bounce it between them for ever.
+- **Nothing leaves without consent**, and the gate is structural: `sync/pending.ts` returns an empty list until it is granted, so an uploader cannot find anything to send.
+- **Realtime is sent only when a second device is actually connected** (`sync/live.ts`). It is billed per message; "just send always" is the difference between a US$25/month project and a US$1.250 one at scale.
 
 ## Application Architecture
 
@@ -49,16 +54,21 @@ src/
     theme/          dark/light, tokens, preference
     onboarding/     demo note, first-run
     pwa/            installability, service worker, offline
-    sync/, mcp/     future contracts — minimal or docs-only until their phase
+    sync/           account, encryption at the upload edge, upload/download,
+                    conflicts, and the live channel (specs 029/030)
+    bridge/, mcp/   the agent channel: export file, mailbox, MCP server (028)
   routes/
 specs/
 e2e/
+supabase/         schema.sql + how to set the project up. Not app code: it is
+                  what gets pasted into the SQL editor, kept here to be reviewable
+scripts/          rls-check.mjs — proves one account cannot reach another's rows
 ```
 
 Rules that keep agents safe here:
 
 - Feature code stays close to its module; extract shared logic only when truly reused.
-- UI components never touch Dexie directly — repositories only. This is also the encryption- and sync-readiness seam.
+- UI components never touch Dexie directly — repositories only. This is the seam where encryption and sync plug in, and why they could be added without the editor knowing.
 - Pure logic (hierarchy, formatters, search, merge plans) lives in plain modules with Vitest coverage, separate from rendering.
 - State: Svelte runes/stores for UI/session state (current note, selection, panels, query); anything that must survive a refresh flows through storage. No external state library.
 - Editor is isolated behind boundaries (editor UI / block model / persistence / copy formatting / shortcuts) so a future editor swap can't force a rewrite.
@@ -95,6 +105,7 @@ A feature is not done until: the app runs without errors; risky logic has Vitest
 | MCP phasing & conservative first version | `023` |
 | Quiet Motion: app-wide animation system | `024` |
 | macOS desktop/Tauri preparation | `025` |
+| Drag selected text to move it | `026` |
 | Settings dialog + text size (Configuración) | `027` |
 | Agent beta: local MCP, task-action layer, activity log | `028` |
 | Cloud sync path (Pro): accounts, seams, conflicts | `029` |
