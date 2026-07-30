@@ -35,6 +35,19 @@ export async function markUploadedThrough(seq) {
 	if (seq > (await uploadedThrough())) await setSetting(KEY.syncUploadedThrough, seq);
 }
 
+// How much is waiting, without loading a single record — Configuración shows
+// this number, and it is the honest answer to "is everything up there?". Behind
+// the same consent gate as the door below: before consent there is nothing
+// pending, because nothing may go up.
+export async function countPendingUploads() {
+	if (!(await hasUploadConsent())) return 0;
+	const mark = await uploadedThrough();
+	const counts = await Promise.all(
+		SYNCED_TABLES.map((table) => db.table(table).where('changeSeq').above(mark).count())
+	);
+	return counts.reduce((total, count) => total + count, 0);
+}
+
 // Oldest change first, so an interrupted upload can be resumed by advancing the
 // mark: everything before it is known to have landed.
 export async function listPendingUploads({ limit = 200 } = {}) {

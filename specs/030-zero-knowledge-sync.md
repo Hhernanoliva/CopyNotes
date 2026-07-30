@@ -191,10 +191,47 @@ email magic-link login for the beta, so no Google/Apple console work is needed).
   are `backupSafe: false` in `settings-registry.ts` — a consent decision is per
   device, and a restored cursor would silently skip records.
 
-Still to build, all of it needing the account: the Supabase project and schema,
-magic-link auth, Row-Level Security plus the cross-account test, `ownerId`, the
-upload loop itself, and the screens (login, the consent request, and the one
-that shows the recovery code with its warning).
+**Where the cloud half landed (2026-07-29).** Everything above plus:
+
+- `supabase/schema.sql` — two tables, `records` (one encrypted blob per synced
+  row) and `vaults` (the wrapped key). RLS on both, `using` **and** `with check`,
+  so an account can neither read nor write another's rows. `scripts/rls-check.mjs`
+  (`pnpm rls:check`) proves it against the real project with two throwaway
+  accounts that deliberately share one record id. It is a script, not part of
+  `pnpm test`: it needs the service_role key, which only exists locally.
+- **Login is a 6-digit email code, not a magic link.** The desktop app is a
+  webview with no URL bar to return to, so a link would need OS deep-link
+  plumbing; a typed code behaves identically on desktop and web with the same
+  Supabase API (`signInWithOtp` / `verifyOtp`). The Supabase "Magic Link" email
+  template must contain `{{ .Token }}` or the mail arrives with no code —
+  documented in `supabase/README.md`.
+- **Deviation: no local `ownerId` column.** Postgres fills `owner_id` from
+  `default auth.uid()` and RLS enforces it; a device has exactly one owner, so
+  the local column would hold one repeated value. Additive if a second owner per
+  device ever exists.
+- **Deviation: the server's version marker is a sequence, not a timestamp.** A
+  trigger stamps `server_seq` from a Postgres sequence on insert *and* update, so
+  phase 3's "changed since X" cannot tie the way `updated_at` could — the same
+  reasoning as phase 1's local counter.
+- `sync/upload.ts` — list oldest first, encrypt, upsert, and only then advance the
+  mark. An interruption between the upsert and the mark re-sends the batch, which
+  the `(owner_id, table_name, id)` upsert key turns into an overwrite instead of
+  a duplicate. Every gate (no project, no session, no consent, no vault) lives
+  inside `syncNow`, so the 30-second clock in `+layout.svelte` is inert on a
+  local-only install.
+- **The CSP was the trap.** `connect-src` was `'self'` plus the desktop IPC
+  origins, so every Supabase call would have been blocked with no visible error.
+  `vite.config.ts` now reads the project URL once and feeds both the client and
+  `connect-src`; a build without the variable keeps the old "nothing leaves"
+  policy.
+- **Known cost, already named by phase 3:** creating a note calls
+  `shiftRootDown`, which renumbers its siblings' `sortOrder`, and a renumbered row
+  is a changed row — so a new note re-uploads the other notes' (small) rows. The
+  fix is this phase's "stable positions instead of sequential integers".
+
+Still to build: everything in phase 3 (download, merge, conflicts) and the
+second-device screen that feeds `restoreVault()`, which exists and is tested but
+has nothing to restore from until download lands.
 
 ### Phase 3 — Download, merge, conflicts without losing text
 

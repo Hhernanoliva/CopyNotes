@@ -48,6 +48,18 @@ test('A− se deshabilita en el mínimo (90%)', async ({ page }) => {
 	await expect(shrink).toBeDisabled();
 });
 
+// Nube (spec 030 fase 2). La suite corre sin proyecto Supabase configurado, que
+// es exactamente el caso de una instalación 100% local: la sección tiene que
+// abrirse, decirlo y no pedir nada.
+test('la sección Nube se abre y avisa que no hay nube configurada', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Configuración' }).click();
+
+	await expect(page.getByRole('heading', { name: 'Nube' })).toBeVisible();
+	await expect(page.getByText('no tiene una nube configurada')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Enviar código' })).toHaveCount(0);
+});
+
 test.describe('con movimiento reducido', () => {
 	test.use({ reducedMotion: 'reduce' });
 

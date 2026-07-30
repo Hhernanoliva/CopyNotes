@@ -11,6 +11,17 @@
 		cursorConfig,
 		cursorDeeplink
 	} from '$lib/bridge/mcp-config';
+	import {
+		cloudConfigured,
+		currentSession,
+		requestCode,
+		signInWithCode,
+		signOut
+	} from '$lib/sync/supabase';
+	import { createVault, hasVault } from '$lib/sync/vault';
+	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
+	import { syncNow } from '$lib/sync/upload';
+	import { syncStatus } from '$lib/sync/status.svelte';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
 
@@ -23,6 +34,85 @@
 	let agentStatus = $state(null); // { lastSeen } | null
 	let copiedField = $state(null); // 'path' | 'claude' | 'opencode' | 'cursor' | null
 	let copyTimer;
+
+	// --- Nube (spec 030 fase 2) -------------------------------------------------
+	// Four things decide what the user sees, in this order: is there a project, a
+	// session, a vault, and consent. Each one is a separate screen so nothing ever
+	// asks for two decisions at once.
+	let cloudSession = $state(null);
+	let vaultReady = $state(false);
+	let consentGiven = $state(false);
+	let cloudEmail = $state('');
+	let cloudCode = $state('');
+	let codeSent = $state(false);
+	let cloudBusy = $state(false);
+	let cloudError = $state(null);
+	// Shown once, right after the vault is created, and never again.
+	let recoveryCode = $state(null);
+	let recoverySaved = $state(false);
+
+	async function refreshCloud() {
+		if (!cloudConfigured()) return;
+		cloudSession = await currentSession();
+		vaultReady = await hasVault();
+		consentGiven = await hasUploadConsent();
+		syncStatus.pending = await countPendingUploads();
+	}
+
+	// Every cloud button funnels through here: one place that shows the spinner
+	// state, catches the failure and puts the message on screen instead of in the
+	// console.
+	async function cloudAction(run) {
+		cloudBusy = true;
+		cloudError = null;
+		try {
+			await run();
+			await refreshCloud();
+		} catch (error) {
+			cloudError = error instanceof Error ? error.message : 'No se pudo completar la operación.';
+		} finally {
+			cloudBusy = false;
+		}
+	}
+
+	function sendCode() {
+		return cloudAction(async () => {
+			await requestCode(cloudEmail.trim());
+			codeSent = true;
+		});
+	}
+
+	function enterCode() {
+		return cloudAction(async () => {
+			await signInWithCode(cloudEmail.trim(), cloudCode);
+			cloudCode = '';
+			codeSent = false;
+		});
+	}
+
+	function makeVault() {
+		return cloudAction(async () => {
+			const { recoveryCode: code } = await createVault();
+			recoveryCode = code;
+			recoverySaved = false;
+		});
+	}
+
+	function allowUpload() {
+		return cloudAction(async () => {
+			await grantUploadConsent();
+			await syncNow();
+		});
+	}
+
+	function leaveCloud() {
+		return cloudAction(async () => {
+			await signOut();
+			cloudSession = null;
+			codeSent = false;
+			cloudCode = '';
+		});
+	}
 
 	async function submitRedo(entry) {
 		const text = redoText.trim();
@@ -40,6 +130,7 @@
 	$effect(() => {
 		if (!open) return;
 		listRecentActivity(20).then((rows) => (activity = rows));
+		refreshCloud().catch((error) => console.error('No se pudo leer el estado de la nube', error));
 		if (isTauriRuntime()) {
 			getMailboxPath()
 				.then((p) => (mailboxPath = p))
@@ -210,6 +301,207 @@
 			>
 				Restablecer
 			</button>
+		</section>
+
+		<section class="flex flex-col gap-3">
+			<div class="flex flex-col gap-0.5">
+				<h3 class="text-sm font-bold">Nube</h3>
+				<p class="text-muted-foreground text-sm">
+					Tus notas en más de un dispositivo. Se cifran acá, antes de salir: el servidor
+					guarda algo que no puede leer. Sin cuenta, CopyNotes funciona igual.
+				</p>
+			</div>
+
+			{#if !cloudConfigured()}
+				<p class="text-muted-foreground text-sm">
+					Esta copia de CopyNotes no tiene una nube configurada.
+				</p>
+			{:else if recoveryCode}
+				<!-- Shown once and never again. It has priority over every other cloud
+				     screen: nothing else may distract from writing this down. -->
+				<div class="border-border flex flex-col gap-3 rounded-md border p-3">
+					<h4 class="text-sm font-bold">Tu código de recuperación</h4>
+					<div class="flex items-center gap-2">
+						<code
+							class="bg-muted text-foreground border-border min-w-0 flex-1 rounded border px-2 py-2 text-center font-mono text-sm tracking-widest break-all"
+							>{recoveryCode}</code
+						>
+						<button
+							type="button"
+							aria-label="Copiar código de recuperación"
+							onclick={() => copyText(recoveryCode, 'recovery')}
+							class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+						>
+							{#if copiedField === 'recovery'}
+								<Check size={14} aria-hidden="true" class="text-primary" />
+							{:else}
+								<Copy size={14} aria-hidden="true" />
+							{/if}
+						</button>
+					</div>
+					<p class="text-destructive text-sm">
+						Guardalo ahora en un lugar seguro. Es lo único que recupera tus notas en otro
+						dispositivo. Nadie más lo tiene: si lo perdés junto con tus dispositivos, tus notas
+						no se pueden recuperar, ni por nosotros ni por el servidor.
+					</p>
+					<label class="text-muted-foreground flex items-center gap-2 text-sm">
+						<button
+							type="button"
+							role="checkbox"
+							aria-checked={recoverySaved}
+							aria-label="Ya guardé el código"
+							onclick={() => (recoverySaved = !recoverySaved)}
+							class="focus-visible:ring-ring flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+						>
+							<span
+								aria-hidden="true"
+								class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {recoverySaved
+									? 'bg-primary border-primary text-primary-foreground'
+									: 'bg-transparent'}"
+							>
+								{#if recoverySaved}
+									<Check size={12} />
+								{/if}
+							</span>
+						</button>
+						Ya lo guardé
+					</label>
+					<button
+						type="button"
+						disabled={!recoverySaved}
+						onclick={() => (recoveryCode = null)}
+						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+					>
+						Continuar
+					</button>
+				</div>
+			{:else if !cloudSession}
+				<div class="flex flex-col gap-2">
+					<label class="text-muted-foreground text-sm" for="cloud-email">Tu email</label>
+					<div class="flex items-center gap-2">
+						<input
+							id="cloud-email"
+							type="email"
+							autocomplete="email"
+							bind:value={cloudEmail}
+							placeholder="vos@ejemplo.com"
+							class="border-border min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1.5 text-sm outline-none"
+						/>
+						<button
+							type="button"
+							onclick={sendCode}
+							disabled={cloudBusy || !cloudEmail.trim()}
+							class="bg-primary text-primary-foreground focus-visible:ring-ring shrink-0 rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+						>
+							{codeSent ? 'Reenviar' : 'Enviar código'}
+						</button>
+					</div>
+
+					{#if codeSent}
+						<p class="text-muted-foreground text-sm">
+							Te mandamos un código de 6 dígitos. Escribilo acá abajo (vence en 10 minutos).
+						</p>
+						<div class="flex items-center gap-2">
+							<input
+								id="cloud-code"
+								inputmode="numeric"
+								autocomplete="one-time-code"
+								bind:value={cloudCode}
+								aria-label="Código de 6 dígitos"
+								placeholder="000000"
+								class="border-border min-w-0 flex-1 rounded-md border bg-transparent px-2 py-1.5 font-mono text-sm tracking-widest outline-none"
+							/>
+							<button
+								type="button"
+								onclick={enterCode}
+								disabled={cloudBusy || cloudCode.trim().length < 6}
+								class="bg-primary text-primary-foreground focus-visible:ring-ring shrink-0 rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Entrar
+							</button>
+						</div>
+					{/if}
+				</div>
+			{:else if !vaultReady}
+				<div class="flex flex-col gap-2">
+					<p class="text-muted-foreground text-sm">
+						Entraste como <span class="text-foreground font-medium">{cloudSession.user.email}</span
+						>. Falta crear la bóveda: la llave que cifra tus notas y que solo existe en este
+						dispositivo.
+					</p>
+					<button
+						type="button"
+						onclick={makeVault}
+						disabled={cloudBusy}
+						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+					>
+						Crear bóveda
+					</button>
+				</div>
+			{:else if !consentGiven}
+				<div class="flex flex-col gap-2">
+					<p class="text-foreground text-sm">
+						Hasta que lo permitas, nada salió de este dispositivo.
+					</p>
+					<p class="text-muted-foreground text-sm">
+						Si lo permitís, se sube <span class="text-foreground">todo</span> lo que escribís
+						—notas, renglones, comentarios, fechas, etiquetas, snippets y la bitácora— siempre
+						cifrado: el servidor guarda letras y números que no puede leer, y nosotros tampoco.
+					</p>
+					<p class="text-muted-foreground text-sm">
+						Lo que el servidor igual ve: que tenés una cuenta, tu email, tu conexión, cuántos
+						registros hay, cuánto pesan y a qué hora sincronizás.
+					</p>
+					<button
+						type="button"
+						onclick={allowUpload}
+						disabled={cloudBusy}
+						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+					>
+						Permitir y subir
+					</button>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-2">
+					<p class="text-muted-foreground text-sm">
+						Cuenta: <span class="text-foreground font-medium">{cloudSession.user.email}</span>
+					</p>
+					<p class="text-sm" aria-live="polite">
+						{#if syncStatus.uploading}
+							Subiendo…
+						{:else if syncStatus.pending === 0}
+							Todo subido.
+						{:else}
+							{syncStatus.pending} {syncStatus.pending === 1 ? 'cambio' : 'cambios'} sin subir.
+						{/if}
+						{#if syncStatus.lastUploadAt}
+							<span class="text-faint">Última subida {haceCuanto(syncStatus.lastUploadAt)}.</span>
+						{/if}
+					</p>
+					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							onclick={() => cloudAction(syncNow)}
+							disabled={cloudBusy || syncStatus.uploading}
+							class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+						>
+							Sincronizar ahora
+						</button>
+						<button
+							type="button"
+							onclick={leaveCloud}
+							disabled={cloudBusy}
+							class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+						>
+							Cerrar sesión
+						</button>
+					</div>
+				</div>
+			{/if}
+
+			{#if cloudError}
+				<p role="alert" class="text-destructive text-sm">{cloudError}</p>
+			{/if}
 		</section>
 
 		<section class="flex flex-col gap-3">

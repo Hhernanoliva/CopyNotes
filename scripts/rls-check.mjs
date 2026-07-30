@@ -100,7 +100,23 @@ try {
 	assert.equal(vaults.length, 0, 'A pudo leer la bóveda envuelta de B');
 	console.log('✓ A no puede leer la llave envuelta de B');
 
-	console.log('\nCandado OK: las cinco pruebas pasaron.');
+	// 6. The exact call `sync/upload.ts` makes when it re-sends a batch whose
+	//    confirmation was lost. It must overwrite, not fail on the primary key —
+	//    and `owner_id` is part of the conflict target without being in the
+	//    payload, which only the real schema can confirm.
+	unwrap(
+		await a.client
+			.from('records')
+			.upsert([{ ...record('secreto-de-A-v2'), change_seq: 2 }], {
+				onConflict: 'owner_id,table_name,id'
+			})
+	);
+	const afterResend = unwrap(await a.client.from('records').select('blob, change_seq'));
+	assert.equal(afterResend.length, 1, 'el reenvío duplicó la fila en vez de sobrescribirla');
+	assert.equal(atob(afterResend[0].blob), 'secreto-de-A-v2');
+	console.log('✓ reenviar el mismo registro lo sobrescribe, no lo duplica');
+
+	console.log('\nCandado OK: las seis pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);

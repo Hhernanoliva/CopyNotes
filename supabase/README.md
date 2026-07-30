@@ -62,10 +62,11 @@ pnpm rls:check
 ```
 
 Crea dos cuentas de prueba, guarda una fila con cada una **usando el mismo id**,
-y verifica cinco cosas: que cada cuenta ve su fila, que pedir las filas de la
+y verifica seis cosas: que cada cuenta ve su fila, que pedir las filas de la
 otra devuelve cero, que no se puede insertar a nombre de otra, que no se puede
-sobrescribir su fila, y que la llave envuelta tampoco se puede leer. Después
-borra las dos cuentas.
+sobrescribir su fila, que la llave envuelta tampoco se puede leer, y que
+reenviar un registro lo sobrescribe en vez de duplicarlo (la idempotencia en la
+que se apoya el subidor). Después borra las dos cuentas.
 
 No corre en `pnpm test` porque necesita el proyecto real y la clave
 `service_role`. Hay que correrlo a mano cada vez que se toque `schema.sql`.
