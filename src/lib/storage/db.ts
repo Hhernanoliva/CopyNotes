@@ -134,6 +134,14 @@ db.version(8).stores({
 	vault: 'id'
 });
 
+// v9 (spec 030 phase 3): records that arrived from the cloud while this device
+// had its own unsent version of them. Device-local like `vault`: not a synced
+// table and not in `storage/backup.ts`'s list, because a pending decision on
+// this machine means nothing on another one.
+db.version(9).stores({
+	conflicts: 'id, table, at'
+});
+
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
 // added later cannot forget it, and a change sync never sees is a change lost.

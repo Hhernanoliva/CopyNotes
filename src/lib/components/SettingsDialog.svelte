@@ -25,6 +25,16 @@
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
 	import { cloudVaultBlob, cloudVaultExists, syncNow } from '$lib/sync/upload';
 	import { downloadAll } from '$lib/sync/download';
+	import {
+		countConflicts,
+		describeRecord,
+		describeTable,
+		isDeletion,
+		keepLocal,
+		listConflicts,
+		takeRemote
+	} from '$lib/sync/conflicts';
+	import { db } from '$lib/storage/db';
 	import { syncStatus } from '$lib/sync/status.svelte';
 
 	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
@@ -50,6 +60,9 @@
 	let joinCode = $state('');
 	// { applied } while the first full download runs, null otherwise.
 	let downloading = $state(null);
+	// [{ id, label, mine, theirs }] — both versions, side by side.
+	let conflictList = $state([]);
+	let reviewingConflicts = $state(false);
 	let cloudEmail = $state('');
 	let cloudCode = $state('');
 	let cloudPassword = $state('');
@@ -66,9 +79,38 @@
 		vaultReady = await hasVault();
 		consentGiven = await hasUploadConsent();
 		syncStatus.pending = await countPendingUploads();
+		syncStatus.conflicts = await countConflicts();
 		// Only worth asking the server when this device has no vault of its own:
 		// the answer decides between "create one" and "join the one that exists".
 		accountHasVault = vaultReady || (cloudSession ? await cloudVaultExists() : false);
+	}
+
+	// Each side of a conflict as a person recognises it: the words, and which
+	// record they belong to. The local half is read fresh, because the point is to
+	// compare it with what is on screen right now.
+	async function loadConflicts() {
+		const rows = await listConflicts();
+		conflictList = await Promise.all(
+			rows.map(async (conflict) => {
+				const local = await db.table(conflict.table).get(conflict.recordId);
+				return {
+					id: conflict.id,
+					label: describeTable(conflict.table),
+					mine: isDeletion(local) ? '(borrado acá)' : describeRecord(conflict.table, local),
+					theirs: isDeletion(conflict.remote)
+						? '(borrado en el otro dispositivo)'
+						: describeRecord(conflict.table, conflict.remote)
+				};
+			})
+		);
+	}
+
+	function decideConflict(id, choice) {
+		return cloudAction(async () => {
+			await (choice === 'mine' ? keepLocal(id) : takeRemote(id));
+			await loadConflicts();
+			onDataChanged?.();
+		});
 	}
 
 	// Every cloud button funnels through here: one place that shows the spinner
@@ -605,14 +647,63 @@
 						{/if}
 					</p>
 					{#if syncStatus.conflicts}
-						<p class="text-sm">
-							{syncStatus.conflicts}
-							{syncStatus.conflicts === 1 ? 'cambio' : 'cambios'} llegaron de otro dispositivo sobre
-							algo que también editaste acá. <span class="text-muted-foreground"
-								>Por ahora se respeta lo tuyo y no se pisa nada; la pantalla para elegir cuál
-								queda es el paso siguiente.</span
-							>
-						</p>
+						<div class="border-border flex flex-col gap-2 rounded-md border p-3">
+							<p class="text-sm">
+								<span class="font-medium"
+									>{syncStatus.conflicts}
+									{syncStatus.conflicts === 1 ? 'cambio' : 'cambios'} en conflicto</span
+								>: los editaste acá y también en otro dispositivo. No se pisó nada — elegí cuál
+								queda.
+							</p>
+
+							{#if !reviewingConflicts}
+								<button
+									type="button"
+									onclick={() => {
+										reviewingConflicts = true;
+										loadConflicts();
+									}}
+									class="border-border text-foreground hover:bg-accent focus-visible:ring-ring self-start rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+								>
+									Revisar
+								</button>
+							{:else}
+								<ul class="flex flex-col gap-3">
+									{#each conflictList as conflict (conflict.id)}
+										<li class="border-border flex flex-col gap-2 border-t pt-3 text-sm">
+											<span class="text-faint text-xs">{conflict.label}</span>
+											<div class="flex flex-col gap-1">
+												<span class="text-muted-foreground text-xs">Lo tuyo, en este dispositivo:</span
+												>
+												<span class="bg-muted rounded px-2 py-1">{conflict.mine || '(vacío)'}</span>
+											</div>
+											<div class="flex flex-col gap-1">
+												<span class="text-muted-foreground text-xs">Lo del otro dispositivo:</span>
+												<span class="bg-muted rounded px-2 py-1">{conflict.theirs || '(vacío)'}</span>
+											</div>
+											<div class="flex items-center gap-2">
+												<button
+													type="button"
+													onclick={() => decideConflict(conflict.id, 'mine')}
+													disabled={cloudBusy}
+													class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+												>
+													Quedarme con el mío
+												</button>
+												<button
+													type="button"
+													onclick={() => decideConflict(conflict.id, 'theirs')}
+													disabled={cloudBusy}
+													class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+												>
+													Traer el otro
+												</button>
+											</div>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
 					{/if}
 					<div class="flex items-center gap-2">
 						<button

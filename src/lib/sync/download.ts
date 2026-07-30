@@ -13,6 +13,7 @@ import { supabase } from './supabase';
 import { decryptRecord } from './records';
 import { getVaultKey } from './vault';
 import { uploadedThrough } from './pending';
+import { recordConflict } from './conflicts';
 import { db, putFromCloud } from '../storage/db';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
@@ -52,16 +53,18 @@ function decide(local, payload, uploadMark) {
 	return payload.change_seq > local.changeSeq ? 'apply' : 'skip';
 }
 
+// The server column is `table_name`; the record's identity — which is bound into
+// the encryption itself — is `table:id`, so it has to be renamed before the blob
+// will open at all.
+async function decryptPayload(key, payload) {
+	const row = await decryptRecord(key, { ...payload, table: payload.table_name });
+	return { ...row, changeSeq: payload.change_seq };
+}
+
 // A soft delete is an ordinary write: `deletedAt` travels inside the blob, so a
 // tombstone needs no special case — it lands like any other version of the row.
 async function applyPayload(key, payload) {
-	const row = await decryptRecord(key, {
-		...payload,
-		// The server column is `table_name`; the record's identity — which is
-		// bound into the encryption — is `table:id`.
-		table: payload.table_name
-	});
-	await putFromCloud(payload.table_name, { ...row, changeSeq: payload.change_seq });
+	await putFromCloud(payload.table_name, await decryptPayload(key, payload));
 }
 
 // One batch. Returns what happened, so the caller can decide whether to ask for
@@ -97,6 +100,11 @@ export async function downloadOnce() {
 			await applyPayload(key, payload);
 			applied++;
 		} else if (action === 'conflict') {
+			// Park the remote version instead of applying it. The local row is not
+			// touched and stays pending, so nothing is lost on either side while the
+			// person decides (spec 030: no conflict is ever resolved by a silent
+			// last-write-wins).
+			await recordConflict(payload.table_name, await decryptPayload(key, payload));
 			conflicts++;
 		}
 	}

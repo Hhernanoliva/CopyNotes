@@ -277,8 +277,29 @@ counted but not yet resolvable on screen (next slice).
   the clock and refreshes the screen through the same `handleDataChanged()` the
   agent bridge already uses — but only when something actually landed.
 
-Still to build: the conflict screen (both versions, pick one), the delete-here /
-edit-there rule, and phase 3's stable list positions — see the deviation below.
+**Where the conflict half landed (2026-07-30).** `sync/conflicts.ts` plus a v9
+`conflicts` table — device-local like `vault`, outside `SYNCED_TABLES` and
+outside the backup's table list, because a decision pending on this machine means
+nothing on another one.
+
+- The download parks the remote version instead of applying it; the local row is
+  never touched and stays pending, so **both versions exist while the person
+  decides**. The id is `table:recordId`, not random, so a newer arrival replaces
+  the parked copy rather than piling up choices about the same record.
+- **Quedarme con el mío** just drops the parked copy: the local row is already
+  pending, so the next sync pushes it and the other device converges on it.
+  **Traer el otro** writes through `putFromCloud`, so the version taken does not
+  come back up as a brand-new local change.
+- Delete there + edit here: the edit wins by construction — a tombstone with
+  local unsent changes lands in the same conflict branch as any other version,
+  and the deletion is what gets parked.
+- The count shown is the standing pile (`countConflicts()`), not what the last
+  run happened to find: a conflict stays open until someone decides it.
+
+Still to build: phase 3's stable list positions — see the deviation below — and
+the "in seconds" work (upload on idle + presence + a single broadcast nudge,
+switched on only while a second device is actually connected, which is what keeps
+Supabase's per-message realtime billing near zero).
 
 **Deviation, deliberate: list order stays sequential integers.** This phase was
 supposed to replace `sortOrder` with stable positions. It is not text, so a

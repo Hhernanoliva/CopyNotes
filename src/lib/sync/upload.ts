@@ -26,6 +26,7 @@ import {
 } from './pending';
 import { encryptRecord } from './records';
 import { downloadAll } from './download';
+import { countConflicts } from './conflicts';
 import { getRecoveryBlob, getVaultKey } from './vault';
 import { syncStatus } from './status.svelte';
 import { now } from '../storage/ids';
@@ -143,7 +144,6 @@ export async function syncNow() {
 		// own up there anyway. Upload first, so my own records come back as an echo
 		// the merge already knows to ignore.
 		const down = await downloadAll({});
-		syncStatus.conflicts = down.conflicts;
 		if (down.applied) syncStatus.appliedVersion++;
 	} catch (error) {
 		// Never rethrown: a failed upload is a status line, not a broken app. The
@@ -152,6 +152,9 @@ export async function syncNow() {
 	} finally {
 		syncStatus.uploading = false;
 		syncStatus.pending = await countPendingUploads();
+		// The whole standing pile, not what this run happened to find: a conflict
+		// stays open until the person decides it.
+		syncStatus.conflicts = await countConflicts();
 	}
 }
 

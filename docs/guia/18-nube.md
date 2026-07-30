@@ -97,11 +97,20 @@ rompe nada, simplemente no abre. Podés reintentar.
 
 ## Si editás lo mismo en los dos lados
 
-Si el mismo renglón cambió en los dos dispositivos, **no se pisa nada**: se
-respeta lo que escribiste en el dispositivo que estás usando y la app te avisa
-en Configuración › Nube ("2 cambios llegaron de otro dispositivo sobre algo que
-también editaste acá").
+Puede pasar: cambiaste el mismo renglón en la computadora y en el teléfono, o
+editaste algo sin conexión mientras el otro dispositivo también lo cambiaba.
 
-La pantalla para ver las dos versiones enfrentadas y elegir cuál queda es lo
-próximo que viene. Hasta entonces nada se pierde, pero esa decisión todavía no
-la podés tomar desde la app.
+**Nunca se pisa nada.** Lo que ves en pantalla sigue siendo lo tuyo, y en
+**Configuración › Nube** aparece un aviso: *"2 cambios en conflicto"*. Tocás
+**Revisar** y ves las dos versiones, una debajo de la otra:
+
+- **Lo tuyo, en este dispositivo**
+- **Lo del otro dispositivo**
+
+Y dos botones: **Quedarme con el mío** o **Traer el otro**. Elegís y listo. Si te
+quedás con el tuyo, el otro dispositivo termina recibiéndolo; si traés el otro,
+reemplaza lo que tenías acá.
+
+Si en un dispositivo **borraste** algo que en el otro seguiste editando, gana la
+edición: la nota no se borra sola, y el borrado te aparece como conflicto para
+que decidas vos.

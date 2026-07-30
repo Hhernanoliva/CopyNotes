@@ -139,8 +139,8 @@ describe('db migrations v1 → v5', () => {
 		});
 		await migrate();
 
-		// verno is Dexie's on-disk version number; v8 is the latest declared.
-		expect(db.verno).toBe(8);
+		// verno is Dexie's on-disk version number; v9 is the latest declared.
+		expect(db.verno).toBe(9);
 		const b1 = await db.table('blocks').get('b1');
 		expect(b1.html).toBe('texto');
 	});
