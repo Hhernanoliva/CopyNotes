@@ -631,7 +631,10 @@
 					{/if}
 				</span>
 			</button>
-			<span aria-live="polite" class="text-muted-foreground text-xs">
+			<span
+				aria-live="polite"
+				class="text-muted-foreground inline-flex min-w-28 items-center justify-end text-xs"
+			>
 				{#if saveState === 'saving'}
 					Guardando…
 				{:else if saveState === 'saved'}
