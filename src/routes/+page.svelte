@@ -293,23 +293,48 @@
 		if (row) Object.assign(row, changes);
 	}
 
+	// Relee las listas laterales. No toca el editor: quién lo actualiza —y cómo—
+	// lo deciden las dos funciones de abajo.
+	async function reloadSidebar() {
+		const [rows, snippetRows, tagRows, noteFolderRows, snippetFolderRows] = await Promise.all([
+			listNotes(),
+			listSnippets(),
+			listTags(),
+			listFolders('note'),
+			listFolders('snippet')
+		]);
+		notes = rows;
+		snippets = snippetRows;
+		tags = tagRows;
+		noteFolders = noteFolderRows;
+		snippetFolders = snippetFolderRows;
+		if (!rows.some((note) => note.id === currentNoteId)) {
+			currentNoteId = rows[0]?.id ?? null;
+		}
+	}
+
+	// Un cambio que llegó de afuera mientras la persona usa la app: la nube o un
+	// agente. NO re-monta el editor — re-montarlo tira el foco y puede partir en
+	// dos el renglón que se está escribiendo, que es exactamente el bug que
+	// apareció al bajar la sincronización a 2 segundos. El editor se actualiza en
+	// el lugar y respeta lo que estás escribiendo (`editor/reconcile.ts`).
+	async function handleExternalChange() {
+		try {
+			await reloadSidebar();
+			await editorRef?.refreshFromStorage();
+			bumpAgentData();
+			return true;
+		} catch {
+			showLoadError();
+			return false;
+		}
+	}
+
+	// Un cambio que da vuelta todo de golpe: importar un respaldo, restaurar.
+	// Acá el re-montaje del editor es lo correcto — no queda nada que respetar.
 	async function handleDataChanged() {
 		try {
-			const [rows, snippetRows, tagRows, noteFolderRows, snippetFolderRows] = await Promise.all([
-				listNotes(),
-				listSnippets(),
-				listTags(),
-				listFolders('note'),
-				listFolders('snippet')
-			]);
-			notes = rows;
-			snippets = snippetRows;
-			tags = tagRows;
-			noteFolders = noteFolderRows;
-			snippetFolders = snippetFolderRows;
-			if (!rows.some((note) => note.id === currentNoteId)) {
-				currentNoteId = rows[0]?.id ?? null;
-			}
+			await reloadSidebar();
 			dataVersion += 1;
 			// Re-exportar para agentes: un borrado o un import puede quitar notas visibles.
 			bumpAgentData();
@@ -548,11 +573,13 @@
 		{agendaVersion}
 	/>
 
-	<BridgeLifecycle onAgentIngested={handleDataChanged} />
+	<!-- Un agente cambió una tarea desde afuera: se ve al toque, sin re-montar el
+	     editor ni sacarte el cursor de donde estabas escribiendo. -->
+	<BridgeLifecycle onAgentIngested={handleExternalChange} />
 
 	<!-- La nube: sube, baja, y avisa cuando algo llegó de otro dispositivo. Misma
-	     puerta de recarga que usan los agentes. -->
-	<CloudLifecycle onCloudChanged={handleDataChanged} />
+	     puerta liviana que los agentes. -->
+	<CloudLifecycle onCloudChanged={handleExternalChange} />
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
@@ -562,7 +589,7 @@
 		bind:open={settingsOpen}
 		scale={editorScale}
 		onChange={changeEditorScale}
-		onDataChanged={handleDataChanged}
+		onDataChanged={handleExternalChange}
 	/>
 
 	<div class="flex min-w-0 flex-1 flex-col">

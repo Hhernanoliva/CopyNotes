@@ -32,6 +32,7 @@
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
+	import { reconcileBlocks } from './reconcile';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -1511,6 +1512,35 @@
 			row.html = stripped.html;
 			await updateBlock(row.id, { content: stripped.content, html: stripped.html });
 		}
+	}
+
+	// Un cambio llegó de afuera (la nube, un agente) y hay que mostrarlo SIN
+	// re-montar el editor: re-montarlo tira el foco y puede partir en dos el
+	// renglón que se está escribiendo. Ver `editor/reconcile.ts`.
+	export async function refreshFromStorage() {
+		const id = noteId;
+		const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
+			getNote(id),
+			listBlocksByNote(id),
+			listActivityByNote(id)
+		]);
+		// La nota cambió mientras leíamos: el efecto de carga ya se encarga.
+		if (noteId !== id || !loadedNote) return;
+
+		// Intocables: donde está el cursor y todo lo que tiene un guardado en
+		// vuelo (el mapa `pending` los tiene bajo `block:<id>` y `note:<id>`).
+		const guarded = new Set(activeBlockId ? [activeBlockId] : []);
+		for (const key of pending.keys()) {
+			const [kind, entityId] = key.split(':');
+			if (kind === 'block' || kind === 'note') guarded.add(entityId);
+		}
+
+		blocks = reconcileBlocks(blocks, loadedBlocks, guarded);
+		agentNotes = agentNotesByBlock(loadedActivity);
+		// El título se edita en su propio campo: sólo se pisa si nadie lo está
+		// escribiendo en este momento.
+		if (!pending.has(`title:${id}`)) note.title = loadedNote.title;
+		note.agentVisible = loadedNote.agentVisible;
 	}
 
 	// Called from the page when the user inserts from the snippets library.

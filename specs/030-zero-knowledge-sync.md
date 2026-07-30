@@ -317,10 +317,23 @@ encrypted download, so the channel never sees a word.
   `realtime.setAuth()`, or the private join is rejected.
 - CSP needed the `wss:` twin of the project origin; a policy that allows the
   https host but not the socket fails silently, which is this app's oldest trap.
-- **The editor is not refreshed under someone's fingers.** A refresh re-mounts
-  the editor (`{#key currentNoteId:dataVersion}`), harmless at 30-second
-  intervals and not at two seconds, so `CloudLifecycle` waits for ~2 s of typing
-  silence before applying what arrived.
+- **The editor is never re-mounted for a remote change** (fixed 2026-07-30 after
+  two devices typing at once produced: "the other one could not write" and a line
+  split in two). A refresh used to bump `dataVersion`, which re-mounts the editor
+  through `{#key currentNoteId:dataVersion}`: that drops the caret, and the
+  unmount flush wrote the half-typed line while the following keystrokes landed
+  somewhere else. Harmless at 30-second intervals, constant at two seconds.
+  Now `+page.svelte` has two doors: `handleDataChanged` (re-mount) only for
+  import/restore, and `handleExternalChange` — cloud, agents, the settings
+  "Rehacer" — which refreshes the sidebar and asks the editor to reconcile in
+  place via `Editor.refreshFromStorage()`.
+  `editor/reconcile.ts` holds the one delicate rule, pure and unit-tested:
+  **a row is never replaced while the caret is in it or while its save is still
+  in flight** (the `pending` map already knows). Protected rows take the change
+  on the next pass. It works because `BlockRow` already syncs the DOM only when
+  state and DOM diverge — written for slash commands, exactly right here.
+  A short-lived "wait ~2 s of typing silence" guard was removed with this: it
+  only delayed the update and did not solve the caret problem.
 
 Still to build: phase 3's stable list positions — see the deviation below.
 

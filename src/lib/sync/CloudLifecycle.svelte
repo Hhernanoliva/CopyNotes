@@ -14,8 +14,6 @@
 	// After the last keystroke of a burst: long enough to fold the burst into one
 	// upload, short enough that the other device sees it in 2-3 seconds.
 	const AFTER_TYPING_MS = 1500;
-	// How long the screen waits rather than refreshing under someone's fingers.
-	const QUIET_MS = 2000;
 
 	// Every gate lives inside the clock (no project configured, no session, no
 	// consent, no vault), so this is inert on a local-only install.
@@ -63,43 +61,29 @@
 
 	// Plain guards, not $state: they are read inside effects that must not depend
 	// on them. Same trick BridgeLifecycle uses for `lastUrgent`.
-	let lastLocalWrite = 0;
 	let lastSeenWrite = agentData.version;
 	let seen = syncStatus.appliedVersion;
-	let quietTimer = null;
 
 	$effect(() => {
 		const version = agentData.version;
 		if (version === lastSeenWrite) return;
 		lastSeenWrite = version;
-		lastLocalWrite = Date.now();
 		if (syncStatus.peers > 0) uploadScheduler.schedule();
 	});
 
-	// Refreshing the screen re-mounts the editor, so doing it mid-sentence would
-	// move the cursor under someone's fingers. At 30-second intervals that
-	// practically never collided; at two seconds it would.
-	function refreshWhenQuiet() {
-		clearTimeout(quietTimer);
-		const since = Date.now() - lastLocalWrite;
-		if (since < QUIET_MS) {
-			quietTimer = setTimeout(refreshWhenQuiet, QUIET_MS - since);
-			return;
-		}
-		onCloudChanged?.();
-	}
-
 	// Only when something from the cloud actually landed in the database — a sync
-	// that uploads, or finds nothing new, must not reload the screen at all.
+	// that uploads, or finds nothing new, must not touch the screen at all.
+	//
+	// It used to wait for ~2 s of typing silence, because refreshing re-mounted
+	// the editor and stole the caret. The refresh now updates the open note in
+	// place and leaves alone whatever is being written (`editor/reconcile.ts`),
+	// so waiting only delayed what the other device already sent.
 	$effect(() => {
 		const version = syncStatus.appliedVersion;
 		if (version === seen) return;
 		seen = version;
-		refreshWhenQuiet();
+		onCloudChanged?.();
 	});
 
-	$effect(() => () => {
-		clearTimeout(quietTimer);
-		uploadScheduler.cancel();
-	});
+	$effect(() => () => uploadScheduler.cancel());
 </script>

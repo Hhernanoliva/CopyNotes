@@ -96,9 +96,10 @@ Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro.
 CopyNotes se toma con calma: revisa cada 30 segundos, porque no hay apuro cuando
 no hay nadie del otro lado. **Sincronizar ahora** lo fuerza siempre.
 
-Mientras estás escribiendo, la app **no** te refresca la nota bajo los dedos:
-espera a que hagas una pausa para meter lo que llegó, así nunca se te mueve el
-cursor a mitad de una frase.
+**Podés seguir escribiendo mientras llegan cambios.** Lo que el otro dispositivo
+cambió aparece en su renglón, y el renglón que vos estás escribiendo queda
+intacto: no se te mueve el cursor ni se te corta la frase. El único que espera es
+ese renglón tuyo — toma lo que llegó recién cuando movés el cursor a otro lado.
 
 El código es lo único que abre la bóveda: si lo escribís mal, no pasa nada, no se
 rompe nada, simplemente no abre. Podés reintentar.
