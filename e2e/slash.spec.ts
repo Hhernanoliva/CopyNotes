@@ -182,6 +182,9 @@ test('"/" over a selection converts every marked row into a task', async ({ page
 	await page.keyboard.press('/');
 	await expect(menu).toBeVisible();
 	await expect(menu).toContainText('3 renglones');
+	// Fecha, Separador and Snippet are absent: Separador would wipe every
+	// selected row's text, Fecha is a per-row field, and Snippet isn't a type.
+	await expect(menu.getByRole('option')).toHaveCount(7);
 
 	for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowDown');
 	await page.keyboard.press('Enter');
@@ -317,4 +320,49 @@ test('converting a mixed selection to Tarea does not duplicate the activity line
 	// Only "Viñeta suelta" genuinely became a task here; "Ya tarea" already was
 	// one, so it must not gain a second 'created' line.
 	await expect(page.getByText('creaste una tarea')).toHaveCount(1);
+});
+
+// Regression: shrinking the selection back to one row while the group menu is
+// open used to leave a ghost menu on screen — its keys dead (Enter inserted a
+// new row under it), and every later "/" (even typed into a single row) kept
+// hijacking into the same stale group menu instead of opening the ordinary
+// one. slashOpen must gate on whether a real (2+) selection still exists, not
+// just on whether a group menu index was ever set.
+test('shrinking the selection to one row closes the group menu, and "/" then opens the ordinary menu', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('uno');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // focus lands on the new block asynchronously
+	await page.keyboard.type('dos');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // focus lands on the new block asynchronously
+	await page.keyboard.type('tres');
+
+	// Select all three rows downwards from the top.
+	await first.click();
+	await page.keyboard.press('Shift+ArrowDown');
+	await page.keyboard.press('Shift+ArrowDown');
+
+	const menu = page.locator('#slash-menu');
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+
+	// Shrink the selection back down to a single row while the menu is open.
+	await page.keyboard.press('Shift+ArrowUp');
+	await page.keyboard.press('Shift+ArrowUp');
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(0);
+
+	// The lone row's own "/" still works — it opens the ORDINARY menu, not a
+	// stale group one.
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await expect(menu).toHaveAttribute('aria-label', 'Tipos de bloque');
+	await page.keyboard.press('Escape');
 });

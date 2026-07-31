@@ -66,9 +66,10 @@ needs them to be tasks. Converting row by row is the pain this removes.
 No schema change. Existing block fields only:
 
 - `type` — the new type for every convertible selected row.
-- `checked` — set by `planBlockType`'s existing rule: a row that was already a
-  task keeps its tick when re-converted to `Tarea`; a row that was not a task is
-  born unticked. Leaving `Tarea` clears it exactly as the single-row path does.
+- `checked` — set by `planBlockType`'s existing rule: preserved for any
+  non-heading target type, including a row that was a ticked task earlier in
+  its life (ticked → `Viñeta` → back to `Tarea` comes back ticked). Only a
+  heading target forces it to `false`.
 - `content` / `html` — **untouched**. This is a type change, not a text edit.
 
 Activity (agent journal): one `created` line per row that becomes a task, written

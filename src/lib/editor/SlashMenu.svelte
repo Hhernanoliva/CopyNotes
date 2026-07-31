@@ -110,7 +110,10 @@
 	     menú es una barra horizontal y un título la desarmaría — y la selección
 	     de varios renglones es gesto de mouse/teclado, no de celular. -->
 	{#if title}
-		<p class="text-muted-foreground border-border mb-1 border-b px-2 py-1 text-xs max-md:hidden">
+		<p
+			aria-hidden="true"
+			class="text-muted-foreground border-border mb-1 border-b px-2 py-1 text-xs max-md:hidden"
+		>
 			{title}
 		</p>
 	{/if}

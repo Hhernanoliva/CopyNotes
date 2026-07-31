@@ -176,6 +176,10 @@
 	// aparte del "/" tipeado en un renglón — ahí el carácter vive dentro del
 	// texto hasta confirmar, y acá nunca entra en ningún renglón.
 	let selectionMenu = $state(null); // { index }
+	// El menú de grupo solo existe mientras la selección existe: si se encoge a un
+	// renglón (Shift+↑ de más) o se cambia de nota, el menú se va con ella — si no,
+	// queda un menú fantasma que además tapa al "/" de un solo renglón.
+	const groupMenu = $derived(hasSelection ? selectionMenu : null);
 	// Solo cambios de tipo: Fecha abriría un panel por renglón, Separador
 	// borraría el texto de todos y Snippet no es un tipo.
 	const SELECTION_TYPE_IDS = ['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'code'];
@@ -414,6 +418,10 @@
 		agentNotes = {};
 		conflicts = {};
 		deferredRefresh = false;
+		// La selección y su menú de grupo son de ESTA nota; la próxima no hereda
+		// renglones marcados que ya ni existen en su lista.
+		selection = null;
+		selectionMenu = null;
 		(async () => {
 			const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
 				getNote(id),
@@ -1387,6 +1395,11 @@
 			const { id, ...changes } = update;
 			const row = blocks.find((block) => block.id === id);
 			const becomesTask = changes.type === 'todo' && row?.type !== 'todo';
+			// A debounced content/html save from typing (still queued under this
+			// same key) would otherwise land AFTER this write and clobber it — the
+			// Código case is the sharp one: it would put the old rich html back
+			// over the escaped plain-text html this conversion just wrote.
+			cancelPending(`block:${id}`);
 			if (row) Object.assign(row, changes);
 			if (becomesTask) await convertToTask({ blockId: id, checked: changes.checked });
 			else await updateBlock(id, changes);
@@ -1962,12 +1975,12 @@
 					flash={flashBlockIds.has(row.block.id)}
 					pulseMenu={pulseMenuBlockId === row.block.id}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
-					slashOpen={selectionMenu
+					slashOpen={groupMenu
 						? selection?.focusId === row.block.id
 						: slash !== null && slash.blockId === row.block.id}
-					slashCommands={selectionMenu ? SELECTION_TYPE_COMMANDS : slashCommands}
-					slashIndex={selectionMenu ? selectionMenu.index : slash ? slash.index : 0}
-					slashTitle={selectionMenu ? `Convertir ${selectedIds.length} renglones en…` : ''}
+					slashCommands={groupMenu ? SELECTION_TYPE_COMMANDS : slashCommands}
+					slashIndex={groupMenu ? groupMenu.index : slash ? slash.index : 0}
+					slashTitle={groupMenu ? `Convertir ${selectedIds.length} renglones en…` : ''}
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
@@ -2004,7 +2017,7 @@
 					onTagPickerClose={closeTagPicker}
 					onSlashKey={handleSlashKey}
 					onSlashSelect={(command) =>
-						selectionMenu ? applySelectionType(command.id) : applySlashCommand(command)}
+						groupMenu ? applySelectionType(command.id) : applySlashCommand(command)}
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
