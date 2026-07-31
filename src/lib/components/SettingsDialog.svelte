@@ -412,8 +412,9 @@
 			<div class="flex flex-col gap-0.5">
 				<h3 class="text-sm font-bold">Nube</h3>
 				<p class="text-muted-foreground text-sm">
-					Tus notas en más de un dispositivo. Se cifran acá, antes de salir: el servidor
-					guarda algo que no puede leer. Sin cuenta, CopyNotes funciona igual.
+					Tus notas en más de un dispositivo. Se cifran acá, antes de salir: al servidor
+					llega texto cifrado y la llave que lo abre se queda en tus dispositivos. Sin
+					cuenta, CopyNotes funciona igual.
 				</p>
 			</div>
 
@@ -618,11 +619,16 @@
 					<p class="text-muted-foreground text-sm">
 						Si lo permitís, se sube <span class="text-foreground">todo</span> lo que escribís
 						—notas, renglones, comentarios, fechas, etiquetas, snippets y la bitácora— siempre
-						cifrado: el servidor guarda letras y números que no puede leer, y nosotros tampoco.
+						cifrado en este dispositivo: al servidor llegan letras y números, y la llave que
+						los abre no se sube.
 					</p>
 					<p class="text-muted-foreground text-sm">
 						Lo que el servidor igual ve: que tenés una cuenta, tu email, tu conexión, cuántos
 						registros hay, cuánto pesan y a qué hora sincronizás.
+					</p>
+					<p class="text-muted-foreground text-sm">
+						Es beta: esto es lo que hace el programa y lo probamos nosotros, pero todavía no
+						lo revisó una auditoría de seguridad independiente.
 					</p>
 					<button
 						type="button"

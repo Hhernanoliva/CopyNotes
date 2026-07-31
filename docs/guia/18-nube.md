@@ -8,9 +8,14 @@ Está en **Configuración (⚙️) › Nube**.
 
 ## Lo importante en una línea
 
-Tus notas se **cifran en tu dispositivo antes de salir**. El servidor guarda algo
-que no puede leer: ni la empresa que aloja los datos, ni nosotros, ni alguien que
-se robe la base de datos.
+Tus notas se **cifran en tu dispositivo antes de salir**. Al servidor llega texto
+cifrado, y la llave que lo abre —tu código de recuperación— **no se sube**: vive
+solo en tus dispositivos. Quien mire la base de datos ve letras y números.
+
+> **Esto es beta y todavía no lo auditó nadie de afuera.** Es lo que hace el
+> programa y lo probamos nosotros, pero hasta que una auditoría de seguridad
+> independiente lo confirme no te lo damos como garantía. Si tenés algo cuya
+> filtración sería grave, por ahora dejalo sin nube.
 
 Eso vale para lo que **sale** hacia el servidor. Dentro de tu propia computadora
 las notas se guardan como siempre, sin cifrar — y si usás **agentes**, hay además
@@ -48,7 +53,7 @@ Copialo y guardalo donde guardás tus contraseñas.
 - **Nadie más lo tiene.** No está en el servidor, no lo tenemos nosotros, no se
   puede "resetear" como una contraseña.
 - Si lo perdés **y** perdés tus dispositivos, tus notas **no se pueden
-  recuperar**. Ese es el precio de que nadie más pueda leerlas.
+  recuperar**. Ese es el precio de que la llave no esté en el servidor.
 
 Cambiar la contraseña de tu cuenta no descifra ninguna nota.
 
