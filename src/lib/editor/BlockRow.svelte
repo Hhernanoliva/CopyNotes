@@ -428,18 +428,14 @@
 	}
 
 	function handleInput() {
-		let consumed = false;
 		const caret = caretPlainOffset();
 		if (isRich) {
 			const html = sanitizeHtml(el.innerHTML);
-			consumed = onInput(block, { html, content: htmlToPlainText(html), caret }) === true;
+			onInput(block, { html, content: htmlToPlainText(html), caret });
 		} else {
 			const text = el.innerText;
-			consumed = onInput(block, { html: text, content: text, caret }) === true;
+			onInput(block, { html: text, content: text, caret });
 		}
-		// Typed triggers such as "#" are commands, not content. The block may
-		// already be empty in state, so clear the live editable explicitly.
-		if (consumed) el.replaceChildren();
 	}
 
 	// Paste handling, in priority order:
