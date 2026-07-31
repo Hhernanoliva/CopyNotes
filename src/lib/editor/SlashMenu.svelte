@@ -3,7 +3,7 @@
 	import { keyboardInset } from '$lib/actions/keyboardInset';
 	import { tapSelect } from '$lib/actions/tapSelect';
 
-	let { commands, selectedIndex, onSelect, emptyLabel = 'Sin resultados' } = $props();
+	let { commands, selectedIndex, onSelect, emptyLabel = 'Sin resultados', title = '' } = $props();
 
 	let listEl = $state();
 	const headingCommands = $derived(commands.filter((command) => command.id.startsWith('heading')));
@@ -97,13 +97,23 @@
 <div
 	bind:this={listEl}
 	use:keyboardInset
+	onpointerdown={(event) => event.stopPropagation()}
+	tabindex="-1"
 	role="listbox"
 	id="slash-menu"
-	aria-label={isSnippets ? 'Snippets guardados' : 'Tipos de bloque'}
+	aria-label={title || (isSnippets ? 'Snippets guardados' : 'Tipos de bloque')}
 	class="cn-pop bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:mt-0 max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 {isSnippets
 		? 'max-md:max-h-[40dvh]'
 		: 'max-md:flex max-md:max-h-none max-md:items-stretch max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden'}"
 >
+	<!-- Solo lo usa el menú de grupo (spec 031). Oculto abajo de 768px: ahí el
+	     menú es una barra horizontal y un título la desarmaría — y la selección
+	     de varios renglones es gesto de mouse/teclado, no de celular. -->
+	{#if title}
+		<p class="text-muted-foreground border-border mb-1 border-b px-2 py-1 text-xs max-md:hidden">
+			{title}
+		</p>
+	{/if}
 	{#if commands.length === 0}
 		<p class="text-muted-foreground px-2 py-1.5 text-sm">{emptyLabel}</p>
 	{:else}

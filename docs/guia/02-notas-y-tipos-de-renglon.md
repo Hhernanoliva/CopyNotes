@@ -27,3 +27,5 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 - También podés tocar el botón **+** que aparece a la izquierda de un renglón vacío mientras lo estás escribiendo: abre el mismo menú, sin necesitar tipear `/`. Pensado para quien no conoce el atajo de teclado.
 - Atajo escrito: **`- `** o **`* `** (guion o asterisco, y espacio) al inicio de un renglón de texto lo convierte en viñeta.
 - Atajo escrito para etiquetar: escribí **`#`** en cualquier momento —también en medio de una frase— y se abre el selector de etiquetas de ese renglón; el `#` es solo el gatillo y desaparece cuando elegís una. Tiene que quedar solo: pegado a una palabra (`hola#`) es texto común. Ver el tema 9.
+
+¿Tenés que cambiar varios renglones de una? Marcalos y apretá **`/`**: el menú se aplica a todo el grupo. Está explicado en [Seleccionar, deshacer y colapsar](06-seleccionar-deshacer-colapsar.md).

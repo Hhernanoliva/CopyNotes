@@ -29,7 +29,8 @@
 		planDeleteSelection,
 		planMoveSelection,
 		planIndentSelection,
-		planOutdentSelection
+		planOutdentSelection,
+		planTypeChangeSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
@@ -60,7 +61,7 @@
 	import { toast } from 'svelte-sonner';
 	import { fade } from 'svelte/transition';
 	import { MOTION, motionDuration, prefersReducedMotion } from '$lib/motion';
-	import { filterCommands, moveSelection, nextSlashState } from './slash';
+	import { SLASH_COMMANDS, filterCommands, moveSelection, nextSlashState } from './slash';
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection, caretPointFromViewport } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
@@ -171,6 +172,16 @@
 		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
 	);
 	const hasSelection = $derived(selectedIds.length > 1);
+	// El menú de grupo (spec 031): "/" con varios renglones marcados. Estado
+	// aparte del "/" tipeado en un renglón — ahí el carácter vive dentro del
+	// texto hasta confirmar, y acá nunca entra en ningún renglón.
+	let selectionMenu = $state(null); // { index }
+	// Solo cambios de tipo: Fecha abriría un panel por renglón, Separador
+	// borraría el texto de todos y Snippet no es un tipo.
+	const SELECTION_TYPE_IDS = ['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'code'];
+	const SELECTION_TYPE_COMMANDS = SLASH_COMMANDS.filter((command) =>
+		SELECTION_TYPE_IDS.includes(command.id)
+	);
 	// Drag-to-reorder-and-nest controller (long-press, mouse + touch). Pure
 	// hierarchy math lives in resolveDrop/planDrop; this just applies the plan.
 	let listEl = $state();
@@ -1211,6 +1222,7 @@
 
 	function clearSelection() {
 		selection = null;
+		selectionMenu = null;
 	}
 
 	// A plain mousedown clears any selection and arms a drag from this block.
@@ -1360,6 +1372,26 @@
 		if (selection) focusBlockId = selection.focusId;
 	}
 
+	// Aplica un tipo a todo el grupo marcado. Las tareas nacen por convertToTask
+	// (deja la línea 'created' que lee el agente); el resto va por updateBlock.
+	// Un solo recordSnapshot: un Ctrl/Cmd+Z deshace la conversión entera.
+	async function applySelectionType(type) {
+		const plan = planTypeChangeSelection(blocks, selectedIds, type);
+		selectionMenu = null;
+		if (!plan) return;
+		recordSnapshot();
+		for (const update of plan.updates) {
+			const { id, ...changes } = update;
+			const row = blocks.find((block) => block.id === id);
+			if (row) Object.assign(row, changes);
+			if (changes.type === 'todo') await convertToTask({ blockId: id, checked: changes.checked });
+			else await updateBlock(id, changes);
+		}
+		// La selección sigue marcada: el siguiente Tab / Alt+↓ / Cmd+C actúa
+		// sobre el mismo grupo, así que hay que devolverle el foco.
+		if (selection) focusBlockId = selection.focusId;
+	}
+
 	async function moveSelectedBlocks(direction) {
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
@@ -1427,6 +1459,40 @@
 			return;
 		}
 		if (!hasSelection) return;
+		// Menú de grupo abierto: se queda con sus teclas antes que cualquier otra
+		// rama, o Tab anidaría y Escape soltaría la selección con el menú abierto.
+		if (selectionMenu) {
+			if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+				claim(event);
+				const next = moveSelection(
+					selectionMenu.index,
+					event.key === 'ArrowDown' ? 1 : -1,
+					SELECTION_TYPE_COMMANDS.length
+				);
+				selectionMenu = { index: next };
+				return;
+			}
+			if (event.key === 'Enter' || event.key === 'Tab') {
+				claim(event);
+				applySelectionType(SELECTION_TYPE_COMMANDS[selectionMenu.index].id);
+				return;
+			}
+			if (event.key === 'Escape') {
+				claim(event);
+				selectionMenu = null;
+				focusBlockId = selection.focusId;
+				return;
+			}
+			// Cualquier otra tecla cierra el menú y sigue su curso normal.
+			selectionMenu = null;
+		}
+		// "/" con varios renglones marcados abre el menú para todo el grupo. El
+		// carácter no entra en ningún renglón: la tecla se consume acá.
+		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			claim(event);
+			selectionMenu = { index: 0 };
+			return;
+		}
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
 			claim(event);
 			copySelection();
@@ -1892,9 +1958,12 @@
 					flash={flashBlockIds.has(row.block.id)}
 					pulseMenu={pulseMenuBlockId === row.block.id}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
-					slashOpen={slash !== null && slash.blockId === row.block.id}
-					{slashCommands}
-					slashIndex={slash ? slash.index : 0}
+					slashOpen={selectionMenu
+						? selection?.focusId === row.block.id
+						: slash !== null && slash.blockId === row.block.id}
+					slashCommands={selectionMenu ? SELECTION_TYPE_COMMANDS : slashCommands}
+					slashIndex={selectionMenu ? selectionMenu.index : slash ? slash.index : 0}
+					slashTitle={selectionMenu ? `Convertir ${selectedIds.length} renglones en…` : ''}
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
@@ -1930,7 +1999,8 @@
 					onTagPick={handleTagPick}
 					onTagPickerClose={closeTagPicker}
 					onSlashKey={handleSlashKey}
-					onSlashSelect={applySlashCommand}
+					onSlashSelect={(command) =>
+						selectionMenu ? applySelectionType(command.id) : applySlashCommand(command)}
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}

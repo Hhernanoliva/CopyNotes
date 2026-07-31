@@ -53,6 +53,7 @@
 		slashCommands = [],
 		slashIndex = 0,
 		slashEmptyLabel = 'Sin resultados',
+		slashTitle = '',
 		onInput,
 		onFormat,
 		onNoteInput,
@@ -889,6 +890,7 @@
 			selectedIndex={slashIndex}
 			onSelect={onSlashSelect}
 			emptyLabel={slashEmptyLabel}
+			title={slashTitle}
 		/>
 	{/if}
 

@@ -152,3 +152,84 @@ test('the slash menu opens on a line just emptied with Backspace', async ({ page
 	await page.keyboard.type('/');
 	await expect(page.locator('#slash-menu')).toBeVisible();
 });
+
+// Spec 031: with several rows marked, "/" changes the type of the whole group.
+// The pasted-bullets case: three bullets become three tasks in one gesture.
+// Keyboard path: the group menu lists text, h1, h2, h3, bullet, todo, code —
+// so "Tarea" is five ArrowDowns down from the top.
+test('"/" over a selection converts every marked row into a task', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/vineta');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('uno');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // focus lands on the new block asynchronously
+	await page.keyboard.type('dos');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // focus lands on the new block asynchronously
+	await page.keyboard.type('tres');
+
+	// Mark the three rows from the last one upwards.
+	await page.keyboard.press('Shift+ArrowUp');
+	await page.keyboard.press('Shift+ArrowUp');
+
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeHidden();
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await expect(menu).toContainText('3 renglones');
+
+	for (let i = 0; i < 5; i += 1) await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('Enter');
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(3);
+
+	// The "/" never entered any row's text.
+	const rows = page.locator('main [data-block-id] .block-editable');
+	await expect(rows.nth(0)).toHaveText('uno');
+	await expect(rows.nth(1)).toHaveText('dos');
+	await expect(rows.nth(2)).toHaveText('tres');
+});
+
+// Mouse path + Escape + undo. Pressing "/" again is the probe for "the
+// selection is still marked": the group menu only opens with 2+ rows selected.
+test('picking with the mouse keeps the selection, and one Ctrl+Z undoes the group', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('uno');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150); // focus lands on the new block asynchronously
+	await page.keyboard.type('dos');
+	await page.keyboard.press('Shift+ArrowUp');
+
+	const menu = page.locator('#slash-menu');
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(0);
+
+	// The selection survived Escape: the group menu opens again.
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await page.getByRole('option', { name: 'Tarea' }).click();
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(2);
+
+	// …and it also survived the click on the menu option.
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await page.keyboard.press('Escape');
+
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(0);
+});
