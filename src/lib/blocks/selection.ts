@@ -194,11 +194,10 @@ export function planTypeChangeSelection(blocks, selectedIds, type) {
 		if (!set.has(id)) continue;
 		const block = blocks.find((row) => row.id === id);
 		if (!block || block.type === 'separator') continue;
-		const changes = planBlockType(block, type);
 		// A code row renders its content as plain text, so its html must not keep
 		// the old rich markup. Escaped, never raw: block.html is an innerHTML sink.
-		if (type === 'code') changes.html = plainTextToHtml(block.content ?? '');
-		updates.push({ id, ...changes });
+		const codeHtml = type === 'code' ? { html: plainTextToHtml(block.content ?? '') } : {};
+		updates.push({ id, ...planBlockType(block, type), ...codeHtml });
 	}
 	return updates.length ? { updates } : null;
 }

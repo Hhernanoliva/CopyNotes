@@ -1226,6 +1226,10 @@
 	function shiftSelect(block) {
 		const anchor = selection?.anchorId ?? activeBlockId ?? block.id;
 		selection = { anchorId: anchor, focusId: block.id };
+		// Un rango nuevo es una selección nueva: el menú de grupo muere con el
+		// rango que lo abrió. Si no, queda guardado y se abre solo más tarde,
+		// sobre renglones que nadie eligió (y su Enter convertiría esos).
+		selectionMenu = null;
 	}
 
 	function clearSelection() {
@@ -1247,6 +1251,7 @@
 		if (!dragAnchorId || !(buttons & 1) || block.id === dragAnchorId) return;
 		dragging = true;
 		selection = { anchorId: dragAnchorId, focusId: block.id };
+		selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
 		window.getSelection()?.removeAllRanges();
 	}
 
@@ -1312,12 +1317,14 @@
 		if (hasSelection) {
 			const focus = neighborVisibleId(blocks, selection.focusId, direction);
 			if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
+			selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
 			return true;
 		}
 		if (!activeBlockId || !caretAtBlockEdge(direction)) return false;
 		const neighbor = neighborVisibleId(blocks, activeBlockId, direction);
 		if (!neighbor) return false;
 		selection = { anchorId: activeBlockId, focusId: neighbor };
+		selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
 		return true;
 	}
 
