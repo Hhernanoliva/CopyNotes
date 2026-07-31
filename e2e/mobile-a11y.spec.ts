@@ -189,8 +189,17 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await expect(page.getByText('quedo yo')).toBeVisible();
 });
 
+// En celular el menú "/" es una barra al pie y los avisos flotantes también
+// viven abajo al centro, así que un aviso puede tapar la barra mientras dura
+// (1,8s). Se ocultan para medir la barra sola; el choque real está anotado en
+// SlashMenu.svelte.
+async function sinAvisosFlotantes(page) {
+	await page.addStyleTag({ content: '[data-sonner-toaster] { display: none }' });
+}
+
 test('deslizar el menú "/" no elige una opción sin querer', async ({ page }) => {
 	await page.goto('/');
+	await sinAvisosFlotantes(page);
 
 	const row = page.locator('main [data-block-id]').first();
 	const line = row.locator('.block-editable').first();
@@ -215,4 +224,36 @@ test('deslizar el menú "/" no elige una opción sin querer', async ({ page }) =
 	// Tocar sin mover sí elige.
 	await page.getByRole('option', { name: 'Tarea' }).click();
 	await expect(row.locator('[role="checkbox"]')).toHaveCount(1);
+});
+
+test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => {
+	await page.goto('/');
+	await sinAvisosFlotantes(page);
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/');
+
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeVisible();
+	// .cn-pop entra con un translateY de 4px: medir antes de que termine da la
+	// caja a mitad de camino.
+	await expect(menu).toHaveCSS('transform', 'none');
+
+	const box = await menu.boundingBox();
+	// Una sola fila de fichas, no una lista alta.
+	expect(box.height).toBeLessThan(120);
+	// Apoyada en el borde inferior y de borde a borde (viewport 390x780).
+	expect(box.y + box.height).toBeGreaterThan(776);
+	expect(box.width).toBe(390);
+
+	// Las fichas se pueden deslizar al costado dentro de la barra.
+	const overflows = await menu.evaluate((el) => el.scrollWidth > el.clientWidth);
+	expect(overflows).toBe(true);
+
+	// Y las opciones entran cómodas para el dedo (44px).
+	const optionBox = await page.getByRole('option', { name: 'Viñeta' }).boundingBox();
+	expect(optionBox.height).toBeGreaterThanOrEqual(44);
 });

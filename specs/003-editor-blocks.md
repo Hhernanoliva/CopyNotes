@@ -160,6 +160,17 @@ when a command is confirmed, via `strippedSlashFields(row, anchor, query)` — w
 also handles the `#` case with an empty query. Cancelling therefore restores
 nothing; the character was simply never removed.
 
+## Slash menu: dos disposiciones, un componente (2026-07-31)
+
+`SlashMenu.svelte` se pinta vertical arriba de 768px y como barra horizontal
+apoyada al pie por debajo (variantes `max-md:` sobre el mismo marcado, nunca un
+segundo componente: dos copias divergen y una se queda sin los atributos ARIA).
+El modo snippets sigue vertical en las dos, porque los nombres son largos. La
+posición sobre el teclado la resuelve `actions/keyboardInset.js` sin cambios.
+Las opciones eligen con `actions/tapSelect.js` (al soltar, con tolerancia de
+10px) porque elegir en `pointerdown` convertía cualquier deslizamiento en una
+selección sin querer.
+
 ## Agent Notes
 
 Do not make block hierarchy depend on visual DOM order only. The hierarchy must be represented in data so export, search, copy, sync, and MCP can understand it later.

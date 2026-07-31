@@ -11,12 +11,26 @@
 		commands.findIndex((command) => command.id.startsWith('heading'))
 	);
 
+	// El modo snippets se reconoce por el tipo de las opciones; en celular es la
+	// única disposición que sigue siendo vertical (los nombres son largos y
+	// pueden ser muchos: en una fila no se pueden leer de un vistazo).
+	const isSnippets = $derived(commands.some((command) => command.kind === 'snippet'));
+
+	// Escritorio: lista vertical, igual que siempre. Abajo de 768px (max-md):
+	// comandos = fichas anchas en una fila que se desliza; snippets = lista de
+	// ancho completo con tope de alto.
+	const rowLayout = $derived(
+		isSnippets
+			? 'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11'
+			: 'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11 max-md:w-auto max-md:shrink-0 max-md:px-3'
+	);
+
 	// With many snippets the menu scrolls; keep the keyboard-selected option visible.
 	$effect(() => {
 		const selected = commands[selectedIndex];
 		if (listEl && selected) {
 			const option = listEl.querySelector(`[id="slash-option-${selected.id}"]`);
-			if (option) option.scrollIntoView({ block: 'nearest' });
+			if (option) option.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 		}
 	});
 
@@ -73,15 +87,22 @@
 	<span class="truncate">{command.label}</span>
 {/snippet}
 
+<!-- ponytail: en celular la barra tapa unos 56px al pie, así que escribiendo en
+     el último renglón visible puede quedar sobre el texto. Si molesta en uso
+     real, empujar el renglón con scrollIntoView al abrir el menú.
+     ponytail: los avisos flotantes (Toaster, bottom-center) caen en el mismo
+     lugar y quedan encima; mientras dura el aviso (1,8s) un toque puede darle
+     al aviso en vez de a la opción. Si molesta, mover los avisos arriba en
+     celular. -->
 <div
 	bind:this={listEl}
 	use:keyboardInset
 	role="listbox"
 	id="slash-menu"
-	aria-label={commands.some((command) => command.kind === 'snippet')
-		? 'Snippets guardados'
-		: 'Tipos de bloque'}
-	class="cn-pop bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md"
+	aria-label={isSnippets ? 'Snippets guardados' : 'Tipos de bloque'}
+	class="cn-pop bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:mt-0 max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 {isSnippets
+		? 'max-md:max-h-[40dvh]'
+		: 'max-md:flex max-md:max-h-none max-md:items-stretch max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden'}"
 >
 	{#if commands.length === 0}
 		<p class="text-muted-foreground px-2 py-1.5 text-sm">{emptyLabel}</p>
@@ -89,7 +110,11 @@
 		{#each commands as command, index (command.id)}
 			{#if isHeading(command)}
 				{#if index === firstHeadingIndex}
-					<div role="group" aria-label="Títulos" class="flex min-h-8 items-center gap-2 px-2 py-1">
+					<div
+						role="group"
+						aria-label="Títulos"
+						class="flex min-h-8 items-center gap-2 px-2 py-1 max-md:min-h-11 max-md:shrink-0"
+					>
 						<Type size={15} aria-hidden="true" class="text-muted-foreground shrink-0" />
 						<span class="text-muted-foreground min-w-0 flex-1 text-sm">Títulos</span>
 						<div class="flex shrink-0 gap-0.5">
@@ -97,7 +122,7 @@
 								{@render optionButton(
 									heading,
 									commands.indexOf(heading),
-									'flex h-8 min-w-8 items-center justify-center px-1 text-xs font-bold',
+									'flex h-8 min-w-8 items-center justify-center px-1 text-xs font-bold max-md:h-11 max-md:min-w-11',
 									headingBody
 								)}
 							{/each}
@@ -105,12 +130,7 @@
 					</div>
 				{/if}
 			{:else}
-				{@render optionButton(
-					command,
-					index,
-					'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm',
-					commandBody
-				)}
+				{@render optionButton(command, index, rowLayout, commandBody)}
 			{/if}
 		{/each}
 	{/if}

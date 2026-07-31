@@ -34,6 +34,12 @@ En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un 
 
 Cuando abrís un menú (el de "/", el de fecha, el de etiquetas o la barra de formato) con el teclado en pantalla ocupando la mitad de abajo, el menú **se acomoda solo para quedar por encima del teclado**, así siempre lo ves y podés elegir.
 
+## El menú "/" en el teléfono es una barra abajo
+
+En la computadora, escribir `/` abre una lista de arriba a abajo. En el teléfono esa lista quedaba tapada por el teclado y, si era larga, no se podía llegar a las opciones de más abajo. Ahora `/` abre una **barra apoyada arriba del teclado, de lado a lado de la pantalla**, con fichas grandes (Texto, Títulos, Viñeta, Tarea, Fecha, Código, Separador, Snippet). Si no entran todas, **deslizás la barra para el costado** con el dedo.
+
+Los **snippets** son la excepción: como sus nombres son largos, al elegir "Snippet" se abre una **lista de arriba a abajo** en el mismo lugar, que se desliza hacia abajo y nunca pasa de media pantalla.
+
 ## Deslizar un menú ya no elige sin querer
 
 Antes, en el teléfono, al querer deslizar la lista del menú "/" o la de etiquetas, el menú **elegía la opción que tocaste** apenas apoyabas el dedo y se cerraba. Ahora la opción se elige **al soltar**: si moviste el dedo, el menú entiende que estabas deslizando y no elige nada.
