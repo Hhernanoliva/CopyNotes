@@ -73,6 +73,19 @@ describe('nextSlashState', () => {
 
 	it('does not open when several characters arrive at once (paste)', () => {
 		expect(nextSlashState(null, { prevText: '', text: '/todo', caret: 5 })).toBeNull();
+		// A paste that happens to end in "/" is still a paste.
+		expect(nextSlashState(null, { prevText: '', text: 'todo/', caret: 5 })).toBeNull();
+	});
+
+	it('opens on a line just emptied with Backspace (browser leaves a <br>)', () => {
+		expect(nextSlashState(null, { prevText: '\n', text: '/', caret: 1 })).toEqual({
+			anchor: 0,
+			query: ''
+		});
+	});
+
+	it('does not reopen when a deletion leaves the caret behind an older "/"', () => {
+		expect(nextSlashState(null, { prevText: 'Hola /x', text: 'Hola /', caret: 6 })).toBeNull();
 	});
 
 	it('does not open when the typed character is not "/"', () => {

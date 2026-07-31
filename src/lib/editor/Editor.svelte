@@ -543,8 +543,12 @@
 		} else if (slash && slash.blockId === block.id) {
 			slash = null;
 		}
-		// Typed triggers: "- "/"* " make a bullet, a lone "#" opens the tag picker.
-		const trigger = detectTrigger(block, text);
+		// Typed triggers: "- "/"* " make a bullet, a standalone "#" opens the tag
+		// picker. The caret tells "#" apart from a "#" glued to a word.
+		const trigger = detectTrigger(block, text, {
+			prevText: block.content ?? '',
+			caret: payload.caret ?? null
+		});
 		if (trigger?.kind === 'bullet') {
 			// Structural change: persist immediately — a debounced save under the
 			// same key would be replaced by the next keystroke's content-only save.
@@ -555,13 +559,11 @@
 			return;
 		}
 		if (trigger?.kind === 'tag') {
-			// Drop the "#" and open the tag picker anchored to this block.
-			cancelPending(`block:${block.id}`);
-			block.content = '';
-			block.html = '';
-			updateBlock(block.id, { content: '', html: '' });
-			tagPickerFor = { type: 'block', id: block.id, restoreHash: true };
-			return true;
+			// The "#" stays in the text while the picker is open, like the slash
+			// menu: nothing to restore on cancel, and the rest of the line the user
+			// was writing is never touched. handleTagPick removes it on a pick.
+			tagPickerFor = { type: 'block', id: block.id, hashAnchor: trigger.anchor };
+			// No early return: fall through to the normal save so the "#" persists.
 		}
 		block.content = text;
 		block.html = html;
@@ -1426,31 +1428,35 @@
 
 	// Closing a picker must hand focus back to where the user was, otherwise
 	// Escape drops the caret to <body> and they have to click back in.
-	// Any close without a pick (Escape, click outside) returns the typed "#";
-	// handleTagPick clears restoreHash the moment a tag is confirmed.
+	// A close without a pick (Escape, click outside) leaves the typed "#" alone:
+	// it was never removed, so it just goes back to being an ordinary character.
 	function closeTagPicker() {
 		const target = tagPickerFor;
 		tagPickerFor = null;
-		if (target?.type === 'block' && target.restoreHash) {
-			const block = blocks.find((row) => row.id === target.id);
-			if (block) {
-				block.content = '#';
-				block.html = plainTextToHtml('#');
-				updateBlock(block.id, { content: block.content, html: block.html });
-			}
-		}
 		if (target?.type === 'block') focusBlockId = target.id;
 		else if (target?.type === 'note') titleEl?.focus();
 	}
 
 	// One handler for both note and block picks: create the tag if it is new,
-	// then toggle the assignment. The picker stays open for multi-tagging.
+	// then toggle the assignment and close — one pick, one tag, back to writing.
 	async function handleTagPick(option) {
 		const target = tagPickerFor;
 		if (!target) return;
-		// Enter/click confirms the choice immediately. Do not let a quick Escape
-		// restore "#" while the local database finishes creating the tag.
-		if (target.restoreHash) tagPickerFor = { ...target, restoreHash: false };
+		// The "#" was a command after all: cut it out now, before any await, so a
+		// keystroke landing mid-write can't shift the offset under us. Clearing
+		// the anchor keeps a second pass from cutting a second character.
+		if (target.type === 'block' && target.hashAnchor != null) {
+			tagPickerFor = { ...target, hashAnchor: null };
+			const row = blocks.find((block) => block.id === target.id);
+			if (row) {
+				const { content, html } = strippedSlashFields(row, target.hashAnchor, '');
+				row.content = content;
+				row.html = html;
+				// The debounced save queued by handleBlockInput still holds the "#".
+				cancelPending(`block:${row.id}`);
+				updateBlock(row.id, { content, html });
+			}
+		}
 		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
 		if (!tag) return;
 		if (option.kind === 'tag' && option.assigned) {
@@ -1459,6 +1465,7 @@
 			await assignTag(tag.id, target.type, target.id);
 			if (target.type === 'block') pulseMenu(target.id);
 		}
+		closeTagPicker();
 		await refreshTags();
 		if (onTagsChanged) onTagsChanged();
 	}
@@ -1497,7 +1504,8 @@
 
 	// Remove the "/query" span from a row's plain content and html, preserving
 	// the surrounding inline formatting. keepSlash leaves the "/" itself in
-	// place (snippet-picker mode keeps filtering off it).
+	// place (snippet-picker mode keeps filtering off it). handleTagPick reuses
+	// it with an empty query to cut out the single "#" that opened the picker.
 	function strippedSlashFields(row, anchor, query, keepSlash = false) {
 		const start = anchor + (keepSlash ? 1 : 0);
 		const end = anchor + 1 + query.length;

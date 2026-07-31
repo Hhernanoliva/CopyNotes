@@ -57,13 +57,17 @@
 			index = (index + delta + options.length) % options.length;
 			return;
 		}
-		if (event.key === 'Enter') {
+		// Tab confirms like Enter, same as the slash menu. With nothing to pick it
+		// closes instead, so the picker never becomes a keyboard trap.
+		if (event.key === 'Enter' || event.key === 'Tab') {
 			event.preventDefault();
 			const option = options[index];
 			if (option) {
 				onPick(option);
 				query = '';
 				index = 0;
+			} else if (event.key === 'Tab') {
+				onClose();
 			}
 			return;
 		}

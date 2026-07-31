@@ -126,6 +126,40 @@ UI-independent logic with Vitest coverage.
 - Component test for todo checked/unchecked behavior.
 - Playwright critical flow: create nested bullets, reload, verify structure.
 
+## Typed Triggers: The "Just Arrived" Test (decided 2026-07-31)
+
+`/` (slash menu) and `#` (tag picker) are commands, not content. Both decide from
+one `input` event whether the character the user just produced is a trigger. The
+shared contract, implemented in `editor/slash.ts` (`nextSlashState`) and
+`editor/triggers.ts` (`detectTrigger`):
+
+- **Caret-aware, anywhere in the block.** The trigger fires mid-sentence, not only
+  on an empty row. Both read `payload.caret` (plain-text offset after the edit,
+  produced by `caretPlainOffset()` in `BlockRow.svelte`); with `caret == null`
+  they fall back to the old start-of-block rule so the feature still works
+  without selection info.
+- **"Just arrived" = two checks, never length arithmetic.** The character sits at
+  `caret - 1`; everything before it is unchanged (`text.slice(0, caret - 1) ===
+  prevText.slice(0, caret - 1)`, which rejects pastes); and the same character
+  was not already at that offset (`prevText[caret - 1] !== char`, which rejects a
+  deletion that parks the caret behind an older `/` or `#`).
+- **`#` additionally must stand alone**: nothing or whitespace before it, so
+  `hola#` stays ordinary text. `/` has no such rule — it opens anywhere.
+
+**Why prefixes and not `text.length === prevText.length + 1`:** emptying a row
+leaves a browser-inserted `<br>` in the contenteditable, and `htmlToPlainText`
+reads that as `"\n"`. A visually empty block therefore stores a phantom newline,
+so any length delta computed against `prevText` is off by one and the trigger
+silently stops firing on the very next keystroke. This shipped as a real bug in
+the slash menu (fixed 2026-07-31, regression test in `e2e/slash.spec.ts`).
+**Never do length arithmetic on `block.content` to infer what the user did.**
+
+Consequence for anything that consumes the trigger character: it stays in the
+text while the menu is open (nothing is deleted up front) and is cut out only
+when a command is confirmed, via `strippedSlashFields(row, anchor, query)` — which
+also handles the `#` case with an empty query. Cancelling therefore restores
+nothing; the character was simply never removed.
+
 ## Agent Notes
 
 Do not make block hierarchy depend on visual DOM order only. The hierarchy must be represented in data so export, search, copy, sync, and MCP can understand it later.

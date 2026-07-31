@@ -53,10 +53,15 @@ export function nextSlashState(prev, { prevText, text, caret }) {
 		if (!text.startsWith('/') || text.includes('\n')) return null;
 		return { anchor: 0, query: text.slice(1) };
 	}
-	// Open only when exactly one character was inserted and it is a "/": a
-	// paste or a deletion that leaves the caret next to an old slash is not a
-	// request to open the menu.
-	if (text.length !== (prevText ?? '').length + 1) return null;
+	// Open only when the "/" is the character that just arrived: everything
+	// before it is untouched (a paste rewrites more than one character) and no
+	// "/" was already sitting there (a deletion that leaves the caret next to an
+	// old slash is not a request to open the menu). Comparing prefixes rather
+	// than lengths on purpose: emptying a line leaves a browser <br> behind, so
+	// prevText can carry a phantom newline that skews any length arithmetic.
 	if (caret < 1 || text[caret - 1] !== '/') return null;
+	const priorText = prevText ?? '';
+	if (text.slice(0, caret - 1) !== priorText.slice(0, caret - 1)) return null;
+	if (priorText[caret - 1] === '/') return null;
 	return { anchor: caret - 1, query: '' };
 }

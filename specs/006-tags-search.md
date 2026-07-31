@@ -67,6 +67,25 @@ Tags are the MVP organization system. Keep them simple, but design them cleanly 
 - Tag filter is **per-item AND**: an item must carry every selected tag on itself. A block inside a tag-tagged note is NOT matched by the note's tag unless the block is tagged too. This keeps the rule predictable and matches the independent-tags data model. If cascade (note tag implies its blocks) is ever wanted, it belongs in the dataset builder, not scattered in the UI.
 - Text query with empty everything returns nothing (no accidental "list all").
 
+### Tag Picker Behavior (decided 2026-07-31)
+
+- **The `#` shortcut works mid-sentence.** Typing `#` anywhere in a row opens the
+  picker for that row without touching what is already written; it must stand
+  alone (nothing or whitespace before it), so `hola#` is ordinary text. Detection
+  is the shared typed-trigger contract in spec `003` — read it before changing
+  `editor/triggers.ts`.
+- **The `#` stays visible while the picker is open**, like the slash menu. It is
+  cut out only when a tag is confirmed (`strippedSlashFields` with an empty
+  query, before any `await`, plus `cancelPending` because the debounced save
+  still holds the `#`). Cancelling restores nothing — the character was never
+  removed, so Escape and click-outside need no special path.
+- **One pick, one tag: the picker closes on confirm.** It used to stay open for
+  multi-tagging; assigning several tags now means reopening it. Applies to both
+  the note-level and block-level picker, since `handleTagPick` serves both.
+- **Enter and Tab both confirm**, matching the slash menu. Tab with an empty
+  option list closes instead of confirming, so the picker is never a keyboard
+  trap.
+
 ### Future-Readiness Decisions (decided 2026-07-10)
 
 - **AI/semantic search later:** all search logic must live in `src/lib/search/` behind one plain interface (query text + tag filter in, ranked results out). UI components must not know how matching works, so the engine can be swapped for fuzzy/full-text/AI search without touching the rest of the app.

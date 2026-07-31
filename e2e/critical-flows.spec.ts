@@ -23,7 +23,7 @@ test('first run seeds an editable demo note', async ({ page }) => {
 	await expect(page.locator('[role="checkbox"]').first()).toBeVisible();
 });
 
-test('the tag shortcut restores # on cancel and consumes it after assigning a tag', async ({ page }) => {
+test('the tag shortcut keeps # on cancel and consumes it after assigning a tag', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 
@@ -33,26 +33,64 @@ test('the tag shortcut restores # on cancel and consumes it after assigning a ta
 
 	const picker = page.getByRole('combobox', { name: 'Buscar o crear etiqueta' });
 	await expect(picker).toBeVisible();
-	await expect(first).toHaveText('');
+	// The "#" stays visible while the picker is open, like the slash menu.
+	await expect(first).toHaveText('#');
 	await page.keyboard.press('Escape');
 	await expect(picker).toBeHidden();
 	await expect(first).toHaveText('#');
 
-	await first.fill('');
+	// Clear with real keys: fill() skips the input event, so the editor would
+	// keep thinking the block still holds the "#".
+	await first.click();
+	await page.keyboard.press('End');
+	await page.keyboard.press('Backspace');
+	await expect(first).toHaveText('');
+
 	await page.keyboard.type('#');
 	await picker.fill('proyecto');
 	await page.keyboard.press('Enter');
-	await page.keyboard.press('Escape');
+	// Picking closes the picker: one pick, one tag, back to writing.
+	await expect(picker).toBeHidden();
 
 	await expect(first).toHaveText('');
 	await expect(page.getByRole('button', { name: 'Quitar etiqueta proyecto' })).toBeVisible();
 
-	// Dismissing with a click outside must also give the "#" back, not eat it.
+	// Dismissing with a click outside must also leave the "#", not eat it.
 	await page.keyboard.type('#');
 	await expect(picker).toBeVisible();
 	await title(page).click();
 	await expect(picker).toBeHidden();
 	await expect(first).toHaveText('#');
+});
+
+test('the tag shortcut works mid-sentence and ignores a # glued to a word', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('comprar pan ');
+	await page.keyboard.type('#');
+
+	const picker = page.getByRole('combobox', { name: 'Buscar o crear etiqueta' });
+	await expect(picker).toBeVisible();
+	// What was already written must survive untouched.
+	await expect(first).toHaveText('comprar pan #');
+
+	// Tab confirms just like Enter, and the pick closes the picker.
+	await picker.fill('casa');
+	await page.keyboard.press('Tab');
+	await expect(picker).toBeHidden();
+
+	await expect(first).toHaveText('comprar pan');
+	await expect(page.getByRole('button', { name: 'Quitar etiqueta casa' })).toBeVisible();
+
+	// A "#" glued to a word is ordinary text, not a shortcut.
+	await first.click();
+	await page.keyboard.press('End');
+	await page.keyboard.type(' rae#');
+	await expect(picker).toBeHidden();
+	await expect(first).toHaveText('comprar pan rae#');
 });
 
 test('the slash menu groups headings and shows every block type without scrolling', async ({ page }) => {

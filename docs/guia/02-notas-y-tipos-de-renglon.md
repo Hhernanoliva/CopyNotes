@@ -26,4 +26,4 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 - Al elegir una opción, lo que ya habías escrito **se conserva** (solo desaparece la `/` y lo que tipeaste para filtrar) y el cursor **vuelve al mismo lugar** donde estabas. Si cancelás con **Escape**, la `/` queda como texto normal y podés seguir escribiendo sin que el menú se reabra.
 - También podés tocar el botón **+** que aparece a la izquierda de un renglón vacío mientras lo estás escribiendo: abre el mismo menú, sin necesitar tipear `/`. Pensado para quien no conoce el atajo de teclado.
 - Atajo escrito: **`- `** o **`* `** (guion o asterisco, y espacio) al inicio de un renglón de texto lo convierte en viñeta.
-- Atajo escrito para etiquetar: escribí **`#`** en un renglón y se abre el selector de etiquetas de ese renglón (el `#` no queda escrito, es solo el gatillo).
+- Atajo escrito para etiquetar: escribí **`#`** en cualquier momento —también en medio de una frase— y se abre el selector de etiquetas de ese renglón; el `#` es solo el gatillo y desaparece cuando elegís una. Tiene que quedar solo: pegado a una palabra (`hola#`) es texto común. Ver el tema 9.

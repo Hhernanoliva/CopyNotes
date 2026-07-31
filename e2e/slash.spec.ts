@@ -134,3 +134,21 @@ test('Escape keeps the typed "/" as normal text and further typing does not reop
 	await expect(menu).toBeHidden();
 	await expect(first).toHaveText('Precio 24/7');
 });
+
+test('the slash menu opens on a line just emptied with Backspace', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	// Deleting every character leaves a browser <br> behind, which the editor
+	// used to read as a stray newline and take for "more than one character
+	// changed" — the menu then refused to open on the very next keystroke.
+	await page.keyboard.type('ab');
+	await page.keyboard.press('Backspace');
+	await page.keyboard.press('Backspace');
+	await expect(first).toHaveText('');
+
+	await page.keyboard.type('/');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+});
