@@ -43,6 +43,8 @@ Web-first and client-side: still **no server routes and no backend code of ours*
 ```txt
 src/
   lib/
+    actions/        Svelte actions shared across components: keyboard-inset
+                    positioning, tooltips, tap-to-select (pick on pointerup)
     blocks/         block types, hierarchy, nesting, ordering, collapse, cascade
     editor/         editor UI, keyboard behavior, slash commands, selection, paste, history
     format/         inline formatting engine, sanitize/ingest gate, block types map
