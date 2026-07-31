@@ -1,5 +1,6 @@
 import { db } from './db';
 import { now } from './ids';
+import { journalSetting, journaledSetting, unjournalSetting } from './journal';
 import { trackPendingWrite } from './pending-writes';
 import { KEY } from './settings-registry';
 
@@ -10,12 +11,22 @@ const settings = db.table('settings');
 // each preference name stays declared in settings-registry. Tests import these
 // directly as low-level probes.
 export async function getSetting(key) {
+	// A change journaled but not yet written is newer than the table. Boot replay
+	// settles it, but the theme is read before that runs (+layout.svelte).
+	const pending = journaledSetting(key);
+	if (pending) return pending.value;
 	const row = await settings.get(key);
 	return row ? row.value : undefined;
 }
 
 export function setSetting(key, value) {
-	return trackPendingWrite(() => settings.put({ key, value, updatedAt: now() }));
+	// Journal first: an IndexedDB write started while the page dies is discarded,
+	// and localStorage is synchronous, so it survives. Retired once the write lands.
+	journalSetting(key, value);
+	return trackPendingWrite(async () => {
+		await settings.put({ key, value, updatedAt: now() });
+		unjournalSetting(key, value);
+	});
 }
 
 export function getTheme() {

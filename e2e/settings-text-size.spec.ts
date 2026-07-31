@@ -10,32 +10,6 @@ function scaleVar(page) {
 	);
 }
 
-// El valor tal como quedó en la base local, no el que se ve en pantalla. Se
-// guarda en IndexedDB, y una recarga disparada en el mismo instante del clic
-// puede matar esa escritura antes de que aterrice — así que "persiste tras
-// recargar" solo se puede afirmar después de comprobar que se guardó.
-function storedScale(page) {
-	return page.evaluate(
-		() =>
-			new Promise((resolve) => {
-				const open = indexedDB.open('copynotes');
-				open.onerror = () => resolve(null);
-				open.onsuccess = () => {
-					try {
-						const request = open.result
-							.transaction('settings', 'readonly')
-							.objectStore('settings')
-							.get('editorTextScale');
-						request.onsuccess = () => resolve(request.result?.value ?? null);
-						request.onerror = () => resolve(null);
-					} catch {
-						resolve(null);
-					}
-				};
-			})
-	);
-}
-
 function firstBlockFontPx(page) {
 	return page
 		.locator('main [data-block-id] .block-editable')
@@ -57,9 +31,9 @@ test('A+ agranda el texto de la nota y persiste tras recargar', async ({ page })
 	expect(await scaleVar(page)).toBe('1.1');
 	expect(await firstBlockFontPx(page)).toBeGreaterThan(beforePx);
 
-	// Primero que quede guardado; recién ahí tiene sentido recargar.
-	await expect.poll(() => storedScale(page)).toBe(1.1);
-
+	// Recarga inmediata, sin esperar a que la escritura aterrice: es el caso que
+	// se perdía (la base descarta lo que se empieza a escribir mientras la página
+	// muere) y el que ahora cubre el apunte de preferencias en journal.ts.
 	await page.reload();
 	await page.locator('main [data-block-id] .block-editable').first().waitFor();
 	// La preferencia se aplica DESPUÉS de que el editor ya está en pantalla, así

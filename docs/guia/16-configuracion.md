@@ -23,6 +23,13 @@ El tamaño que elegís **queda guardado**: sigue igual cuando cambiás de nota,
 cerrás la app o la recargás, y también viaja en tu archivo de respaldo (si lo
 exportás y lo importás en otro lado, vuelve con el mismo tamaño).
 
+## Tus ajustes no se pierden
+
+Todo lo que elegís acá —el tamaño de texto, el tema claro u oscuro, ocultar
+las tareas completadas— queda guardado **apenas lo tocás**. Aunque cierres o
+recargues en el mismo segundo en que lo cambiaste, al volver a abrir lo
+encontrás como lo dejaste.
+
 ## Agentes
 
 Más abajo hay una sección **Agentes**, de solo lectura: muestra lo último que

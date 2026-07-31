@@ -3,7 +3,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from './db';
 import { createNote, getNote } from './notes';
 import { createBlock, getBlock } from './blocks';
-import { JOURNAL_KEY, writeJournal, clearJournal, replayJournal } from './journal';
+import {
+	JOURNAL_KEY,
+	SETTINGS_JOURNAL_KEY,
+	writeJournal,
+	clearJournal,
+	replayJournal,
+	journalSetting,
+	unjournalSetting,
+	journaledSetting
+} from './journal';
+import { getSetting, setSetting } from './settings';
 
 // The storage tests run under node, which has no localStorage; the journal
 // only needs the Map-like subset.
@@ -93,5 +103,58 @@ describe('pending-writes journal', () => {
 		await replayJournal();
 
 		expect((await getNote(note.id)).title).toBe('vieja');
+	});
+});
+
+describe('preferences journal', () => {
+	// A preference write that never commits stands in for the page dying inside
+	// the write window: the browser discards an IndexedDB write started while
+	// unloading, and settings are written straight through with no debounce.
+	async function writeThatDies(key, value) {
+		const put = vi
+			.spyOn(db.table('settings'), 'put')
+			.mockRejectedValueOnce(new Error('page died'));
+		await expect(setSetting(key, value)).rejects.toThrow('page died');
+		put.mockRestore();
+	}
+
+	it('replays a preference whose write never landed', async () => {
+		await writeThatDies('theme', 'dark');
+		expect(await db.table('settings').get('theme')).toBeUndefined();
+
+		await replayJournal();
+
+		expect((await db.table('settings').get('theme')).value).toBe('dark');
+		expect(localStorage.getItem(SETTINGS_JOURNAL_KEY)).toBe(null);
+	});
+
+	it('reads back a preference whose write has not landed yet', async () => {
+		await writeThatDies('theme', 'dark');
+
+		// The layout reads the theme before boot replay runs, so the journal has
+		// to answer for it.
+		expect(await getSetting('theme')).toBe('dark');
+	});
+
+	it('leaves no journal behind once the write lands', async () => {
+		await setSetting('theme', 'dark');
+		expect(localStorage.getItem(SETTINGS_JOURNAL_KEY)).toBe(null);
+	});
+
+	it('keeps the newest change when an older write lands late', () => {
+		journalSetting('theme', 'dark');
+		journalSetting('theme', 'light');
+
+		unjournalSetting('theme', 'dark');
+
+		expect(journaledSetting('theme').value).toBe('light');
+	});
+
+	it('survives a corrupt preferences journal', async () => {
+		localStorage.setItem(SETTINGS_JOURNAL_KEY, 'esto no es JSON');
+
+		await replayJournal();
+
+		expect(localStorage.getItem(SETTINGS_JOURNAL_KEY)).toBe(null);
 	});
 });
