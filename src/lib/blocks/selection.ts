@@ -4,6 +4,8 @@
 
 import { sortByOrder } from './ordering';
 import { buildVisibleList, listDescendantIds } from './hierarchy';
+import { planBlockType } from '$lib/format/blocktype';
+import { plainTextToHtml } from '$lib/format/sanitize';
 
 function visibleIds(blocks) {
 	return buildVisibleList(blocks).map((row) => row.block.id);
@@ -177,4 +179,26 @@ export function planOutdentSelection(blocks, selectedIds) {
 	const run = selectionRun(blocks, selectedIds);
 	if (!run) return null;
 	return planSelectionEscape(blocks, run.group, run.parentId, 1);
+}
+
+// Change the type of every selected row at once (spec 031: "/" over a
+// selection). Separators are skipped — converting one would throw away the
+// divider for no text gain. Only the selected ids are planned: unlike delete,
+// a type change cannot orphan a child, so "what you see marked is what
+// changes" and a collapsed parent converts alone. Null when nothing is
+// convertible, so the caller can no-op without recording an undo step.
+export function planTypeChangeSelection(blocks, selectedIds, type) {
+	const set = new Set(selectedIds);
+	const updates = [];
+	for (const id of visibleIds(blocks)) {
+		if (!set.has(id)) continue;
+		const block = blocks.find((row) => row.id === id);
+		if (!block || block.type === 'separator') continue;
+		const changes = planBlockType(block, type);
+		// A code row renders its content as plain text, so its html must not keep
+		// the old rich markup. Escaped, never raw: block.html is an innerHTML sink.
+		if (type === 'code') changes.html = plainTextToHtml(block.content ?? '');
+		updates.push({ id, ...changes });
+	}
+	return updates.length ? { updates } : null;
 }

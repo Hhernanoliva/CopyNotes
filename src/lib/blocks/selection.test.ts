@@ -6,7 +6,8 @@ import {
 	planDeleteSelection,
 	planMoveSelection,
 	planIndentSelection,
-	planOutdentSelection
+	planOutdentSelection,
+	planTypeChangeSelection
 } from './selection';
 
 function b(id, parentBlockId, order, extra = {}) {
@@ -232,5 +233,61 @@ describe('planOutdentSelection', () => {
 
 	it('returns null when selected roots span different parents', () => {
 		expect(planOutdentSelection(tree, ['b1', 'b2', 'c'])).toBe(null);
+	});
+});
+
+// Type change over a selection (spec 031). The tree helper `b` above builds
+// blocks with only the hierarchy fields, so these cases pass the extra fields
+// (type, content, checked) explicitly.
+describe('planTypeChangeSelection', () => {
+	const rows = [
+		b('a', null, 0, { type: 'bullet', content: 'uno', checked: false }),
+		b('sep', null, 1, { type: 'separator', content: '' }),
+		b('c', null, 2, { type: 'todo', content: 'tres', checked: true }),
+		b('d', null, 3, { type: 'text', content: 'cuatro <b>', checked: false })
+	];
+
+	it('converts text and bullet rows into unticked tasks', () => {
+		const plan = planTypeChangeSelection(rows, ['a', 'd'], 'todo');
+		expect(plan.updates).toEqual([
+			{ id: 'a', type: 'todo', checked: false },
+			{ id: 'd', type: 'todo', checked: false }
+		]);
+	});
+
+	it('keeps the tick of a row that was already a task', () => {
+		const plan = planTypeChangeSelection(rows, ['c'], 'todo');
+		expect(plan.updates).toEqual([{ id: 'c', type: 'todo', checked: true }]);
+	});
+
+	it('skips separators inside the selection', () => {
+		const plan = planTypeChangeSelection(rows, ['a', 'sep', 'c'], 'todo');
+		expect(plan.updates.map((update) => update.id)).toEqual(['a', 'c']);
+	});
+
+	it('returns the updates in visible order, whatever order the ids come in', () => {
+		const plan = planTypeChangeSelection(rows, ['d', 'a'], 'bullet');
+		expect(plan.updates.map((update) => update.id)).toEqual(['a', 'd']);
+	});
+
+	it('plans only the selected rows, never their unselected children', () => {
+		const plan = planTypeChangeSelection(tree, ['b'], 'todo');
+		expect(plan.updates.map((update) => update.id)).toEqual(['b']);
+	});
+
+	it('drops the tick when the target type is a heading', () => {
+		const plan = planTypeChangeSelection(rows, ['c'], 'heading2');
+		expect(plan.updates).toEqual([{ id: 'c', type: 'heading2', checked: false }]);
+	});
+
+	it('escapes the text into html when converting to code', () => {
+		const plan = planTypeChangeSelection(rows, ['d'], 'code');
+		expect(plan.updates).toEqual([
+			{ id: 'd', type: 'code', checked: false, html: 'cuatro &lt;b&gt;' }
+		]);
+	});
+
+	it('returns null when nothing in the selection is convertible', () => {
+		expect(planTypeChangeSelection(rows, ['sep'], 'todo')).toBeNull();
 	});
 });
