@@ -34,6 +34,10 @@ En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un 
 
 Cuando abrís un menú (el de "/", el de fecha, el de etiquetas o la barra de formato) con el teclado en pantalla ocupando la mitad de abajo, el menú **se acomoda solo para quedar por encima del teclado**, así siempre lo ves y podés elegir.
 
+## Deslizar un menú ya no elige sin querer
+
+Antes, en el teléfono, al querer deslizar la lista del menú "/" o la de etiquetas, el menú **elegía la opción que tocaste** apenas apoyabas el dedo y se cerraba. Ahora la opción se elige **al soltar**: si moviste el dedo, el menú entiende que estabas deslizando y no elige nada.
+
 ## La fecha se alinea arriba
 
 Cuando un renglón ocupa varios renglones de pantalla y tiene una fecha 📅, la fecha ahora se ubica **arriba, junto al comienzo del texto**, en lugar de quedar flotando en el medio.

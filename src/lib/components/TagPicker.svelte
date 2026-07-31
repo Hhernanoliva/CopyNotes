@@ -2,6 +2,7 @@
 	import { Check, Plus } from '@lucide/svelte';
 	import { filterTags, normalizeTagName, tagNamesMatch } from '$lib/tags';
 	import { keyboardInset } from '$lib/actions/keyboardInset';
+	import { tapSelect } from '$lib/actions/tapSelect';
 
 	// One picker for notes, blocks and snippets: type to filter existing tags,
 	// pick to toggle, or create the tag on the fly. The parent owns what
@@ -110,8 +111,7 @@
 					role="option"
 					id="tag-option-{option.id}"
 					aria-selected={optionIndex === index}
-					onpointerdown={(event) => {
-						event.preventDefault();
+					use:tapSelect={() => {
 						onPick(option);
 						query = '';
 						index = 0;

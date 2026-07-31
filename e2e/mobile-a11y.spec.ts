@@ -188,3 +188,31 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await expect(page.getByText('borrame')).toHaveCount(0);
 	await expect(page.getByText('quedo yo')).toBeVisible();
 });
+
+test('deslizar el menú "/" no elige una opción sin querer', async ({ page }) => {
+	await page.goto('/');
+
+	const row = page.locator('main [data-block-id]').first();
+	const line = row.locator('.block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/');
+
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeVisible();
+
+	// Arrastrar sobre una opción es un gesto para deslizar la lista: no elige.
+	const option = page.getByRole('option', { name: 'Tarea' });
+	const box = await option.boundingBox();
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width / 2 - 90, box.y + box.height / 2, { steps: 8 });
+	await page.mouse.up();
+	await expect(menu).toBeVisible();
+	await expect(row.locator('[role="checkbox"]')).toHaveCount(0);
+
+	// Tocar sin mover sí elige.
+	await page.getByRole('option', { name: 'Tarea' }).click();
+	await expect(row.locator('[role="checkbox"]')).toHaveCount(1);
+});

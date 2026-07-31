@@ -1,6 +1,7 @@
 <script>
 	import { Type, List, SquareCheck, Code, Minus, Bookmark, Star, CalendarDays } from '@lucide/svelte';
 	import { keyboardInset } from '$lib/actions/keyboardInset';
+	import { tapSelect } from '$lib/actions/tapSelect';
 
 	let { commands, selectedIndex, onSelect, emptyLabel = 'Sin resultados' } = $props();
 
@@ -40,7 +41,7 @@
 </script>
 
 <!-- One option button for both layouts (heading badge and full row) so the
-     role/id/aria/pointerdown wiring can never drift between the two. -->
+     role/id/aria/tap-select wiring can never drift between the two. -->
 {#snippet optionButton(command, optionIndex, layout, body)}
 	<button
 		type="button"
@@ -48,10 +49,7 @@
 		id="slash-option-{command.id}"
 		aria-label={command.label}
 		aria-selected={optionIndex === selectedIndex}
-		onpointerdown={(event) => {
-			event.preventDefault();
-			onSelect(command);
-		}}
+		use:tapSelect={() => onSelect(command)}
 		class="focus-visible:ring-ring rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {layout} {optionIndex ===
 		selectedIndex
 			? 'bg-accent text-foreground'
