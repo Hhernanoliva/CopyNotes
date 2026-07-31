@@ -71,14 +71,35 @@ día que exista ese dominio: verificarlo en el proveedor, poner el remitente
    600 segundos (10 minutos). También hay un **Minimum interval per user** (60 s
    por defecto) en la pantalla de SMTP: dos pedidos seguidos, el segundo se
    rechaza.
-6. **Project Settings › API**: copiar `Project URL` y la clave `anon public` al
-   `.env` local (ver `.env.example`) y a **Vercel › Settings › Environment
-   Variables**. Con `adapter-static` los valores se hornean en el build, así que
-   sin cargarlos en Vercel la web queda sin nube.
+6. **Project Settings › API Keys**: copiar `Project URL` y la clave publicable
+   (`sb_publishable_…`, antes llamada `anon public`) al `.env` local (ver
+   `.env.example`) y a **Vercel › Settings › Environment Variables**. Con
+   `adapter-static` los valores se hornean en el build, así que sin cargarlos en
+   Vercel la web queda sin nube.
 
-> La clave `service_role` **no** va a Vercel ni al repo. Se saltea el candado por
-> usuario. Vive solo en el `.env` de una máquina de desarrollo y solo la usa
-> `pnpm rls:check`.
+> La clave secreta (`sb_secret_…`, antes `service_role`) **no** va a Vercel ni al
+> repo. Se saltea el candado por usuario. Vive solo en el `.env` de una máquina
+> de desarrollo y solo la usa `pnpm rls:check`.
+
+## Rotar la clave secreta
+
+Cambiarla no puede romper la app: la app nunca la usa, solo `pnpm rls:check`.
+El orden importa — crear la nueva antes de matar la vieja deja siempre un camino
+de vuelta.
+
+1. **Project Settings › API Keys › Secret keys** → crear una nueva. El nombre
+   solo acepta minúsculas, dígitos y `_` (`local_dev_jul30`). Supabase la muestra
+   una sola vez.
+2. Reemplazar `SUPABASE_SERVICE_ROLE_KEY` en el `.env`. Leerla del portapapeles
+   en vez de pegarla en una terminal o un chat: queda en el historial.
+3. `pnpm rls:check` → las seis pruebas tienen que pasar.
+4. Recién ahí, **borrar la vieja** en el panel.
+5. Correr `rls-check.mjs` contra una copia del `.env` anterior. Tiene que fallar
+   con `401`. Una rotación está probada cuando la clave vieja **muere**, no
+   cuando la nueva anda: si solo se verifica la nueva, las dos pueden seguir
+   vivas y no rotaste nada. Después, borrar esa copia.
+
+Última rotación: 2026-07-30 (`local_dev_jul30`).
 
 ## Probar el candado
 
