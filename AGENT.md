@@ -56,7 +56,11 @@ src/
     export-import/  JSON backup, Markdown/HTML export, import validation
     theme/          dark/light, tokens, preference
     onboarding/     demo note, first-run
-    pwa/            installability, service worker, offline
+    pwa/            service worker, offline. NOT installability: the web build
+                    stopped offering "install this page as an app" — that
+                    look-alike cannot host the agent channel (see desktop/)
+    desktop/        the Tauri seam: window-close write barrier, and the web-side
+                    card + link that point people at the desktop download
     sync/           account, encryption at the upload edge, upload/download,
                     conflicts, and the live channel (specs 029/030)
     bridge/, mcp/   the agent channel: export file, mailbox, MCP server (028)
