@@ -314,12 +314,29 @@
 			save,
 			journal,
 			timer: setTimeout(async () => {
-				await save();
+				// A write that fails keeps its entry: the unmount flush and the
+				// journal are its only retries. It is flagged so the indicator can
+				// say "no pudimos guardar" instead of hanging on "guardando…"
+				// forever waiting for a write that will never land.
+				try {
+					await save();
+				} catch {
+					entry.failed = true;
+					onSaveStateChange('error');
+					return;
+				}
 				if (pending.get(key) === entry) pending.delete(key);
-				if (pending.size === 0) onSaveStateChange('saved');
+				settleSaveState();
 			}, 500)
 		};
 		pending.set(key, entry);
+	}
+
+	// Nothing left in flight -> "guardado", unless a failed write is still parked
+	// in the map, in which case the honest answer is "error".
+	function settleSaveState() {
+		for (const entry of pending.values()) if (!entry.failed) return;
+		onSaveStateChange(pending.size === 0 ? 'saved' : 'error');
 	}
 
 	function flushPending() {
@@ -329,14 +346,19 @@
 			// Saves are plain field updates, so re-running one that the timer
 			// already started is harmless.
 			saves.push(
-				entry.save().then(() => {
-					if (pending.get(key) === entry) pending.delete(key);
-				})
+				entry.save().then(
+					() => {
+						if (pending.get(key) === entry) pending.delete(key);
+					},
+					// Same deal as the debounced path: keep the entry for the journal,
+					// flag it, and never reject — this promise is awaited on unmount.
+					() => {
+						entry.failed = true;
+					}
+				)
 			);
 		}
-		return Promise.all(saves).then(() => {
-			if (pending.size === 0) onSaveStateChange('saved');
-		});
+		return Promise.all(saves).then(() => settleSaveState());
 	}
 
 	function persistJournal() {

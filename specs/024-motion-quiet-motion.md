@@ -19,7 +19,9 @@ Principles:
 
 - Calm and fast. Motion never delays typing.
 - Nothing bounces or moves continuously.
-- Max 240ms of movement.
+- Max 240ms of movement. The cap is on things that travel or resize. A fade
+  that only changes colour moves nothing, so it may run longer when the point
+  is to be barely noticed — see "Ambient fades" below.
 - Every animation is interruptible.
 - The OS/browser "reduce motion" preference is honored automatically.
 - No new dependencies.
@@ -45,6 +47,32 @@ continuous motion, cinematic effects, page/note transition effects.
   Sidebar/dialogs: 200–240ms. List settle after drag: 150–180ms. Copy
   confirmation visible 800–1000ms (state change, no continuous motion).
 - Add a new numeric value only if it genuinely repeats across components.
+
+### Ambient fades
+
+An ambient fade changes **colour only** — nothing travels, nothing resizes,
+nothing reflows. Because there is no movement to sit through, the 240ms cap
+does not apply: the whole point is that the change is felt rather than seen.
+`--motion-ambient: 900ms` is the token.
+
+Rules, so this does not become a loophole for slow UI:
+
+- Colour only. The moment a fade also moves or resizes something, the 240ms
+  cap applies again.
+- Asymmetric timing. Arriving at a state is quick (150–350ms) because it is
+  an answer to something the user did; returning to the resting state is the
+  slow one. Never the reverse.
+- `linear` on the long fade. A colour has no inertia, so an easing curve on
+  it reads as a hitch.
+- Palette tokens stay in `oklch()`. Browsers interpolate non-legacy colours
+  in Oklab, which keeps the midpoint of the fade perceptually even instead of
+  dipping through a muddy grey. A `#hex` or `rgb()` token silently loses this
+  (verified in Chromium and WebKit).
+- Never the only carrier of meaning. A colour fade always has a text
+  equivalent — a tooltip, a label, an `aria-live` line.
+
+Current users: the snippet-insertion flash (650ms) and the header save-state
+dot.
 
 ### Discrete offsets
 
@@ -200,7 +228,9 @@ files; reuse these timings for the future native macOS title bar.
 - The resting UI is visually identical to today (colors, sizes, spacing,
   layout unchanged).
 - All main surfaces have coherent motion.
-- No animation exceeds 240ms.
+- No animation that moves or resizes anything exceeds 240ms. Ambient fades
+  (colour only) may exceed it; today the only two are the snippet-insertion
+  flash (650ms) and the save dot settling back to quiet (`--motion-ambient`).
 - The editor responds as fast as before; the cursor never jumps due to an
   animation.
 - Animations are interruptible (e.g. Escape closes a dialog mid-entry).

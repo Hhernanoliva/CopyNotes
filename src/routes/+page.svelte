@@ -1,5 +1,5 @@
 <script>
-	import { Check, CircleHelp, Moon, PanelLeft, Search, Settings, Sun } from '@lucide/svelte';
+	import { CircleHelp, Moon, PanelLeft, Search, Settings, Sun } from '@lucide/svelte';
 	import { mode, setMode } from 'mode-watcher';
 	import { fade } from 'svelte/transition';
 	import { toast } from 'svelte-sonner';
@@ -91,10 +91,20 @@
 		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
 	}
 
-	// "Guardado" is a brief reassurance, not a permanent label. While saving it
-	// reads "Guardando…"; once the save lands it shows the check for a moment and
-	// then fades to nothing, so the header stays calm and silence means "todo
-	// guardado". Timer, not a derived value — hence an $effect with cleanup.
+	// The save indicator is a fixed-size dot: it only ever changes colour, so no
+	// state of it can push the header icons around. The words live in the
+	// tooltip and in the screen-reader line.
+	const SAVE_LABELS = {
+		idle: 'Todo guardado',
+		saving: 'Guardando…',
+		saved: 'Guardado hace un momento',
+		error: 'No pudimos guardar'
+	};
+
+	// Green is a brief reassurance, not a permanent state: it settles back to the
+	// quiet grey so silence means "todo guardado". Red does NOT auto-clear — it
+	// stays until a save really lands. Timer, not a derived value — hence an
+	// $effect with cleanup.
 	$effect(() => {
 		if (saveState !== 'saved') return;
 		const timer = setTimeout(() => (saveState = 'idle'), 1400);
@@ -664,19 +674,12 @@
 				</span>
 			</button>
 			<span
-				aria-live="polite"
-				class="text-muted-foreground inline-flex min-w-28 items-center justify-end text-xs"
-			>
-				{#if saveState === 'saving'}
-					Guardando…
-				{:else if saveState === 'saved'}
-					<span
-						class="inline-flex items-center gap-1"
-						in:fade={{ duration: motionDuration(MOTION.fast) }}
-						out:fade={{ duration: motionDuration(MOTION.fast) }}
-						><Check size={13} aria-hidden="true" />Guardado</span
-					>
-				{/if}
+				use:tooltip={SAVE_LABELS[saveState]}
+				data-save-state={saveState}
+				class="cn-save-dot ml-1 size-2 shrink-0 rounded-full data-[save-state=saving]:animate-pulse"
+			></span>
+			<span aria-live="polite" class="sr-only">
+				{saveState === 'idle' ? '' : SAVE_LABELS[saveState]}
 			</span>
 		</header>
 

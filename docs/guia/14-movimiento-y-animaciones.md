@@ -38,9 +38,13 @@ ni se mueve solo, y nada te retrasa al escribir.
   (⋯) de ese renglón **late un instante**, para que veas que se agregó.
 - **Insertar un snippet**: los renglones que trae el snippet **se iluminan
   un instante** al aparecer, así ves dónde cayó lo que insertaste.
-- **"Guardado"**: solo aparece cuando hace falta. Mientras guarda dice
-  "Guardando…"; al terminar muestra un instante ✓ **Guardado** y luego se
-  desvanece. Si no ves nada, es que ya está todo guardado.
+- **El puntito de guardado**: nunca cambia de tamaño ni de lugar (así no
+  empuja los íconos de al lado), solo de color. Los colores **se funden**, no
+  saltan: llega rápido al amarillo o al verde —porque es la respuesta a algo
+  que hiciste— y después **se apaga muy despacio** hasta el gris de "todo
+  guardado". Ese apagado largo es a propósito: es lo único de la app que se
+  toma casi un segundo, justamente para que no lo mires. Mientras guarda, el
+  punto además **late despacio**.
 - **Tema claro/oscuro**: el ícono del sol y la luna se cruzan con un fundido
   al cambiar de tema.
 

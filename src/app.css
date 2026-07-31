@@ -183,6 +183,9 @@
 	/* Non-color Quiet Ink tokens (specs/016 "Design Tokens To Prepare") */
 	--motion-fast: 150ms;
 	--motion-overlay: 240ms;
+	/* Ambient fade — colour only, nothing travels, so it sits outside the 240ms
+	   movement cap (spec 024). Used by the save dot settling back to quiet. */
+	--motion-ambient: 900ms;
 	--motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
 	--editor-indent: 1.5rem;
 	--editor-max-width: 95%;
@@ -301,6 +304,38 @@
 }
 .cn-pulse {
 	animation: cn-pulse 500ms var(--motion-ease);
+}
+
+/* Quiet Motion — save-state dot (header). Only the colour ever changes: the
+   dot never moves or resizes, so no state of it can push the header icons
+   around.
+   Every token here is oklch(), which means the browser interpolates the fade
+   in Oklab — the midpoint stays perceptually even instead of dipping through
+   a muddy grey. Measured in both Chromium and WebKit; no `in oklab` on the
+   transition and no @property registration needed.
+   Timings are asymmetric on purpose: arriving is quick (the dot has to
+   answer), settling back to quiet is slow. `linear` on the long fade because
+   a colour has no inertia — an easing curve on it reads as a hitch. This is
+   the one animation allowed past the 240ms cap: nothing travels (spec 024). */
+.cn-save-dot {
+	background-color: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+	transition: background-color var(--motion-ambient) linear;
+}
+.cn-save-dot[data-save-state='saving'] {
+	background-color: var(--warning);
+	transition-duration: 250ms;
+	transition-timing-function: var(--motion-ease);
+}
+.cn-save-dot[data-save-state='saved'] {
+	background-color: var(--success);
+	transition-duration: 350ms;
+	transition-timing-function: var(--motion-ease);
+}
+/* Red is an alert, so it arrives fastest — and it never fades on its own. */
+.cn-save-dot[data-save-state='error'] {
+	background-color: var(--destructive);
+	transition-duration: 150ms;
+	transition-timing-function: var(--motion-ease);
 }
 
 @media (pointer: coarse) {
