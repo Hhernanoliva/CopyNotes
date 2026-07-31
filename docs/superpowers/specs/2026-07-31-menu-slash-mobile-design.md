@@ -30,8 +30,8 @@ El mismo bug de toque existe en el menú de etiquetas ("#", `TagPicker.svelte:11
 - **La lista de snippets sigue vertical**, en la misma caja de abajo, con tope de
   alto y deslizamiento vertical real. Los nombres de snippet son largos y pueden
   ser muchos: en horizontal no se pueden escanear.
-- **El arreglo del toque es compartido** y cubre los tres menús flotantes ("/",
-  "#" y fecha). Sólo "/" cambia de forma.
+- **El arreglo del toque es compartido** y cubre los menús que eligen al apoyar
+  el dedo: "/" y "#". Sólo "/" cambia de forma.
 - **Escritorio no cambia** en nada.
 
 ## Comportamiento
@@ -72,17 +72,25 @@ Regla única para los tres menús:
 - Al apoyar el dedo se cancela el comportamiento por omisión del navegador (esto
   ya pasa hoy y es lo que evita perder el cursor en el renglón).
 - La opción se elige **al soltar**, y sólo si el dedo se movió menos de 10px
-  desde donde tocó y soltó sobre la misma opción.
+  desde donde tocó.
 - Si se movió más, fue un gesto de desplazamiento: no se elige nada y el menú
   sigue abierto.
 - Vale igual para mouse: apretar y soltar sin arrastrar es una selección normal.
 
+El panel de fecha queda afuera de este arreglo: sus botones ya eligen con
+`onclick` (`DatePanel.svelte:60`), así que el bug no existe ahí.
+
 ### Teclado físico y accesibilidad
 
-- En celular la barra se anuncia como lista horizontal (`aria-orientation`).
-- Las flechas ←/→ mueven la selección igual que ↑/↓. Enter elige, Escape cierra.
-  El resto del cableado ARIA (`role="option"`, `aria-selected`,
-  `aria-activedescendant` en el renglón) queda como está.
+El cableado ARIA queda **como está** (`role="listbox"`, `role="option"`,
+`aria-selected`, `aria-activedescendant` en el renglón) y las teclas también:
+↑/↓ mueven, Enter/Tab eligen, Escape cierra.
+
+No se agregan ←/→ para moverse por la barra horizontal: con el menú abierto, el
+"/" y lo que escribís siguen dentro del texto, así que esas flechas mueven el
+cursor dentro de la consulta; interceptarlas rompería escribir y corregir la
+búsqueda. Por lo mismo no se declara `aria-orientation="horizontal"`: sería
+anunciar una navegación por teclado que no existe.
 
 ### Escritorio (768px o más)
 
@@ -99,8 +107,7 @@ mouse, mismas medidas y mismos estilos.
 | `src/lib/actions/tapSelect.test.js` (nuevo) | Prueba del guardián: deslizar no elige, tocar elige. |
 | `src/lib/editor/SlashMenu.svelte` | Dos disposiciones por CSS + uso del ayudante. |
 | `src/lib/components/TagPicker.svelte` | Uso del ayudante (sin cambio visual). |
-| `src/lib/editor/DatePanel.svelte` | Uso del ayudante (sin cambio visual). |
-| `src/lib/editor/Editor.svelte` | Flechas ←/→ mueven la selección del menú "/". |
+| `vite.config.ts` | Que las pruebas de `src/lib/actions/` corran con DOM (jsdom). |
 | `e2e/mobile-a11y.spec.ts` | Prueba en tamaño celular: barra abajo, deslizar sin elegir, elegir. |
 | `docs/guia/15-usar-en-celular.md` | Sección del menú "/" en celular. |
 | `specs/003-editor-blocks.md` | Nota de la disposición doble del menú. |
@@ -142,7 +149,7 @@ Queda marcado con un comentario `ponytail:` en el código.
 ## Pruebas
 
 - **Unitaria** (`tapSelect.test.js`): soltar sin mover elige; soltar después de
-  moverse 30px no elige; soltar fuera de la opción no elige.
+  moverse 60px no elige; apoyar solo no elige; un gesto cancelado no elige.
 - **e2e en tamaño celular**: abrir "/" en un viewport de teléfono, la barra
   aparece al pie, un gesto de deslizamiento no elige nada y el menú sigue
   abierto, tocar "Tarea" convierte el renglón en tarea.
