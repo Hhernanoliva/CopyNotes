@@ -47,7 +47,8 @@ No puede borrar, exportar ni reordenar, y no reescribe el texto de tus notas.
 
 Cuando el agente deja una nota sobre una tarea (por ejemplo "empecé por el
 build" o algo que quiere aclararte), aparece **debajo de esa tarea en color
-ámbar y en cursiva, con una marca "IA"**. Así siempre distinguís de un vistazo
+ámbar y en cursiva, con una marca "IA"**, en letra más chica y pegada a la
+tarea, igual que tus comentarios. Así siempre distinguís de un vistazo
 lo que escribió la IA de tu propio texto y de tus comentarios, que quedan
 intactos.
 

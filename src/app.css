@@ -498,6 +498,10 @@
 }
 .cn-editor .block-editable { font-size: calc(1rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--code { font-size: calc(0.875rem * var(--cn-editor-scale, 1)); }
+/* Los dos textos secundarios del renglón —el comentario y la voz de la IA—
+   van más chicos y pegados al renglón, para que no se lean como otra línea. */
+.cn-editor .block-editable--note,
+.cn-editor .agent-note { font-size: calc(0.8125rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h1 { font-size: calc(1.5rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h2 { font-size: calc(1.25rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h3 { font-size: calc(1.1rem * var(--cn-editor-scale, 1)); }

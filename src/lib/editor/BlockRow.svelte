@@ -737,7 +737,7 @@
 					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}
 					onblur={handleNoteBlur}
-					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap italic outline-none"
+					class="block-editable block-editable--note text-muted-foreground -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic outline-none"
 				></div>
 			{/if}
 			{#if conflict}
@@ -794,7 +794,7 @@
 			{/if}
 			{#each agentNotes as agentNote (agentNote.id)}
 				<p
-					class="agent-note mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap italic"
+					class="agent-note -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic"
 				>
 					<span class="agent-note-badge" aria-label="Escrito por la IA">IA</span>
 					{agentNote.text}
