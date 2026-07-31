@@ -9,7 +9,7 @@
 	import { browserThemeColors } from '$lib/theme/browser-colors';
 	import { isTauriRuntime } from '$lib/platform';
 	import PwaLifecycle from '$lib/pwa/PwaLifecycle.svelte';
-	import InstallPrompt from '$lib/pwa/InstallPrompt.svelte';
+	import DesktopAppPrompt from '$lib/desktop/DesktopAppPrompt.svelte';
 	import TauriLifecycle from '$lib/desktop/TauriLifecycle.svelte';
 
 	let { children } = $props();
@@ -59,11 +59,12 @@
 	Saltar al editor
 </a>
 
-<!-- Service worker + install prompt are browser-only: never instantiate them
-     during prerender/SSR, where useRegisterSW would touch navigator. -->
+<!-- Service worker + desktop-app suggestion are browser-only: never instantiate
+     them during prerender/SSR, where useRegisterSW would touch navigator. The
+     suggestion is also pointless inside the desktop app itself. -->
 {#if browser && !isTauriRuntime()}
 	<PwaLifecycle />
-	<InstallPrompt />
+	<DesktopAppPrompt />
 {/if}
 
 <!-- Desktop-only: route the native window close through the pending-write

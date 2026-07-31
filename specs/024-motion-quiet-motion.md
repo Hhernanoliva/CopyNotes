@@ -172,9 +172,9 @@ Files: `NoteSidebar.svelte`, `Editor.svelte`, `dragReorder.svelte.js`,
 
 ### Stage 7 — Global elements
 
-Files: `InstallPrompt.svelte`, `+layout.svelte`, `+page.svelte`.
+Files: `DesktopAppPrompt.svelte`, `+layout.svelte`, `+page.svelte`.
 
-- Unify the existing install-prompt animation with the global timings.
+- Unify the existing bottom-left prompt animation with the global timings.
 - Keep svelte-sonner toasts. Avoid a local confirmation and a redundant
   toast appearing at once. Keep the current initial loading state. No new
   glows, permanent pulses, or skeletons.

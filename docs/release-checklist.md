@@ -40,13 +40,14 @@ La mayoría ya los protege Playwright; solo hacé a mano los marcados **manual**
 
 ## 3. QA manual (lo que los tests no cubren)
 
-### Instalación PWA (spec 008)
+### Sin conexión y app de escritorio (spec 008)
 
-- [ ] En Chrome/Edge de escritorio, abrí la app: aparece la tarjeta "Instalá CopyNotes" (abajo a la izquierda) o el ícono de instalar en la barra de direcciones.
-- [ ] Instalá: la app abre en su propia ventana, con su ícono, sin barra del navegador.
-- [ ] Activá modo avión y abrí la app instalada: debe abrir y dejar **leer, escribir, usar snippets y descargar un respaldo** sin conexión.
-- [ ] En iPhone/iPad (Safari): Compartir → "Agregar a inicio"; confirmá que el ícono queda y la app abre a pantalla completa.
-- [ ] Con una versión nueva publicada, reabrí la app instalada: debe actualizarse sola (aviso breve, sin pasos manuales).
+- [ ] En un navegador de escritorio, abrí la web: aparece la tarjeta "¿Usás agentes de IA?" abajo a la derecha, y el botón **Descargar** lleva a la página de releases. Cerrala: no vuelve al recargar.
+- [ ] En un celular o tablet, abrí la web: la tarjeta **no** aparece.
+- [ ] Dentro de la app de escritorio (Tauri): la tarjeta **no** aparece.
+- [ ] En el navegador, Configuración ⚙️ › Agentes: el enlace "Descargar la app de escritorio" abre la misma página.
+- [ ] Activá modo avión y recargá la web: debe abrir y dejar **leer, escribir, usar snippets y descargar un respaldo** sin conexión.
+- [ ] Con una versión nueva publicada, reabrí la web: debe actualizarse sola (aviso breve, sin pasos manuales).
 
 ### Uso táctil real
 

@@ -9,10 +9,11 @@
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 - **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.
 
-## Instalar y usar sin conexión
+## Usar sin conexión, y la app de escritorio
 
-- **Instalá CopyNotes como app.** En navegadores compatibles aparece una tarjetita discreta abajo a la izquierda que dice "Instalá CopyNotes". Al aceptarla, CopyNotes se instala como una app en tu dispositivo (con su propio ícono). Si la cerrás, no vuelve a molestar. En algunos navegadores también podés instalar desde el menú del navegador.
-- **Funciona sin internet.** Una vez abierta, CopyNotes sigue funcionando aunque te quedes sin conexión: podés leer, escribir, usar snippets y descargar respaldos. Cuando está lista para el modo sin conexión, aparece un aviso breve "Listo para usar sin conexión".
+- **Funciona sin internet.** Una vez abierta, CopyNotes sigue funcionando aunque te quedes sin conexión: podés leer, escribir, usar snippets y descargar respaldos. Cuando está lista para el modo sin conexión, aparece un aviso breve "Listo para usar sin conexión". No hace falta instalar nada para eso.
+- **La app de escritorio es otra cosa.** Si entrás desde una computadora, abajo a la derecha aparece una tarjetita discreta: "¿Usás agentes de IA? Necesitás la app de escritorio". Solo la vas a necesitar si querés conectar un agente de IA (ver **[Agentes](17-agentes.md)**); para todo lo demás, la web alcanza. Si la cerrás, no vuelve a molestar. En el celular y la tablet no aparece, porque ahí no hay app de escritorio.
+- **También desde Configuración.** El enlace de descarga está en **Configuración** (engranaje ⚙️) › **Agentes**, cuando entrás desde el navegador.
 - **Se actualiza sola.** Cuando hay una versión nueva, se aplica sola la próxima vez que abrís la app.
 
 ## En el teléfono
