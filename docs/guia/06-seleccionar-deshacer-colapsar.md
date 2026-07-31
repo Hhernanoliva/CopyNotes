@@ -9,6 +9,7 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - **Copiar** los seleccionados: **Cmd+C** (Ctrl+C en Windows). Copia todo el grupo como esquema, respetando niveles.
 - **Borrar** los seleccionados: **Backspace** o **Delete**. Se borran todos (recuperable). Si un renglón seleccionado tiene hijos, se van con él. Si borrás todo, queda un renglón vacío para seguir.
 - **Mover** el grupo: **Alt+↑ / Alt+↓**. Mueve todos los seleccionados juntos entre sus vecinos (funciona cuando son hermanos seguidos).
+- **Anidar o desanidar** el grupo: **Tab** los mete a todos adentro del renglón que está justo arriba; **Shift+Tab** los saca a todos un nivel, y quedan juntos debajo del que era su padre. Se mueven en bloque, respetando el orden y llevándose sus hijos. Igual que al mover: funciona cuando los seleccionados son hermanos seguidos; si la selección mezcla niveles (por ejemplo un hijo y un renglón suelto de más abajo), Tab no hace nada, para no desarmarte la estructura. Un solo **Ctrl/Cmd+Z** deshace todo el movimiento.
 - **Salir de la selección:** **Escape**, o hacé clic o empezá a escribir en un renglón.
 
 ## Deshacer y rehacer

@@ -9,6 +9,10 @@ function visibleIds(blocks) {
 	return buildVisibleList(blocks).map((row) => row.block.id);
 }
 
+function siblingsOf(blocks, parentId) {
+	return sortByOrder(blocks.filter((block) => (block.parentBlockId ?? null) === (parentId ?? null)));
+}
+
 // Visible block ids between anchor and focus, inclusive, in visible order.
 // Collapsed descendants are hidden, so they never sneak into a range.
 export function selectionRange(blocks, anchorId, focusId) {
@@ -100,17 +104,17 @@ function planSelectionEscape(blocks, group, parentId, direction) {
 	return { updates };
 }
 
-// Move a contiguous run of sibling roots up or down among their siblings; at
-// the parent's edge the run escapes the parent (same rule as a single block).
-// Returns null when the move is undefined: roots span parents, are not a
-// contiguous run, or sit at the note's top/bottom. Subtrees follow via parentBlockId.
-export function planMoveSelection(blocks, selectedIds, direction) {
+// The selection seen as one movable unit: a contiguous run of sibling roots
+// under a shared parent. Null when the selection is not a unit (roots span
+// parents, or are not contiguous) — move, indent and outdent all no-op there,
+// so a group can never be torn apart by a single keystroke.
+function selectionRun(blocks, selectedIds) {
 	const roots = selectionRoots(blocks, selectedIds);
 	if (roots.length === 0) return null;
-	const parent = roots[0].parentBlockId ?? null;
-	if (roots.some((root) => (root.parentBlockId ?? null) !== parent)) return null;
+	const parentId = roots[0].parentBlockId ?? null;
+	if (roots.some((root) => (root.parentBlockId ?? null) !== parentId)) return null;
 
-	const siblings = sortByOrder(blocks.filter((block) => (block.parentBlockId ?? null) === parent));
+	const siblings = siblingsOf(blocks, parentId);
 	const rootIds = new Set(roots.map((root) => root.id));
 	const indices = siblings.map((block, i) => (rootIds.has(block.id) ? i : -1)).filter((i) => i >= 0);
 	const contiguous = indices.every((value, k) => k === 0 || value === indices[k - 1] + 1);
@@ -118,7 +122,17 @@ export function planMoveSelection(blocks, selectedIds, direction) {
 
 	const first = indices[0];
 	const last = indices[indices.length - 1];
-	const group = siblings.slice(first, last + 1);
+	return { parentId, siblings, first, last, group: siblings.slice(first, last + 1) };
+}
+
+// Move a contiguous run of sibling roots up or down among their siblings; at
+// the parent's edge the run escapes the parent (same rule as a single block).
+// Returns null when the move is undefined: roots span parents, are not a
+// contiguous run, or sit at the note's top/bottom. Subtrees follow via parentBlockId.
+export function planMoveSelection(blocks, selectedIds, direction) {
+	const run = selectionRun(blocks, selectedIds);
+	if (!run) return null;
+	const { parentId: parent, siblings, first, last, group } = run;
 
 	let reordered;
 	if (direction < 0) {
@@ -136,4 +150,31 @@ export function planMoveSelection(blocks, selectedIds, direction) {
 		if (block.order !== index) updates.push({ id: block.id, order: index });
 	});
 	return { updates };
+}
+
+// Tab over a selection: the whole run becomes the last children of the sibling
+// right above it, keeping its order. Null when there is no sibling above (the
+// run already starts its level) or the selection is not a unit.
+export function planIndentSelection(blocks, selectedIds) {
+	const run = selectionRun(blocks, selectedIds);
+	if (!run || run.first === 0) return null;
+	const newParent = run.siblings[run.first - 1];
+	const base = siblingsOf(blocks, newParent.id).length;
+	const updates = [];
+	run.group.forEach((block, k) => {
+		updates.push({ id: block.id, parentBlockId: newParent.id, order: base + k });
+	});
+	// Close the gap the run leaves behind among its old siblings.
+	for (const later of run.siblings.slice(run.last + 1)) {
+		updates.push({ id: later.id, order: later.order - run.group.length });
+	}
+	return { updates };
+}
+
+// Shift+Tab over a selection: the whole run leaves its parent and lands right
+// below it — the same move Alt+Down already makes at the parent's bottom edge.
+export function planOutdentSelection(blocks, selectedIds) {
+	const run = selectionRun(blocks, selectedIds);
+	if (!run) return null;
+	return planSelectionEscape(blocks, run.group, run.parentId, 1);
 }

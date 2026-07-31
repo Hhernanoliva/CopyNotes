@@ -4,7 +4,9 @@ import {
 	neighborVisibleId,
 	orderedSelectionRoots,
 	planDeleteSelection,
-	planMoveSelection
+	planMoveSelection,
+	planIndentSelection,
+	planOutdentSelection
 } from './selection';
 
 function b(id, parentBlockId, order, extra = {}) {
@@ -149,5 +151,86 @@ describe('planMoveSelection', () => {
 
 	it('returns null when selected roots span different parents', () => {
 		expect(planMoveSelection(tree, ['a', 'b1'], 1)).toBe(null);
+	});
+});
+
+// a, x, y, z at root; a has one child a1
+const flat = [b('a', null, 0), b('a1', 'a', 0), b('x', null, 1), b('y', null, 2), b('z', null, 3)];
+
+describe('planIndentSelection', () => {
+	it('moves the whole run under the sibling above it, in order', () => {
+		const plan = planIndentSelection(flat, ['x', 'y']);
+		expect(plan.updates).toContainEqual({ id: 'x', parentBlockId: 'a', order: 1 });
+		expect(plan.updates).toContainEqual({ id: 'y', parentBlockId: 'a', order: 2 });
+	});
+
+	it('appends after the existing children of the new parent', () => {
+		const empty = [b('a', null, 0), b('x', null, 1), b('y', null, 2)];
+		const plan = planIndentSelection(empty, ['x', 'y']);
+		expect(plan.updates).toContainEqual({ id: 'x', parentBlockId: 'a', order: 0 });
+		expect(plan.updates).toContainEqual({ id: 'y', parentBlockId: 'a', order: 1 });
+	});
+
+	it('closes the gap left among the old siblings', () => {
+		const plan = planIndentSelection(flat, ['x', 'y']);
+		expect(plan.updates).toContainEqual({ id: 'z', order: 1 });
+	});
+
+	it('leaves the descendants alone: they follow their parent', () => {
+		const plan = planIndentSelection(tree, ['b', 'b1', 'b2']);
+		expect(plan.updates.some((update) => update.id === 'b1')).toBe(false);
+		expect(plan.updates).toContainEqual({ id: 'b', parentBlockId: 'a', order: 0 });
+	});
+
+	it('returns null when the run starts at the first sibling (nothing above)', () => {
+		expect(planIndentSelection(flat, ['a', 'a1', 'x'])).toBe(null);
+	});
+
+	it('returns null when selected roots span different parents', () => {
+		expect(planIndentSelection(tree, ['b1', 'b2', 'c'])).toBe(null);
+	});
+
+	it('returns null when selected roots are not contiguous siblings', () => {
+		expect(planIndentSelection(flat, ['x', 'z'])).toBe(null);
+	});
+});
+
+describe('planOutdentSelection', () => {
+	const nested = [
+		b('p', null, 0),
+		b('s1', 'p', 0),
+		b('s2', 'p', 1),
+		b('s3', 'p', 2),
+		b('q', null, 1)
+	];
+
+	it('lands the whole run right below the parent, in order', () => {
+		const plan = planOutdentSelection(nested, ['s2', 's3']);
+		expect(plan.updates).toContainEqual({ id: 's2', parentBlockId: null, order: 1 });
+		expect(plan.updates).toContainEqual({ id: 's3', parentBlockId: null, order: 2 });
+		expect(plan.updates).toContainEqual({ id: 'q', order: 3 });
+	});
+
+	it('lands below the parent even when the run sits at the top of it', () => {
+		const plan = planOutdentSelection(nested, ['s1', 's2']);
+		expect(plan.updates).toContainEqual({ id: 's1', parentBlockId: null, order: 1 });
+		expect(plan.updates).toContainEqual({ id: 's2', parentBlockId: null, order: 2 });
+		// The sibling left behind is renumbered gapless.
+		expect(plan.updates).toContainEqual({ id: 's3', order: 0 });
+	});
+
+	it('goes up one level at a time', () => {
+		const deep = [b('a', null, 0), b('p', 'a', 0), b('s1', 'p', 0), b('s2', 'p', 1)];
+		const plan = planOutdentSelection(deep, ['s1', 's2']);
+		expect(plan.updates).toContainEqual({ id: 's1', parentBlockId: 'a', order: 1 });
+		expect(plan.updates).toContainEqual({ id: 's2', parentBlockId: 'a', order: 2 });
+	});
+
+	it('returns null at the root level: nothing to come out of', () => {
+		expect(planOutdentSelection(flat, ['x', 'y'])).toBe(null);
+	});
+
+	it('returns null when selected roots span different parents', () => {
+		expect(planOutdentSelection(tree, ['b1', 'b2', 'c'])).toBe(null);
 	});
 });

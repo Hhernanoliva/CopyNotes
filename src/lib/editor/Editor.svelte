@@ -27,7 +27,9 @@
 		neighborVisibleId,
 		orderedSelectionRoots,
 		planDeleteSelection,
-		planMoveSelection
+		planMoveSelection,
+		planIndentSelection,
+		planOutdentSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
@@ -1336,6 +1338,28 @@
 		}
 	}
 
+	// Tab / Shift+Tab over a multi-block selection: the whole group moves a level,
+	// not just the focused row. direction 1 = indent, -1 = outdent.
+	async function indentSelectedBlocks(direction) {
+		const plan =
+			direction > 0
+				? planIndentSelection(blocks, selectedIds)
+				: planOutdentSelection(blocks, selectedIds);
+		if (!plan) return;
+		recordSnapshot();
+		// Expand the new parent so the indented group does not vanish under it.
+		const parentId = plan.updates[0].parentBlockId;
+		const parent = parentId && blocks.find((row) => row.id === parentId);
+		if (parent && parent.collapsed) {
+			parent.collapsed = false;
+			await updateBlock(parent.id, { collapsed: false });
+		}
+		await applyUpdates(plan.updates);
+		// Reparenting moves the focused block's DOM node, which blurs it. Refocus
+		// so the next Tab still reaches this handler.
+		if (selection) focusBlockId = selection.focusId;
+	}
+
 	async function moveSelectedBlocks(direction) {
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
@@ -1416,6 +1440,11 @@
 		if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
 			claim(event);
 			moveSelectedBlocks(event.key === 'ArrowDown' ? 1 : -1);
+			return;
+		}
+		if (event.key === 'Tab') {
+			claim(event);
+			indentSelectedBlocks(event.shiftKey ? -1 : 1);
 			return;
 		}
 		if (event.key === 'Escape') {

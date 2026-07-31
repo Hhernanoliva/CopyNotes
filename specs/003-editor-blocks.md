@@ -53,6 +53,26 @@ can all be indented under the previous sibling, Workflowy-style. The first
 block at any level cannot be indented because there is no previous sibling
 to become its parent. This is intentional, not a bug.
 
+## Tab Over A Multi-Line Selection (decided 2026-07-31)
+
+Tab and Shift+Tab act on the **whole** multi-block selection, not on the focused
+row. The group keeps its order and carries its children:
+
+- **Tab** makes every selected root a child of the sibling directly above the
+  run, appended after that sibling's existing children.
+- **Shift+Tab** takes the whole run out of its parent and lands it directly
+  below the parent, as its siblings; the rows left behind are renumbered gapless.
+- Both are **one** history step: a single Undo reverses the group move.
+- Tab expands the new parent if it was collapsed, so the group never vanishes.
+
+Both plans (`planIndentSelection` / `planOutdentSelection`) share `selectionRun`
+with `planMoveSelection`, so all three obey the same unit rule: the selected
+roots must be a contiguous run of siblings under a shared parent. A selection
+that crosses levels is a **no-op**, deliberately — indenting each root
+independently would split the group apart (the first row can be un-indentable
+while the second is not), and that is worse than nothing happening. Single-block
+Tab is unchanged and still routes through `BlockRow` → `planIndent`.
+
 ## Enter On Empty Blocks — Double-Enter Escape (decided 2026-07-10)
 
 Enter on an empty nested block outdents it one level instead of creating

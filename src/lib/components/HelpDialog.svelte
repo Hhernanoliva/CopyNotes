@@ -38,6 +38,7 @@
 				{ keys: ['Shift', '↑ / ↓'], desc: 'Seleccionar varios renglones' },
 				{ keys: ['Shift', 'clic'], desc: 'Seleccionar un rango (o arrastrando)' },
 				{ keys: [mod, 'C'], desc: 'Copiar la selección' },
+				{ keys: ['Tab'], desc: 'Anidar toda la selección (Shift+Tab la saca)' },
 				{ keys: ['Backspace'], desc: 'Borrar la selección' },
 				{ keys: ['Esc'], desc: 'Soltar la selección' }
 			]

@@ -245,3 +245,45 @@ test('dragging a selected word moves the text to another line', async ({ page })
 	await page.keyboard.press('ControlOrMeta+z');
 	await expect.poll(() => blockTexts(page)).toEqual(['hola mundo', 'otra']);
 });
+
+// Regression: with several lines selected, Tab used to indent only the focused
+// one (the selection handler had no Tab branch, so the key fell through to the
+// single-row handler). Now the whole group moves a level, and Shift+Tab returns it.
+test('Tab indents every selected line, not just the first', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Uno');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Dos');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Tres');
+	await expect.poll(() => blockTexts(page)).toEqual(['Uno', 'Dos', 'Tres']);
+
+	// Select "Dos" + "Tres" from "Dos" upward-free: focus is on "Tres", so a
+	// Shift+ArrowUp grows the selection to cover both.
+	await page.keyboard.press('Shift+ArrowUp');
+	await page.keyboard.press('Tab');
+
+	const row = (text) => page.locator('main [data-block-id]', { hasText: text });
+	await expect(row('Dos')).not.toHaveCSS('padding-left', '0px');
+	await expect(row('Tres')).not.toHaveCSS('padding-left', '0px');
+	await expect(row('Uno')).toHaveCSS('padding-left', '0px');
+	// Order is preserved: they land under "Uno" as Dos, Tres.
+	await expect.poll(() => blockTexts(page)).toEqual(['Uno', 'Dos', 'Tres']);
+
+	// Shift+Tab brings the whole group back out, still in order.
+	await page.keyboard.press('Shift+Tab');
+	await expect(row('Dos')).toHaveCSS('padding-left', '0px');
+	await expect(row('Tres')).toHaveCSS('padding-left', '0px');
+	await expect.poll(() => blockTexts(page)).toEqual(['Uno', 'Dos', 'Tres']);
+
+	// One undo puts the indent back (the group move is a single history step).
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(row('Dos')).not.toHaveCSS('padding-left', '0px');
+	await expect(row('Tres')).not.toHaveCSS('padding-left', '0px');
+});
