@@ -233,3 +233,88 @@ test('picking with the mouse keeps the selection, and one Ctrl+Z undoes the grou
 	await page.keyboard.press('ControlOrMeta+z');
 	await expect(page.locator('main [role="checkbox"]')).toHaveCount(0);
 });
+
+// Regression: converting a MIXED selection (one row already a task, one not)
+// must not duplicate the 'created' activity line for the row that was already
+// a task — applySelectionType only routes a row through convertToTask when it
+// genuinely becomes a task; a row that stays 'todo' goes through updateBlock,
+// same as any other type. Seeded via IndexedDB (same pattern as
+// user-task-activity.spec.ts) so the already-a-task row starts with zero
+// activity of its own, and any duplicate would show up as a second entry.
+test('converting a mixed selection to Tarea does not duplicate the activity line for a row that was already a task', async ({
+	page
+}) => {
+	await page.goto('/');
+	await expect(page.getByLabel('Título de la nota')).toBeVisible();
+
+	await page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const open = indexedDB.open('copynotes');
+				open.onerror = () => reject(open.error);
+				open.onsuccess = () => {
+					const db = open.result;
+					const now = new Date().toISOString();
+					const tx = db.transaction(['notes', 'blocks'], 'readwrite');
+					tx.objectStore('notes').put({
+						id: 'e2e-mixed-note',
+						title: 'Nota mixta',
+						agentVisible: true,
+						sortOrder: -1,
+						folderId: null,
+						createdAt: now,
+						updatedAt: now,
+						deletedAt: null
+					});
+					const block = (id, type, content, order) => ({
+						id,
+						noteId: 'e2e-mixed-note',
+						parentBlockId: null,
+						type,
+						content,
+						html: content,
+						order,
+						collapsed: false,
+						codeCollapsed: false,
+						checked: false,
+						note: '',
+						dueDate: null,
+						createdBy: 'user',
+						createdAt: now,
+						updatedAt: now,
+						deletedAt: null
+					});
+					tx.objectStore('blocks').put(block('e2e-mixed-a', 'todo', 'Ya tarea', 0));
+					tx.objectStore('blocks').put(block('e2e-mixed-b', 'bullet', 'Viñeta suelta', 1));
+					tx.oncomplete = () => {
+						db.close();
+						resolve(null);
+					};
+					tx.onerror = () => reject(tx.error);
+				};
+			})
+	);
+
+	await page.reload();
+	await expect(page.getByLabel('Título de la nota')).toBeVisible();
+	await page
+		.getByRole('navigation', { name: 'Lista de notas' })
+		.getByRole('button', { name: 'Nota mixta', exact: true })
+		.click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.press('Shift+ArrowDown');
+
+	const menu = page.locator('#slash-menu');
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await page.getByRole('option', { name: 'Tarea' }).click();
+	await expect(menu).toBeHidden();
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(2);
+
+	await page.getByRole('button', { name: 'Configuración' }).click();
+	// Only "Viñeta suelta" genuinely became a task here; "Ya tarea" already was
+	// one, so it must not gain a second 'created' line.
+	await expect(page.getByText('creaste una tarea')).toHaveCount(1);
+});

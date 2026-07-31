@@ -1372,9 +1372,12 @@
 		if (selection) focusBlockId = selection.focusId;
 	}
 
-	// Aplica un tipo a todo el grupo marcado. Las tareas nacen por convertToTask
-	// (deja la línea 'created' que lee el agente); el resto va por updateBlock.
-	// Un solo recordSnapshot: un Ctrl/Cmd+Z deshace la conversión entera.
+	// Aplica un tipo a todo el grupo marcado. Solo el renglón que NACE tarea pasa
+	// por convertToTask (deja la línea 'created' que lee el agente); uno que ya
+	// era tarea y sigue siéndolo va por updateBlock como cualquier otro tipo, o
+	// se duplicaría el 'created' en su bitácora. El tipo previo se guarda antes
+	// de mutar `row`, porque Object.assign ya lo pisa. Un solo recordSnapshot:
+	// un Ctrl/Cmd+Z deshace la conversión entera.
 	async function applySelectionType(type) {
 		const plan = planTypeChangeSelection(blocks, selectedIds, type);
 		selectionMenu = null;
@@ -1383,8 +1386,9 @@
 		for (const update of plan.updates) {
 			const { id, ...changes } = update;
 			const row = blocks.find((block) => block.id === id);
+			const becomesTask = changes.type === 'todo' && row?.type !== 'todo';
 			if (row) Object.assign(row, changes);
-			if (changes.type === 'todo') await convertToTask({ blockId: id, checked: changes.checked });
+			if (becomesTask) await convertToTask({ blockId: id, checked: changes.checked });
 			else await updateBlock(id, changes);
 		}
 		// La selección sigue marcada: el siguiente Tab / Alt+↓ / Cmd+C actúa
