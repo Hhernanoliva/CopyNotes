@@ -78,7 +78,8 @@ by `convertToTask`. No activity for the other types, matching the single-row pat
 
 New pure function in `src/lib/blocks/selection.ts`, alongside the existing
 `planIndentSelection` / `planMoveSelection` / `planDeleteSelection`. Returns
-`{ updates: [{ id, changes }] }` in visible order, where `changes` comes from
+`{ updates: [{ id, ...changes }] }` in visible order — the same flat shape
+`applyUpdates` already consumes — where `changes` comes from
 `planBlockType(row, type)`. Rules:
 
 - **Separators are skipped** — never converted, never written.
@@ -90,6 +91,12 @@ New pure function in `src/lib/blocks/selection.ts`, alongside the existing
   A row whose children are collapsed (hidden) therefore converts alone.
 - Returns `null` when nothing is convertible (e.g. a selection of separators),
   so the caller can no-op without recording a snapshot.
+- Converting to `Código` also carries `html: plainTextToHtml(block.content)`,
+  because a code row renders its `content` as plain text (`isRich` is false) and
+  its `html` must not stay behind as rich markup. The single-row `/código` path
+  does the same with a raw assignment; the group path escapes through
+  `plainTextToHtml` so nothing typed can become live markup later
+  (`block.html` is an `innerHTML` sink).
 
 ## User flows
 
@@ -165,3 +172,9 @@ New pure function in `src/lib/blocks/selection.ts`, alongside the existing
 - The group menu's `↑`/`↓`/`Enter`/`Tab`/`Escape` branches must sit **before**
   the existing selection branches, otherwise `Tab` indents and `Escape` clears
   the selection while the menu is open.
+- The menu renders inside the row, and the row's `pointerdown` arms the
+  drag-to-reorder controller: on an already-selected row, a release without
+  movement counts as a plain click and calls `onSelectionClick` →
+  `clearSelection()`. `SlashMenu`'s root therefore stops pointerdown
+  propagation, or picking an option with the mouse would drop the selection it
+  just acted on (same guard the date badge already uses).
