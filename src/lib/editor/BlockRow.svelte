@@ -737,7 +737,7 @@
 					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}
 					onblur={handleNoteBlur}
-					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap outline-none"
+					class="block-editable text-muted-foreground mt-0.5 w-full min-w-0 text-sm leading-relaxed break-words whitespace-pre-wrap italic outline-none"
 				></div>
 			{/if}
 			{#if conflict}
