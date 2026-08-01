@@ -585,7 +585,15 @@
 
 	<!-- Un agente cambió una tarea desde afuera: se ve al toque, sin re-montar el
 	     editor ni sacarte el cursor de donde estabas escribiendo. -->
-	<BridgeLifecycle onAgentIngested={handleExternalChange} />
+	<BridgeLifecycle
+		onAgentIngested={handleExternalChange}
+		onAgentBacklog={(count) =>
+			toast.info(
+				count === 1
+					? 'Mientras CopyNotes estaba cerrada, un agente hizo 1 cambio.'
+					: `Mientras CopyNotes estaba cerrada, un agente hizo ${count} cambios.`
+			)}
+	/>
 
 	<!-- La nube: sube, baja, y avisa cuando algo llegó de otro dispositivo. Misma
 	     puerta liviana que los agentes. -->

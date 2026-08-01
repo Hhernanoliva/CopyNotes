@@ -126,6 +126,13 @@ marcarla hecha, dejar un comentario) **queda en espera** y se aplica solo cuando
 volvés a abrir la app — es la app la que vigila la carpeta del buzón y contesta.
 Nada se pierde: espera ahí hasta que abras.
 
+Cuando abrís, esos pedidos se aplican solos y te aparece un cartel contándotelo:
+*"Mientras CopyNotes estaba cerrada, un agente hizo 2 cambios"*. Si querés ver
+qué fue exactamente, cada tarea guarda su historia debajo, y en **Ajustes** está
+la lista de lo último que pasó. Un pedido que quedó esperando **más de una
+semana** se descarta solo: a esa altura ya no es una orden pendiente, y aplicarla
+de golpe sería más sorpresa que ayuda.
+
 ### ¿Hay un agente trabajando?
 
 Arriba de las opciones, CopyNotes te dice qué está pasando:

@@ -163,6 +163,12 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
     // agent is mid-request because the watcher has not started yet.
     prune_stale_files(&processed);
     prune_stale_files(&dir.join("outbox"));
+    // The inbox joins them now that a request survives until it is acked: one
+    // nobody could deliver in a week is not a pending order any more, it is the
+    // user's own task text sitting on disk. Runs BEFORE the sweep below, so an
+    // ancient request is never applied. prune_stale_files skips directories, so
+    // processed/ (right inside inbox/) is not at risk.
+    prune_stale_files(&inbox);
 
     std::thread::spawn(move || {
         let (tx, rx) = channel();
