@@ -4,7 +4,7 @@
 
 Arriba, en la barra de la app, hay una **lupa** (atajos: **Cmd/Ctrl+K** o **Cmd/Ctrl+F**). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
 
-- **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador.
+- **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador. Volver a apretar **Cmd/Ctrl+F** con el panel abierto lo cierra.
 - **Cmd/Ctrl+K** abre la búsqueda vacía — salvo que tengas texto seleccionado adentro de un renglón, en cuyo caso agrega un enlace ahí (ver "Negrita, cursiva, subrayado, tachado y enlaces" más arriba).
 
 ### Cómo funciona

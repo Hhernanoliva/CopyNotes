@@ -213,6 +213,12 @@
 		// igual en cuanto la barra no reclamaba la tecla.
 		if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'f') {
 			event.preventDefault();
+			// La misma tecla que abre el buscador lo cierra: es el atajo que ya
+			// tienen todos los navegadores y volver a apretarlo no debe reabrirlo.
+			if (searchOpen) {
+				searchOpen = false;
+				return;
+			}
 			searchSeed = window.getSelection()?.toString().trim() ?? '';
 			searchOpen = true;
 			return;

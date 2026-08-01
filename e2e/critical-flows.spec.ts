@@ -435,6 +435,16 @@ test('search finds a block by its text', async ({ page }) => {
 	await expect(page.getByText(/anidar/i).first()).toBeVisible();
 });
 
+test('Ctrl+F opens the search panel and pressing it again closes it', async ({ page }) => {
+	await page.goto('/');
+	await expect(page.getByRole('button', { name: 'Buscar' })).toBeVisible();
+	const field = page.getByLabel('Texto a buscar');
+	await page.keyboard.press('ControlOrMeta+f');
+	await expect(field).toBeVisible();
+	await page.keyboard.press('ControlOrMeta+f');
+	await expect(field).toBeHidden();
+});
+
 test('exporting a full backup downloads a JSON file with the notes', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Respaldo' }).click();
