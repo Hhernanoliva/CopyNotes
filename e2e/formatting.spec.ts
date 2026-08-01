@@ -697,6 +697,36 @@ test('con texto marcado, Tab entra en la barra', async ({ page }) => {
 	await page.keyboard.press('ArrowRight');
 	await page.keyboard.press('Enter');
 	await expect(first).toHaveClass(/block-editable--h2/);
+
+	// Elegir con el teclado cierra la barra y devuelve el cursor al texto, listo
+	// para seguir escribiendo.
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toHaveCount(0);
+	await expect(first).toBeFocused();
+	await page.keyboard.type(' y sigo', { delay: 25 });
+	await expect(first).toHaveText('marcado y sigo');
+});
+
+test('con el mouse la barra queda abierta, para aplicar dos formatos seguidos', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: la barra sigue abierta con mouse');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('dos formatos', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await expect(toolbar).toBeVisible();
+
+	await page.getByRole('button', { name: 'Negrita' }).click();
+	await expect(first.locator('strong')).toHaveText('dos formatos');
+	await expect(toolbar).toBeVisible();
+
+	await page.getByRole('button', { name: 'Cursiva' }).click();
+	await expect(first.locator('em')).toHaveText('dos formatos');
 });
 
 test('sin nada marcado, Tab sigue anidando el renglón', async ({ page }) => {

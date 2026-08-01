@@ -18,9 +18,11 @@ Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón.
 | **Ctrl/Cmd+Alt+F** | Lo mismo que Tab, por si preferís un atajo (es el de Google Docs) |
 | **← →** (o **↑ ↓**) | Te movés de botón en botón, salteando los que estén apagados |
 | **Inicio** / **Fin** | Vas al primero o al último botón |
-| **Enter**, **Espacio** o **Tab** | Aplica el botón donde estés parado, y el cursor vuelve al texto |
+| **Enter**, **Espacio** o **Tab** | Aplica el botón donde estés parado: la barra se cierra y el cursor vuelve al texto, listo para seguir escribiendo |
 | **Shift+Tab** | Volvés un botón para atrás |
 | **Escape** | Salís al texto sin aplicar nada |
+
+(Con el **mouse** la barra no se cierra al aplicar: queda abierta para que puedas poner negrita y cursiva de una, sin volver a marcar).
 
 Los botones que abren un panel —**Color de texto**, **Enlace** y **Más opciones**— te llevan el foco adentro del panel al abrirse. Ahí las flechas también caminan las opciones, **Enter** elige, y **Escape** te devuelve al botón por el que entraste (otro Escape sale al texto).
 

@@ -78,8 +78,12 @@ selection still never converts the row.
   toolbar into nowhere.
 - **`Escape`** returns to the text without applying anything (today's behaviour,
   unchanged).
-- Applying a command returns focus to the row, which `runFormatCommand` already
-  does for every toolbar command.
+- Applying a command **from the keyboard closes the toolbar** and returns the
+  caret to the text, the way any menu closes when you pick from it. Applying
+  with the **mouse** leaves it open, as it has always been, so two formats can
+  be applied in a row without marking again. The two are told apart by whether a
+  toolbar button holds focus — with the mouse none does, because the buttons
+  cancel focus on `mousedown` to protect the text selection.
 
 ### 4. The three panels
 
