@@ -543,6 +543,14 @@
 
 	function handleMousedown(event) {
 		if (event.shiftKey) {
+			// Shift+click DENTRO del renglón donde ya está el cursor es la
+			// selección de texto de toda la vida: se la dejamos al navegador.
+			// Robársela para armar un rango de bloques dejaba al usuario sin nada
+			// seleccionado, porque un rango de un solo renglón no se pinta.
+			// Si el press cae en otro renglón, o si ya hay un rango de bloques
+			// vivo, sigue mandando la selección por bloques.
+			const caret = window.getSelection?.();
+			if (!selected && caret?.anchorNode && el?.contains(caret.anchorNode)) return;
 			event.preventDefault();
 			onShiftSelect?.(block);
 			return;

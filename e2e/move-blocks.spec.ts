@@ -287,3 +287,38 @@ test('Tab indents every selected line, not just the first', async ({ page }) => 
 	await expect(row('Dos')).not.toHaveCSS('padding-left', '0px');
 	await expect(row('Tres')).not.toHaveCSS('padding-left', '0px');
 });
+
+// Shift+click inside the SAME row is plain text selection — even with the caret
+// parked on the first character, where the block-range handler used to swallow
+// it and leave nothing selected. Shift+click on ANOTHER row still selects the
+// range of rows.
+test('Shift+click selects text inside the row and rows across rows', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('abcdefghijklmnop');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Segundo');
+
+	// Caret on the first character of row 1, then Shift+click further along it.
+	await first.click();
+	await page.keyboard.press('Home');
+	const box = await first.boundingBox();
+	await page.keyboard.down('Shift');
+	await page.mouse.click(box.x + 60, box.y + box.height / 2);
+	await page.keyboard.up('Shift');
+	const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
+	expect(selected.length).toBeGreaterThan(0);
+	expect('abcdefghijklmnop').toContain(selected);
+
+	// Shift+click on the other row still builds a two-row block selection.
+	const second = page.locator('main [data-block-id] .block-editable').nth(1);
+	const secondBox = await second.boundingBox();
+	await page.keyboard.down('Shift');
+	await page.mouse.click(secondBox.x + 20, secondBox.y + secondBox.height / 2);
+	await page.keyboard.up('Shift');
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+});

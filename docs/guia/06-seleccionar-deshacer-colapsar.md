@@ -4,7 +4,7 @@
 
 Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 
-- **Con el mouse:** clic en un renglón y **arrastrá** hacia arriba o hacia abajo sin soltar; se van pintando todos los que tocás. O hacé clic en uno y **Shift+clic** en otro para marcar el rango de una.
+- **Con el mouse:** clic en un renglón y **arrastrá** hacia arriba o hacia abajo sin soltar; se van pintando todos los que tocás. O hacé clic en uno y **Shift+clic** en **otro** para marcar el rango de una. Ojo: **Shift+clic dentro del mismo renglón donde está el cursor** no marca renglones, marca **texto** —lo de siempre—, aunque el cursor esté pegado al primer carácter.
 - **Con el teclado:** parado en un renglón, **Shift+↑ / Shift+↓** empieza a marcar hacia arriba o hacia abajo, y cada golpe suma (o quita) un renglón. Una flecha sola (sin Shift) deja la selección y mueve el cursor normal.
 - **Copiar** los seleccionados: **Cmd+C** (Ctrl+C en Windows). Copia todo el grupo como esquema, respetando niveles.
 - **Borrar** los seleccionados: **Backspace** o **Delete**. Se borran todos (recuperable). Si un renglón seleccionado tiene hijos, se van con él. Si borrás todo, queda un renglón vacío para seguir.
