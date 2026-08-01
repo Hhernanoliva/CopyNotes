@@ -1,9 +1,17 @@
-// The single place to create, edit, complete, reopen, and read TASKS (todo
-// blocks). Both the app UI and the agent bridge call this layer; it wraps the
-// block repositories and appends the matching activity (bitácora) entry, so
-// there is never a second, divergent write path. It assumes its text/html
-// inputs are already clean — the bridge runs untrusted agent input through the
-// ingest gate BEFORE calling here (see src/lib/bridge/ingest.ts).
+// The single place to create, complete, redo, and read TASKS (todo blocks).
+// Both the app UI and the agent bridge call this layer; it wraps the block
+// repositories and appends the matching activity (bitácora) entry, so there is
+// never a second, divergent write path. It assumes its text/html inputs are
+// already clean — the bridge runs untrusted agent input through the ingest gate
+// BEFORE calling here (see src/lib/bridge/ingest.ts).
+//
+// What the bitácora records, ON PURPOSE, is births and closures: created, done,
+// reopened, note. Writing a task's TEXT and DELETING it do NOT go through here
+// and leave no line — text edits would add one per debounced save (pure noise;
+// the guide promises they don't), and a deleted task is already unreachable for
+// the agent because getBlock filters soft-deleted rows at the ingest gate. Do
+// not "fix" this by routing block edits/deletes through a task layer; it is the
+// decided shape (AGENT.md, spec 028).
 
 import {
 	db,
@@ -137,10 +145,6 @@ export async function completeTask({ blockId, actor, text = '' }) {
 	return result;
 }
 
-export async function reopenTask({ blockId, actor = 'user', text = '' }) {
-	return traceWrite({ blockId, changes: { checked: false }, actor, action: 'reopened', text });
-}
-
 // "Rehacer" (Configuración › Agentes): untick the task AND leave the user's
 // instruction, in ONE write. Split in two it could reopen a task and then fail
 // to record why, leaving the person with a task that reopened itself for no
@@ -235,13 +239,6 @@ export async function convertToTask({
 		action: 'created',
 		text: content ?? block.content ?? ''
 	});
-}
-
-export async function editTask({ blockId, content, html = undefined, actor = 'user' }) {
-	// When html is omitted, derive it from content (escaped) so a plain-text
-	// edit can never smuggle markup into block.html.
-	const changes = { content, html: html !== undefined ? html : plainTextToHtml(content) };
-	return traceWrite({ blockId, changes, actor, action: 'edited', text: content });
 }
 
 export async function readTask(blockId) {

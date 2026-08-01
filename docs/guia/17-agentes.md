@@ -94,9 +94,13 @@ ocultar.
 Cuando **vos** marcás una tarea como hecha, la reabrís o creás una tarea, eso
 también aparece en **Configuración › Agentes** como **"Vos…"** (por ejemplo "Vos
 marcaste hecha"). Así el agente distingue lo que hiciste vos de lo que hizo él, y
-la actividad cuenta la historia completa de cada tarea. Escribir el texto de una
-tarea no genera una línea (sería demasiado ruido); sí actualiza lo que el agente
-lee.
+la actividad cuenta la historia completa de cada tarea.
+
+Dos cosas **no** dejan línea, a propósito: **escribir o corregir el texto** de una
+tarea (sería una línea nueva cada vez que tocás una palabra) y **borrarla**. Las
+dos igual actualizan lo que el agente lee: una tarea que borraste desaparece de
+su vista al instante, y si el agente todavía tenía apuntado su número, la app le
+rebota el pedido — no puede tocar una tarea que borraste.
 
 ## Solo en la app de escritorio
 

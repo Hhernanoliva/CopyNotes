@@ -24,7 +24,8 @@ Agent Notes.
 - **Task-action layer** — one module (`src/lib/tasks/`) that is the single place
   to create, edit, complete, reopen, and read tasks. Both the app UI and the
   agent bridge call it. It wraps the existing block repositories; it is not a
-  second data path.
+  second data path. Scope: create, complete, redo (untick + instruction), read.
+  Text edits and deletions are NOT in it — see the `action` list below.
 - **Per-task activity log ("bitácora")** — an ordered list of small entries
   recording who did what and when on a task. Powers the agent↔user back-and-forth
   *and* the audit history `012` asks for. Stored in a dedicated `activity` table
@@ -147,7 +148,14 @@ One append-mostly row per event on a task:
 - `blockId` — the task it belongs to
 - `noteId` — denormalized for per-note and global activity views
 - `actor` — `'user'` or an agent id
-- `action` — `created` | `done` | `reopened` | `note` | `edited`
+- `action` — `created` | `done` | `reopened` | `note`. Those four and no more:
+  editing a task's text and deleting it deliberately leave NO entry (decided
+  2026-08-01), so they stay on the plain block repositories instead of routing
+  through `lib/tasks`. An edit would append one line per debounced save — noise
+  the user guide already promises does not happen — and a deleted task is
+  unreachable for the agent anyway, since `getBlock` filters soft-deleted rows
+  before the ingest gate ever answers. An earlier draft listed `edited`; it was
+  never produced by any caller and is gone.
 - `text` — optional (a completion summary, or the user's "redo: …" instruction)
 - `at` — timestamp
 - `deletedAt` — soft delete, for consistency with the rest of the model

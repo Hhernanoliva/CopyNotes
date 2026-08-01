@@ -8,7 +8,8 @@ import {
 	getProcessedChange,
 	listActivityByBlock,
 	createBlock,
-	getBlock
+	getBlock,
+	softDeleteBlock
 } from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
 import { grantUploadConsent, listPendingUploads } from '$lib/sync/pending';
@@ -30,6 +31,25 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(res.ok).toBe(false);
 		expect(res.reason).toBe('not-agent-visible');
 		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+
+	// Load-bearing for the "deleting a task needs no bitácora line" decision
+	// (AGENT.md): the gate closes on a deleted task on its own, so an agent
+	// holding its id can never act on it. If this ever passes, deletions DO need
+	// to be recorded somewhere.
+	it('rejects a change targeting a task the user deleted', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await softDeleteBlock(block.id);
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			blockId: block.id,
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('not-agent-visible');
 	});
 
 	it('creates a task on a visible note and strips smuggled markup', async () => {

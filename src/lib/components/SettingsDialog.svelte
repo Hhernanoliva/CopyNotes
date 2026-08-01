@@ -302,8 +302,7 @@
 		created: 'creó una tarea',
 		done: 'marcó hecha',
 		reopened: 'reabrió',
-		note: 'dejó una nota',
-		edited: 'editó'
+		note: 'dejó una nota'
 	};
 
 	// Con la puerta única las acciones del usuario también entran al feed;
@@ -312,8 +311,7 @@
 		created: 'creaste una tarea',
 		done: 'marcaste hecha',
 		reopened: 'reabriste',
-		note: 'dejaste una nota',
-		edited: 'editaste'
+		note: 'dejaste una nota'
 	};
 
 	function actionLabel(entry) {

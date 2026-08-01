@@ -5,10 +5,8 @@ import * as storage from '$lib/storage';
 import {
 	createTask,
 	completeTask,
-	reopenTask,
 	redoTask,
 	addTaskNote,
-	editTask,
 	readTask,
 	listTasks,
 	setTaskChecked,
@@ -134,20 +132,18 @@ describe('completeTask cascade (agent path)', () => {
 	});
 });
 
-describe('reopen / note / edit', () => {
-	it('reopen unchecks and traces; addTaskNote records an instruction', async () => {
+describe('note / redo', () => {
+	it('addTaskNote records an instruction without touching the task', async () => {
 		const note = await createNote();
 		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
 		await completeTask({ blockId: block.id, actor: 'agent' });
 
-		const { block: reopened } = await reopenTask({ blockId: block.id, actor: 'user' });
-		expect(reopened.checked).toBe(false);
+		await addTaskNote({ blockId: block.id, actor: 'agent', text: 'Listo, con fuentes' });
 
-		await addTaskNote({ blockId: block.id, actor: 'user', text: 'Rehacer: agregá fuentes' });
-
+		expect((await getBlock(block.id)).checked).toBe(true);
 		const log = await listActivityByBlock(block.id);
-		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'reopened', 'note']);
-		expect(log.at(-1).text).toBe('Rehacer: agregá fuentes');
+		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'note']);
+		expect(log.at(-1).text).toBe('Listo, con fuentes');
 	});
 
 	it('redoTask unchecks AND leaves the instruction last, in one write', async () => {
@@ -202,17 +198,6 @@ describe('reopen / note / edit', () => {
 		expect((await listActivityByBlock(block.id)).map((e) => e.action)).toEqual(['created', 'done']);
 	});
 
-	it('editTask updates content and traces edited', async () => {
-		const note = await createNote();
-		const { block } = await createTask({ noteId: note.id, content: 'viejo', actor: 'user' });
-		const { block: edited, activity } = await editTask({
-			blockId: block.id,
-			content: 'nuevo',
-			actor: 'agent'
-		});
-		expect(edited.content).toBe('nuevo');
-		expect(activity.action).toBe('edited');
-	});
 });
 
 describe('readTask / listTasks', () => {
@@ -238,9 +223,8 @@ describe('readTask / listTasks', () => {
 describe('mutators on a missing block', () => {
 	it('return undefined instead of throwing when the block is gone', async () => {
 		expect(await completeTask({ blockId: 'nope', actor: 'agent' })).toBeUndefined();
-		expect(await reopenTask({ blockId: 'nope', actor: 'user' })).toBeUndefined();
 		expect(await addTaskNote({ blockId: 'nope', actor: 'user', text: 'x' })).toBeUndefined();
-		expect(await editTask({ blockId: 'nope', content: 'x', actor: 'agent' })).toBeUndefined();
+		expect(await redoTask({ blockId: 'nope', actor: 'user', text: 'x' })).toBeUndefined();
 	});
 
 	it('readTask returns undefined for a nonexistent block', async () => {
