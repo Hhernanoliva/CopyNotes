@@ -112,7 +112,7 @@ proyecta en la lectura Markdown.
   agent visibility stay independent permissions — `sync/pending.ts` hands out
   nothing before consent, whoever wrote it. Still out of scope: an agent reading
   a device whose app is closed sees that device's last export, and the browser
-  build has no agent surface at all.
+  build runs no bridge at all.
 - No multiple simultaneous agents (single-agent v1).
 - No agent writing prose or free note content — agents act on **tasks and
   structured metadata only**, never rewrite a note's body. (v2: the agent *reads*
@@ -201,7 +201,13 @@ without redesign.
   work on a task the agent has just completed — the short-id pool resolves against
   the export, not the pruned Markdown.
 - Uncheck + a user `note` entry round-trips as "reopen/redo" the agent can read.
-- The bridge is desktop-only; the browser build exposes no agent surface.
+- The bridge is desktop-only: the browser build runs no mailbox, no watcher and
+  no export — nothing an agent can read or write. The ONE agent control it does
+  keep is the note header's `agentVisible` toggle, because that flag is a synced
+  note field: setting it in the browser prepares what the desktop app will expose
+  when it opens. It must say so — its label and tooltip carry "solo tiene efecto
+  en la app de escritorio" off desktop (`e2e/agent-visibility.spec.ts`). Settings
+  › Agentes stays fully hidden there, since none of it is actionable.
 - The agent cannot delete, export, or bulk-reorder in v1.
 - Every new persisted field keeps stable id + timestamps + soft-delete discipline
   (cloud-ready per `029`).

@@ -43,6 +43,7 @@
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { isTauriRuntime } from '$lib/platform';
 	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -299,6 +300,19 @@
 	);
 
 	const visible = $derived(buildVisibleList(blocks));
+
+	// El puente con los agentes es solo de escritorio. El botón se queda igual en
+	// el navegador porque la marca SÍ sirve ahí: se guarda y viaja por la nube, o
+	// sea que servía para preparar qué verá el agente cuando abras la app. Lo que
+	// faltaba era decirlo — antes el botón fingía que ahí hacía algo.
+	const agentBridgeAvailable = isTauriRuntime();
+	const AGENT_WEB_CAVEAT = 'solo tiene efecto en la app de escritorio';
+	const agentTooltip = $derived.by(() => {
+		const state = note?.agentVisible
+			? 'Los agentes pueden leer el texto y las tareas de esta nota'
+			: 'Los agentes no ven esta nota';
+		return agentBridgeAvailable ? state : `${state} — ${AGENT_WEB_CAVEAT}`;
+	});
 	const slashCommands = $derived.by(() => {
 		if (!slash) return [];
 		if (slash.mode === 'snippets') {
@@ -1925,11 +1939,11 @@
 			<button
 				type="button"
 				onclick={toggleAgentVisible}
-				aria-label="Visible para agentes"
+				aria-label={agentBridgeAvailable
+					? 'Visible para agentes'
+					: `Visible para agentes — ${AGENT_WEB_CAVEAT}`}
 				aria-pressed={note.agentVisible === true}
-				use:tooltip={note.agentVisible
-					? 'Los agentes pueden leer el texto y las tareas de esta nota'
-					: 'Los agentes no ven esta nota'}
+				use:tooltip={agentTooltip}
 				class="focus-visible:ring-ring flex size-8 shrink-0 items-center justify-center rounded-md transition-[color,opacity] duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {note.agentVisible
 					? 'text-primary opacity-100'
 					: 'text-faint hover:text-foreground opacity-0 group-hover/title:opacity-100 group-focus-within/title:opacity-100'}"

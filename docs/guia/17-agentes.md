@@ -10,6 +10,12 @@ En el encabezado de la nota, al lado del botón de etiquetar, hay un botón con 
 robot 🤖 **"Visible para agentes"**. Si lo activás, el agente puede leer esa nota
 para ayudarte con sus tareas. Ninguna nota sin este botón activado sale de la app.
 
+**Desde el navegador el botón también sirve, pero no hace nada ahí mismo.** Los
+agentes solo funcionan en la **app de escritorio**; en la web el botón deja la
+nota marcada y esa marca **viaja por la nube**, así que sirve para preparar qué
+va a ver el agente cuando abras la app. El botón te lo aclara: si pasás el mouse
+por arriba dice *"solo tiene efecto en la app de escritorio"*.
+
 ## Qué lee el agente (y qué NO)
 
 Cuando una nota es visible, el agente ve:

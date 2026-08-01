@@ -60,6 +60,27 @@ test('hiding a note from agents is persisted without waiting out the debounce', 
 	expect(await countVisibleNotes(page)).toBe(0);
 });
 
+test('in the browser the agent toggle says it only takes effect on the desktop app', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	// The button stays (the mark travels to the desktop through the cloud), but
+	// it must not pretend the bridge is here: both the accessible name and the
+	// tooltip carry the caveat.
+	const toggle = page.getByRole('button', { name: 'Visible para agentes' });
+	await expect(toggle).toHaveAttribute(
+		'aria-label',
+		'Visible para agentes — solo tiene efecto en la app de escritorio'
+	);
+
+	await toggle.hover();
+	await expect(page.locator('.cn-tooltip')).toContainText(
+		'solo tiene efecto en la app de escritorio'
+	);
+});
+
 test('off desktop, Settings shows only the muted MCP line (no per-client blocks)', async ({
 	page
 }) => {
