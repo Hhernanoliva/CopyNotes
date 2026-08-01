@@ -58,6 +58,19 @@ tarea, igual que tus comentarios. Así siempre distinguís de un vistazo
 lo que escribió la IA de tu propio texto y de tus comentarios, que quedan
 intactos.
 
+## Pausar todos los agentes de golpe
+
+En **Configuración › Agentes** (app de escritorio) hay un botón **"Pausar
+agentes"**. Es el corte de emergencia: mientras esté pausado, **ningún agente
+puede leer ni cambiar nada**, aunque tengas notas marcadas con el robot 🤖. Si
+un agente lo intenta, le rebota el pedido y le avisa que están pausados, así no
+te dice que "no compartiste ninguna nota".
+
+No te desarma nada: las marcas 🤖 de cada nota quedan como estaban. Tocás
+**"Reanudar"** y todo vuelve exactamente a como lo tenías. La pausa es de **esta
+computadora** —no viaja a tus otros dispositivos— y **sobrevive a restaurar un
+respaldo**: un archivo viejo nunca puede despausarte sin que te enteres.
+
 ## Ver la actividad y pedir que lo rehaga
 
 En **Configuración** (engranaje ⚙️) hay una sección **Agentes** con la lista de

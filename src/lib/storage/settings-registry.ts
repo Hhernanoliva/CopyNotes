@@ -21,6 +21,7 @@ export const KEY = {
 	agendaHideCompleted: 'agendaHideCompleted',
 	editorTextScale: 'editorTextScale',
 	connectedAgent: 'connectedAgent',
+	agentsPaused: 'agentsPaused',
 	processedChanges: 'processedChanges',
 	syncConsent: 'syncConsent',
 	syncUploadedThrough: 'syncUploadedThrough',
@@ -35,6 +36,7 @@ export const SETTINGS = {
 	[KEY.agendaHideCompleted]: { backupSafe: true },
 	[KEY.editorTextScale]: { backupSafe: true },
 	[KEY.connectedAgent]: { backupSafe: false }, // Local MCP connection identity — device-only, never leaves in a backup (cloud is spec 029).
+	[KEY.agentsPaused]: { backupSafe: false }, // The master agent kill switch. NOT backup-safe on purpose: import only writes safe keys, so restoring a file can never un-pause a device the user paused.
 	[KEY.processedChanges]: { backupSafe: false }, // Local agent-change dedupe ledger — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.syncConsent]: { backupSafe: false }, // Consent to upload (spec 030 phase 2) — a decision per device, never restored from a file.
 	[KEY.syncUploadedThrough]: { backupSafe: false }, // How far the change counter was uploaded — meaningless on another device, and restoring it would skip records.

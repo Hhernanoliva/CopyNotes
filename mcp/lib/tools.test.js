@@ -246,6 +246,13 @@ describe('listNotesResult', () => {
 		expect(res.isError).toBe(false);
 		expect(res.content[0].text).toContain('No hay notas');
 	});
+	// Vacío por el interruptor maestro ≠ vacío porque nunca compartió nada.
+	it('pausado lo dice, en vez de decir que no hay notas compartidas', () => {
+		const res = listNotesResult({ notes: [], paused: true });
+		expect(res.isError).toBe(false);
+		expect(res.content[0].text).toContain('pausados');
+		expect(res.content[0].text).not.toContain('No hay notas');
+	});
 });
 
 describe('readNoteResult', () => {

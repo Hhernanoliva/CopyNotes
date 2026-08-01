@@ -1,7 +1,8 @@
 <script>
 	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
-	import { listRecentActivity } from '$lib/storage';
+	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
+	import { bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
 	import { DESKTOP_DOWNLOAD_URL } from '$lib/desktop/download';
@@ -46,6 +47,7 @@
 	let redoFor = $state(null); // blockId currently being redone
 	let redoText = $state('');
 	let redoError = $state(null);
+	let agentsPaused = $state(false);
 	let mailboxPath = $state(null);
 	let serverPath = $state(null);
 	let agentStatus = $state(null); // { lastSeen } | null
@@ -218,6 +220,16 @@
 		});
 	}
 
+	// El corte de emergencia. Se escribe primero y recién después se avisa al
+	// puente, para que la re-exportación lea el estado ya guardado; urgente en
+	// los dos sentidos porque pausar tiene que vaciar export.json ya mismo.
+	async function toggleAgentsPaused() {
+		const next = !agentsPaused;
+		agentsPaused = next;
+		await setAgentsPaused(next);
+		bumpAgentDataUrgent();
+	}
+
 	async function submitRedo(entry) {
 		const text = redoText.trim();
 		if (!text) return;
@@ -244,6 +256,9 @@
 		listRecentActivity(20).then((rows) => (activity = rows));
 		refreshCloud().catch((error) => console.error('No se pudo leer el estado de la nube', error));
 		if (isTauriRuntime()) {
+			getAgentsPaused()
+				.then((paused) => (agentsPaused = paused))
+				.catch((error) => console.error('No se pudo leer si los agentes están pausados', error));
 			getMailboxPath()
 				.then((p) => (mailboxPath = p))
 				.catch((error) => console.error('No se pudo obtener la carpeta del buzón', error));
@@ -768,6 +783,36 @@
 				<h3 class="text-sm font-bold">Agentes</h3>
 				<p class="text-muted-foreground text-sm">Lo último que hicieron los agentes en tus tareas.</p>
 			</div>
+
+			<!-- El corte de emergencia. Solo en escritorio: en el navegador no hay
+			     puente que cortar, y un botón que no hace nada es peor que ninguno. -->
+			{#if isTauriRuntime()}
+				<div
+					class="border-border flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+				>
+					<p class="text-sm">
+						{#if agentsPaused}
+							<span class="font-medium">Agentes pausados.</span>
+							<span class="text-muted-foreground">
+								No pueden leer ni cambiar nada, aunque una nota esté marcada.
+							</span>
+						{:else}
+							<span class="font-medium">Agentes activos.</span>
+							<span class="text-muted-foreground">
+								Pueden trabajar en las notas que marcaste con el robot.
+							</span>
+						{/if}
+					</p>
+					<button
+						type="button"
+						onclick={toggleAgentsPaused}
+						aria-pressed={agentsPaused}
+						class="border-border shrink-0 rounded-md border px-3 py-1 text-sm font-bold"
+					>
+						{agentsPaused ? 'Reanudar' : 'Pausar agentes'}
+					</button>
+				</div>
+			{/if}
 
 			{#if activity.length === 0}
 				<p class="text-muted-foreground text-sm">Todavía no hay actividad de agentes.</p>

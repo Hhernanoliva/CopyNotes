@@ -80,3 +80,15 @@ export function getEditorTextScale() {
 export function setEditorTextScale(value) {
 	return setSetting(KEY.editorTextScale, value);
 }
+
+// The master agent switch. Paused = the ingest gate rejects every request AND
+// the export the agent reads goes out empty, whatever each note's agentVisible
+// says — one place to cut, without having to walk note by note. Default false
+// (missing key = not paused), so nothing changes for anyone who never uses it.
+export async function getAgentsPaused() {
+	return (await getSetting(KEY.agentsPaused)) === true;
+}
+
+export function setAgentsPaused(value) {
+	return setSetting(KEY.agentsPaused, value === true);
+}

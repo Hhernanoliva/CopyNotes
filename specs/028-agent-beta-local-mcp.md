@@ -124,7 +124,14 @@ proyecta en la lectura Markdown.
 - No browser/PWA agent connection — reach is desktop-only; the browser limit is
   documented, not worked around.
 - No full agent registry / sessions / per-agent pause-resume-revoke yet — those
-  from `012` arrive when a second agent does.
+  from `012` arrive when a second agent does. What v1 DOES have (2026-08-01) is
+  one GLOBAL kill switch, `agentsPaused` in settings: while it is on, the ingest
+  gate rejects every request with reason `agents-paused` and `buildAgentExport`
+  emits `{ notes: [], paused: true }`, so both halves — write and read — are cut
+  from one place without walking note by note. `agentVisible` is left untouched,
+  so resuming restores exactly the previous state. The `paused` marker exists so
+  `list_notes` can say "están pausados" instead of "no compartiste nada". Not
+  backup-safe: an imported file must never un-pause a device.
 
 ## Model Of Data Affected
 

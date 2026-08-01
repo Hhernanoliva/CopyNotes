@@ -15,7 +15,8 @@ import {
 	getProcessedChange,
 	recordProcessedChange,
 	putProcessedChangeInTx,
-	trackPendingWrite
+	trackPendingWrite,
+	getAgentsPaused
 } from '$lib/storage';
 import { createTask, completeTask, addTaskNote } from '$lib/tasks';
 import { REASON, changeResult } from './protocol';
@@ -71,6 +72,11 @@ async function checkChange(change) {
 	const type = change?.type;
 	const handler = Object.hasOwn(HANDLERS, type) ? HANDLERS[type] : null;
 	if (!handler) return { reason: REASON.notAllowed };
+
+	// The master switch, checked before anything else: while it is on, no request
+	// gets in no matter which note it targets. Read from the DB, not from a cached
+	// flag, so the pause takes effect on the very next request.
+	if (await getAgentsPaused()) return { reason: REASON.agentsPaused };
 
 	// The note an operation lands on is authoritative from the target itself,
 	// never from the agent's claimed change.noteId. createTask has no block yet

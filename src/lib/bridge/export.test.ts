@@ -88,6 +88,26 @@ describe('buildAgentExport (privacy gate over real storage)', () => {
 		expect(flat).not.toContain('Privada');
 	});
 
+	// La mitad de lectura del corte de emergencia. Sin esto, "pausado" solo taparía
+	// las escrituras y el agente seguiría leyendo el archivo viejo entero.
+	it('con los agentes pausados el archivo sale VACÍO, no viejo', async () => {
+		const { setAgentsPaused } = await import('$lib/storage');
+		const visible = await createNote({ title: 'Visible' });
+		await updateNote(visible.id, { agentVisible: true });
+		await createBlock({ noteId: visible.id, type: 'todo', content: 'hacer' });
+
+		expect((await buildAgentExport()).notes).toHaveLength(1);
+
+		await setAgentsPaused(true);
+		const paused = await buildAgentExport();
+		expect(paused.notes).toEqual([]);
+		expect(JSON.stringify(paused)).not.toContain('hacer');
+
+		// Reanudar devuelve todo sin tocar la marca 🤖 de ninguna nota.
+		await setAgentsPaused(false);
+		expect((await buildAgentExport()).notes.map((n) => n.title)).toEqual(['Visible']);
+	});
+
 	it('conserva una tarea completada con su bitácora (para add_note / get_task_history)', async () => {
 		const { completeTask } = await import('$lib/tasks');
 		const note = await createNote({ title: 'V' });

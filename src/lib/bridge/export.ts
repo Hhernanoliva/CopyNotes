@@ -14,7 +14,13 @@
 // them here — dropping them here made their ids unreachable, breaking the
 // complete-then-comment flow.
 
-import { listNotes, listBlocksByNote, listActivityByBlock, listFolders } from '$lib/storage';
+import {
+	listNotes,
+	listBlocksByNote,
+	listActivityByBlock,
+	listFolders,
+	getAgentsPaused
+} from '$lib/storage';
 import { flattenTree } from '$lib/blocks/hierarchy';
 
 export const AGENT_EXPORT_FORMAT = 'copynotes.agent';
@@ -64,6 +70,19 @@ export function toAgentPayload(notes, blocksByNote, activityByBlock, folderNames
 }
 
 export async function buildAgentExport() {
+	// Master switch on: the file the agent reads goes out EMPTY, not stale. This
+	// is the read half of the pause (ingest.ts holds the write half); leaving the
+	// old contents would keep every visible note readable while "paused".
+	if (await getAgentsPaused()) {
+		// `paused` is the reason, not just the absence of notes: without it the
+		// agent reads "no visible notes" and tells the person they never shared
+		// anything, when the truth is they pulled the switch.
+		return {
+			...toAgentPayload([], {}, {}),
+			paused: true,
+			exportedAt: new Date().toISOString()
+		};
+	}
 	const notes = (await listNotes()).filter((note) => note.agentVisible === true);
 	const folderNamesById = {};
 	for (const folder of await listFolders('note')) folderNamesById[folder.id] = folder.name;

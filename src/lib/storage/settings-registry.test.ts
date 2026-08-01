@@ -12,6 +12,7 @@ describe('settings registry', () => {
 				'agendaHideCompleted',
 				'editorTextScale',
 				'connectedAgent',
+				'agentsPaused',
 				'processedChanges',
 				'syncConsent',
 				'syncUploadedThrough',
@@ -35,6 +36,12 @@ describe('settings registry', () => {
 
 	it('treats connectedAgent as not backup-safe', () => {
 		expect(isBackupSafe('connectedAgent')).toBe(false);
+	});
+
+	// Import only writes backup-safe keys, so keeping this false is what stops a
+	// restored file from silently un-pausing a device the user paused.
+	it('treats agentsPaused as not backup-safe', () => {
+		expect(isBackupSafe('agentsPaused')).toBe(false);
 	});
 
 	it('treats processedChanges as not backup-safe', () => {

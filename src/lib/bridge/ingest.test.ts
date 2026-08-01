@@ -9,7 +9,8 @@ import {
 	listActivityByBlock,
 	createBlock,
 	getBlock,
-	softDeleteBlock
+	softDeleteBlock,
+	setAgentsPaused
 } from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
 import { grantUploadConsent, listPendingUploads } from '$lib/sync/pending';
@@ -31,6 +32,35 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(res.ok).toBe(false);
 		expect(res.reason).toBe('not-agent-visible');
 		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+
+	// The master switch (Configuración › Agentes → "Pausar agentes"): it must beat
+	// agentVisible, or "pausado" would only mean "pausado para las notas que no
+	// habías compartido igual".
+	it('rejects every change while agents are paused, even on a visible note', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		await setAgentsPaused(true);
+
+		const res = await ingestAgentChange({
+			type: 'createTask',
+			noteId: note.id,
+			content: 'x',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('agents-paused');
+		expect(await listTasks(note.id)).toHaveLength(0);
+
+		// And resuming puts it back exactly as it was — no note had to be re-marked.
+		await setAgentsPaused(false);
+		const after = await ingestAgentChange({
+			type: 'createTask',
+			noteId: note.id,
+			content: 'x',
+			agentId: 'agent'
+		});
+		expect(after.ok).toBe(true);
 	});
 
 	// Load-bearing for the "deleting a task needs no bitácora line" decision

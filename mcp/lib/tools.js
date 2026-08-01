@@ -117,7 +117,13 @@ export function expandArgs(exportPayload, args) {
 export function listNotesResult(exportPayload) {
 	const notes = exportPayload?.notes ?? [];
 	if (notes.length === 0) {
-		return { content: [{ type: 'text', text: 'No hay notas visibles para agentes.' }], isError: false };
+		// Empty because the user pulled the master switch is NOT the same as empty
+		// because nothing was ever shared — saying the wrong one sends them hunting
+		// for a note they already marked.
+		const text = exportPayload?.paused
+			? 'Los agentes están pausados en CopyNotes. La persona puede reanudarlos en Configuración › Agentes.'
+			: 'No hay notas visibles para agentes.';
+		return { content: [{ type: 'text', text }], isError: false };
 	}
 	const shortIds = buildShortIds(exportPayload);
 	const lines = notes.map((note) => {
