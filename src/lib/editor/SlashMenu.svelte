@@ -25,6 +25,37 @@
 			: 'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11 max-md:w-auto max-md:shrink-0 max-md:px-3'
 	);
 
+	// Escritorio: si el menú no entra abajo del renglón, sale ARRIBA. Sigue
+	// pegado al renglón —se mueve con él al scrollear—, que es la diferencia con
+	// empujarlo hacia arriba: empujado quedaba clavado en la pantalla y el texto
+	// se le escapaba por debajo. En celular es una barra fija al pie: no aplica.
+	let flipUp = $state(false);
+	$effect(() => {
+		const el = listEl;
+		if (!el) return;
+		function check() {
+			const anchor = el.offsetParent;
+			if (!anchor || getComputedStyle(el).position !== 'absolute') {
+				flipUp = false;
+				return;
+			}
+			const height = el.getBoundingClientRect().height;
+			const anchorBox = anchor.getBoundingClientRect();
+			const fitsBelow = anchorBox.bottom + 4 + height <= window.innerHeight;
+			const fitsAbove = anchorBox.top - 4 - height >= 0;
+			flipUp = !fitsBelow && fitsAbove;
+		}
+		check();
+		// `scroll` no burbujea: en captura llegan también los del contenedor de la
+		// nota, que es el que se mueve de verdad.
+		window.addEventListener('scroll', check, true);
+		window.addEventListener('resize', check);
+		return () => {
+			window.removeEventListener('scroll', check, true);
+			window.removeEventListener('resize', check);
+		};
+	});
+
 	// With many snippets the menu scrolls; keep the keyboard-selected option visible.
 	$effect(() => {
 		const selected = commands[selectedIndex];
@@ -102,7 +133,9 @@
 	role="listbox"
 	id="slash-menu"
 	aria-label={title || (isSnippets ? 'Snippets guardados' : 'Tipos de bloque')}
-	class="cn-pop bg-popover border-border absolute top-full left-8 z-10 mt-1 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:mt-0 max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 {isSnippets
+	class="cn-pop bg-popover border-border absolute left-8 z-10 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md {flipUp
+		? 'bottom-full mb-1'
+		: 'top-full mt-1'} max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:mt-0 max-md:mb-0 max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 {isSnippets
 		? 'max-md:max-h-[40dvh]'
 		: 'max-md:flex max-md:max-h-none max-md:items-stretch max-md:gap-1 max-md:overflow-x-auto max-md:overflow-y-hidden'}"
 >

@@ -366,3 +366,47 @@ test('shrinking the selection to one row closes the group menu, and "/" then ope
 	await expect(menu).toHaveAttribute('aria-label', 'Tipos de bloque');
 	await page.keyboard.press('Escape');
 });
+
+// El menú "/" viaja con su renglón al scrollear. Antes se lo empujaba hacia
+// arriba con un número de píxeles calculado al abrirlo, así que quedaba clavado
+// en la pantalla y el texto se le escapaba por debajo. Cuando no entra abajo del
+// renglón se da vuelta y sale arriba, pero sigue pegado a él.
+test('el menú "/" queda pegado al renglón al scrollear', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	for (let i = 0; i < 40; i++) {
+		await page.keyboard.type(`Renglon ${i}`);
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(60);
+	}
+	await page.waitForTimeout(300);
+	await page.keyboard.type('/');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.waitForTimeout(300); // dejar terminar la animación de entrada
+
+	// Distancia entre el menú y su renglón: es lo que tiene que quedar igual.
+	const gap = () =>
+		page.evaluate(() => {
+			const menu = document.querySelector('#slash-menu');
+			const row = menu.closest('[data-block-id]');
+			const m = menu.getBoundingClientRect();
+			const r = row.getBoundingClientRect();
+			// Arriba del renglón (dado vuelta) o abajo, según dónde haya entrado.
+			return m.top >= r.bottom ? m.top - r.bottom : r.top - m.bottom;
+		});
+
+	// Al abrirse entra entero en la pantalla (por eso se da vuelta).
+	const onScreen = await page.evaluate(() => {
+		const m = document.querySelector('#slash-menu').getBoundingClientRect();
+		return m.top >= 0 && m.bottom <= window.innerHeight;
+	});
+	expect(onScreen).toBe(true);
+
+	const before = await gap();
+	expect(before).toBeLessThan(12); // pegado, no flotando
+	await page.evaluate(() => document.querySelector('main').scrollBy(0, -200));
+	await page.waitForTimeout(300);
+	expect(Math.abs((await gap()) - before)).toBeLessThan(2);
+});
