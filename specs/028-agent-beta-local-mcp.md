@@ -10,9 +10,15 @@ tasks. Desktop-only (Tauri), no cloud, conservative by design.
 This is the practical execution of the strategy already recorded in `011`
 (what MCP exposes), `012` (permissions/audit) and `023` (phasing). It builds
 steps 2–5 of the `023` roadmap. It ships as a **free** capability of the desktop
-app — no account, no server, no personal data leaving the device — so the beta
-can validate the single open question: *does agent assistance on CopyNotes add
-real value?*
+app — no account and no server of ours: the bridge is plain files in a 0700
+folder, and CopyNotes itself sends nothing anywhere. What it CANNOT promise is
+that the data stays on the device, and this line used to claim exactly that (a
+2026-08-01 review caught it). Whatever an agent-visible note contains is handed
+to the MCP client the user connected — Claude Code, OpenCode, Cursor — and those
+send it to a remote model. That is the point of connecting one. The guarantee is
+scoped accordingly and must be written that way everywhere: **CopyNotes does not
+transmit it; the agent the user chose does.** The beta exists to validate one
+question: *does agent assistance on CopyNotes add real value?*
 
 Written 2026-07-23 after a brainstorm with Hernan that (a) confirmed the
 desktop-first / local-first path, (b) chose the activity-log ("bitácora")

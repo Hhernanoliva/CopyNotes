@@ -190,6 +190,17 @@ nuevas y marcarlas como hechas — siempre dejando una línea en la bitácora, i
 que se explica más arriba. No ve tus comentarios ni las tareas ya hechas, no
 borra, no exporta ni reordena.
 
+### Adónde va lo que el agente lee
+
+Esto conviene tenerlo claro antes de marcar una nota: **CopyNotes no manda tus
+notas a ningún lado**, pero el programa de agente que vos conectás sí. Claude
+Code, OpenCode o Cursor funcionan mandándole lo que leen a un modelo de IA que
+corre en los servidores de esa empresa. Es justamente para eso que los conectás.
+
+O sea: el límite que CopyNotes te garantiza es **qué sale de la app** —solo las
+notas que marcaste 🤖, nunca tus comentarios— y no qué hace después el agente
+con eso. Si una nota no querés que la vea un modelo de nadie, no la marques.
+
 ## Agentes y nube
 
 Si además activaste la nube (ver **[La nube](18-nube.md)**), las dos cosas
@@ -204,8 +215,11 @@ conviven así:
 - **La marca "Visible para agentes" viaja con la nota.** Si la prendiste en una
   computadora, la nota también está visible para el agente de la otra.
 - **Permitir agentes no es lo mismo que permitir la nube.** Son dos permisos
-  distintos: si nunca tocaste **"Permitir y subir"**, nada sale de tu
-  dispositivo, ni siquiera lo que escribió el agente.
+  distintos: si nunca tocaste **"Permitir y subir"**, CopyNotes no sube nada a
+  la nube, ni siquiera lo que escribió el agente. Ojo con la otra mitad: eso no
+  quiere decir que nada salga de tu computadora, porque el programa de agente
+  que conectaste sí manda a su modelo lo que lee (ver **"Adónde va lo que el
+  agente lee"** más arriba).
 
 ### La copia que lee el agente no está cifrada
 
