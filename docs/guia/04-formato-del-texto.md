@@ -6,7 +6,7 @@ Podés resaltar palabras, ponerle títulos, enlaces y colores a cualquier rengl�
 
 ### Seleccionar texto muestra la barra
 
-Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ctrl/Cmd+A para todo el renglón— y aparece una **barra flotante** justo arriba con todos los botones de formato. Si dejás de tener texto seleccionado (por ejemplo tocando en otro lado) la barra se esconde sola; también se cierra con **Escape**.
+Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ctrl/Cmd+A para todo el renglón— y aparece una **barra flotante** justo arriba con todos los botones de formato. Si dejás de tener texto seleccionado (por ejemplo tocando en otro lado) la barra se esconde sola; también se cierra con **Escape**. Y **al elegir un botón la barra se cierra** y el cursor vuelve al texto: si querés aplicar un segundo formato, volvés a marcar.
 
 ### Usar la barra sin mouse
 
@@ -21,8 +21,6 @@ Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón.
 | **Enter**, **Espacio** o **Tab** | Aplica el botón donde estés parado: la barra se cierra y el cursor vuelve al texto, listo para seguir escribiendo |
 | **Shift+Tab** | Volvés un botón para atrás |
 | **Escape** | Salís al texto sin aplicar nada |
-
-(Con el **mouse** la barra no se cierra al aplicar: queda abierta para que puedas poner negrita y cursiva de una, sin volver a marcar).
 
 Los botones que abren un panel —**Color de texto**, **Enlace** y **Más opciones**— te llevan el foco adentro del panel al abrirse. Ahí las flechas también caminan las opciones, **Enter** elige, y **Escape** te devuelve al botón por el que entraste (otro Escape sale al texto).
 

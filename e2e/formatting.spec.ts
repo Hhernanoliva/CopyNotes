@@ -522,8 +522,9 @@ test('apretar H1 dos veces sobre lo mismo deja el texto como estaba', async ({ p
 	await page.getByRole('button', { name: 'Título 1' }).click();
 	await expect(first.locator('.fmt-size-h1')).toHaveCount(1);
 
-	// La barra deja seleccionado lo que acaba de marcar, así que el segundo
-	// clic cae sobre el mismo texto.
+	// Elegir cierra la barra, así que para la vuelta hay que volver a marcar el
+	// mismo texto: el que quedó adentro del span agrandado.
+	await selectAllInBlock(page, first.locator('.fmt-size-h1'));
 	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
 	await page.getByRole('button', { name: 'Título 1' }).click();
 	await expect(first.locator('.fmt-size-h1')).toHaveCount(0);
@@ -706,12 +707,10 @@ test('con texto marcado, Tab entra en la barra', async ({ page }) => {
 	await expect(first).toHaveText('marcado y sigo');
 });
 
-test('con el mouse la barra queda abierta, para aplicar dos formatos seguidos', async ({
-	page
-}) => {
+test('con el mouse la barra también se cierra al elegir', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
-	await title(page).fill('Formato E2E: la barra sigue abierta con mouse');
+	await title(page).fill('Formato E2E: la barra se cierra con mouse');
 
 	const first = page.locator('main [role="textbox"]').first();
 	await first.click();
@@ -723,8 +722,11 @@ test('con el mouse la barra queda abierta, para aplicar dos formatos seguidos', 
 
 	await page.getByRole('button', { name: 'Negrita' }).click();
 	await expect(first.locator('strong')).toHaveText('dos formatos');
-	await expect(toolbar).toBeVisible();
+	await expect(toolbar).toHaveCount(0);
 
+	// Para el segundo formato se vuelve a marcar, y sigue funcionando.
+	await selectAllInBlock(page, first);
+	await expect(toolbar).toBeVisible();
 	await page.getByRole('button', { name: 'Cursiva' }).click();
 	await expect(first.locator('em')).toHaveText('dos formatos');
 });
