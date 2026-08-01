@@ -63,8 +63,11 @@ intactos.
 En **Configuración › Agentes** (app de escritorio) hay un botón **"Pausar
 agentes"**. Es el corte de emergencia: mientras esté pausado, **ningún agente
 puede leer ni cambiar nada**, aunque tengas notas marcadas con el robot 🤖. Si
-un agente lo intenta, le rebota el pedido y le avisa que están pausados, así no
-te dice que "no compartiste ninguna nota".
+un agente lo intenta, le rebota el pedido y le avisa que están pausados —lo
+mismo si va a buscar una nota—, así no te dice que "no compartiste ninguna
+nota" ni que la nota desapareció. Cuando reanudás, el pedido que había quedado
+rebotado se puede volver a intentar sin trucos: no queda marcado como fallado
+para siempre.
 
 No te desarma nada: las marcas 🤖 de cada nota quedan como estaban. Tocás
 **"Reanudar"** y todo vuelve exactamente a como lo tenías. La pausa es de **esta

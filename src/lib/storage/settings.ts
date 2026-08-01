@@ -3,6 +3,7 @@ import { now } from './ids';
 import { journalSetting, journaledSetting, unjournalSetting } from './journal';
 import { trackPendingWrite } from './pending-writes';
 import { KEY } from './settings-registry';
+import { bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 
 const settings = db.table('settings');
 
@@ -90,5 +91,14 @@ export async function getAgentsPaused() {
 }
 
 export function setAgentsPaused(value) {
-	return setSetting(KEY.agentsPaused, value === true);
+	// The re-export bump lives HERE, not at the call site, and fires whether the
+	// write resolved or rejected — same safety-net shape notes.ts uses. Two
+	// reasons: a caller cannot forget it, and `setSetting` journals to
+	// localStorage BEFORE touching the database, so in the app a failed write
+	// still leaves the pause in force. With the bump on the happy path only, that
+	// failure left
+	// the screen saying "pausados" while export.json still held every visible
+	// note — exactly the half this switch promises to cut. Urgent both ways:
+	// pausing must empty the file at once, same rule as hiding a note.
+	return setSetting(KEY.agentsPaused, value === true).finally(() => bumpAgentDataUrgent());
 }

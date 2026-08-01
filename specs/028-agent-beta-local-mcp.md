@@ -135,9 +135,16 @@ proyecta en la lectura Markdown.
   gate rejects every request with reason `agents-paused` and `buildAgentExport`
   emits `{ notes: [], paused: true }`, so both halves — write and read — are cut
   from one place without walking note by note. `agentVisible` is left untouched,
-  so resuming restores exactly the previous state. The `paused` marker exists so
-  `list_notes` can say "están pausados" instead of "no compartiste nada". Not
-  backup-safe: an imported file must never un-pause a device.
+  so resuming restores exactly the previous state. Not backup-safe: an imported
+  file must never un-pause a device. Three details the switch does not work
+  without: (a) `setAgentsPaused` fires the urgent re-export ITSELF, on success
+  and on failure, because the value is journaled before the database write and
+  so holds either way — bumping only on success left the screen paused with a
+  full `export.json`; (b) `agents-paused` is the one rejection NOT written to the
+  dedupe ledger, since a request that timed out keeps its id for 30 s and would
+  otherwise replay the stale answer after resuming; (c) the `paused` marker is
+  read by `list_notes` AND by `resolveNote`, so no door answers "note not found"
+  for a note that is merely paused.
 
 ## Model Of Data Affected
 

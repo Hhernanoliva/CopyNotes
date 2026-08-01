@@ -255,6 +255,27 @@ describe('listNotesResult', () => {
 	});
 });
 
+// Pausado el export sale vacío, así que CUALQUIER búsqueda de nota fallaría con
+// "no encontrada" y el modelo le diría a la persona que su nota desapareció.
+describe('pausa vista desde las tools', () => {
+	it('read_note dice que están pausados, no que la nota no existe', () => {
+		const res = readNoteResult({ notes: [], paused: true }, 'Probando MCP');
+		expect(res.isError).toBe(true);
+		expect(res.content[0].text).toContain('pausó los agentes');
+		expect(res.content[0].text).not.toContain('no-encontrado');
+	});
+
+	it('resolveNote responde agents-paused antes de mirar el nombre', () => {
+		expect(resolveNote({ notes: [], paused: true }, 'lo que sea').reason).toBe('agents-paused');
+	});
+
+	it('un rechazo agents-paused le dice al modelo que no reintente', () => {
+		const text = rejectionText('agents-paused');
+		expect(text).toContain('Configuración › Agentes');
+		expect(text).toContain('No reintentes');
+	});
+});
+
 describe('readNoteResult', () => {
 	it('resuelve por nombre y devuelve Markdown con el id de la nota en el encabezado, ocultando la tarea completada', () => {
 		const res = readNoteResult(notesPayload, 'Probando MCP');

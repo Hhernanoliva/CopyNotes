@@ -2,7 +2,6 @@
 	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
-	import { bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
 	import { DESKTOP_DOWNLOAD_URL } from '$lib/desktop/download';
@@ -220,14 +219,19 @@
 		});
 	}
 
-	// El corte de emergencia. Se escribe primero y recién después se avisa al
-	// puente, para que la re-exportación lea el estado ya guardado; urgente en
-	// los dos sentidos porque pausar tiene que vaciar export.json ya mismo.
+	// El corte de emergencia. La re-exportación la dispara `setAgentsPaused` sola
+	// (storage/settings.ts), pase o no pase la escritura, así que acá no queda
+	// nada que se pueda saltear. Al final volvemos a leer el estado real: la
+	// pantalla dice lo que quedó, no lo que pedimos.
 	async function toggleAgentsPaused() {
 		const next = !agentsPaused;
 		agentsPaused = next;
-		await setAgentsPaused(next);
-		bumpAgentDataUrgent();
+		try {
+			await setAgentsPaused(next);
+		} catch (error) {
+			console.error('No se pudo guardar la pausa de agentes', error);
+		}
+		agentsPaused = await getAgentsPaused().catch(() => agentsPaused);
 	}
 
 	async function submitRedo(entry) {

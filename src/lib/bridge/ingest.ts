@@ -127,9 +127,18 @@ async function ingestAgentChangeUnsafe(change) {
 	// A rejection wrote nothing, so its ledger entry needs no transaction: the
 	// worst a crash before it can do is make the agent's retry get the same
 	// rejection recomputed.
+	//
+	// `agents-paused` is the ONE rejection that is not archived: every other
+	// reason is a settled answer (that note is private, that block is not a
+	// task), while the pause exists to be lifted. Archived, it would outlive the
+	// pause — a request that timed out against a closed app keeps its id for 30 s
+	// (mcp/lib/mailbox.js), so resuming and retrying inside that window would
+	// replay the stale "paused" answer with the agents already running.
 	if (!checked.run) {
 		const result = changeResult(change?.id, { ok: false, reason: checked.reason });
-		if (change?.id) await recordProcessedChange(change.id, result);
+		if (change?.id && checked.reason !== REASON.agentsPaused) {
+			await recordProcessedChange(change.id, result);
+		}
 		return result;
 	}
 

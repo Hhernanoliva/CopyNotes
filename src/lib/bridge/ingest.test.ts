@@ -63,6 +63,34 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(after.ok).toBe(true);
 	});
 
+	// The pause is the one rejection that must NOT be archived in the dedupe
+	// ledger: a request that timed out against a closed app keeps its id for 30 s,
+	// so a resend right after resuming would otherwise replay the stale "paused"
+	// answer with the agents already running.
+	it('does not archive a paused rejection, so the same id works after resuming', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		await setAgentsPaused(true);
+
+		const change = {
+			id: 'mismo-pedido',
+			type: 'createTask',
+			noteId: note.id,
+			content: 'Tarea que esperó',
+			agentId: 'agent'
+		};
+		expect((await ingestAgentChange(change)).reason).toBe('agents-paused');
+		expect(await getProcessedChange('mismo-pedido')).toBeUndefined();
+
+		await setAgentsPaused(false);
+		expect((await ingestAgentChange(change)).ok).toBe(true);
+		expect(await listTasks(note.id)).toHaveLength(1);
+
+		// Still idempotent afterwards: the applied change IS archived.
+		expect((await ingestAgentChange(change)).ok).toBe(true);
+		expect(await listTasks(note.id)).toHaveLength(1);
+	});
+
 	// Load-bearing for the "deleting a task needs no bitácora line" decision
 	// (AGENT.md): the gate closes on a deleted task on its own, so an agent
 	// holding its id can never act on it. If this ever passes, deletions DO need

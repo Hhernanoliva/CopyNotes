@@ -61,6 +61,11 @@ export function rejectionText(reason, candidates, id) {
 		const idPart = id ? ` (id: ${id})` : '';
 		return `Sin confirmación todavía${idPart}. La solicitud quedó en el buzón y se aplica una sola vez; NO la reenvíes.`;
 	}
+	// Transient by design, unlike every other rejection: telling the model to stop
+	// retrying and to say WHY keeps it from reporting the notes as missing.
+	if (reason === 'agents-paused') {
+		return 'Rechazado: la persona pausó los agentes en CopyNotes. Puede reanudarlos en Configuración › Agentes. No reintentes hasta entonces.';
+	}
 	if (reason === 'ambiguo' && candidates?.length) {
 		const lines = candidates.map((c) => `- ${c.short}  ${c.title}`).join('\n');
 		return `Rechazado: ambiguo. ¿Cuál?\n${lines}`;
@@ -143,6 +148,10 @@ export function listNotesResult(exportPayload) {
 // so the caller can disambiguate without a second list_notes call. Exported so
 // create_task can accept a note NAME, not only its short id.
 export function resolveNote(exportPayload, ref) {
+	// Paused reads as an EMPTY export, so every lookup would answer "no encontrada"
+	// and the model would tell the person their note is gone. Answered here, at the
+	// one place read_note and create_task-by-name both resolve through.
+	if (exportPayload?.paused) return { ok: false, reason: 'agents-paused' };
 	if (!ref) return { ok: false, reason: 'no-encontrado' };
 	const notes = exportPayload?.notes ?? [];
 	const byId = expandId(exportPayload, ref, 'note');
