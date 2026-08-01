@@ -594,11 +594,56 @@ test('Ctrl/Cmd+Alt+1 sobre el renglón entero lo convierte en título', async ({
 	await page.keyboard.press('ControlOrMeta+Alt+Digit1');
 	await expect(first).toHaveClass(/block-editable--h1/);
 
-	// Y un solo Deshacer lo revierte: comparte la puerta con el resto del formato.
-	await first.click();
-	await page.keyboard.press('ControlOrMeta+z');
+	// Repetir el atajo lo apaga: vuelve a texto normal, como el botón, que se
+	// muestra apretado.
+	await selectAllInBlock(page, first);
+	await page.keyboard.press('ControlOrMeta+Alt+Digit1');
 	await expect(first).not.toHaveClass(/block-editable--h1/);
 	await expect(first).toHaveText('Titulo por atajo');
+
+	// Y un solo Deshacer revierte ese apagado: comparte la puerta con el resto
+	// del formato.
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(first).toHaveClass(/block-editable--h1/);
+});
+
+test('el botón Título 1 apretado dos veces también vuelve a texto normal', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: título ida y vuelta');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Titulo con boton', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first).toHaveClass(/block-editable--h1/);
+
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first).not.toHaveClass(/block-editable--h1/);
+	await expect(first).toHaveText('Titulo con boton');
+});
+
+test('con el cursor solo, el atajo repetido apaga el título', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: apagar con cursor solo');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Sin seleccionar nada', { delay: 25 });
+	await page.waitForTimeout(650);
+	await page.keyboard.press('ControlOrMeta+Alt+Digit2');
+	await expect(first).toHaveClass(/block-editable--h2/);
+	await page.keyboard.press('ControlOrMeta+Alt+Digit2');
+	await expect(first).not.toHaveClass(/block-editable--h2/);
+	await expect(first).toHaveText('Sin seleccionar nada');
 });
 
 test('Ctrl/Cmd+Alt+2 sobre una parte agranda solo eso', async ({ page }) => {

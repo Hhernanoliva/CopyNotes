@@ -41,7 +41,7 @@ Los primeros cuatro botones de la barra son **H1**, **H2**, **H3** y **¶**, y h
 - **Título 1, Título 2, Título 3** — tres tamaños de encabezado, de más grande a más chico.
 - **Texto normal** (el botón con el símbolo **¶**) — vuelve a ser un renglón común.
 
-Cambiar a título no agrega ni borra renglones ni cambia el texto: solo cambia cómo se ve.
+Cambiar a título no agrega ni borra renglones ni cambia el texto: solo cambia cómo se ve. **Apretar el mismo botón (o el mismo atajo) otra vez lo devuelve a texto normal.**
 
 **Si marcás solo una parte del renglón**, se agranda **nada más que lo marcado**, en la misma línea. Sirve para arrancar un renglón con una frase grande y seguir con texto normal al lado, sin partirlo en dos:
 

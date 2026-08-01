@@ -208,7 +208,10 @@
 	function handleShortcut(event) {
 		if (event.defaultPrevented) return;
 		if (loadError && event.key !== '?') return;
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') {
+		// Sin Alt: Ctrl/Cmd+Alt+F entra en la barra de formato (spec 033) y no
+		// tiene nada que ver con buscar. Sin este filtro, el buscador se abría
+		// igual en cuanto la barra no reclamaba la tecla.
+		if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'f') {
 			event.preventDefault();
 			searchSeed = window.getSelection()?.toString().trim() ?? '';
 			searchOpen = true;

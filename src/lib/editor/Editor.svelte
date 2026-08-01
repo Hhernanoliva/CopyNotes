@@ -655,6 +655,14 @@
 		}
 	}
 
+	// H1 sobre un renglón que YA es Título 1 lo devuelve a texto normal (spec
+	// 033): el botón se muestra apretado, así que volver a apretarlo tiene que
+	// apagarlo. Es la misma ida y vuelta que ya hace el tamaño sobre una parte
+	// del renglón.
+	function toggleHeading(block, headingType) {
+		return setBlockType(block, block.type === headingType ? 'text' : headingType);
+	}
+
 	// --- Floating formatting toolbar (spec: toolbar wiring) ---
 	// Tracks the live DOM selection and derives what the toolbar should show:
 	// its position, which marks/heading are active, and which commands make
@@ -910,9 +918,9 @@
 		formattingBlockId = blockId;
 		try {
 			switch (name) {
-				case 'h1': asBlockType ? setBlockType(block, 'heading1') : applySize(sizeClassFor('h1')); break;
-				case 'h2': asBlockType ? setBlockType(block, 'heading2') : applySize(sizeClassFor('h2')); break;
-				case 'h3': asBlockType ? setBlockType(block, 'heading3') : applySize(sizeClassFor('h3')); break;
+				case 'h1': asBlockType ? toggleHeading(block, 'heading1') : applySize(sizeClassFor('h1')); break;
+				case 'h2': asBlockType ? toggleHeading(block, 'heading2') : applySize(sizeClassFor('h2')); break;
+				case 'h3': asBlockType ? toggleHeading(block, 'heading3') : applySize(sizeClassFor('h3')); break;
 				case 'normal': asBlockType ? setBlockType(block, 'text') : applySize(null); break;
 				case 'bold': applyInline('bold'); break;
 				case 'italic': applyInline('italic'); break;

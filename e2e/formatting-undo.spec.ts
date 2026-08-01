@@ -41,3 +41,31 @@ test('deshacer revierte solo el código en línea (guard cross-engine)', async (
 	await expect(first.locator('code')).toHaveCount(0);
 	await expect(first).toHaveText('codigo');
 });
+
+// Los atajos de la spec 033, en WebKit — el motor de Safari y el que usa la app
+// de escritorio en macOS. Chromium ya los cubre en formatting.spec.ts; acá se
+// verifica que la tecla llegue a la página en el otro motor, donde el sistema o
+// el navegador podrían quedarse con la combinación antes que la app.
+test('Ctrl/Cmd+Alt+1 y Ctrl/Cmd+Alt+F llegan a la app (guard cross-engine)', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: atajos webkit');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Titulo por atajo', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+
+	await page.keyboard.press('ControlOrMeta+Alt+Digit1');
+	await expect(first).toHaveClass(/block-editable--h1/);
+
+	// Y la entrada a la barra, que no debe abrir el buscador general.
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.keyboard.press('ControlOrMeta+Alt+KeyF');
+	await expect(page.getByRole('button', { name: 'Título 1' })).toBeFocused();
+	// El buscador general vive siempre en el DOM: lo que importa es que esta
+	// tecla no lo ABRA (Ctrl/Cmd+F sin Alt sí es buscar).
+	await expect(page.locator('dialog[aria-label="Buscar"]')).toBeHidden();
+});
