@@ -125,12 +125,13 @@ Ojo con la diferencia: **la nube sí anda en el navegador, los agentes no**. Si
 usás CopyNotes en el navegador vas a tener tus notas sincronizadas, pero ningún
 agente va a poder leerlas desde ahí.
 
-**¿Dónde consigo la app de escritorio?** Entrando desde una computadora, en
-**Configuración** (engranaje ⚙️) › **Agentes** hay un enlace **"Descargar la app
-de escritorio"**. También aparece al entrar, en una tarjetita abajo a la
-derecha que podés cerrar. No confundas esto con "instalar la página como app"
-que ofrecen algunos navegadores: eso te deja un ícono que abre la misma versión
-web, y los agentes **no** pueden conectarse ahí.
+**¿Dónde consigo la app de escritorio?** Todavía no hay una descarga pública:
+la versión de escritorio no está publicada, así que la app no ofrece ningún
+botón para bajarla. Cuando exista, va a aparecer un enlace en **Configuración**
+(engranaje ⚙️) › **Agentes** y una tarjetita al entrar, abajo a la derecha.
+Mientras tanto, no confundas esto con "instalar la página como app" que ofrecen
+algunos navegadores: eso te deja un ícono que abre la misma versión web, y los
+agentes **no** pueden conectarse ahí.
 
 ## Conectar un agente por MCP (escritorio)
 

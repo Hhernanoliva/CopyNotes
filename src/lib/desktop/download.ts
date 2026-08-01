@@ -9,6 +9,17 @@
 
 export const DESKTOP_DOWNLOAD_URL = 'https://github.com/Hhernanoliva/CopyNotes/releases';
 
+// TODO(descarga): flip to true the day the first .app release is published.
+// Until then the releases page is empty, so every download entry point is
+// hidden rather than sending people to a blank page.
+//
+// Flipping this switch re-enables, in one go:
+//   - the bottom-right banner (DesktopAppPrompt.svelte)
+//   - the link in Settings › Agentes (SettingsDialog.svelte)
+// and it requires restoring the card/link assertions in
+// e2e/desktop-prompt.spec.ts, which currently assert the hidden state.
+export const DESKTOP_RELEASE_PUBLISHED = false;
+
 const DISMISS_KEY = 'copynotes-desktop-dismissed';
 
 // Only pitch the desktop app where it could actually run. Callers already

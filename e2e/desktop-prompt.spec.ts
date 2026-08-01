@@ -1,45 +1,30 @@
 import { test, expect } from '@playwright/test';
 
+// While DESKTOP_RELEASE_PUBLISHED is false (src/lib/desktop/download.ts) there
+// is no .app to download, so every download entry point stays hidden. These
+// tests assert that hidden state.
+//
+// When the first release is published and the switch flips to true, restore
+// the previous assertions from git history (commit that introduced the
+// switch): visible card, "¿Usás agentes de IA?", dismissal remembered across
+// reloads, hidden on touch-only devices, and the Settings link.
+
 const CARD = '[aria-label="Descargar la app de escritorio"]';
 
-test('shows the desktop download card on a mouse device and remembers dismissal', async ({
-	page
-}) => {
-	await page.goto('/');
-	const card = page.locator(CARD);
-	await expect(card).toBeVisible();
-	await expect(card.getByText('¿Usás agentes de IA?')).toBeVisible();
-
-	const link = card.getByRole('link', { name: 'Descargar' });
-	await expect(link).toHaveAttribute(
-		'href',
-		'https://github.com/Hhernanoliva/CopyNotes/releases'
-	);
-
-	// The old PWA install card must be gone.
-	await expect(page.getByText('Instalá CopyNotes')).toHaveCount(0);
-
-	await card.getByRole('button', { name: 'Ahora no' }).click();
-	await expect(card).toBeHidden();
-
-	await page.reload();
-	await expect(page.locator(CARD)).toHaveCount(0);
-});
-
-test('stays hidden on a touch-only device', async ({ browser }) => {
-	const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
-	const page = await context.newPage();
+test('no download card while there is no published release', async ({ page }) => {
 	await page.goto('/');
 	await page.waitForSelector('main');
 	await expect(page.locator(CARD)).toHaveCount(0);
-	await context.close();
+
+	// The old PWA install card must stay gone too.
+	await expect(page.getByText('Instalá CopyNotes')).toHaveCount(0);
 });
 
-test('settings offers the download link on the web', async ({ page }) => {
+test('settings explains the desktop app without offering a dead link', async ({ page }) => {
 	await page.goto('/');
-	await page.locator(CARD).getByRole('button', { name: 'Ahora no' }).click();
 	await page.getByRole('button', { name: /configuraci/i }).click();
-	const link = page.getByRole('link', { name: 'Descargar la app de escritorio' });
-	await expect(link).toBeVisible();
-	await expect(link).toHaveAttribute('href', 'https://github.com/Hhernanoliva/CopyNotes/releases');
+	await expect(
+		page.getByText('La conexión con agentes está disponible solo en la app de escritorio.')
+	).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Descargar la app de escritorio' })).toHaveCount(0);
 });

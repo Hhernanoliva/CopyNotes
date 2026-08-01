@@ -2,7 +2,12 @@
 	import { Download, X } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import { MOTION, OFFSET, motionDuration } from '$lib/motion';
-	import { DESKTOP_DOWNLOAD_URL, canShowDownloadPrompt, dismissDownloadPrompt } from './download';
+	import {
+		DESKTOP_DOWNLOAD_URL,
+		DESKTOP_RELEASE_PUBLISHED,
+		canShowDownloadPrompt,
+		dismissDownloadPrompt
+	} from './download';
 
 	// A discreet, dismissible pointer to the desktop app, which is the only
 	// build an MCP agent can talk to. It replaces the old PWA install card:
@@ -15,7 +20,9 @@
 	// Bottom-right, not bottom-left: unlike the old install card this one shows
 	// on every first visit, and the sidebar's bottom-left corner holds the
 	// snippet list and the Respaldo button, which it would sit on top of.
-	let visible = $state(canShowDownloadPrompt(window));
+	// The release switch comes first: with no published build, the banner would
+	// promise a download that leads to an empty page.
+	let visible = $state(DESKTOP_RELEASE_PUBLISHED && canShowDownloadPrompt(window));
 
 	function dismiss() {
 		visible = false;

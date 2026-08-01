@@ -4,7 +4,7 @@
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
 	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
-	import { DESKTOP_DOWNLOAD_URL } from '$lib/desktop/download';
+	import { DESKTOP_DOWNLOAD_URL, DESKTOP_RELEASE_PUBLISHED } from '$lib/desktop/download';
 	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
 	import {
 		claudeCodeCommand,
@@ -988,14 +988,16 @@
 			{:else}
 				<p class="text-muted-foreground border-border border-t pt-3 text-sm">
 					La conexión con agentes está disponible solo en la app de escritorio.
-					<a
-						href={DESKTOP_DOWNLOAD_URL}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-foreground underline underline-offset-2"
-					>
-						Descargar la app de escritorio
-					</a>
+					{#if DESKTOP_RELEASE_PUBLISHED}
+						<a
+							href={DESKTOP_DOWNLOAD_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="text-foreground underline underline-offset-2"
+						>
+							Descargar la app de escritorio
+						</a>
+					{/if}
 				</p>
 			{/if}
 		</section>
