@@ -15,7 +15,7 @@
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo. Al llegar al borde de su padre, **sale del padre** y sigue al nivel de arriba; el límite real es el principio o el final de la nota. Funciona igual con varios renglones seleccionados |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 
-> **Negrita, cursiva, títulos, enlaces y colores:** todo el detalle está en la sección "Dar formato al texto" más abajo. Como resumen rápido: los atajos **Ctrl/Cmd+B/I/U/Shift+S/K** funcionan aunque no se vea ninguna barra flotante en pantalla.
+> **Negrita, cursiva, títulos, enlaces y colores:** todo el detalle está en la sección "Dar formato al texto" más abajo. Como resumen rápido: los atajos **Ctrl/Cmd+B/I/U/Shift+S/K** y los de título **Ctrl/Cmd+Alt+1/2/3** (y **+0** para texto normal) funcionan aunque no se vea ninguna barra flotante en pantalla. Y si la barra está a la vista, **Ctrl/Cmd+Alt+F** te mete adentro para caminarla con las flechas, sin mouse.
 
 ### Mover renglones arrastrando
 

@@ -738,6 +738,19 @@
 		}
 	}
 
+	// Ctrl/Cmd+Alt+F: meter el foco en la barra para caminarla con las flechas
+	// (spec 033). Solo actúa con la barra en pantalla —o sea, con algo marcado—,
+	// que es el momento para el que la barra existe. El contador hace única cada
+	// petición, como en el pedido de enlace.
+	let toolbarFocusSeq = 0;
+	function handleRequestToolbarFocus() {
+		refreshToolbar();
+		if (toolbar) {
+			toolbarFocusSeq += 1;
+			toolbar = { ...toolbar, requestFocus: toolbarFocusSeq };
+		}
+	}
+
 	function currentLinkHref(range) {
 		let el = range.startContainer;
 		el = el.nodeType === 1 ? el : el.parentNode;
@@ -884,9 +897,16 @@
 		// 032): el renglón entero se convierte en título, como siempre; una parte
 		// se agranda en el lugar, sin partir el renglón ni tocar block.type. La
 		// selección ya está restaurada acá arriba, así que se puede leer.
+		//
+		// El cursor solo, sin nada marcado, convierte el renglón entero (spec 033):
+		// es lo que hacía antes de la 032 y lo que esperan los atajos de teclado
+		// —sin selección no hay nada que agrandar, así que la otra rama moriría en
+		// silencio.
 		const sizeCommand = name === 'h1' || name === 'h2' || name === 'h3' || name === 'normal';
+		const selection = window.getSelection();
+		const caretOnly = !selection || selection.isCollapsed;
 		const asBlockType =
-			sizeCommand && selectionCoversBlock(window.getSelection()?.toString(), block.content);
+			sizeCommand && (caretOnly || selectionCoversBlock(selection.toString(), block.content));
 		formattingBlockId = blockId;
 		try {
 			switch (name) {
@@ -2073,6 +2093,7 @@
 					onPasteBlocks={handlePasteBlocks}
 					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
+					onRequestToolbarFocus={handleRequestToolbarFocus}
 					focusCaret={focusBlockId === row.block.id ? focusCaret : null}
 					onFocusHandled={() => {
 						focusBlockId = null;
@@ -2104,6 +2125,7 @@
 			currentColor={toolbar.color}
 			currentLinkUrl={toolbar.linkUrl}
 			requestPanel={toolbar.requestPanel ?? null}
+			requestFocus={toolbar.requestFocus ?? 0}
 			onCommand={handleToolbarCommand}
 			onRestorePanelFocus={restoreToolbarFocus}
 			onClose={closeToolbar}

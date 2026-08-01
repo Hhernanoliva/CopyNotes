@@ -8,11 +8,35 @@ Podés resaltar palabras, ponerle títulos, enlaces y colores a cualquier rengl�
 
 Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ctrl/Cmd+A para todo el renglón— y aparece una **barra flotante** justo arriba con todos los botones de formato. Si dejás de tener texto seleccionado (por ejemplo tocando en otro lado) la barra se esconde sola; también se cierra con **Escape**.
 
+### Usar la barra sin mouse
+
+Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón. Con la barra en pantalla:
+
+| Tecla | Qué hace |
+|---|---|
+| **Ctrl/Cmd+Alt+F** | Entrás a la barra: el foco cae en el primer botón |
+| **← →** (o **↑ ↓**) | Te movés de botón en botón, salteando los que estén apagados |
+| **Inicio** / **Fin** | Vas al primero o al último botón |
+| **Enter**, **Espacio** o **Tab** | Aplica el botón donde estés parado, y el cursor vuelve al texto |
+| **Shift+Tab** | Volvés un botón para atrás |
+| **Escape** | Salís al texto sin aplicar nada |
+
+Los botones que abren un panel —**Color de texto**, **Enlace** y **Más opciones**— te llevan el foco adentro del panel al abrirse. Ahí las flechas también caminan las opciones, **Enter** elige, y **Escape** te devuelve al botón por el que entraste (otro Escape sale al texto).
+
+Así, por ejemplo, pintar algo de rojo sin tocar el mouse es: marcar el texto → **Ctrl/Cmd+Alt+F** → **Fin** → **←** → **Enter** → flechas hasta el rojo → **Enter**.
+
 ### Títulos y texto normal
 
-Los primeros cuatro botones de la barra son **H1**, **H2**, **H3** y **¶**, y hacen dos cosas distintas según cuánto tengas marcado.
+Los primeros cuatro botones de la barra son **H1**, **H2**, **H3** y **¶**, y hacen dos cosas distintas según cuánto tengas marcado. Cada uno tiene además su atajo, que funciona aunque la barra no esté a la vista:
 
-**Si marcás el renglón entero**, el renglón se convierte en título:
+| Atajo | Botón |
+|---|---|
+| **Ctrl/Cmd+Alt+1** | Título 1 |
+| **Ctrl/Cmd+Alt+2** | Título 2 |
+| **Ctrl/Cmd+Alt+3** | Título 3 |
+| **Ctrl/Cmd+Alt+0** | Texto normal (¶) |
+
+**Si marcás el renglón entero —o si solo tenés el cursor parado adentro—**, el renglón se convierte en título:
 
 - **Título 1, Título 2, Título 3** — tres tamaños de encabezado, de más grande a más chico.
 - **Texto normal** (el botón con el símbolo **¶**) — vuelve a ser un renglón común.

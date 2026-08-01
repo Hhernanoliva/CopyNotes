@@ -579,6 +579,170 @@ test('deshacer revierte el tamaño en línea, sin borrar el texto', async ({ pag
 	await expect(first).toHaveText('Precios de temporada — el resto');
 });
 
+// --- La barra sin mouse (spec 033) ---
+
+test('Ctrl/Cmd+Alt+1 sobre el renglón entero lo convierte en título', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: atajo tamaño');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Titulo por atajo', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await page.keyboard.press('ControlOrMeta+Alt+Digit1');
+	await expect(first).toHaveClass(/block-editable--h1/);
+
+	// Y un solo Deshacer lo revierte: comparte la puerta con el resto del formato.
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(first).not.toHaveClass(/block-editable--h1/);
+	await expect(first).toHaveText('Titulo por atajo');
+});
+
+test('Ctrl/Cmd+Alt+2 sobre una parte agranda solo eso', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: atajo parcial');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Precios de temporada — el resto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 20);
+	await page.keyboard.press('ControlOrMeta+Alt+Digit2');
+	await expect(first.locator('.fmt-size-h2')).toHaveText('Precios de temporada');
+	await expect(first).not.toHaveClass(/block-editable--h2/);
+});
+
+test('con el cursor solo, sin nada marcado, el atajo convierte el renglón entero', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: atajo con cursor solo');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Sin seleccionar nada', { delay: 25 });
+	await page.waitForTimeout(650);
+	// Cursor parado, cero selección.
+	await page.keyboard.press('ControlOrMeta+Alt+Digit3');
+	await expect(first).toHaveClass(/block-editable--h3/);
+	await expect(first.locator('.fmt-size-h3')).toHaveCount(0);
+});
+
+test('Ctrl/Cmd+Alt+F entra en la barra y las flechas la caminan hasta aplicar', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: caminar la barra');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('caminando', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('ControlOrMeta+Alt+KeyF');
+	await expect(page.getByRole('button', { name: 'Título 1' })).toBeFocused();
+
+	// Dos a la derecha: Título 3. Enter aplica y el foco vuelve al texto.
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowRight');
+	await expect(page.getByRole('button', { name: 'Título 3' })).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(first).toHaveClass(/block-editable--h3/);
+	await expect(first).toBeFocused();
+});
+
+test('Tab aplica el botón enfocado, igual que Enter', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: Tab aplica');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('con tab', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('ControlOrMeta+Alt+KeyF');
+	// Fin lleva al último botón; Shift+Tab vuelve uno; las puntas no dan la vuelta.
+	await page.keyboard.press('End');
+	await expect(page.getByRole('button', { name: 'Más opciones' })).toBeFocused();
+	await page.keyboard.press('Shift+Tab');
+	await expect(page.getByRole('button', { name: 'Color de texto' })).toBeFocused();
+
+	await page.keyboard.press('Home');
+	await expect(page.getByRole('button', { name: 'Título 1' })).toBeFocused();
+	await page.keyboard.press('ArrowLeft');
+	await expect(page.getByRole('button', { name: 'Título 1' })).toBeFocused();
+
+	await page.keyboard.press('Tab');
+	await expect(first).toHaveClass(/block-editable--h1/);
+});
+
+test('elegir un color sin mouse: entrar, abrir el panel, caminarlo y aplicar', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: color sin mouse');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('coloreado', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('ControlOrMeta+Alt+KeyF');
+	await page.keyboard.press('End');
+	await page.keyboard.press('ArrowLeft'); // Color de texto
+	await expect(page.getByRole('button', { name: 'Color de texto' })).toBeFocused();
+
+	// Enter abre la paleta y se lleva el foco adentro.
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('menuitemradio', { name: 'Por defecto' })).toBeFocused();
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('ArrowRight'); // Por defecto → Ámbar → Rojo
+	await expect(page.getByRole('menuitemradio', { name: 'Rojo' })).toBeFocused();
+	await page.keyboard.press('Enter');
+	await expect(first.locator('.fmt-color-red')).toHaveCount(1);
+});
+
+test('Escape adentro de un panel vuelve al botón que lo abrió, no al texto', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: escape del panel');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('escapando', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('ControlOrMeta+Alt+KeyF');
+	await page.keyboard.press('End');
+	await page.keyboard.press('ArrowLeft');
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('menuitemradio', { name: 'Por defecto' })).toBeFocused();
+
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('menuitemradio', { name: 'Por defecto' })).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Color de texto' })).toBeFocused();
+
+	// Un Escape más sale al texto, sin haber aplicado nada.
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toHaveCount(0);
+	await expect(first).toBeFocused();
+	await expect(first.locator('.fmt-color-red')).toHaveCount(0);
+});
+
 // Los tres paneles de la barra (color, enlace, "Más opciones") se abren DEBAJO
 // de la fila de botones. Esa fila tiene scroll lateral para que en el celular la
 // barra no se salga de la pantalla, y un contenedor con scroll recorta todo lo

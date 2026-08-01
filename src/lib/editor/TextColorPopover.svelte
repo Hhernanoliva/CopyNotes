@@ -1,11 +1,20 @@
 <script>
 	import { TEXT_COLORS } from '$lib/format';
 	let { current = null, onPick, onClose } = $props();
-	function keydown(e) { if (e.key === 'Escape') { e.preventDefault(); onClose(); } }
+	// stopPropagation es esencial: la barra escucha Escape en `window` para
+	// cerrarse entera. Sin cortar acá, un solo Escape cerraba la paleta Y la
+	// barra, y no había forma de volver a la fila de botones.
+	function keydown(e) {
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			onClose();
+		}
+	}
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<div class="bg-popover border-border flex gap-1 rounded-md border p-1 shadow-lg" role="menu" tabindex="-1" aria-label="Color de texto" onkeydown={keydown}>
+<div class="bg-popover border-border flex gap-1 rounded-md border p-1 shadow-lg" role="menu" tabindex="-1" aria-label="Color de texto" data-cn-toolbar-group="panel" onkeydown={keydown}>
 	{#each TEXT_COLORS as color}
 		<button
 			type="button"

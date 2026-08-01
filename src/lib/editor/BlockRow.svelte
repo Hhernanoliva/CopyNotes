@@ -93,6 +93,7 @@
 		onPasteBlocks,
 		onPasteCode,
 		onRequestLink,
+		onRequestToolbarFocus,
 		datePanelOpen = false,
 		onDateBadge,
 		onDatePick,
@@ -329,6 +330,23 @@
 		// Inline formatting shortcuts work even when the floating toolbar is not
 		// visible; only b/i/u/shift+s/k are claimed, everything else (copy,
 		// paste, select-all, undo, Ctrl/Cmd+Enter…) falls through untouched.
+		// Tamaños y entrada a la barra (spec 033). Se leen por `code` y no por
+		// `key`: con Alt apretado, macOS cambia el carácter que llega (Alt+1 es
+		// "¡"), pero el código de la tecla física no se mueve.
+		if (isRich && (event.metaKey || event.ctrlKey) && event.altKey) {
+			const sizes = { Digit1: 'h1', Digit2: 'h2', Digit3: 'h3', Digit0: 'normal' };
+			const cmd = sizes[event.code];
+			if (cmd) {
+				event.preventDefault();
+				onFormat?.(block, cmd);
+				return;
+			}
+			if (event.code === 'KeyF') {
+				event.preventDefault();
+				onRequestToolbarFocus?.(block);
+				return;
+			}
+		}
 		if (isRich && (event.metaKey || event.ctrlKey)) {
 			const key = event.key.toLowerCase();
 			let cmd = null;
