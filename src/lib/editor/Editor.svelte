@@ -959,6 +959,13 @@
 	async function handleToolbarCommand(name, arg) {
 		const blockId = toolbar?.blockId;
 		if (!blockId) return;
+		// ¿Vino del teclado? Solo entonces hay un botón de la barra ENFOCADO: con
+		// el mouse los botones cancelan el foco en mousedown, justo para no
+		// perder la selección del texto. Se lee ANTES de aplicar, porque aplicar
+		// devuelve el foco al renglón.
+		const active = document.activeElement;
+		const fromKeyboard =
+			active instanceof HTMLButtonElement && !!active.closest('[data-copynotes-toolbar]');
 		if (name === 'copyText') {
 			// El popover puede haber movido el foco; restaurar la selección guardada
 			// antes de leerla (protección que ya existía).
@@ -968,10 +975,12 @@
 			return;
 		}
 		runFormatCommand(blockId, name, arg, { restoreSelection: true });
-		// Elegir una opción cierra la barra y devuelve el cursor al texto, con el
-		// mouse igual que con el teclado: es lo que hace cualquier menú al elegir.
-		// Para aplicar un segundo formato se vuelve a marcar.
-		closeToolbar();
+		// Elegir con el teclado cierra la barra y devuelve el cursor al texto: es
+		// lo que hace cualquier menú al elegir una opción, y dejarla abierta con el
+		// foco ya de vuelta en el renglón no le sirve a nadie. Con el mouse queda
+		// abierta, como siempre, para poder aplicar dos formatos seguidos.
+		if (fromKeyboard) closeToolbar();
+		else refreshToolbar();
 	}
 
 	// Atajos de teclado (Ctrl/Cmd+B/I/U, Ctrl/Cmd+Shift+S) desde un renglón:

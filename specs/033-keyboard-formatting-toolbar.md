@@ -78,11 +78,12 @@ selection still never converts the row.
   toolbar into nowhere.
 - **`Escape`** returns to the text without applying anything (today's behaviour,
   unchanged).
-- Applying a command **closes the toolbar** and returns the caret to the text,
-  the way any menu closes when you pick from it — by mouse and by keyboard
-  alike. Applying a second format means marking the text again. (Tried first as
-  keyboard-only, on the theory that mouse users chain formats; Hernan asked for
-  both, and one rule beats two.)
+- Applying a command **from the keyboard closes the toolbar** and returns the
+  caret to the text, the way any menu closes when you pick from it. Applying
+  with the **mouse** leaves it open, as it has always been, so two formats can
+  be applied in a row without marking again. The two are told apart by whether a
+  toolbar button holds focus — with the mouse none does, because the buttons
+  cancel focus on `mousedown` to protect the text selection.
 
 ### 4. The three panels
 
