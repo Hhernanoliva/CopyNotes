@@ -319,7 +319,27 @@
 	// below cannot run the async save closures.
 	const pending = new Map();
 
-	function scheduleSave(key, save, journal) {
+	// A write that fails keeps its entry: the unmount flush and the journal are
+	// its only retries. It is flagged so the indicator can say "no pudimos
+	// guardar" instead of hanging on "guardando…" forever waiting for a write
+	// that will never land.
+	async function runSave(key, entry) {
+		try {
+			await entry.save();
+		} catch {
+			entry.failed = true;
+			onSaveStateChange('error');
+			return;
+		}
+		if (pending.get(key) === entry) pending.delete(key);
+		settleSaveState();
+	}
+
+	// `delayMs: 0` starts the write in this same tick instead of waiting out the
+	// debounce. The debounce exists to fold keystroke bursts; a one-click change
+	// has no burst to fold, and for agent visibility the delay is a privacy hole
+	// (during it the agent gate still reads "visible" from the database).
+	function scheduleSave(key, save, journal, delayMs = 500) {
 		onSaveStateChange('saving');
 		const existing = pending.get(key);
 		if (existing) clearTimeout(existing.timer);
@@ -327,26 +347,10 @@
 		// journal still covers a save that is in flight when the page dies (the
 		// browser discards unfinished IndexedDB writes on unload). The identity
 		// check protects a newer entry that replaced this one meanwhile.
-		const entry = {
-			save,
-			journal,
-			timer: setTimeout(async () => {
-				// A write that fails keeps its entry: the unmount flush and the
-				// journal are its only retries. It is flagged so the indicator can
-				// say "no pudimos guardar" instead of hanging on "guardando…"
-				// forever waiting for a write that will never land.
-				try {
-					await save();
-				} catch {
-					entry.failed = true;
-					onSaveStateChange('error');
-					return;
-				}
-				if (pending.get(key) === entry) pending.delete(key);
-				settleSaveState();
-			}, 500)
-		};
+		const entry = { save, journal, timer: null };
 		pending.set(key, entry);
+		if (delayMs === 0) runSave(key, entry);
+		else entry.timer = setTimeout(() => runSave(key, entry), delayMs);
 	}
 
 	// Nothing left in flight -> "guardado", unless a failed write is still parked
@@ -531,6 +535,9 @@
 		// Route through scheduleSave (like the title) so the change gets a
 		// localStorage journal entry — surviving a reload/unload that races the
 		// IndexedDB write — plus the shared "Guardando…/Guardado" indicator.
+		// `0` = no debounce: the agent gate reads visibility from the database, so
+		// any delay between the click and the write is a window in which a hidden
+		// note still accepts agent changes.
 		scheduleSave(
 			`agentVisible:${note.id}`,
 			async () => {
@@ -544,7 +551,8 @@
 				if (next) bumpAgentData();
 				else bumpAgentDataUrgent();
 			},
-			{ table: 'notes', id: note.id, changes: { agentVisible: next } }
+			{ table: 'notes', id: note.id, changes: { agentVisible: next } },
+			0
 		);
 	}
 

@@ -1,5 +1,6 @@
 <script>
 	import { settlePendingWrites } from '$lib/storage';
+	import { writeAgentExport } from '$lib/bridge/tauri';
 	import { toast } from 'svelte-sonner';
 
 	// Desktop-only counterpart to PwaLifecycle. The layout mounts this only in
@@ -23,6 +24,15 @@
 					event.preventDefault();
 					try {
 						await settlePendingWrites();
+						// The barrier only covers the database. export.json is the file
+						// the agent actually reads, and its re-export is debounced, so
+						// closing now could leave behind a file that still names a note
+						// you just hid. Rewrite it from the settled data first.
+						// A failure here is logged, not fatal: refusing to close would
+						// trap the user in the app, and the file stays stale either way.
+						await writeAgentExport().catch((error) =>
+							console.error('No se pudo actualizar export.json antes de cerrar', error)
+						);
 						await appWindow.destroy();
 					} catch (error) {
 						// A save failed: keep the window open so nothing is lost and

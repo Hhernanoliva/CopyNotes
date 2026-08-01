@@ -68,9 +68,15 @@ Lo que ve el agente se actualiza solo ante **cualquier** cambio: crear, completa
 reabrir, editar o borrar una tarea, borrar una nota o cambiarle el título. No
 tenés que hacer nada especial. Hay una pequeña espera de **medio segundo** para
 no rehacer la lista con cada tecla mientras escribís: cuando frenás, se pone al
-día sola. La única excepción es **ocultar una nota** (apagar "Visible para
-agentes"): eso saca sus tareas de la vista del agente **al instante**, sin
-esperar, para que nada quede expuesto ni un momento.
+día sola. La única excepción es el interruptor **"Visible para agentes"**: prenderlo
+o apagarlo se guarda **al instante**, sin esperar nada. Apagarlo saca las tareas
+de esa nota de la vista del agente en el mismo momento en que hacés clic: no hay
+ninguna ventanita en la que el agente todavía la pueda tocar.
+
+Y si **cerrás la app** justo después, CopyNotes no se va sin dejar el archivo que
+lee el agente al día. La ventana tarda un instante más en cerrarse, y a cambio
+nunca queda en el disco una lista que todavía nombre una nota que acabás de
+ocultar.
 
 ## Tus propias acciones también quedan anotadas
 

@@ -1,5 +1,27 @@
 import { test, expect } from '@playwright/test';
 
+// Reads visibility straight out of the app's IndexedDB, bypassing the UI: the
+// agent gate reads the database, not the screen, so this is the only honest way
+// to ask "is it revoked YET?".
+function countVisibleNotes(page) {
+	return page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const open = indexedDB.open('copynotes'); // no version → current
+				open.onerror = () => reject(open.error);
+				open.onsuccess = () => {
+					const request = open.result
+						.transaction('notes', 'readonly')
+						.objectStore('notes')
+						.getAll();
+					request.onerror = () => reject(request.error);
+					request.onsuccess = () =>
+						resolve(request.result.filter((note) => note.agentVisible === true).length);
+				};
+			})
+	);
+}
+
 test('note header exposes an agent-visibility toggle that persists', async ({ page }) => {
 	await page.goto('/');
 	// Create a note (adjust selector to your suite's helper if one exists).
@@ -18,6 +40,24 @@ test('note header exposes an agent-visibility toggle that persists', async ({ pa
 		'aria-pressed',
 		'true'
 	);
+});
+
+test('hiding a note from agents is persisted without waiting out the debounce', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const toggle = page.getByRole('button', { name: 'Visible para agentes' });
+
+	// No polling on purpose: the database must already agree with the button the
+	// moment the click returns. A debounced save fails both assertions.
+	await toggle.click();
+	await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+	expect(await countVisibleNotes(page)).toBe(1);
+
+	await toggle.click();
+	await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+	expect(await countVisibleNotes(page)).toBe(0);
 });
 
 test('off desktop, Settings shows only the muted MCP line (no per-client blocks)', async ({
