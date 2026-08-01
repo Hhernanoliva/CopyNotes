@@ -23,8 +23,17 @@ test('detects code, link and color', () => {
 	expect(activeFormatsFor(root.querySelector('span').firstChild, root).color).toBe('fmt-color-red');
 });
 
+test('detects the inline size, and reads it alongside a color', () => {
+	const root = build('<span class="fmt-size-h1">a</span><span class="fmt-color-red fmt-size-h3">b</span>');
+	const [sized, both] = Array.from(root.querySelectorAll('span'));
+	expect(activeFormatsFor(sized.firstChild, root).size).toBe('fmt-size-h1');
+	const mixed = activeFormatsFor(both.firstChild, root);
+	expect(mixed.color).toBe('fmt-color-red');
+	expect(mixed.size).toBe('fmt-size-h3');
+});
+
 test('plain text has no active formats', () => {
 	const root = build('plain');
 	const active = activeFormatsFor(root.firstChild, root);
-	expect(active).toEqual({ bold: false, italic: false, underline: false, strike: false, code: false, link: false, color: null });
+	expect(active).toEqual({ bold: false, italic: false, underline: false, strike: false, code: false, link: false, color: null, size: null });
 });

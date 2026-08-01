@@ -33,6 +33,14 @@ describe('htmlInlineToMarkdown', () => {
 		expect(htmlInlineToMarkdown('<span class="fmt-color-red">rojo</span>')).toBe('rojo');
 	});
 
+	// Deliberate (spec 032): Markdown has no "half a row is a heading", so the
+	// inline size leaves as plain text instead of inventing a `#`.
+	it('unwraps size spans, keeping the text', () => {
+		expect(htmlInlineToMarkdown('<span class="fmt-size-h1">Hola</span>')).toBe('Hola');
+		expect(htmlInlineToMarkdown('<strong><span class="fmt-size-h2">Hola</span></strong>'))
+			.toBe('**Hola**');
+	});
+
 	it('converts links to [text](url), dropping target and rel', () => {
 		expect(
 			htmlInlineToMarkdown(

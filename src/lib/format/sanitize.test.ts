@@ -34,6 +34,17 @@ describe('sanitizeHtml', () => {
 			.toBe('<span class="fmt-color-amber">a</span>');
 	});
 
+	test('keeps a size span only with an approved fmt-size class', () => {
+		expect(sanitizeHtml('<span class="fmt-size-h1">a</span>'))
+			.toBe('<span class="fmt-size-h1">a</span>');
+		expect(sanitizeHtml('<span class="fmt-size-evil">a</span>')).toBe('a');
+	});
+
+	test('keeps color and size together on one span', () => {
+		expect(sanitizeHtml('<span class="fmt-color-red fmt-size-h2 evil">a</span>'))
+			.toBe('<span class="fmt-color-red fmt-size-h2">a</span>');
+	});
+
 	test('normalizes links and forces safe target/rel', () => {
 		expect(sanitizeHtml('<a href="example.com">x</a>'))
 			.toBe('<a href="https://example.com/" target="_blank" rel="noopener noreferrer">x</a>');

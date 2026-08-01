@@ -34,9 +34,27 @@ export function applyColor(className) {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
 	const range = sel.getRangeAt(0);
-	const existing = ancestorSpanColor(range.commonAncestorContainer);
-	if (existing) unwrap(existing);
+	const existing = ancestorSpanClass(range.commonAncestorContainer, 'fmt-color-');
+	if (existing) stripClass(existing, 'fmt-color-');
 	if (!className) return;
+	const span = document.createElement('span');
+	span.className = className;
+	span.appendChild(range.extractContents());
+	range.insertNode(span);
+	selectNode(span);
+}
+
+// Apply, replace or clear an inline size span (spec 032). Passing null removes
+// any size span in range; passing the class already in force removes it too, so
+// pressing the same button twice leaves nothing behind.
+export function applySize(className) {
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+	const range = sel.getRangeAt(0);
+	const existing = ancestorSpanClass(range.commonAncestorContainer, 'fmt-size-');
+	const alreadyThisSize = !!className && existing?.classList.contains(className);
+	if (existing) stripClass(existing, 'fmt-size-');
+	if (!className || alreadyThisSize) return;
 	const span = document.createElement('span');
 	span.className = className;
 	span.appendChild(range.extractContents());
@@ -85,14 +103,27 @@ function ancestorTag(node, tag) {
 	return null;
 }
 
-function ancestorSpanColor(node) {
+// The nearest enclosing span carrying a class of this family (fmt-color-,
+// fmt-size-), stopping at the row's editable box.
+function ancestorSpanClass(node, prefix) {
 	let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentNode;
 	while (el && el.classList !== undefined && !el.classList.contains('block-editable')) {
 		if (el.tagName?.toLowerCase() === 'span' &&
-			[...el.classList].some((c) => c.startsWith('fmt-color-'))) return el;
+			[...el.classList].some((c) => c.startsWith(prefix))) return el;
 		el = el.parentNode;
 	}
 	return null;
+}
+
+// Drop one family of classes from a span, and the span itself once nothing is
+// left. Removing the family instead of unwrapping outright matters because a
+// single span can carry a color *and* a size: recoloring text must not silently
+// undo its size, or the other way round.
+function stripClass(el, prefix) {
+	for (const cls of [...el.classList]) {
+		if (cls.startsWith(prefix)) el.classList.remove(cls);
+	}
+	if (el.classList.length === 0) unwrap(el);
 }
 
 function unwrap(el) {

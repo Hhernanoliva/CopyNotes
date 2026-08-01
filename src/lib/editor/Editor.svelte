@@ -81,9 +81,12 @@
 		HEADING_TYPES,
 		activeFormatsFor,
 		commandsForSelection,
+		selectionCoversBlock,
+		sizeClassFor,
 		applyInline,
 		toggleCode,
 		applyColor,
+		applySize,
 		applyLink,
 		removeLink
 	} from '$lib/format';
@@ -686,7 +689,7 @@
 		if (!startEditable) { toolbar = null; return; }
 		// Show on a real selection, or when the caret sits inside formatted text.
 		const marks = activeFormatsFor(range.startContainer, startEditable);
-		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color;
+		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color || marks.size;
 		if (sel.isCollapsed && !hasMark) { toolbar = null; return; }
 
 		const row = startEditable.closest('[data-block-id]');
@@ -704,10 +707,14 @@
 			blockId: block.id,
 			color: marks.color,
 			linkUrl: currentLinkHref(range),
+			// Un botón de tamaño se enciende por el tipo del renglón O por el
+			// tamaño en línea bajo el cursor: los dos gestos comparten botón.
 			active: {
 				...marks,
-				h1: block.type === 'heading1', h2: block.type === 'heading2',
-				h3: block.type === 'heading3', normal: block.type === 'text'
+				h1: block.type === 'heading1' || marks.size === 'fmt-size-h1',
+				h2: block.type === 'heading2' || marks.size === 'fmt-size-h2',
+				h3: block.type === 'heading3' || marks.size === 'fmt-size-h3',
+				normal: block.type === 'text' && !marks.size
 			},
 			enabled: commandsForSelection({ blockType: block.type, spansBlocks })
 		};
@@ -867,14 +874,20 @@
 		const before = currentSnapshot();
 		const beforeHtml = block.html;
 		const beforeType = block.type;
-		const isHeading = name === 'h1' || name === 'h2' || name === 'h3' || name === 'normal';
+		// H1/H2/H3/¶ hacen dos gestos distintos según cuánto esté marcado (spec
+		// 032): el renglón entero se convierte en título, como siempre; una parte
+		// se agranda en el lugar, sin partir el renglón ni tocar block.type. La
+		// selección ya está restaurada acá arriba, así que se puede leer.
+		const sizeCommand = name === 'h1' || name === 'h2' || name === 'h3' || name === 'normal';
+		const asBlockType =
+			sizeCommand && selectionCoversBlock(window.getSelection()?.toString(), block.content);
 		formattingBlockId = blockId;
 		try {
 			switch (name) {
-				case 'h1': setBlockType(block, 'heading1'); break;
-				case 'h2': setBlockType(block, 'heading2'); break;
-				case 'h3': setBlockType(block, 'heading3'); break;
-				case 'normal': setBlockType(block, 'text'); break;
+				case 'h1': asBlockType ? setBlockType(block, 'heading1') : applySize(sizeClassFor('h1')); break;
+				case 'h2': asBlockType ? setBlockType(block, 'heading2') : applySize(sizeClassFor('h2')); break;
+				case 'h3': asBlockType ? setBlockType(block, 'heading3') : applySize(sizeClassFor('h3')); break;
+				case 'normal': asBlockType ? setBlockType(block, 'text') : applySize(null); break;
 				case 'bold': applyInline('bold'); break;
 				case 'italic': applyInline('italic'); break;
 				case 'underline': applyInline('underline'); break;
@@ -883,7 +896,9 @@
 				case 'color': applyColor(arg); break;
 				case 'link': if (!applyLink(arg)) return; break;
 				case 'removeLink': removeLink(); break;
-				case 'clear': document.execCommand('removeFormat'); break;
+				// removeFormat no toca los span con clase, así que el tamaño se
+				// quita a mano antes.
+				case 'clear': applySize(null); document.execCommand('removeFormat'); break;
 				default: return;
 			}
 		} finally {
@@ -893,7 +908,7 @@
 		// mutan el contenteditable se leen y guardan acá. Al restaurar la selección
 		// (origen barra/popover) enfocamos el renglón para que Ctrl/Cmd+Z llegue al
 		// editor aunque el foco estuviera en el popover de enlace.
-		if (!isHeading) {
+		if (!asBlockType) {
 			persistActiveBlock(blockId);
 			if (restoreSelection) {
 				const el = document.querySelector(`[data-block-id="${blockId}"] .block-editable`);

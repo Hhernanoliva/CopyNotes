@@ -505,3 +505,10 @@
 .cn-editor .block-editable--h1 { font-size: calc(1.5rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h2 { font-size: calc(1.25rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h3 { font-size: calc(1.1rem * var(--cn-editor-scale, 1)); }
+
+/* Tamaño en línea (spec 032): parte de un renglón agrandada sin convertirlo en
+   título. Los mismos tres pasos que los encabezados —solo tamaño, sin cambio de
+   peso— y por eso también siguen el ajuste Tamaño de texto. */
+.cn-editor .fmt-size-h1 { font-size: calc(1.5rem * var(--cn-editor-scale, 1)); }
+.cn-editor .fmt-size-h2 { font-size: calc(1.25rem * var(--cn-editor-scale, 1)); }
+.cn-editor .fmt-size-h3 { font-size: calc(1.1rem * var(--cn-editor-scale, 1)); }

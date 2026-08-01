@@ -17,3 +17,17 @@ export function commandsForSelection({ blockType, spansBlocks }) {
 		color: true
 	};
 }
+
+// Does the selection cover the whole row? Decides which of the two gestures the
+// H1/H2/H3 buttons perform (spec 032): the whole row becomes a heading block,
+// a fragment gets the inline size mark instead.
+//
+// Both sides are trimmed, so a trailing space or the newline a browser drags
+// into the selection does not flip the gesture. Empty text returns false on
+// purpose: an empty row stores the phantom "\n"
+// (see AGENT.md), and `"" === ""` would otherwise convert it out of nowhere.
+export function selectionCoversBlock(selectedText, blockText) {
+	const selected = (selectedText ?? '').trim();
+	if (!selected) return false;
+	return selected === (blockText ?? '').trim();
+}

@@ -6,7 +6,7 @@ const TAG_FLAG = { strong: 'bold', em: 'italic', u: 'underline', s: 'strike', co
 export function activeFormatsFor(node, root) {
 	const active = {
 		bold: false, italic: false, underline: false, strike: false,
-		code: false, link: false, color: null
+		code: false, link: false, color: null, size: null
 	};
 	let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentNode;
 	while (el && el !== root) {
@@ -14,8 +14,13 @@ export function activeFormatsFor(node, root) {
 		const flag = TAG_FLAG[tag];
 		if (flag) active[flag] = true;
 		if (tag === 'span' && el.className) {
-			const color = el.className.split(/\s+/).find((c) => c.startsWith('fmt-color-'));
+			const classes = el.className.split(/\s+/);
+			const color = classes.find((c) => c.startsWith('fmt-color-'));
 			if (color && !active.color) active.color = color;
+			// Innermost wins for size too: nested spans mean the closest one is
+			// the size actually rendered.
+			const size = classes.find((c) => c.startsWith('fmt-size-'));
+			if (size && !active.size) active.size = size;
 		}
 		el = el.parentNode;
 	}

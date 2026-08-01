@@ -10,12 +10,27 @@ Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ct
 
 ### Títulos y texto normal
 
-Los primeros cuatro botones de la barra cambian el **tipo del renglón entero** (con el cursor adentro alcanza, no hace falta seleccionar todo el texto):
+Los primeros cuatro botones de la barra son **H1**, **H2**, **H3** y **¶**, y hacen dos cosas distintas según cuánto tengas marcado.
+
+**Si marcás el renglón entero**, el renglón se convierte en título:
 
 - **Título 1, Título 2, Título 3** — tres tamaños de encabezado, de más grande a más chico.
 - **Texto normal** (el botón con el símbolo **¶**) — vuelve a ser un renglón común.
 
 Cambiar a título no agrega ni borra renglones ni cambia el texto: solo cambia cómo se ve.
+
+**Si marcás solo una parte del renglón**, se agranda **nada más que lo marcado**, en la misma línea. Sirve para arrancar un renglón con una frase grande y seguir con texto normal al lado, sin partirlo en dos:
+
+> **Precios de temporada** — todo lo que tenés que saber
+
+Apretar el mismo botón otra vez sobre ese texto lo devuelve al tamaño normal. **¶** y **Quitar formato** también lo devuelven.
+
+Dos aclaraciones sobre el texto agrandado a mano:
+
+- **Es tamaño, no un título.** No aparece como encabezado para nada que ordene títulos, y un lector de pantalla lo lee como texto común. Si querés un título de verdad, marcá el renglón entero.
+- **Al copiar afuera sale como texto común.** El tamaño se ve dentro de CopyNotes y viaja en tus respaldos, pero al pegarlo en otro programa como texto va sin agrandar (un título de renglón entero sí sale como título).
+
+El texto agrandado sigue el ajuste **Tamaño de texto** de Configuración, igual que el resto de la nota.
 
 ### Negrita, cursiva, subrayado, tachado y código en línea
 

@@ -1,5 +1,6 @@
 import { normalizeUrl } from './url';
 import { TEXT_COLORS } from './colors';
+import { TEXT_SIZES } from './sizes';
 
 // ── CONTRACT: the inline-format allow-list ─────────────────────────────────
 // This file is the single definition of what inline HTML CopyNotes accepts.
@@ -7,7 +8,8 @@ import { TEXT_COLORS } from './colors';
 // insertion via format/ingest.ts) and the render sink funnel through
 // sanitizeHtml. When adding a NEW inline format, update ALL of:
 //   1. RENAME / ALLOWED below (and attribute handling in appendClean)
-//   2. TEXT_COLORS in colors.ts if it is a new color
+//   2. TEXT_COLORS in colors.ts / TEXT_SIZES in sizes.ts if it is a new
+//      span class
 //   3. htmlInlineToMarkdown in inline-markdown.ts (Markdown export/copy)
 //   4. the toolbar/commands in format/commands.ts
 // Anything not listed here is silently unwrapped to its text content — text
@@ -22,6 +24,8 @@ const ALLOWED = new Set(['strong', 'em', 'u', 's', 'code', 'a', 'span', 'br']);
 const COLOR_CLASSES = new Set(
 	TEXT_COLORS.map((color) => color.className).filter(Boolean)
 );
+// Same rule for inline size (spec 032): only the three approved steps.
+const SIZE_CLASSES = new Set(TEXT_SIZES.map((size) => size.className));
 
 // Sanitize a dirty HTML string down to CopyNotes' inline subset. Anything not
 // on the allow-list is unwrapped to its text content. Runs in the browser and
@@ -71,13 +75,19 @@ function appendClean(node, target) {
 		el.setAttribute('target', '_blank');
 		el.setAttribute('rel', 'noopener noreferrer');
 	} else if (tag === 'span') {
-		const cls = node.getAttribute('class') ?? '';
-		const color = cls.split(/\s+/).find((c) => COLOR_CLASSES.has(c));
-		if (!color) {
+		// A span earns its place only by carrying an approved class. It may carry
+		// one of each kind (colored *and* enlarged), so both are kept and
+		// anything else in the attribute is dropped.
+		const classes = (node.getAttribute('class') ?? '').split(/\s+/);
+		const kept = [
+			classes.find((c) => COLOR_CLASSES.has(c)),
+			classes.find((c) => SIZE_CLASSES.has(c))
+		].filter(Boolean);
+		if (kept.length === 0) {
 			for (const child of Array.from(node.childNodes)) appendClean(child, target);
 			return;
 		}
-		el.setAttribute('class', color);
+		el.setAttribute('class', kept.join(' '));
 	}
 
 	for (const child of Array.from(node.childNodes)) appendClean(child, el);

@@ -17,6 +17,20 @@ async function selectAllInBlock(page, editable) {
 	});
 }
 
+// Mark only part of the row's text — the gesture that spec 032 routes to the
+// inline size instead of converting the whole block.
+async function selectRangeInBlock(page, editable, start, end) {
+	await editable.evaluate((el, [from, to]) => {
+		const textNode = document.createTreeWalker(el, NodeFilter.SHOW_TEXT).nextNode();
+		const range = document.createRange();
+		range.setStart(textNode, from);
+		range.setEnd(textNode, to);
+		const sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(range);
+	}, [start, end]);
+}
+
 test('selecting text shows the formatting toolbar', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
@@ -440,6 +454,101 @@ for (const { nombre, keys, tag } of [
 		await expect(first).toHaveText('palabra');
 	});
 }
+
+// --- Tamaño sobre una parte del renglón (spec 032) ---
+// El mismo botón hace dos gestos: renglón entero = título de verdad, una parte =
+// solo se agranda lo marcado, en la misma línea.
+
+test('marcar una parte y apretar H1 agranda solo eso, sin convertir el renglón', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: tamaño parcial');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Precios de temporada — el resto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 20);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first.locator('.fmt-size-h1')).toHaveText('Precios de temporada');
+	// El renglón sigue siendo texto: no se convirtió en encabezado ni se partió.
+	await expect(first).not.toHaveClass(/block-editable--h1/);
+	await expect(first).toHaveText('Precios de temporada — el resto');
+	await expect(page.locator('main [role="textbox"]')).toHaveCount(1);
+
+	await page.waitForTimeout(700); // que el guardado automático descargue
+	await page.reload();
+	await expect(title(page)).toHaveValue('Formato E2E: tamaño parcial');
+	const restored = page.locator('main [role="textbox"]').first();
+	await expect(restored.locator('.fmt-size-h1')).toHaveText('Precios de temporada');
+	await expect(restored).not.toHaveClass(/block-editable--h1/);
+});
+
+test('marcar el renglón entero y apretar H1 sigue haciendo un título de verdad', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: tamaño entero');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Titulo entero', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first).toHaveClass(/block-editable--h1/);
+	await expect(first.locator('.fmt-size-h1')).toHaveCount(0);
+	await expect(first).toHaveText('Titulo entero');
+});
+
+test('apretar H1 dos veces sobre lo mismo deja el texto como estaba', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: tamaño ida y vuelta');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Precios de temporada — el resto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 20);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first.locator('.fmt-size-h1')).toHaveCount(1);
+
+	// La barra deja seleccionado lo que acaba de marcar, así que el segundo
+	// clic cae sobre el mismo texto.
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first.locator('.fmt-size-h1')).toHaveCount(0);
+	await expect(first).toHaveText('Precios de temporada — el resto');
+});
+
+test('deshacer revierte el tamaño en línea, sin borrar el texto', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: deshacer tamaño');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Precios de temporada — el resto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 20);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Título 2' }).click();
+	await expect(first.locator('.fmt-size-h2')).toHaveCount(1);
+
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(first.locator('.fmt-size-h2')).toHaveCount(0);
+	await expect(first).toHaveText('Precios de temporada — el resto');
+});
 
 // Los tres paneles de la barra (color, enlace, "Más opciones") se abren DEBAJO
 // de la fila de botones. Esa fila tiene scroll lateral para que en el celular la
