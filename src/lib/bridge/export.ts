@@ -17,7 +17,7 @@
 import {
 	listNotes,
 	listBlocksByNote,
-	listActivityByBlock,
+	listActivityByNote,
 	listFolders,
 	getAgentsPaused
 } from '$lib/storage';
@@ -91,12 +91,15 @@ export async function buildAgentExport() {
 	for (const note of notes) {
 		const blocks = await listBlocksByNote(note.id);
 		blocksByNote[note.id] = blocks;
-		for (const block of blocks) {
-			// Load bitácora for every task, completed included: get_task_history and
-			// add_note resolve against tasks the agent may have just completed.
-			if (block.type === 'todo')
-				activityByBlock[block.id] = await listActivityByBlock(block.id);
-		}
+		// Load bitácora for every task, completed included: get_task_history and
+		// add_note resolve against tasks the agent may have just completed. ONE
+		// indexed read per note, then split by task here — this runs on every
+		// agent write, and a query per task made that cost grow with the user's
+		// task count. `listActivityByNote` already sorts by seq, and grouping
+		// keeps each task's lines in that order.
+		for (const block of blocks) if (block.type === 'todo') activityByBlock[block.id] = [];
+		for (const row of await listActivityByNote(note.id))
+			activityByBlock[row.blockId]?.push(row);
 	}
 	return { ...toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById), exportedAt: new Date().toISOString() };
 }

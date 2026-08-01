@@ -121,6 +121,29 @@ describe('buildAgentExport (privacy gate over real storage)', () => {
 		expect(exported.activity.map((e) => e.action)).toContain('done');
 	});
 
+	// El export se rehace en CADA orden del agente, y su bitácora sale de UNA
+	// lectura por nota que se reparte por tarea en memoria (antes: una consulta
+	// por tarea). Repartir mal es el riesgo del cambio, así que eso es lo que se
+	// fija acá; el conteo de consultas no se puede espiar (`$lib/storage`
+	// re-exporta y el espía no intercepta, y el objeto Table del test no es el
+	// que capturó `activity.ts`).
+	it('cada tarea se queda con su propia bitácora, no con la de la vecina', async () => {
+		const { addTaskNote } = await import('$lib/tasks');
+		const note = await createNote({ title: 'V' });
+		await updateNote(note.id, { agentVisible: true });
+		const uno = await createBlock({ noteId: note.id, type: 'todo', content: 'uno' });
+		const dos = await createBlock({ noteId: note.id, type: 'todo', content: 'dos' });
+		await addTaskNote({ blockId: uno.id, actor: 'agent', text: 'línea de la uno' });
+		await addTaskNote({ blockId: dos.id, actor: 'agent', text: 'línea de la dos' });
+
+		const payload = await buildAgentExport();
+
+		const blocks = payload.notes[0].blocks;
+		const textos = (id) => blocks.find((b) => b.id === id).activity.map((e) => e.text);
+		expect(textos(uno.id)).toEqual(['línea de la uno']);
+		expect(textos(dos.id)).toEqual(['línea de la dos']);
+	});
+
 	it('trae el nombre de la carpeta de la nota y nunca el comentario de un bloque', async () => {
 		const folder = await createFolder('note', 'Trabajo');
 		const note = await createNote({ title: 'Con carpeta' });
