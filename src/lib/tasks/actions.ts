@@ -19,9 +19,11 @@ import { plainTextToHtml } from '$lib/format';
 import { planToggleChecked, planSetChecked } from '$lib/blocks/cascade';
 import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
-// Block change + its one bitácora entry commit together or not at all, so an
-// action can never leave a task mutated without its trace (or vice versa).
-async function traceWrite({ blockId, changes, actor, action, text }) {
+// Block change + its bitácora entry (or entries) commit together or not at all,
+// so an action can never leave a task mutated without its trace (or vice versa).
+// `note` adds a SECOND line, action 'note', inside the same transaction — the
+// shape "Rehacer" needs (see redoTask).
+async function traceWrite({ blockId, changes, actor, action, text, note = undefined }) {
 	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		const block = await updateBlock(blockId, changes);
 		if (!block) return undefined;
@@ -32,6 +34,10 @@ async function traceWrite({ blockId, changes, actor, action, text }) {
 			action,
 			text
 		});
+		// Appended AFTER the main line on purpose: isRedoRequested reads the LAST
+		// entry, so the instruction has to be the one that ends up on top.
+		if (note)
+			await appendActivity({ blockId, noteId: block.noteId, actor, action: 'note', text: note });
 		return { block, activity };
 	});
 	// updateBlock's safety-net bump already fired on a real write (and skipped a
@@ -133,6 +139,21 @@ export async function completeTask({ blockId, actor, text = '' }) {
 
 export async function reopenTask({ blockId, actor = 'user', text = '' }) {
 	return traceWrite({ blockId, changes: { checked: false }, actor, action: 'reopened', text });
+}
+
+// "Rehacer" (Configuración › Agentes): untick the task AND leave the user's
+// instruction, in ONE write. Split in two it could reopen a task and then fail
+// to record why, leaving the person with a task that reopened itself for no
+// visible reason — and the agent with nothing to redo.
+export async function redoTask({ blockId, actor = 'user', text }) {
+	return traceWrite({
+		blockId,
+		changes: { checked: false },
+		actor,
+		action: 'reopened',
+		text: '',
+		note: text
+	});
 }
 
 // The UI's check/uncheck door. Applies the editor's cascade (specs/003: the

@@ -1,10 +1,12 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db, createNote, createBlock, getBlock, listActivityByBlock } from '$lib/storage';
+import * as storage from '$lib/storage';
 import {
 	createTask,
 	completeTask,
 	reopenTask,
+	redoTask,
 	addTaskNote,
 	editTask,
 	readTask,
@@ -12,6 +14,7 @@ import {
 	setTaskChecked,
 	convertToTask
 } from './actions';
+import { isRedoRequested } from './redo';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -145,6 +148,58 @@ describe('reopen / note / edit', () => {
 		const log = await listActivityByBlock(block.id);
 		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'reopened', 'note']);
 		expect(log.at(-1).text).toBe('Rehacer: agregá fuentes');
+	});
+
+	it('redoTask unchecks AND leaves the instruction last, in one write', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+
+		const { block: reopened } = await redoTask({
+			blockId: block.id,
+			actor: 'user',
+			text: 'Rehacer: agregá fuentes'
+		});
+		expect(reopened.checked).toBe(false);
+
+		const log = await listActivityByBlock(block.id);
+		expect(log.map((e) => e.action)).toEqual(['created', 'done', 'reopened', 'note']);
+		expect(log.at(-1).text).toBe('Rehacer: agregá fuentes');
+		// The agent's rule reads the LAST entry, so the order above is the contract.
+		expect(isRedoRequested(reopened, log)).toBe(true);
+	});
+
+	it('redoTask writes nothing at all when the block is gone', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		expect(await redoTask({ blockId: 'nope', actor: 'user', text: 'x' })).toBeUndefined();
+		// No orphan 'note' line landed on any block.
+		expect((await listActivityByBlock(block.id)).map((e) => e.action)).toEqual(['created']);
+	});
+
+	// The whole point of redoTask: if the instruction cannot be written, the
+	// untick must roll back too. Two separate writes leave the task reopened with
+	// nothing explaining why — this fails the moment someone splits it again.
+	it('redoTask rolls the untick back when the instruction cannot be written', async () => {
+		const note = await createNote();
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await completeTask({ blockId: block.id, actor: 'agent' });
+
+		const real = storage.appendActivity;
+		const spy = vi.spyOn(storage, 'appendActivity').mockImplementation(async (entry) => {
+			if (entry.action === 'note') throw new Error('disco lleno');
+			return real(entry);
+		});
+		try {
+			await expect(
+				redoTask({ blockId: block.id, actor: 'user', text: 'Rehacer: agregá fuentes' })
+			).rejects.toThrow('disco lleno');
+		} finally {
+			spy.mockRestore();
+		}
+
+		expect((await getBlock(block.id)).checked).toBe(true);
+		expect((await listActivityByBlock(block.id)).map((e) => e.action)).toEqual(['created', 'done']);
 	});
 
 	it('editTask updates content and traces edited', async () => {

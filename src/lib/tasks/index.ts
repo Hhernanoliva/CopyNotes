@@ -2,6 +2,7 @@ export {
 	createTask,
 	completeTask,
 	reopenTask,
+	redoTask,
 	addTaskNote,
 	editTask,
 	readTask,

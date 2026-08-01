@@ -2,7 +2,7 @@
 	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity } from '$lib/storage';
-	import { reopenTask, addTaskNote } from '$lib/tasks';
+	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
 	import { DESKTOP_DOWNLOAD_URL } from '$lib/desktop/download';
 	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
@@ -45,6 +45,7 @@
 	let activity = $state([]);
 	let redoFor = $state(null); // blockId currently being redone
 	let redoText = $state('');
+	let redoError = $state(null);
 	let mailboxPath = $state(null);
 	let serverPath = $state(null);
 	let agentStatus = $state(null); // { lastSeen } | null
@@ -220,8 +221,16 @@
 	async function submitRedo(entry) {
 		const text = redoText.trim();
 		if (!text) return;
-		await reopenTask({ blockId: entry.blockId, actor: 'user' });
-		await addTaskNote({ blockId: entry.blockId, actor: 'user', text });
+		redoError = null;
+		// One write: the task reopens WITH its instruction or neither happens.
+		// On failure the panel stays open with the text typed, so the retry costs
+		// nothing.
+		try {
+			await redoTask({ blockId: entry.blockId, actor: 'user', text });
+		} catch {
+			redoError = 'No se pudo enviar el pedido. Probá de nuevo.';
+			return;
+		}
 		redoFor = null;
 		redoText = '';
 		activity = await listRecentActivity(20);
@@ -793,12 +802,16 @@
 											Enviar
 										</button>
 									</div>
+									{#if redoError}
+										<p role="alert" class="text-destructive mt-1 text-sm">{redoError}</p>
+									{/if}
 								{:else}
 									<button
 										type="button"
 										onclick={() => {
 											redoFor = entry.id;
 											redoText = '';
+											redoError = null;
 										}}
 										class="text-muted-foreground hover:text-foreground self-start text-xs underline underline-offset-2"
 									>

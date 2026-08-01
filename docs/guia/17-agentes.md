@@ -62,6 +62,11 @@ escribí una instrucción (por ejemplo "Rehacer: agregá fuentes") y tocá
 a ver destildarse ahí mismo, sin recargar) y deja tu instrucción anotada para
 que el agente la lea como un pedido de rehacer.
 
+Las dos cosas —destildar y anotar tu pedido— van **juntas o no van**: nunca te
+vas a encontrar una tarea que se destildó sola sin ninguna instrucción que
+explique por qué. Si algo sale mal al guardar, no pasa ninguna de las dos, te lo
+avisa ahí mismo y el texto que escribiste queda donde estaba para reintentar.
+
 ## La lista del agente siempre está al día
 
 Lo que ve el agente se actualiza solo ante **cualquier** cambio: crear, completar,
