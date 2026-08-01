@@ -11,7 +11,7 @@
 | **Ctrl/Cmd+Enter** | Agrega/edita el **comentario** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar). **Si tenés texto marcado**, Tab hace otra cosa: te mete en la barra de formato — ver el tema 4 |
 | **Shift+Tab** | Lo saca un nivel de anidado |
-| **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar |
+| **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar. Los renglones vacíos también se cruzan, en los dos sentidos |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo. Al llegar al borde de su padre, **sale del padre** y sigue al nivel de arriba; el límite real es el principio o el final de la nota. Funciona igual con varios renglones seleccionados |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 

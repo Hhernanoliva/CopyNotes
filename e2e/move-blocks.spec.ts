@@ -322,3 +322,40 @@ test('Shift+click selects text inside the row and rows across rows', async ({ pa
 	await page.keyboard.up('Shift');
 	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
 });
+
+// Bare ArrowDown used to get stuck on the first empty row: an empty row gives
+// the caret a zero rect, so the "am I on the last visual line?" check compared
+// against the top of the screen and never said yes. ArrowUp worked by accident.
+test('ArrowDown walks down through empty rows, not just up', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Uno');
+	for (let i = 0; i < 3; i++) {
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(150);
+	}
+	await page.keyboard.type('Cuatro');
+	await page.waitForTimeout(200);
+
+	const activeIndex = () =>
+		page.evaluate(() => {
+			const rows = [...document.querySelectorAll('main [data-block-id] .block-editable')];
+			return rows.indexOf(document.activeElement);
+		});
+
+	// From the written row, ↓ crosses both empty rows and reaches "Cuatro".
+	await first.click();
+	expect(await activeIndex()).toBe(0);
+	for (const expected of [1, 2, 3]) {
+		await page.keyboard.press('ArrowDown');
+		await expect.poll(activeIndex).toBe(expected);
+	}
+	// And ↑ comes all the way back.
+	for (const expected of [2, 1, 0]) {
+		await page.keyboard.press('ArrowUp');
+		await expect.poll(activeIndex).toBe(expected);
+	}
+});

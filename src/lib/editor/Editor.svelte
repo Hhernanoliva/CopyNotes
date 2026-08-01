@@ -1362,6 +1362,12 @@
 		if (!el || el.getAttribute('contenteditable') === null) return true;
 		const rects = range.getClientRects();
 		const caret = rects.length ? rects[0] : range.getBoundingClientRect();
+		// Un renglón vacío no le da rectángulo al cursor: el navegador devuelve
+		// ceros. Sin esto la cuenta se hacía contra el borde de la pantalla, así
+		// que "abajo" nunca daba borde y la flecha ↓ se clavaba en el primer
+		// renglón vacío (↑ salía bien de pura casualidad, por el mismo cero).
+		// Un renglón vacío es su primera y su última línea a la vez.
+		if (!caret.height) return true;
 		const box = el.getBoundingClientRect();
 		const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 20;
 		return direction < 0
