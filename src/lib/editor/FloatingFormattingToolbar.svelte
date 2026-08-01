@@ -77,55 +77,55 @@
 		data-copynotes-toolbar
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
-		class="cn-toolbar bg-popover border-border flex max-w-[calc(100vw-1rem)] items-center gap-0.5 overflow-x-auto rounded-lg border p-1 shadow-xl"
+		class="cn-toolbar relative max-w-[calc(100vw-1rem)]"
 	>
-		{#each headings as [id, label, on]}
-			<FormattingButton {label} active={on} disabled={!enabled.blockType} onActivate={() => onCommand(id)}>
-				<span class="text-xs font-semibold">{id === 'normal' ? '¶' : id.toUpperCase()}</span>
-			</FormattingButton>
-		{/each}
+		<!-- La fila de botones se desliza al costado cuando no entra en la pantalla.
+		     Un contenedor con scroll recorta lo que se sale de su caja, así que los
+		     paneles NO viven acá adentro: cuelgan del contenedor de afuera. -->
+		<div
+			class="bg-popover border-border flex items-center gap-0.5 overflow-x-auto rounded-lg border p-1 shadow-xl"
+		>
+			{#each headings as [id, label, on]}
+				<FormattingButton {label} active={on} disabled={!enabled.blockType} onActivate={() => onCommand(id)}>
+					<span class="text-xs font-semibold">{id === 'normal' ? '¶' : id.toUpperCase()}</span>
+				</FormattingButton>
+			{/each}
 
-		<span class="bg-border mx-0.5 h-5 w-px" aria-hidden="true"></span>
+			<span class="bg-border mx-0.5 h-5 w-px" aria-hidden="true"></span>
 
-		<FormattingButton label="Negrita" shortcut="Ctrl/Cmd+B" active={active.bold} disabled={!enabled.inline} onActivate={() => onCommand('bold')}><Bold size={15} /></FormattingButton>
-		<FormattingButton label="Subrayado" shortcut="Ctrl/Cmd+U" active={active.underline} disabled={!enabled.inline} onActivate={() => onCommand('underline')}><Underline size={15} /></FormattingButton>
-		<FormattingButton label="Cursiva" shortcut="Ctrl/Cmd+I" active={active.italic} disabled={!enabled.inline} onActivate={() => onCommand('italic')}><Italic size={15} /></FormattingButton>
-		<FormattingButton label="Tachado" shortcut="Ctrl/Cmd+Shift+S" active={active.strike} disabled={!enabled.inline} onActivate={() => onCommand('strike')}><Strikethrough size={15} /></FormattingButton>
-		<FormattingButton label="Código en línea" active={active.code} disabled={!enabled.inlineCode} onActivate={() => onCommand('code')}><Code size={15} /></FormattingButton>
+			<FormattingButton label="Negrita" shortcut="Ctrl/Cmd+B" active={active.bold} disabled={!enabled.inline} onActivate={() => onCommand('bold')}><Bold size={15} /></FormattingButton>
+			<FormattingButton label="Subrayado" shortcut="Ctrl/Cmd+U" active={active.underline} disabled={!enabled.inline} onActivate={() => onCommand('underline')}><Underline size={15} /></FormattingButton>
+			<FormattingButton label="Cursiva" shortcut="Ctrl/Cmd+I" active={active.italic} disabled={!enabled.inline} onActivate={() => onCommand('italic')}><Italic size={15} /></FormattingButton>
+			<FormattingButton label="Tachado" shortcut="Ctrl/Cmd+Shift+S" active={active.strike} disabled={!enabled.inline} onActivate={() => onCommand('strike')}><Strikethrough size={15} /></FormattingButton>
+			<FormattingButton label="Código en línea" active={active.code} disabled={!enabled.inlineCode} onActivate={() => onCommand('code')}><Code size={15} /></FormattingButton>
 
-		<span class="bg-border mx-0.5 h-5 w-px" aria-hidden="true"></span>
+			<span class="bg-border mx-0.5 h-5 w-px" aria-hidden="true"></span>
 
-		<div class="relative">
 			<FormattingButton label="Enlace" shortcut="Ctrl/Cmd+K" active={active.link} disabled={!enabled.link} onActivate={() => (openPanel = openPanel === 'link' ? null : 'link')}><Link size={15} /></FormattingButton>
-			{#if openPanel === 'link'}
-				<div class="cn-pop absolute left-0 top-full mt-1">
-					<LinkEditorPopover initialUrl={currentLinkUrl}
-						onSave={(u) => { onCommand('link', u); openPanel = null; }}
-						onRemove={() => { onCommand('removeLink'); openPanel = null; }}
-						onClose={closePanel} />
-				</div>
-			{/if}
-		</div>
-
-		<div class="relative">
 			<FormattingButton label="Color de texto" active={!!currentColor} disabled={!enabled.color} onActivate={() => (openPanel = openPanel === 'color' ? null : 'color')}><Palette size={15} /></FormattingButton>
-			{#if openPanel === 'color'}
-				<div class="cn-pop absolute left-0 top-full mt-1">
-					<TextColorPopover current={currentColor}
-						onPick={(c) => { onCommand('color', c); openPanel = null; }}
-						onClose={closePanel} />
-				</div>
-			{/if}
+			<FormattingButton label="Más opciones" onActivate={() => (openPanel = openPanel === 'more' ? null : 'more')}><MoreHorizontal size={15} /></FormattingButton>
 		</div>
 
-		<div class="relative">
-			<FormattingButton label="Más opciones" onActivate={() => (openPanel = openPanel === 'more' ? null : 'more')}><MoreHorizontal size={15} /></FormattingButton>
-			{#if openPanel === 'more'}
-				<div class="cn-pop bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1">
-					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Quitar formato</button>
-					<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Copiar texto seleccionado</button>
-				</div>
-			{/if}
-		</div>
+		<!-- Anclados al borde de la barra, no al botón: la fila puede estar
+		     desplazada y el panel tiene que quedarse quieto igual. -->
+		{#if openPanel === 'link'}
+			<div class="cn-pop absolute left-0 top-full mt-1">
+				<LinkEditorPopover initialUrl={currentLinkUrl}
+					onSave={(u) => { onCommand('link', u); openPanel = null; }}
+					onRemove={() => { onCommand('removeLink'); openPanel = null; }}
+					onClose={closePanel} />
+			</div>
+		{:else if openPanel === 'color'}
+			<div class="cn-pop absolute left-0 top-full mt-1">
+				<TextColorPopover current={currentColor}
+					onPick={(c) => { onCommand('color', c); openPanel = null; }}
+					onClose={closePanel} />
+			</div>
+		{:else if openPanel === 'more'}
+			<div class="cn-pop bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1">
+				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Quitar formato</button>
+				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Copiar texto seleccionado</button>
+			</div>
+		{/if}
 	</div>
 {/if}

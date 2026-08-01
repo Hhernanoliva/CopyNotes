@@ -440,3 +440,56 @@ for (const { nombre, keys, tag } of [
 		await expect(first).toHaveText('palabra');
 	});
 }
+
+// Los tres paneles de la barra (color, enlace, "Más opciones") se abren DEBAJO
+// de la fila de botones. Esa fila tiene scroll lateral para que en el celular la
+// barra no se salga de la pantalla, y un contenedor con scroll recorta todo lo
+// que se sale de su caja: los paneles quedaban visibles al 13%. Deben colgar de
+// una capa exterior sin recorte.
+for (const [boton, panel] of [
+	['Color de texto', '[role="menu"][aria-label="Color de texto"]'],
+	['Enlace', '[role="dialog"][aria-label="Editar enlace"]'],
+	['Más opciones', '[role="menu"]:not([aria-label])']
+]) {
+	test(`el panel "${boton}" se ve entero, sin recorte de la barra`, async ({ page }) => {
+		await page.goto('/');
+		await page.getByRole('button', { name: 'Nueva nota' }).click();
+		await title(page).fill(`Formato E2E: panel ${boton}`);
+
+		const first = page.locator('main [role="textbox"]').first();
+		await first.click();
+		await page.keyboard.type('texto', { delay: 25 });
+		await page.waitForTimeout(650);
+		await selectAllInBlock(page, first);
+
+		const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+		await expect(toolbar).toBeVisible();
+		await page.getByRole('button', { name: boton, exact: true }).click();
+
+		// Prueba de verdad: ¿el panel recibe el toque en sus cuatro esquinas? Un
+		// panel recortado sigue existiendo en el DOM y con caja propia, pero el
+		// clic cae en lo que está debajo. Playwright desplaza el contenedor antes
+		// de hacer clic, así que medir a mano es la única forma de ver lo que ve
+		// una persona.
+		const alcanzables = await toolbar.evaluate((el, sel) => {
+			const pop = el.querySelector(sel);
+			if (!pop) return { error: 'panel no encontrado' };
+			const b = pop.getBoundingClientRect();
+			const i = 3; // adentro del borde, para no caer en el redondeo de la esquina
+			const puntos = {
+				'arriba-izq': [b.left + i, b.top + i],
+				'arriba-der': [b.right - i, b.top + i],
+				'abajo-izq': [b.left + i, b.bottom - i],
+				'abajo-der': [b.right - i, b.bottom - i]
+			};
+			const perdidos = [];
+			for (const [nombre, [x, y]] of Object.entries(puntos)) {
+				const hit = document.elementFromPoint(x, y);
+				if (!hit || !pop.contains(hit)) perdidos.push(nombre);
+			}
+			return { perdidos };
+		}, panel);
+
+		expect(alcanzables).toEqual({ perdidos: [] });
+	});
+}
