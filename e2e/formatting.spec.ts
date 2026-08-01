@@ -530,6 +530,35 @@ test('apretar H1 dos veces sobre lo mismo deja el texto como estaba', async ({ p
 	await expect(first).toHaveText('Precios de temporada — el resto');
 });
 
+// Pasear el cursor por el renglón no es pedir la barra. El tamaño no se puede
+// tocar sin algo marcado (el botón no haría nada con el cursor solo), así que
+// entrar al texto agrandado no debe abrirla sola.
+test('mover el cursor dentro del texto agrandado no abre la barra sola', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: la barra no se abre sola');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Precios de temporada — el resto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 20);
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await expect(toolbar).toBeVisible();
+	await page.getByRole('button', { name: 'Título 1' }).click();
+	await expect(first.locator('.fmt-size-h1')).toHaveCount(1);
+
+	// Salir del texto agrandado con el cursor: la barra se va.
+	await first.click();
+	await page.keyboard.press('End');
+	await expect(toolbar).toHaveCount(0);
+
+	// Y volver a entrar caminando con las flechas la deja cerrada.
+	for (let i = 0; i < 15; i++) await page.keyboard.press('ArrowLeft');
+	await page.waitForTimeout(400); // más que el retardo con el que aparece
+	await expect(toolbar).toHaveCount(0);
+});
+
 test('deshacer revierte el tamaño en línea, sin borrar el texto', async ({ page }) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();

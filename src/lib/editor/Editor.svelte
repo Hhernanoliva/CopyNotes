@@ -688,8 +688,14 @@
 		const endEditable = editableFor(range.endContainer);
 		if (!startEditable) { toolbar = null; return; }
 		// Show on a real selection, or when the caret sits inside formatted text.
+		//
+		// El tamaño en línea queda FUERA de esta lista a propósito: con el cursor
+		// solo, sin nada marcado, los botones de tamaño no pueden hacer nada
+		// (applySize necesita un rango), así que abrir la barra al entrar al texto
+		// agrandado solo la hace aparecer sola mientras el usuario se mueve por el
+		// renglón. El botón sigue encendiéndose cuando la barra ya está abierta.
 		const marks = activeFormatsFor(range.startContainer, startEditable);
-		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color || marks.size;
+		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color;
 		if (sel.isCollapsed && !hasMark) { toolbar = null; return; }
 
 		const row = startEditable.closest('[data-block-id]');
