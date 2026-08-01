@@ -38,6 +38,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 30. `030-zero-knowledge-sync.md`
 31. `031-selection-type-change.md`
 32. `032-inline-text-size.md`
+33. `033-keyboard-formatting-toolbar.md`
 
 ## Required Sections For Specs
 

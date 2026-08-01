@@ -128,6 +128,7 @@ A feature is not done until: the app runs without errors; risky logic has Vitest
 | Zero-knowledge sync: encryption at the upload edge | `030` |
 | Group type change: `/` over a multi-row selection | `031` |
 | Text size on the selection: H1/H2/H3 without splitting the row | `032` |
+| The formatting toolbar without a mouse: shortcuts + arrow navigation | `033` |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 
