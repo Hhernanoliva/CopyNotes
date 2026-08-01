@@ -397,6 +397,17 @@
 	// Block-level keys shared by every focusable surface of the row (the
 	// editable, the separator, the collapsed-code toggle): Enter makes a new
 	// block, Tab indents, bare arrows navigate, Alt+arrows move the block.
+	// ¿Hay texto marcado y vive entero adentro de la caja editable de este
+	// renglón? Una marca que cruza a otro renglón no cuenta: ahí la barra no
+	// puede formatear nada y Tab tiene que seguir anidando.
+	function textSelectionInside() {
+		if (!isRich || !el) return false;
+		const sel = window.getSelection();
+		if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
+		const range = sel.getRangeAt(0);
+		return el.contains(range.startContainer) && el.contains(range.endContainer);
+	}
+
 	function handleSurfaceKeys(event) {
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			event.preventDefault();
@@ -404,6 +415,15 @@
 			return true;
 		}
 		if (event.key === 'Tab') {
+			// Con texto marcado adentro de ESTE renglón, Tab entra en la barra de
+			// formato (spec 033): en ese momento se quiere formatear lo marcado, no
+			// anidar el renglón. Sin nada marcado —o con una marca que cruza a otro
+			// renglón— Tab sigue anidando, como siempre.
+			if (!event.shiftKey && textSelectionInside()) {
+				event.preventDefault();
+				onRequestToolbarFocus?.(block);
+				return true;
+			}
 			event.preventDefault();
 			if (event.shiftKey) onOutdent(block);
 			else onIndent(block);

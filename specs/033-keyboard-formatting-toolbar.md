@@ -58,9 +58,17 @@ selection still never converts the row.
 
 ### 3. Arrow navigation in the toolbar
 
-- **`Ctrl/Cmd+Alt+F`** moves focus to the first enabled button. It acts when the
-  toolbar is on screen — that is, when something is selected, which is the
-  moment the toolbar exists to serve.
+- **`Tab`, with text selected inside a single row**, moves focus to the first
+  enabled button. Added after the first round of use: the toolbar appearing on
+  its own reads as "the arrows are its now", and they are not — they still
+  belong to the caret. Tab is the one key already under the finger, and with
+  text marked, nesting the row is not what anyone is asking for. With nothing
+  selected, or with a selection crossing rows, `Tab` still nests exactly as
+  before.
+- **`Ctrl/Cmd+Alt+F`** does the same, for whoever prefers a shortcut. It is
+  Google Docs' key for the same job. It acts when the toolbar is on screen —
+  that is, when something is selected, which is the moment the toolbar exists to
+  serve.
 - **`←` `→`** move between buttons, skipping disabled ones. They stop at the
   ends rather than wrapping; `Inicio`/`Fin` jump to the ends.
 - **`Enter`, `Espacio` or `Tab`** activate the focused button. `Enter` and
@@ -171,6 +179,9 @@ E2E (`e2e/formatting.spec.ts`):
   `[data-copynotes-toolbar]`. Arrow navigation depends on that guard; do not
   weaken it.
 - `Ctrl/Cmd+Alt+0` uses the digit zero for "no size", mirroring `¶`.
-- Do not intercept `Tab` while focus is in the row of blocks: there it nests
-  rows (spec 031 and `handleSelectionKeys`). The interception lives inside the
-  toolbar component only.
+- `Tab` now means two things inside a row, told apart by whether text is
+  selected within that same row (`textSelectionInside` in `BlockRow`). A
+  multi-row block selection keeps its own `Tab` in `handleSelectionKeys` (spec
+  031), which runs in the capture phase and never reaches this branch.
+- `Ctrl/Cmd+F` (search) had to start rejecting `altKey`, or it raced
+  `Ctrl/Cmd+Alt+F` whenever the toolbar branch did not claim the key first.

@@ -10,11 +10,12 @@ Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ct
 
 ### Usar la barra sin mouse
 
-Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón. Con la barra en pantalla:
+Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón. Ojo con una cosa: que la barra **aparezca** no quiere decir que las flechas ya sean de ella. Mientras estés escribiendo, las flechas siguen siendo del cursor (con algo marcado, **→** suelta la marca y seguís). Primero le pasás el mando a la barra, y ahí sí:
 
 | Tecla | Qué hace |
 |---|---|
-| **Ctrl/Cmd+Alt+F** | Entrás a la barra: el foco cae en el primer botón |
+| **Tab** | Le pasás el mando a la barra: el foco cae en el primer botón |
+| **Ctrl/Cmd+Alt+F** | Lo mismo que Tab, por si preferís un atajo (es el de Google Docs) |
 | **← →** (o **↑ ↓**) | Te movés de botón en botón, salteando los que estén apagados |
 | **Inicio** / **Fin** | Vas al primero o al último botón |
 | **Enter**, **Espacio** o **Tab** | Aplica el botón donde estés parado, y el cursor vuelve al texto |

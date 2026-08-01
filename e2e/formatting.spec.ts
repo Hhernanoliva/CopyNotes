@@ -678,6 +678,48 @@ test('con el cursor solo, sin nada marcado, el atajo convierte el renglón enter
 	await expect(first.locator('.fmt-size-h3')).toHaveCount(0);
 });
 
+test('con texto marcado, Tab entra en la barra', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: Tab entra');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('marcado', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+
+	await page.keyboard.press('Tab');
+	await expect(page.getByRole('button', { name: 'Título 1' })).toBeFocused();
+
+	// Y de ahí se camina y se aplica sin tocar el mouse.
+	await page.keyboard.press('ArrowRight');
+	await page.keyboard.press('Enter');
+	await expect(first).toHaveClass(/block-editable--h2/);
+});
+
+test('sin nada marcado, Tab sigue anidando el renglón', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await title(page).fill('Formato E2E: Tab sigue anidando');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('padre', { delay: 25 });
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('hijo', { delay: 25 });
+
+	// Cursor parado, cero selección: Tab anida como siempre (el renglón hijo se
+	// corre a la derecha).
+	await page.keyboard.press('Tab');
+	const pads = await page
+		.locator('main .group')
+		.evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).paddingLeft) || 0));
+	expect(pads.some((p) => p > 0)).toBeTruthy();
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toHaveCount(0);
+});
+
 test('Ctrl/Cmd+Alt+F entra en la barra y las flechas la caminan hasta aplicar', async ({
 	page
 }) => {
