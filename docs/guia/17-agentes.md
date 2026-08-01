@@ -181,6 +181,9 @@ Arriba de las opciones, CopyNotes te dice qué está pasando:
   hace rato que no toca nada.
 - **"Ningún agente se conectó todavía"**: nunca hubo uno.
 
+El cartel se actualiza solo mientras tengas Configuración abierta, así que podés
+dejarla a un costado, conectar el agente y verlo cambiar sin cerrar nada.
+
 CopyNotes te cuenta **actividad**, no si el programa del agente sigue abierto.
 Eso no lo puede saber: solo se entera cuando el agente le pide o le cambia algo.
 Por eso, si dejás Claude Code abierto sin pedirle nada, después de un rato el

@@ -269,9 +269,17 @@
 			getServerPath()
 				.then((p) => (serverPath = p))
 				.catch((error) => console.error('No se pudo obtener la ruta del server MCP', error));
-			getAgentStatus()
-				.then((s) => (agentStatus = s))
-				.catch((error) => console.error('No se pudo leer el estado del agente', error));
+			// The card reads a file the agent stamps; nothing pushes when one
+			// connects. Read on a timer while the dialog is open — that is exactly
+			// when someone is wiring a client up and watching this line, and a
+			// single read at open time left it saying "ningún agente" forever.
+			const readAgentStatus = () =>
+				getAgentStatus()
+					.then((s) => (agentStatus = s))
+					.catch((error) => console.error('No se pudo leer el estado del agente', error));
+			readAgentStatus();
+			const statusTimer = setInterval(readAgentStatus, 10_000);
+			return () => clearInterval(statusTimer);
 		}
 	});
 	$effect(() => () => clearTimeout(copyTimer));
