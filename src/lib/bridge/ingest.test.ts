@@ -1,10 +1,11 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	db,
 	createNote,
 	updateNote,
 	getConnectedAgent,
+	getProcessedChange,
 	listActivityByBlock,
 	createBlock,
 	getBlock
@@ -187,6 +188,49 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(await listTasks(note.id)).toHaveLength(1); // applied exactly once
 		expect(a.ok).toBe(true);
 		expect(b).toEqual(a); // second delivery sees the recorded result
+	});
+
+	// The ack protocol (src-tauri/src/bridge.rs) keeps an unconfirmed inbox file
+	// and replays it on the next boot. That makes the gap between "task written"
+	// and "id recorded" load-bearing: a crash inside it would apply the replay a
+	// second time. Both must land in ONE transaction, or neither.
+	it('rolls the task back when recording its id fails: no half-applied change', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+
+		// One good ingest first, so the connected-agent row already exists: its
+		// creation writes to `settings` too, and the spy below must only catch the
+		// dedupe write.
+		await ingestAgentChange({ id: 'ok-1', type: 'createTask', noteId: note.id, content: 'una' });
+		expect(await listTasks(note.id)).toHaveLength(1);
+
+		const settings = db.table('settings');
+		const put = vi.spyOn(settings, 'put').mockImplementationOnce(() => {
+			throw new Error('disco lleno');
+		});
+
+		const change = { id: 'chg-atomic', type: 'createTask', noteId: note.id, content: 'dos' };
+		await expect(ingestAgentChange(change)).rejects.toThrow();
+
+		// The whole transaction rolled back: no orphan task, and nothing recorded.
+		expect(await listTasks(note.id)).toHaveLength(1);
+		expect(await getProcessedChange('chg-atomic')).toBeUndefined();
+
+		// And the retry the agent would send applies it exactly once.
+		put.mockRestore();
+		const retry = await ingestAgentChange(change);
+		expect(retry.ok).toBe(true);
+		expect(await listTasks(note.id)).toHaveLength(2);
+	});
+
+	it('records a rejection without opening a write transaction', async () => {
+		const note = await createNote(); // agentVisible defaults to false
+		const change = { id: 'chg-no', type: 'createTask', noteId: note.id, content: 'x' };
+
+		const res = await ingestAgentChange(change);
+		expect(res.ok).toBe(false);
+		expect(await listTasks(note.id)).toHaveLength(0);
+		expect(await getProcessedChange('chg-no')).toEqual(res); // still answered on redelivery
 	});
 });
 

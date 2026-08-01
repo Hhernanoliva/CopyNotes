@@ -28,7 +28,7 @@ export {
 	listRecentActivity
 } from './activity';
 export { getConnectedAgent, setConnectedAgent, AGENT_SETTING_KEY } from './agents';
-export { getProcessedChange, recordProcessedChange } from './dedupe';
+export { getProcessedChange, recordProcessedChange, putProcessedChangeInTx } from './dedupe';
 export {
 	createSnippet,
 	getSnippet,

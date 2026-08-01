@@ -28,22 +28,31 @@ export async function getProcessedChange(id) {
 	return isDated(entry) ? entry.outcome : entry;
 }
 
+// The same ledger write, WITHOUT trackPendingWrite and without opening a
+// transaction of its own: for callers already inside one — bridge/ingest.ts,
+// where applying the change and recording its id must commit together or not at
+// all. trackPendingWrite wraps the work in a NATIVE promise, which leaves
+// Dexie's transaction zone and commits it early; tasks/actions.ts documents the
+// same trap. Only direct, single-hop ops here (get + put, no Collection chain),
+// which is what makes it safe to nest.
+export async function putProcessedChangeInTx(id, outcome) {
+	const stamp = now();
+	const cutoff = Date.parse(stamp) - TTL_MS;
+	const existing = (await settings.get(DEDUPE_SETTING_KEY))?.value ?? {};
+	const value = {};
+	for (const key of Object.keys(existing)) {
+		const entry = existing[key];
+		// An undated entry gets today's stamp instead of being dropped: its id
+		// could still be redelivered, and re-applying a change would duplicate a
+		// task. It ages out from here like every other one.
+		const dated = isDated(entry) ? entry : { at: stamp, outcome: entry };
+		if (Date.parse(dated.at) >= cutoff) value[key] = dated;
+	}
+	value[id] = { at: stamp, outcome };
+	await settings.put({ key: DEDUPE_SETTING_KEY, value, updatedAt: stamp });
+	return outcome;
+}
+
 export function recordProcessedChange(id, outcome) {
-	return trackPendingWrite(async () => {
-		const stamp = now();
-		const cutoff = Date.parse(stamp) - TTL_MS;
-		const existing = (await settings.get(DEDUPE_SETTING_KEY))?.value ?? {};
-		const value = {};
-		for (const key of Object.keys(existing)) {
-			const entry = existing[key];
-			// An undated entry gets today's stamp instead of being dropped: its id
-			// could still be redelivered, and re-applying a change would duplicate a
-			// task. It ages out from here like every other one.
-			const dated = isDated(entry) ? entry : { at: stamp, outcome: entry };
-			if (Date.parse(dated.at) >= cutoff) value[key] = dated;
-		}
-		value[id] = { at: stamp, outcome };
-		await settings.put({ key: DEDUPE_SETTING_KEY, value, updatedAt: stamp });
-		return outcome;
-	});
+	return trackPendingWrite(() => putProcessedChangeInTx(id, outcome));
 }
