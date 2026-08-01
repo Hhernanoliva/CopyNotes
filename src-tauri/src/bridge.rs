@@ -78,19 +78,69 @@ pub fn bridge_write_export(app: tauri::AppHandle, contents: String) -> Result<St
     Ok(target.to_string_lossy().to_string())
 }
 
-// Shared by the startup sweep and the live watch loop: read one inbox file,
-// emit it to the webview, then move it to processed/ so it is never re-read.
-fn process_inbox_file(app: &tauri::AppHandle, path: &Path, processed: &Path) {
+// A name that becomes a path segment must not be able to escape the folder it
+// belongs to. One rule, used by both the outbox (where the change id becomes a
+// filename) and the ack (where an inbox filename comes back from the webview) —
+// two copies would drift.
+fn is_safe_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 128
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        && !name.contains("..")
+}
+
+// Moves an applied request out of the inbox. Split from the command so it can be
+// tested without an AppHandle. Idempotent: a file that is already gone is not an
+// error, because a double ack must never fail a tool call.
+fn ack_in(inbox: &Path, file: &str) -> Result<(), String> {
+    if !is_safe_name(file) {
+        return Err("invalid file".to_string());
+    }
+    let processed = inbox.join("processed");
+    fs::create_dir_all(&processed).map_err(|e| e.to_string())?;
+    restrict(&processed, 0o700);
+    let source = inbox.join(file);
+    if !source.is_file() {
+        return Ok(());
+    }
+    fs::rename(&source, processed.join(file)).map_err(|e| e.to_string())
+}
+
+// Shared by the startup sweep and the live watch loop: read one inbox file and
+// hand it to the webview. It is NOT archived here. A request leaves the inbox
+// only once the webview confirms it (bridge_ack) — before that, a reload or a
+// crash between the emit and the answer lost the request for good. Now it stays
+// put and the next startup sweep finds it again; the JS side dedupes by change
+// id, so a replay applies at most once (src/lib/bridge/ingest.ts).
+//
+// `boot` says the sweep found it, i.e. it waited while the app was closed — the
+// webview counts those to tell the person what happened while they were away.
+fn process_inbox_file(app: &tauri::AppHandle, path: &Path, processed: &Path, boot: bool) {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()).map(str::to_string) else {
+        return;
+    };
+    // A name nobody could ever ack is a dead letter: archive it now, or it comes
+    // back on every single boot forever.
+    if !is_safe_name(&name) {
+        if let Err(e) = fs::rename(path, processed.join(&name)) {
+            log::warn!("bridge dead-letter move failed: {e}");
+        }
+        return;
+    }
     if let Ok(text) = fs::read_to_string(path) {
-        if let Err(e) = app.emit("bridge://change", text) {
+        let payload = serde_json::json!({ "file": name, "text": text, "boot": boot });
+        if let Err(e) = app.emit("bridge://change", payload) {
             log::warn!("bridge emit failed: {e}");
         }
-        if let Some(name) = path.file_name() {
-            if let Err(e) = fs::rename(path, processed.join(name)) {
-                log::warn!("bridge move-to-processed failed: {e}");
-            }
-        }
     }
+}
+
+#[tauri::command]
+pub fn bridge_ack(app: tauri::AppHandle, file: String) -> Result<(), String> {
+    let dir = mailbox_dir(&app)?;
+    ack_in(&dir.join("inbox"), &file)
 }
 
 // Guards against spawning a second watcher thread when the webview reloads
@@ -142,7 +192,7 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
                 if path.extension().and_then(|e| e.to_str()) != Some("json") {
                     continue;
                 }
-                process_inbox_file(&app, &path, &processed);
+                process_inbox_file(&app, &path, &processed, true);
             }
         }
 
@@ -155,7 +205,7 @@ pub fn bridge_start_watch(app: tauri::AppHandle) -> Result<(), String> {
                 if path.extension().and_then(|e| e.to_str()) != Some("json") {
                     continue;
                 }
-                process_inbox_file(&app, &path, &processed);
+                process_inbox_file(&app, &path, &processed, false);
             }
         }
     });
@@ -247,5 +297,55 @@ mod tests {
         assert!(!old.exists(), "a processed file past the TTL must be removed");
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // The whole point of the ack protocol: a request leaves the inbox ONLY when
+    // the webview confirms it. An unconfirmed one has to still be there for the
+    // next startup sweep to find.
+    #[test]
+    fn ack_archives_only_the_confirmed_file() {
+        let inbox = std::env::temp_dir().join(format!("cn-ack-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&inbox);
+        fs::create_dir_all(&inbox).unwrap();
+
+        let done = inbox.join("aplicada.json");
+        let waiting = inbox.join("sin-confirmar.json");
+        fs::write(&done, "{}").unwrap();
+        fs::write(&waiting, "{}").unwrap();
+
+        ack_in(&inbox, "aplicada.json").unwrap();
+
+        assert!(!done.exists(), "the acked request must leave the inbox");
+        assert!(
+            inbox.join("processed/aplicada.json").is_file(),
+            "and land in processed/"
+        );
+        assert!(
+            waiting.exists(),
+            "an unacked request must stay for the next startup sweep"
+        );
+
+        // Acking twice is how a retry behaves; it must not fail.
+        ack_in(&inbox, "aplicada.json").unwrap();
+
+        let _ = fs::remove_dir_all(&inbox);
+    }
+
+    #[test]
+    fn ack_refuses_a_name_that_escapes_the_inbox() {
+        let inbox = std::env::temp_dir().join(format!("cn-ack-esc-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&inbox);
+        fs::create_dir_all(&inbox).unwrap();
+
+        let outside = inbox.parent().unwrap().join("cn-victima.json");
+        fs::write(&outside, "{}").unwrap();
+
+        assert!(ack_in(&inbox, "../cn-victima.json").is_err());
+        assert!(ack_in(&inbox, "sub/otro.json").is_err());
+        assert!(ack_in(&inbox, "").is_err());
+        assert!(outside.exists(), "nothing outside the inbox may be touched");
+
+        let _ = fs::remove_file(&outside);
+        let _ = fs::remove_dir_all(&inbox);
     }
 }

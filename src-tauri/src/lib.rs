@@ -8,6 +8,7 @@ pub fn run() {
       bridge::bridge_write_export,
       bridge::bridge_start_watch,
       bridge::bridge_write_outbox,
+      bridge::bridge_ack,
       bridge::bridge_server_path,
       bridge::bridge_read_status
     ])

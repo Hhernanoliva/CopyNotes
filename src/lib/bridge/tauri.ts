@@ -5,6 +5,10 @@ import { isTauriRuntime } from '$lib/platform';
 import { buildAgentExport } from './export';
 import { ingestAgentChange } from './ingest';
 
+// What Rust sends per inbox request. Declared because listen<T>() otherwise
+// hands back `unknown` and nothing can be read off the payload.
+type Envelope = { file: string; text: string; boot: boolean };
+
 async function writeAgentExportUnsafe() {
 	if (!isTauriRuntime()) return;
 	const { invoke } = await import('@tauri-apps/api/core');
@@ -31,18 +35,26 @@ export async function startBridgeWatch(onIngested) {
 	const { listen } = await import('@tauri-apps/api/event');
 	// Register the listener BEFORE starting the watcher: if bridge_start_watch
 	// ran first, a file processed in the gap before listen() attaches would be
-	// moved to processed/ but its event silently dropped (never ingested).
-	// Rust emits the inbox file's raw text as the payload (a String). The
-	// <string> type argument matches Tauri's own documented listen<T>(...)
-	// usage — without it event.payload has no inferred type to JSON.parse.
-	const unlisten = await listen<string>('bridge://change', async (event) => {
-		let change;
+	// emitted with nobody listening (never ingested) and, because it is only
+	// archived on ack, sit in the inbox until the next boot.
+	//
+	// The payload is an envelope: { file, text, boot }. `file` is what we ack
+	// with — Rust keeps the request in the inbox until we do — and `boot` marks
+	// the ones the startup sweep found, i.e. those that waited while the app was
+	// closed. The type argument matches Tauri's own documented listen<T>(...)
+	// usage; without it event.payload is `unknown` and nothing can be read off it.
+	const unlisten = await listen<Envelope>('bridge://change', async (event) => {
+		const envelope = event.payload;
+		const file = typeof envelope?.file === 'string' ? envelope.file : null;
+		let change = null;
 		try {
-			change = JSON.parse(event.payload);
+			change = JSON.parse(envelope?.text ?? '');
 		} catch {
-			return; // ignore a malformed/partial inbox file
+			// A malformed/partial inbox file: nothing to apply. It still gets acked
+			// below, or it would come back on every boot forever.
 		}
 		try {
+			if (!change) return;
 			const result = await ingestAgentChange(change);
 			if (change?.id) {
 				try {
@@ -51,7 +63,7 @@ export async function startBridgeWatch(onIngested) {
 					console.error('bridge_write_outbox failed', e);
 				}
 			}
-			if (result.ok) onIngested?.();
+			if (result.ok) onIngested?.({ boot: envelope?.boot === true });
 		} catch (error) {
 			// A malformed change (e.g. a missing blockId making Dexie reject) must
 			// still answer the outbox — otherwise the MCP client waits out the full
@@ -62,6 +74,14 @@ export async function startBridgeWatch(onIngested) {
 					id: change.id,
 					contents: JSON.stringify({ id: change.id, ok: false, reason: 'error' })
 				}).catch((e) => console.error('bridge_write_outbox failed', e));
+			}
+		} finally {
+			// ALWAYS, on every exit path including the early return above: an unacked
+			// request is replayed on the next boot, garbage included. The one case
+			// that must NOT ack is the app dying mid-ingest — and there this never
+			// runs, which is exactly the request we want replayed.
+			if (file) {
+				await invoke('bridge_ack', { file }).catch((e) => console.error('bridge_ack failed', e));
 			}
 		}
 	});
