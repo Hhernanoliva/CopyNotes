@@ -19,7 +19,7 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 	let startX = 0;
 	let startY = 0;
 
-	function suppressSelect(event) {
+	function suppressNative(event) {
 		event.preventDefault();
 	}
 
@@ -27,7 +27,8 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 		window.removeEventListener('pointermove', onMove);
 		window.removeEventListener('pointerup', onUp);
 		window.removeEventListener('keydown', onKey);
-		document.removeEventListener('selectstart', suppressSelect);
+		document.removeEventListener('selectstart', suppressNative);
+		document.removeEventListener('dragstart', suppressNative);
 	}
 
 	function reset() {
@@ -47,6 +48,20 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('keydown', onKey);
+		// El navegador tiene su PROPIO arrastre de texto en un contenteditable, y
+		// nada más acá lo frenaba: `preventDefault()` sobre un `pointermove` no
+		// cancela un arrastre nativo —la decisión de arrancarlo sale del flujo de
+		// eventos de mouse—, y encima el primer movimiento, el que todavía no pasó
+		// el umbral, sale de `onMove` sin prevenir nada: justo la ventana en la que
+		// el navegador decide. Si arranca, mueve el texto por su cuenta y dispara
+		// `input`, el editor guarda ESE texto ya movido, y después nuestro `onUp`
+		// vuelve a aplicar el movimiento con los offsets de antes, que ya no
+		// corresponden a nada. Dos movimientos: el renglón queda con las letras
+		// mezcladas, y sólo pasa si el nativo llega a completarse antes de soltar.
+		// Se ve únicamente con un gesto real — el mouse sintético de Playwright no
+		// dispara el arrastre nativo ni con navegador visible, así que esto no
+		// tiene prueba e2e posible.
+		document.addEventListener('dragstart', suppressNative);
 	}
 
 	function onMove(event) {
@@ -54,7 +69,7 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 			if (Math.hypot(event.clientX - startX, event.clientY - startY) <= THRESHOLD_PX) return;
 			active = true;
 			// Stop the browser from starting its own selection while we drag.
-			document.addEventListener('selectstart', suppressSelect);
+			document.addEventListener('selectstart', suppressNative);
 		}
 		event.preventDefault();
 		const point = resolveDropPoint(event.clientX, event.clientY);

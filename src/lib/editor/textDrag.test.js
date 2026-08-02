@@ -44,6 +44,28 @@ describe('createTextDrag', () => {
 		expect(applied).toHaveLength(0);
 	});
 
+	// El arrastre nativo del navegador movería el texto por su cuenta y el editor
+	// guardaría ESE resultado; después `onUp` lo movería otra vez con los offsets
+	// viejos y el renglón queda con las letras mezcladas. Tiene que estar frenado
+	// desde el apretón, no desde que el arrastre se activa: el navegador decide
+	// arrancarlo en el primer movimiento, que todavía está por debajo del umbral.
+	it('frena el arrastre nativo del navegador desde el apretón', () => {
+		const dragstart = new Event('dragstart', { bubbles: true, cancelable: true });
+		document.dispatchEvent(dragstart);
+		expect(dragstart.defaultPrevented).toBe(false);
+
+		drag.armFromSelection('s', 1, 4, pointer('pointerdown', 100, 100));
+		const armed = new Event('dragstart', { bubbles: true, cancelable: true });
+		document.dispatchEvent(armed);
+		expect(armed.defaultPrevented).toBe(true);
+
+		// Y se suelta al terminar: fuera del gesto el navegador vuelve a mandar.
+		window.dispatchEvent(pointer('pointerup', 100, 100));
+		const after = new Event('dragstart', { bubbles: true, cancelable: true });
+		document.dispatchEvent(after);
+		expect(after.defaultPrevented).toBe(false);
+	});
+
 	it('Escape cancels the drag', () => {
 		drag.armFromSelection('s', 1, 4, pointer('pointerdown', 100, 100));
 		window.dispatchEvent(pointer('pointermove', 100, 120));
