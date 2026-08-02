@@ -21,7 +21,16 @@
 		return () => document.removeEventListener('pointerdown', handlePointerDown);
 	});
 
+	// El día del calendario del sistema NO se aplica al cambiar: en iPhone,
+	// Safari escribe hoy en el campo apenas abre el calendario y vuelve a avisar
+	// en cada giro de la ruedita. Aplicando ahí, guardábamos una fecha que nadie
+	// eligió y cerrábamos el panel; el campo desaparecía de la pantalla y el
+	// calendario nativo se cerraba con él. Queda guardado acá hasta que el
+	// usuario confirma.
+	let chosen = $state('');
+
 	function pickQuick(option) { onPick(resolveQuickOption(option, todayString())); }
+	function commitChosen() { if (chosen) onPick(chosen); }
 	function keydown(e) {
 		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
 		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
@@ -72,10 +81,23 @@
 		<input
 			type="date"
 			aria-label="Elegir día"
-			onchange={(e) => { if (e.currentTarget.value) onPick(e.currentTarget.value); }}
+			bind:value={chosen}
+			onkeydown={(e) => {
+				if (e.key !== 'Enter') return;
+				e.preventDefault();
+				e.stopPropagation();
+				commitChosen();
+			}}
 			class="bg-background text-foreground min-w-0 flex-1 rounded-sm px-1 text-sm outline-none"
 		/>
 	</label>
+	{#if chosen}
+		<button
+			type="button"
+			onclick={commitChosen}
+			class="hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none"
+		>Poner fecha</button>
+	{/if}
 	{#if hasDate}
 		<button
 			type="button"

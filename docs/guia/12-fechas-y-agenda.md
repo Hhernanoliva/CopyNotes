@@ -9,7 +9,9 @@ Escribí `/fecha` en cualquier renglón (o buscalo con `/agenda`, `/hoy`, `/venc
 - **Próxima semana**
 - **Elegir día** — un selector de calendario para cualquier fecha.
 
-El panel se maneja también con el teclado: las flechas ↑ y ↓ recorren las opciones, Enter elige la marcada y Escape cierra sin cambiar nada.
+Los tres atajos se aplican apenas los tocás. **Elegir día** trabaja distinto: marcás el día en el calendario y recién cuando tocás **Poner fecha** (el botón que aparece abajo del campo) queda puesta. Ese paso extra es a propósito — en el celular el calendario del sistema va avisando el día que está mostrando mientras lo movés, y sin la confirmación el renglón se quedaba con una fecha que nunca elegiste.
+
+El panel se maneja también con el teclado: las flechas ↑ y ↓ recorren las opciones, Enter elige la marcada y Escape cierra sin cambiar nada. Con el día ya escrito en **Elegir día**, Enter también lo pone.
 
 Al elegir una, el renglón queda con una etiqueta con un calendario (📅) y el día, por ejemplo «📅 hoy», «📅 mañana» o «📅 12 ago». El texto que hayas escrito después de `/fecha` se borra, porque la fecha es un dato del renglón, no parte del texto.
 

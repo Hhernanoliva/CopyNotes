@@ -55,6 +55,43 @@ test('date badge rolls from mañana to hoy at midnight without reload', async ({
 	await expect(badge).toHaveText(/hoy/);
 });
 
+// En iPhone, Safari escribe la fecha de hoy en el campo apenas se abre el
+// calendario del sistema, y sigue disparando `change` en cada giro de la
+// ruedita. Aplicar en `change` guardaba esa fecha fantasma y cerraba el panel:
+// como el campo desaparecía de la pantalla, el calendario nativo moría con él
+// ("se abre y se cierra solo"). El día elegido a mano solo cuenta al confirmar.
+test('un change del calendario nativo no elige la fecha solo', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.keyboard.press('Enter');
+
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+
+	// Lo que hace iOS solo: pone un valor y avisa, sin que el usuario confirme.
+	const input = panel.getByLabel('Elegir día');
+	await input.evaluate((el) => {
+		el.value = '2026-08-14';
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+		el.dispatchEvent(new Event('change', { bubbles: true }));
+	});
+
+	// El panel sigue abierto (y con él el campo, así que el calendario nativo
+	// sobrevive) y el renglón no quedó fechado.
+	await expect(panel).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveCount(0);
+
+	// Recién al confirmar se aplica el día elegido.
+	await panel.getByRole('button', { name: 'Poner fecha' }).click();
+	await expect(panel).not.toBeVisible();
+	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveText(/14 ago/);
+});
+
 // The date panel is fully keyboard-driven: arrows rove the options, Enter picks.
 test('date panel navigates with arrow keys', async ({ page }) => {
 	await page.goto('/');
