@@ -36,8 +36,11 @@ test('la fecha queda arriba en una línea de varios renglones', async ({ page })
 			const badgeBox = await badge.boundingBox();
 			return badgeBox.y - editBox.y;
 		})
-		// el tope del badge se alinea con el primer renglón del texto (no centrado)
-		.toBeLessThan(16);
+		// El tope del chip coincide con el del texto: mide lo mismo que el primer
+		// renglón, así que queda centrado sobre él y no centrado en el bloque
+		// entero. Margen de 2px por redondeos de layout; con el mt-1 que tenía
+		// antes daba 4 y se veía caído.
+		.toBeLessThanOrEqual(2);
 });
 
 test('la barra de formato no supera el ancho de la pantalla', async ({ page }) => {

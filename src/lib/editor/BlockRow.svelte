@@ -851,6 +851,10 @@
 	{/if}
 
 	{#if block.dueDate && block.type !== 'separator'}
+		<!-- Sin margen arriba: el chip mide lo mismo (h-7) que la manija y el resto
+		     de los controles del renglón, así que sin margen queda centrado sobre
+		     el primer renglón del texto. El mt-1 que tenía lo dejaba 5px más abajo
+		     que la línea, y se notaba como un chip caído. -->
 		<button
 			type="button"
 			in:scale={{ start: 0.6, duration: ready ? motionDuration(MOTION.fast) : 0 }}
@@ -859,7 +863,7 @@
 			onmousedown={(event) => event.preventDefault()}
 			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => onDateBadge(block)}
-			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring mt-1 flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
 		>📅 {dueLabel}</button>
 	{/if}
 
