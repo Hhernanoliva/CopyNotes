@@ -34,7 +34,7 @@ Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mo
 Es distinto de mover el renglón entero: si seleccionás **solo una palabra o un trozo** dentro de un renglón y lo arrastrás, se mueve **solo ese texto**.
 
 - Seleccioná el texto, apretá **sobre lo resaltado** y arrastrá. Una **línea fina** te muestra dónde va a caer, siguiendo el cursor.
-- Soltá donde quieras (en la misma línea o en otra): el texto **se mueve** ahí y **conserva el formato** (negrita, itálica, links…).
+- Soltá donde quieras (en la misma línea o en otra): el texto **se mueve** ahí y **conserva el formato** (negrita, itálica, links…). Podés soltar rápido, sin frenar: el texto va a donde lo dejaste, entero.
 - **Escape** cancela: no se mueve nada.
 - Funciona en renglones de texto, títulos, viñetas y tareas. En bloques de **código** y **separadores** no aplica.
 - Un **clic simple** sobre el texto resaltado (sin arrastrar) solo pone el cursor ahí, como siempre.
