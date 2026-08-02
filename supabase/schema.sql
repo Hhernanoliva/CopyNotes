@@ -118,7 +118,12 @@ begin
 		if record_in.base_seq is not null then
 			update public.records as target
 			   set change_seq = record_in.change_seq,
-			       deleted = record_in.deleted,
+			       -- A payload that omits `deleted` arrives as NULL here, and an
+			       -- explicit NULL overrides the column default instead of falling back
+			       -- to it. Left alone that raises inside the loop, which aborts the
+			       -- whole batch over one incomplete row. Absent means "not a
+			       -- tombstone", the same thing the column's own default says.
+			       deleted = coalesce(record_in.deleted, false),
 			       iv = record_in.iv,
 			       blob = record_in.blob
 			 where target.owner_id = auth.uid()
@@ -138,7 +143,7 @@ begin
 				record_in.table_name,
 				record_in.id,
 				record_in.change_seq,
-				record_in.deleted,
+				coalesce(record_in.deleted, false),
 				record_in.iv,
 				record_in.blob
 			)
