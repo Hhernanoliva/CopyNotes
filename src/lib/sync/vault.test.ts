@@ -12,9 +12,16 @@ import {
 	normalizeRecoveryCode,
 	restoreVault
 } from './vault';
+import { grantUploadConsent } from './pending';
+import { setSetting } from '../storage/settings';
+import { KEY } from '../storage/settings-registry';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
+	// A vault may not be created before the upload is consented to — see the test
+	// at the bottom of this block for why. Every test below is about what the
+	// vault does once it legitimately exists.
+	await grantUploadConsent();
 });
 
 const CROCKFORD = /^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}(-[0-9ABCDEFGHJKMNPQRSTVWXYZ]{4}){5}$/;
@@ -53,6 +60,22 @@ describe('the vault key', () => {
 			title: 'Contraseñas del banco',
 			deletedAt: null
 		});
+	});
+
+	it('refuses to exist before the upload is consented to', async () => {
+		// The two are one decision, because half of it is useless and harmful. The
+		// wrapped copy of the key only travels behind the consent gate, so a vault
+		// created without it never reaches the server — and the second device, told
+		// this account has no vault, builds a rival one with a different key. From
+		// then on each device uploads records the other cannot open.
+		//
+		// Nothing local needs the vault either: on this machine the notes are plain
+		// (decision D1). A vault exists to serve the cloud, so it exists only once
+		// the cloud is allowed.
+		await setSetting(KEY.syncConsent, false);
+
+		await expect(createVault()).rejects.toThrow(/permiso/i);
+		expect(await hasVault()).toBe(false);
 	});
 
 	it('refuses to create a second vault over the first', async () => {

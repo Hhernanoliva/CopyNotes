@@ -173,9 +173,19 @@
 				accountHasVault = true;
 				throw new Error('Esta cuenta ya tiene una bóveda: sumá este dispositivo con tu código.');
 			}
+			// One button, both halves. Consent goes first because `createVault`
+			// refuses without it — and because if the second half fails, having said
+			// yes with no key is harmless, while a key that may not be uploaded is
+			// the bug this closes (sync/vault.ts spells it out).
+			await grantUploadConsent();
+			consentGiven = true;
 			const { recoveryCode: code } = await createVault();
 			recoveryCode = code;
 			recoverySaved = false;
+			// Not awaited: the recovery code has to be on screen now, not after a
+			// first full upload. `syncNow` never throws — it puts failures in the
+			// status line — so nothing is swallowed here.
+			syncNow();
 		});
 	}
 
@@ -696,40 +706,38 @@
 					{/if}
 				</div>
 			{:else if !vaultReady}
+				<!--
+					Creating the key and allowing the upload are ONE step, not two. Split,
+					a vault could exist without consent, its wrapped copy would never
+					reach the server, and the second device — told this account has no
+					vault — would build a rival one with a different key. `createVault`
+					refuses to be created without consent for the same reason.
+				-->
 				<div class="flex flex-col gap-2">
 					<p class="text-muted-foreground text-sm">
 						Entraste como <span class="text-foreground font-medium">{cloudSession.user.email}</span
-						>. Falta crear la bóveda: la llave que cifra tus notas y que solo existe en este
-						dispositivo.
+						>. Falta un paso: crear la bóveda —la llave que cifra tus notas y que solo existe en
+						este dispositivo— y permitir que CopyNotes las suba.
 					</p>
+					{@render uploadTerms()}
 					<button
 						type="button"
 						onclick={makeVault}
 						disabled={cloudBusy}
 						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
 					>
-						Crear bóveda
+						Crear bóveda y permitir subir
 					</button>
 				</div>
 			{:else if !consentGiven}
+				<!-- The second device: it joined the vault with the recovery code, which
+				     needs no consent because downloading is what it asked for. Whether
+				     its own writing may go up is still its own decision. -->
 				<div class="flex flex-col gap-2">
 					<p class="text-foreground text-sm">
 						Hasta que lo permitas, nada salió de este dispositivo.
 					</p>
-					<p class="text-muted-foreground text-sm">
-						Si lo permitís, se sube <span class="text-foreground">todo</span> lo que escribís
-						—notas, renglones, comentarios, fechas, etiquetas, snippets y la bitácora— siempre
-						cifrado en este dispositivo: al servidor llegan letras y números, y la llave que
-						los abre no se sube.
-					</p>
-					<p class="text-muted-foreground text-sm">
-						Lo que el servidor igual ve: que tenés una cuenta, tu email, tu conexión, cuántos
-						registros hay, cuánto pesan y a qué hora sincronizás.
-					</p>
-					<p class="text-muted-foreground text-sm">
-						Es beta: esto es lo que hace el programa y lo probamos nosotros, pero todavía no
-						lo revisó una auditoría de seguridad independiente.
-					</p>
+					{@render uploadTerms()}
 					<button
 						type="button"
 						onclick={allowUpload}
@@ -1117,3 +1125,25 @@
 		</section>
 	</div>
 </dialog>
+
+<!--
+	What consenting to the upload actually means. Rendered in two places — the
+	first device, where it is part of creating the vault, and a second device that
+	joined one — because it is the same promise and it must not drift between
+	them.
+-->
+{#snippet uploadTerms()}
+	<p class="text-muted-foreground text-sm">
+		Si lo permitís, se sube <span class="text-foreground">todo</span> lo que escribís —notas,
+		renglones, comentarios, fechas, etiquetas, snippets y la bitácora— siempre cifrado en este
+		dispositivo: al servidor llegan letras y números, y la llave que los abre no se sube.
+	</p>
+	<p class="text-muted-foreground text-sm">
+		Lo que el servidor igual ve: que tenés una cuenta, tu email, tu conexión, cuántos registros
+		hay, cuánto pesan y a qué hora sincronizás.
+	</p>
+	<p class="text-muted-foreground text-sm">
+		Es beta: esto es lo que hace el programa y lo probamos nosotros, pero todavía no lo revisó una
+		auditoría de seguridad independiente.
+	</p>
+{/snippet}

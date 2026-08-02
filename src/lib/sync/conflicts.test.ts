@@ -89,8 +89,8 @@ beforeEach(async () => {
 	server.rows = [];
 	server.error = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
-	await createVault();
 	await grantUploadConsent();
+	await createVault();
 });
 
 describe('when both devices edited the same record', () => {

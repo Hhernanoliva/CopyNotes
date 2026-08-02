@@ -47,8 +47,8 @@ const { forgetCloudAccount } = await import('./leave');
 // A device that has been syncing for a while: vault, consent, both cursors
 // moved, a decision waiting, and a note that the server already holds.
 async function aConnectedDevice() {
-	await createVault();
 	await grantUploadConsent();
+	await createVault();
 	await setSetting(KEY.syncUploadedThrough, 5_000);
 	await setSetting(KEY.syncDownloadedThrough, 42);
 	const note = await createNote({ title: 'mía' });
@@ -134,8 +134,8 @@ describe('cerrar sesión', () => {
 	it('is a door every synced table goes through', async () => {
 		// A table added to SYNCED_TABLES later carries `cloudSeq` too, and would be
 		// stranded the same way.
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		for (const name of SYNCED_TABLES) {
 			await db.table(name).put({ id: `x-${name}`, changeSeq: 10, cloudSeq: 10, fromCloud: true });
 		}

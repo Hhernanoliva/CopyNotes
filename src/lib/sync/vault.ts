@@ -21,6 +21,7 @@
 // not being able to read them, and it has to be said on screen, not only here.
 
 import { db } from '../storage/db';
+import { hasUploadConsent } from './pending';
 import { fromBase64, toBase64 } from './base64';
 import { now } from '../storage/ids';
 
@@ -123,6 +124,22 @@ export async function getRecoveryBlob() {
 export async function createVault() {
 	if (await hasVault()) {
 		throw new Error('Ya existe una bóveda en este dispositivo');
+	}
+	// Creating the key and allowing the upload are one decision, and this is the
+	// door that enforces it rather than the screen that asks.
+	//
+	// Split, the half without the other is worse than useless. `uploadVaultBlob`
+	// only sends the wrapped copy once consent exists, so a vault created without
+	// it never reaches the server; the second device then asks "does this account
+	// have a vault?", is told no, and builds a rival one with a different key.
+	// From that moment each device uploads records the other cannot open, and
+	// `vaults` holds whichever wrapped key happened to arrive last.
+	//
+	// Nothing local is waiting on it either: on this device the notes are stored
+	// plain (spec 030, decision D1). The vault exists to serve the cloud, so it
+	// comes into being when the cloud is allowed and not a moment before.
+	if (!(await hasUploadConsent())) {
+		throw new Error('Primero hace falta el permiso para subir a la nube');
 	}
 	const raw = crypto.getRandomValues(new Uint8Array(KEY_BYTES));
 	const codeBytes = crypto.getRandomValues(new Uint8Array(CODE_BYTES));

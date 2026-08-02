@@ -10,6 +10,8 @@ import { createNote, updateNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { grantUploadConsent, uploadedThrough } from './pending';
 import { createVault } from './vault';
+import { setSetting } from '../storage/settings';
+import { KEY } from '../storage/settings-registry';
 
 // Every request the fake server received: [table, rows].
 const sent = vi.hoisted(() => []);
@@ -96,7 +98,13 @@ describe('a second device', () => {
 
 describe('the consent gate', () => {
 	it('sends nothing at all before the user consents', async () => {
+		// A vault cannot be created without consent any more, so this is the state a
+		// *second* device is in: it joined the existing vault with the recovery code
+		// — which needs no consent, because downloading is what it asked for — and
+		// has not said yet whether its own writing may go up.
+		await grantUploadConsent();
 		await createVault();
+		await setSetting(KEY.syncConsent, false);
 		await createNote({ title: 'privada' });
 		const { syncNow } = await loadUpload();
 
@@ -119,8 +127,8 @@ describe('the consent gate', () => {
 
 describe('what reaches the server', () => {
 	it('uploads every pending record as an unreadable blob', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const note = await createNote({ title: 'Reunión con el contador' });
 		await createBlock({ noteId: note.id, content: 'Pedir el balance de marzo' });
 		const { syncNow, syncStatus } = await loadUpload();
@@ -140,8 +148,8 @@ describe('what reaches the server', () => {
 	});
 
 	it('sends the wrapped vault key once, not on every sync', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		await createNote({ title: 'una' });
 		const { syncNow } = await loadUpload();
 
@@ -166,8 +174,8 @@ describe('the clock', () => {
 		// from a Svelte effect, that read became a dependency and the write
 		// re-triggered the effect for ever, freezing the tab. Nothing may reach the
 		// status — or the network — before the caller's effect has finished.
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		await createNote({ title: 'una' });
 		const { startUploadClock, syncStatus } = await loadUpload();
 
@@ -181,8 +189,8 @@ describe('the clock', () => {
 
 describe('when the network or the server fails', () => {
 	it('keeps the mark where it was and shows the error', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		await createNote({ title: 'una' });
 		replies.push({ error: null }); // the vault key lands
 		replies.push({ error: { message: 'No hay conexión' } }); // the records do not
@@ -196,8 +204,8 @@ describe('when the network or the server fails', () => {
 	});
 
 	it('retries the same batch on the next run instead of losing or duplicating it', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const note = await createNote({ title: 'una' });
 		replies.push({ error: null });
 		replies.push({ error: { message: 'No hay conexión' } });
@@ -225,8 +233,8 @@ describe('when the network or the server fails', () => {
 // was destroyed on the server before anything could compare the two.
 describe('when the other device got there first', () => {
 	it('declares which version it is standing on, so the server can tell', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const note = await createNote({ title: 'una' });
 		const { syncNow } = await loadUpload();
 
@@ -245,8 +253,8 @@ describe('when the other device got there first', () => {
 	});
 
 	it('leaves a refused record pending instead of pretending it landed', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const note = await createNote({ title: 'mía' });
 		const { syncNow, syncStatus } = await loadUpload();
 		rejects.push(`notes:${note.id}`);
@@ -263,8 +271,8 @@ describe('when the other device got there first', () => {
 	});
 
 	it('does not drag down the records that landed in the same batch', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const first = await createNote({ title: 'primera' });
 		const second = await createNote({ title: 'segunda' });
 		const { syncNow } = await loadUpload();
@@ -281,8 +289,8 @@ describe('when the other device got there first', () => {
 	});
 
 	it('never re-sends what the server confirmed', async () => {
-		await createVault();
 		await grantUploadConsent();
+		await createVault();
 		const note = await createNote({ title: 'una' });
 		const { syncNow } = await loadUpload();
 

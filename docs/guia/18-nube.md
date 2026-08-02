@@ -40,8 +40,10 @@ de acá abajo, y son dos cosas distintas a propósito.
 
 ## El código de recuperación (esto es lo que no hay que perder)
 
-Después de entrar, CopyNotes te pide **crear la bóveda**: la llave que cifra tus
-notas. Al crearla te muestra **una sola vez** un código así:
+Después de entrar, CopyNotes te pide **crear la bóveda y permitir subir**: la
+llave que cifra tus notas, y el permiso, en un solo botón. Son una sola decisión
+a propósito —abajo, en "Dar el permiso", está lo que dice esa pantalla antes de
+que la toques—. Al crear la bóveda te muestra **una sola vez** un código así:
 
 ```
 K7QP-3M9X-VT2H-8NRJ-5WBD-4YFC
@@ -68,8 +70,11 @@ Cambiar la contraseña de tu cuenta no descifra ninguna nota.
 
 ## Dar el permiso
 
-Nada sale de tu dispositivo hasta que toques **Permitir y subir**. Antes de
-tocarlo, la pantalla te dice exactamente:
+Nada sale de tu dispositivo hasta que lo permitas. En el primer dispositivo el
+permiso va junto con crear la bóveda (**Crear bóveda y permitir subir**); en un
+segundo dispositivo, que se suma a una bóveda que ya existe, es un botón aparte
+(**Permitir y subir**). En los dos casos, antes de tocarlo la pantalla te dice
+exactamente:
 
 - **Qué se sube:** todo lo que escribís —notas, renglones, comentarios, fechas,
   etiquetas, snippets y la bitácora de tareas—, siempre cifrado.
@@ -123,9 +128,13 @@ internet.
 En el segundo dispositivo (otra computadora, la app de escritorio, el navegador):
 
 1. **Configuración › Nube** → entrá con el mismo email y contraseña.
-2. Como esa cuenta ya tiene notas guardadas, en vez de "Crear bóveda" te pide el
-   **código de recuperación**. Pegalo y tocá **Traer mis notas**.
+2. Como esa cuenta ya tiene notas guardadas, en vez de "Crear bóveda y permitir
+   subir" te pide el **código de recuperación**. Pegalo y tocá **Traer mis
+   notas**.
 3. Vas a ver "Trayendo tus notas…" y aparecen.
+4. Después te pregunta si este dispositivo también puede **subir** lo que
+   escribas acá. Bajar no necesita permiso —es justo lo que pediste con el
+   código—; subir sí, y es una decisión por dispositivo.
 
 Desde ahí, lo que escribas en cualquiera de los dos aparece en el otro. Y si en
 alguno tenés un **agente** conectado, lo que él haga también viaja igual.
