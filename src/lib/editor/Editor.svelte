@@ -299,6 +299,16 @@
 	const selectionAnnouncement = $derived(
 		hasSelection ? `${selectedIds.length} renglones seleccionados` : ''
 	);
+	// Un choque no lo pide nadie: aparece solo, mientras escribís, cuando llega un
+	// cambio del otro dispositivo. Se ve en el renglón, y sin esto quien usa lector
+	// de pantalla no se entera de que quedó una decisión esperando.
+	const conflictAnnouncement = $derived.by(() => {
+		const count = Object.keys(conflicts).length;
+		if (!count) return '';
+		return count === 1
+			? 'Un renglón tiene otra versión esperando que elijas cuál queda'
+			: `${count} renglones tienen otra versión esperando que elijas cuál queda`;
+	});
 
 	const visible = $derived(buildVisibleList(blocks));
 
@@ -2035,6 +2045,7 @@
 		onkeydowncapture={handleSelectionKeys}
 	>
 		<div class="sr-only" role="status" aria-live="polite">{selectionAnnouncement}</div>
+		<div class="sr-only" role="status" aria-live="polite">{conflictAnnouncement}</div>
 		<div class="group/title flex items-center gap-2">
 			<input
 				bind:this={titleEl}

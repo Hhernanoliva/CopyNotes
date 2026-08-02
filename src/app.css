@@ -497,10 +497,21 @@
    al borde derecho a buscar de quién era cada uno. */
 .cn-conflict-side {
 	flex: none;
-	width: 2.25rem;
+	width: 2.5rem;
 	text-align: right;
-	font-size: 0.6875rem;
+	/* El mismo tamaño mínimo que el resto del chrome de la app: más chico que
+	   esto no existe en ninguna otra parte, y no hay razón para estrenarlo acá. */
+	font-size: 0.75rem;
 	color: var(--muted-foreground);
+}
+
+/* Con el dedo, cada versión tiene que ser tan tocable como cualquier otro
+   control. `.cn-tap` no sirve acá: agranda con un pseudo-elemento cuadrado
+   centrado, pensado para botones chiquitos, no para una fila de ancho completo. */
+@media (pointer: coarse) {
+	.cn-conflict-option {
+		min-height: var(--touch-target);
+	}
 }
 
 /* Lo que difiere entre las dos versiones. Subrayado y no fondo pintado: un
