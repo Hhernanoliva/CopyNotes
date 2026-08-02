@@ -23,8 +23,23 @@ cheapest of the three flavors already mapped in the ingest-gate contract
   (`src/lib/editor/slash.ts`). Keywords: `fecha`, `date`, `agenda`, `hoy`,
   `recordatorio`, `vencimiento`.
 - Picking it opens a small date panel with quick options:
-  **Hoy · Mañana · Próxima semana · Elegir día** (day picker; a native
-  `<input type="date">` is acceptable — keep it cheap).
+  **Hoy · Mañana · Próxima semana · Elegir día…**.
+- **Amendment 2026-08-02 — "Elegir día" is an own calendar, NOT `<input
+  type="date">`.** The original "a native input is acceptable, keep it cheap"
+  did not survive contact with iOS: Safari writes today's date into an empty
+  date input the moment the picker opens and fires `change`, then fires it
+  again on every wheel movement. Applying on `change` therefore stored a date
+  nobody picked and closed the panel — which unmounted the input and killed
+  the system picker ("it opens and closes by itself"). There is no
+  cross-platform way to tell a final pick from a wheel tick: on Android/desktop
+  the FIRST `change` IS the commit, on iOS it is noise. `DatePanel` renders a
+  month grid built by `monthGrid`/`addMonths`/`monthLabel` (pure, in
+  `dates/core.ts`), where one tap on a day IS the choice. It replaces the quick
+  options while open — showing both made the panel taller than a phone's
+  visible viewport with the keyboard up. Grid is always 6 weeks so the panel
+  keeps its height across months (the flip calculation depends on it), day
+  cells are 44px on touch, and arrows walk days (±1/±7), crossing months on
+  their own.
 - The block gets `dueDate` and shows a badge at the end of the line:
   `📅 hoy`, `📅 mañana`, `📅 22 jul`, `📅 22 jul 2027` (year only when not the
   current year). Overdue badges (date < today, and block is not a checked todo)

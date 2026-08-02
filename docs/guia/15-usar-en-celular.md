@@ -34,6 +34,8 @@ En algunos teléfonos y tablets, el teclado en pantalla no "avisa" igual que un 
 
 Cuando abrís un menú (el de "/", el de fecha, el de etiquetas o la barra de formato) con el teclado en pantalla ocupando la mitad de abajo, el menú **se acomoda solo para quedar por encima del teclado**, así siempre lo ves y podés elegir.
 
+Con el panel de fecha hay algo más: si el renglón está tan abajo que el panel no entraría, el panel **se da vuelta y se abre para arriba** en vez de meterse debajo del teclado. Y el almanaque de **Elegir día…** tiene las casillas de los días grandes, del mismo tamaño que el resto de los botones pensados para el dedo.
+
 ## El menú "/" en el teléfono es una barra abajo
 
 En la computadora, escribir `/` abre una lista de arriba a abajo. En el teléfono esa lista quedaba tapada por el teclado y, si era larga, no se podía llegar a las opciones de más abajo. Ahora `/` abre una **barra apoyada arriba del teclado, de lado a lado de la pantalla**, con fichas grandes (Texto, Títulos, Viñeta, Tarea, Fecha, Código, Separador, Snippet). Si no entran todas, **deslizás la barra para el costado** con el dedo.
