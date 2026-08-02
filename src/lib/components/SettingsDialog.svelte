@@ -1,5 +1,5 @@
 <script>
-	import { X, Copy, Check } from '@lucide/svelte';
+	import { X, Copy, Check, Download } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
 	import { redoTask } from '$lib/tasks';
@@ -325,6 +325,41 @@
 		flashCopied(field);
 	}
 
+	// El código de recuperación es lo único de toda la app que no se puede volver
+	// a pedir: se muestra una vez y no se guarda en ningún lado. El portapapeles
+	// no es un lugar donde guardarlo —el próximo copiar lo pisa—, así que además
+	// de Copiar hay un archivo que queda.
+	function downloadRecoveryCode() {
+		const blob = new Blob(
+			[
+				`Código de recuperación de CopyNotes\n\n${recoveryCode}\n\n` +
+					`Guardalo en un lugar seguro. Es lo único que abre tus notas en otro ` +
+					`dispositivo. Nadie más lo tiene: ni CopyNotes ni el servidor pueden ` +
+					`recuperarlo por vos.\n`
+			],
+			{ type: 'text/plain' }
+		);
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = 'copynotes-codigo-de-recuperacion.txt';
+		link.click();
+		URL.revokeObjectURL(url);
+		flashCopied('recovery-file');
+	}
+
+	// Mientras el código está en pantalla sin confirmar, el diálogo no se cierra:
+	// ni con la X, ni con Escape. Encerrar a alguien en un modal es normalmente
+	// una fea idea, pero acá la alternativa es perder las notas para siempre —
+	// después de recargar, la bóveda ya existe y esta pantalla no vuelve—. La
+	// salida está a un clic: tildar "Ya lo guardé".
+	const codePending = $derived(Boolean(recoveryCode) && !recoverySaved);
+
+	function requestClose() {
+		if (codePending) return;
+		open = false;
+	}
+
 	const ACTION_LABEL = {
 		created: 'creó una tarea',
 		done: 'marcó hecha',
@@ -378,6 +413,11 @@
 <dialog
 	bind:this={dialogEl}
 	onclose={() => (open = false)}
+	oncancel={(event) => {
+		// Escape. El navegador cierra el <dialog> solo; `preventDefault` es la
+		// única forma de retenerlo mientras el código sigue sin confirmar.
+		if (codePending) event.preventDefault();
+	}}
 	aria-labelledby="settings-title"
 	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
@@ -385,9 +425,11 @@
 		<h2 id="settings-title" class="text-sm font-bold">Configuración</h2>
 		<button
 			type="button"
-			onclick={() => (open = false)}
+			onclick={requestClose}
+			disabled={codePending}
 			aria-label="Cerrar"
-			class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+			title={codePending ? 'Guardá tu código de recuperación antes de cerrar' : undefined}
+			class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
 		>
 			<X size={18} aria-hidden="true" />
 		</button>
@@ -480,6 +522,18 @@
 							{/if}
 						</button>
 					</div>
+					<button
+						type="button"
+						onclick={downloadRecoveryCode}
+						class="border-border text-foreground hover:bg-accent focus-visible:ring-ring flex items-center justify-center gap-2 self-start rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+					>
+						{#if copiedField === 'recovery-file'}
+							<Check size={14} aria-hidden="true" class="text-primary" />
+						{:else}
+							<Download size={14} aria-hidden="true" />
+						{/if}
+						Descargar como archivo
+					</button>
 					<p class="text-destructive text-sm">
 						Guardalo ahora en un lugar seguro. Es lo único que recupera tus notas en otro
 						dispositivo. Nadie más lo tiene: si lo perdés junto con tus dispositivos, tus notas

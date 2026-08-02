@@ -47,7 +47,16 @@ notas. Al crearla te muestra **una sola vez** un código así:
 K7QP-3M9X-VT2H-8NRJ-5WBD-4YFC
 ```
 
-Copialo y guardalo donde guardás tus contraseñas.
+Copialo y guardalo donde guardás tus contraseñas. Tenés dos formas: el botón de
+**copiar** al lado del código, o **Descargar como archivo**, que te baja un
+`.txt` con el código adentro —el portapapeles se pisa con lo próximo que copies,
+un archivo queda—.
+
+Mientras el código está en pantalla, **la ventana de Configuración no se cierra**:
+ni con la X ni con Escape, hasta que tildes **"Ya lo guardé"**. Es la única
+pantalla de CopyNotes que hace esto, y es a propósito: si la cerrabas sin
+guardar el código, después de recargar la bóveda ya existía y el código **no
+volvía a mostrarse nunca más**.
 
 - Es lo único que abre tus notas en **otro** dispositivo.
 - **Nadie más lo tiene.** No está en el servidor, no lo tenemos nosotros, no se
