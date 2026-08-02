@@ -25,17 +25,30 @@ export function keyboardInset(node) {
 		// Margen de 100px: en celular las barras del navegador también achican el
 		// visualViewport, y eso no es un teclado. Uno abierto se come 250px o más.
 		if (window.innerHeight - keyboardTop < 100) return;
-		const overlap = node.getBoundingClientRect().bottom - keyboardTop;
-		if (overlap > 0) node.style.translate = `0 ${-overlap - 8}px`;
+		const box = node.getBoundingClientRect();
+		const overlap = box.bottom - keyboardTop;
+		// Subirlo, pero nunca tanto que se le vaya el techo por arriba de lo
+		// visible: con un menú más alto que el hueco que deja el teclado, "que
+		// entre entero" es imposible y quedaba cortado ARRIBA, que es peor —
+		// desaparecen las primeras opciones y no hay forma de scrollear hasta
+		// ellas. Tapado abajo se sigue viendo de dónde salió.
+		const room = Math.max(box.top - vv.offsetTop, 0);
+		if (overlap > 0) node.style.translate = `0 ${-Math.min(overlap + 8, room)}px`;
 	}
 
 	reposition();
 	vv.addEventListener('resize', reposition);
 	vv.addEventListener('scroll', reposition);
+	// El menú puede cambiar de alto sin que se mueva nada más: el panel de fecha
+	// crece al abrir el almanaque, el menú "/" se acorta al filtrar. Medido una
+	// sola vez al abrirse, el corrimiento quedaba calculado para el alto viejo.
+	const observer = new ResizeObserver(reposition);
+	observer.observe(node);
 	return {
 		destroy() {
 			vv.removeEventListener('resize', reposition);
 			vv.removeEventListener('scroll', reposition);
+			observer.disconnect();
 		}
 	};
 }

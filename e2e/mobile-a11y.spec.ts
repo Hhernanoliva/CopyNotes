@@ -260,3 +260,57 @@ test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => 
 	const optionBox = await page.getByRole('option', { name: 'Viñeta' }).boundingBox();
 	expect(optionBox.height).toBeGreaterThanOrEqual(44);
 });
+
+// El teclado en pantalla NO achica window.innerHeight: achica el visualViewport.
+// Por eso el panel de fecha del último renglón se dibujaba en píxeles que
+// existen para el layout pero el usuario no ve, tapado por el teclado. Se
+// simula el teclado (780 de ventana, 430 visibles) y se exige que el panel
+// entero caiga dentro de lo visible: si no entra abajo, se da vuelta y sale
+// arriba.
+test('el panel de fecha no queda tapado por el teclado', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(window, 'visualViewport', {
+			configurable: true,
+			value: {
+				offsetTop: 0,
+				offsetLeft: 0,
+				pageTop: 0,
+				pageLeft: 0,
+				width: 390,
+				height: 430,
+				scale: 1,
+				addEventListener() {},
+				removeEventListener() {}
+			}
+		});
+	});
+	await page.goto('/');
+
+	// Renglones hasta que el último quede al pie de la pantalla.
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	for (let i = 0; i < 12; i += 1) {
+		await page.keyboard.type(`renglón ${i}`);
+		await page.keyboard.press('Enter');
+	}
+
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.getByRole('option', { name: 'Fecha' }).click();
+
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+	await panel.getByRole('button', { name: 'Elegir día…' }).click(); // el caso más alto
+
+	// La animación de entrada de .cn-pop mueve el panel unos píxeles: se re-mide
+	// hasta que se asienta.
+	await expect
+		.poll(async () => {
+			const box = await panel.boundingBox();
+			return Math.round(box.y + box.height);
+		})
+		.toBeLessThanOrEqual(430);
+	const box = await panel.boundingBox();
+	expect(box.y).toBeGreaterThanOrEqual(0);
+});

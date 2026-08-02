@@ -22,6 +22,7 @@
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { flipIntoView } from '$lib/actions/flipIntoView';
 	import { badgeLabel, currentDay, isOverdue } from '$lib/dates';
 	import {
 		CLIPBOARD_FORMAT,
@@ -945,9 +946,13 @@
 	{/if}
 
 	{#if datePanelOpen}
-		<div class="absolute top-full left-8 z-10 mt-1">
+		<!-- El panel sale debajo del renglón salvo que no entre: ahí se da vuelta
+		     y sale arriba. En celular el piso es el borde del teclado, no el de la
+		     ventana (ver flipIntoView). -->
+		<div use:flipIntoView class="absolute top-full left-8 z-10 mt-1">
 			<DatePanel
 				hasDate={!!block.dueDate}
+				current={block.dueDate}
 				onPick={(day) => onDatePick(block, day)}
 				onRemove={() => onDateRemove(block)}
 				onClose={() => onDatePanelClose(block)}

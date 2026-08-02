@@ -51,6 +51,37 @@ export function addDays(day, count) {
 	return toDayString(date);
 }
 
+// Mes anterior/siguiente conservando el día. El 31 en un mes que no lo tiene
+// se recorta al último día (31 de enero + 1 mes = 28 de febrero), que es lo que
+// espera quien navega el almanaque: nunca salta al mes de más allá.
+export function addMonths(day, count) {
+	const p = parts(day);
+	const target = new Date(p.y, p.m - 1 + count, 1);
+	const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+	target.setDate(Math.min(p.d, lastDay));
+	return toDayString(target);
+}
+
+// Las 6 semanas (lunes a domingo) que muestran el mes de `day`. Siempre 6, aunque
+// el mes entre en 5: así el panel no cambia de alto al pasar de mes, que además
+// es lo que hace que el cálculo de "¿entra abajo o se da vuelta?" siga valiendo.
+// Las casillas de relleno son días reales del mes vecino: se pueden elegir.
+export function monthGrid(day) {
+	const p = parts(day);
+	const first = new Date(p.y, p.m - 1, 1);
+	const mondayOffset = (first.getDay() + 6) % 7; // getDay(): domingo = 0
+	const start = addDays(toDayString(first), -mondayOffset);
+	return Array.from({ length: 6 }, (_, week) =>
+		Array.from({ length: 7 }, (_, weekday) => addDays(start, week * 7 + weekday))
+	);
+}
+
+const monthName = new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' });
+
+export function monthLabel(day) {
+	return monthName.format(toLocalDate(day)).replace(' de ', ' ');
+}
+
 export function resolveQuickOption(option, today) {
 	if (option === 'today') return today;
 	if (option === 'tomorrow') return addDays(today, 1);

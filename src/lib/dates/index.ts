@@ -1,10 +1,13 @@
 export {
 	addDays,
+	addMonths,
 	badgeLabel,
 	dateSuffix,
 	exportLabel,
 	isOverdue,
 	isValidDueDate,
+	monthGrid,
+	monthLabel,
 	msUntilNextMidnight,
 	resolveQuickOption,
 	todayString

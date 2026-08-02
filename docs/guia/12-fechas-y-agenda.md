@@ -7,11 +7,13 @@ Escribí `/fecha` en cualquier renglón (o buscalo con `/agenda`, `/hoy`, `/venc
 - **Hoy**
 - **Mañana**
 - **Próxima semana**
-- **Elegir día** — un selector de calendario para cualquier fecha.
+- **Elegir día…** — abre un almanaque para cualquier otra fecha.
 
-Los tres atajos se aplican apenas los tocás. **Elegir día** trabaja distinto: marcás el día en el calendario y recién cuando tocás **Poner fecha** (el botón que aparece abajo del campo) queda puesta. Ese paso extra es a propósito — en el celular el calendario del sistema va avisando el día que está mostrando mientras lo movés, y sin la confirmación el renglón se quedaba con una fecha que nunca elegiste.
+Los tres atajos se aplican apenas los tocás. **Elegir día…** cambia el panel por un almanaque del mes: **un toque en el día ya lo pone**, sin confirmar nada. Las flechitas ‹ › de arriba cambian de mes. El día de hoy se ve resaltado y el que el renglón ya tiene puesto aparece pintado. Para salir del almanaque sin elegir, apretá Escape o tocá fuera del panel; al volver a abrirlo aparecen de nuevo los atajos.
 
-El panel se maneja también con el teclado: las flechas ↑ y ↓ recorren las opciones, Enter elige la marcada y Escape cierra sin cambiar nada. Con el día ya escrito en **Elegir día**, Enter también lo pone.
+El panel se maneja también con el teclado: las flechas ↑ y ↓ recorren las opciones, Enter elige la marcada y Escape cierra sin cambiar nada. Dentro del almanaque las flechas caminan los días —izquierda y derecha un día, arriba y abajo una semana— y se pasa solo al mes de al lado al llegar al borde.
+
+Si el renglón está muy abajo en la pantalla, el panel **se da vuelta y sale para arriba**, para no quedar tapado por el teclado del celular.
 
 Al elegir una, el renglón queda con una etiqueta con un calendario (📅) y el día, por ejemplo «📅 hoy», «📅 mañana» o «📅 12 ago». El texto que hayas escrito después de `/fecha` se borra, porque la fecha es un dato del renglón, no parte del texto.
 

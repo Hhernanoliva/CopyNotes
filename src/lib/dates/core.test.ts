@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addDays,
+	addMonths,
 	badgeLabel,
 	dateSuffix,
 	exportLabel,
 	isOverdue,
 	isValidDueDate,
+	monthGrid,
+	monthLabel,
 	msUntilNextMidnight,
 	resolveQuickOption,
 	todayString
@@ -94,5 +97,51 @@ describe('isOverdue', () => {
 	it('a checked todo is never overdue', () => {
 		expect(isOverdue({ type: 'todo', checked: true, dueDate: '2026-07-10' }, '2026-07-16')).toBe(false);
 		expect(isOverdue({ type: 'todo', checked: false, dueDate: '2026-07-10' }, '2026-07-16')).toBe(true);
+	});
+});
+
+describe('addMonths', () => {
+	it('moves whole months', () => {
+		expect(addMonths('2026-08-14', 1)).toBe('2026-09-14');
+		expect(addMonths('2026-08-14', -1)).toBe('2026-07-14');
+	});
+	it('crosses the year', () => {
+		expect(addMonths('2026-12-31', 1)).toBe('2027-01-31');
+		expect(addMonths('2026-01-15', -1)).toBe('2025-12-15');
+	});
+	it('clamps to the last day of a shorter month', () => {
+		expect(addMonths('2026-01-31', 1)).toBe('2026-02-28');
+		expect(addMonths('2026-03-31', -1)).toBe('2026-02-28');
+		expect(addMonths('2024-01-31', 1)).toBe('2024-02-29'); // año bisiesto
+	});
+});
+
+describe('monthGrid', () => {
+	it('always returns 6 weeks of 7 days, so the panel never changes de alto', () => {
+		const weeks = monthGrid('2026-08-14');
+		expect(weeks).toHaveLength(6);
+		for (const week of weeks) expect(week).toHaveLength(7);
+	});
+	it('starts on Monday and pads with the neighbouring months', () => {
+		// Agosto 2026 arranca sábado: la primera fila trae 5 días de julio.
+		const weeks = monthGrid('2026-08-14');
+		expect(weeks[0][0]).toBe('2026-07-27'); // lunes
+		expect(weeks[0][5]).toBe('2026-08-01'); // sábado
+		expect(weeks[5][6]).toBe('2026-09-06'); // domingo de la última fila
+	});
+	it('a month starting on Monday keeps its first day in the first box', () => {
+		expect(monthGrid('2026-06-10')[0][0]).toBe('2026-06-01');
+	});
+	it('lists every day of the month exactly once', () => {
+		const days = monthGrid('2026-02-10').flat().filter((day) => day.startsWith('2026-02'));
+		expect(days).toHaveLength(28);
+		expect(new Set(days).size).toBe(28);
+	});
+});
+
+describe('monthLabel', () => {
+	it('names the month and year in Spanish', () => {
+		expect(monthLabel('2026-08-14')).toBe('agosto 2026');
+		expect(monthLabel('2026-12-01')).toBe('diciembre 2026');
 	});
 });

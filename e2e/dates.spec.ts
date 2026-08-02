@@ -55,12 +55,12 @@ test('date badge rolls from mañana to hoy at midnight without reload', async ({
 	await expect(badge).toHaveText(/hoy/);
 });
 
-// En iPhone, Safari escribe la fecha de hoy en el campo apenas se abre el
-// calendario del sistema, y sigue disparando `change` en cada giro de la
-// ruedita. Aplicar en `change` guardaba esa fecha fantasma y cerraba el panel:
-// como el campo desaparecía de la pantalla, el calendario nativo moría con él
-// ("se abre y se cierra solo"). El día elegido a mano solo cuenta al confirmar.
-test('un change del calendario nativo no elige la fecha solo', async ({ page }) => {
+// El almanaque es nuestro justamente para que UN toque en el día sea la
+// elección: el campo `<input type="date">` del sistema no lo permitía (en
+// iPhone escribe hoy apenas se abre y avisa en cada giro de la ruedita, así que
+// aplicar en `change` guardaba una fecha fantasma y cerraba el panel).
+test('un toque en el día del almanaque lo aplica, sin confirmar', async ({ page }) => {
+	await page.clock.install({ time: new Date(2026, 7, 3, 10, 0, 0) }); // 3 de agosto
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 
@@ -72,24 +72,47 @@ test('un change del calendario nativo no elige la fecha solo', async ({ page }) 
 
 	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
 	await expect(panel).toBeVisible();
+	await panel.getByRole('button', { name: 'Elegir día…' }).click();
 
-	// Lo que hace iOS solo: pone un valor y avisa, sin que el usuario confirme.
-	const input = panel.getByLabel('Elegir día');
-	await input.evaluate((el) => {
-		el.value = '2026-08-14';
-		el.dispatchEvent(new Event('input', { bubbles: true }));
-		el.dispatchEvent(new Event('change', { bubbles: true }));
-	});
-
-	// El panel sigue abierto (y con él el campo, así que el calendario nativo
-	// sobrevive) y el renglón no quedó fechado.
-	await expect(panel).toBeVisible();
-	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveCount(0);
-
-	// Recién al confirmar se aplica el día elegido.
-	await panel.getByRole('button', { name: 'Poner fecha' }).click();
+	// Se abre en el mes de hoy, y el día se elige de una.
+	await expect(panel.getByText('agosto 2026')).toBeVisible();
+	await panel.getByRole('button', { name: '14 de agosto de 2026', exact: true }).click();
 	await expect(panel).not.toBeVisible();
 	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveText(/14 ago/);
+
+	// Al reabrirlo, el almanaque arranca en el día que ya tiene puesto.
+	await page.getByRole('button', { name: 'Cambiar fecha' }).click();
+	await panel.getByRole('button', { name: 'Elegir día…' }).click();
+	await expect(panel.getByRole('button', { name: '14 de agosto de 2026', exact: true })).toBeFocused();
+});
+
+// Los meses se caminan con las flechas y el mes cambia solo al pasarse de borde.
+test('el almanaque se camina con las flechas', async ({ page }) => {
+	await page.clock.install({ time: new Date(2026, 7, 3, 10, 0, 0) }); // lunes 3 de agosto
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.keyboard.press('Enter');
+
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await panel.getByRole('button', { name: 'Elegir día…' }).click();
+	await expect(panel.getByRole('button', { name: '3 de agosto de 2026', exact: true })).toBeFocused();
+
+	await page.keyboard.press('ArrowDown'); // +1 semana
+	await expect(panel.getByRole('button', { name: '10 de agosto de 2026', exact: true })).toBeFocused();
+	await page.keyboard.press('ArrowLeft'); // -1 día
+	await expect(panel.getByRole('button', { name: '9 de agosto de 2026', exact: true })).toBeFocused();
+
+	// Cruzar el borde del mes lo cambia solo.
+	await panel.getByRole('button', { name: 'Mes siguiente' }).click();
+	await expect(panel.getByText('septiembre 2026')).toBeVisible();
+
+	await page.keyboard.press('Enter'); // el foco quedó en "Mes siguiente"
+	await expect(panel.getByText('octubre 2026')).toBeVisible();
 });
 
 // The date panel is fully keyboard-driven: arrows rove the options, Enter picks.
