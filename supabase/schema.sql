@@ -69,6 +69,98 @@ for each row execute function public.stamp_record();
 create index if not exists records_owner_server_seq on public.records (owner_id, server_seq);
 
 -- ---------------------------------------------------------------------------
+-- push_records — the only door a record may come in through
+-- ---------------------------------------------------------------------------
+--
+-- A plain upsert cannot say no. Two devices that each edited the same note
+-- offline would both succeed, and the second one would overwrite a version it
+-- had never seen: the first device's text was gone from the server before
+-- anything could compare the two, and neither device ever noticed.
+--
+-- So every write declares the version it is standing on (`base_seq` = the
+-- `change_seq` the device believes is up here). If that is not what the row
+-- actually holds, the write is refused and its id comes back to the caller. The
+-- device then downloads what it was missing, and the existing merge parks the
+-- disagreement for the person to decide (src/lib/sync/download.ts).
+--
+-- `base_seq` null means "as far as I know this record does not exist up here",
+-- so it may only insert. A refusal is not an error: the rest of the batch lands.
+--
+-- ponytail: a row-by-row loop rather than one set-based statement, because the
+-- declared base is not a column of `records` and so cannot ride in `excluded`.
+-- 200 rows in one round trip is nothing; revisit if a batch ever gets large.
+
+create or replace function public.push_records(payload jsonb)
+returns table (rejected_table text, rejected_id text)
+language plpgsql
+-- Runs as the caller, so row-level security still decides what it may touch.
+security invoker
+set search_path = ''
+as $$
+declare
+	record_in record;
+	written int;
+begin
+	for record_in in
+		select *
+		from jsonb_to_recordset(payload) as fields (
+			table_name text,
+			id text,
+			change_seq bigint,
+			base_seq bigint,
+			deleted boolean,
+			iv text,
+			blob text
+		)
+	loop
+		written := 0;
+
+		if record_in.base_seq is not null then
+			update public.records as target
+			   set change_seq = record_in.change_seq,
+			       deleted = record_in.deleted,
+			       iv = record_in.iv,
+			       blob = record_in.blob
+			 where target.owner_id = auth.uid()
+			   and target.table_name = record_in.table_name
+			   and target.id = record_in.id
+			   and target.change_seq = record_in.base_seq;
+			get diagnostics written = row_count;
+		end if;
+
+		-- Either the device claims the record is new, or it claimed a base and no
+		-- row matched. The insert settles both: it lands only when there is truly
+		-- nothing here, which also covers a server rebuilt from scratch while the
+		-- devices still remember old versions.
+		if written = 0 then
+			insert into public.records (table_name, id, change_seq, deleted, iv, blob)
+			values (
+				record_in.table_name,
+				record_in.id,
+				record_in.change_seq,
+				record_in.deleted,
+				record_in.iv,
+				record_in.blob
+			)
+			on conflict (owner_id, table_name, id) do nothing;
+			get diagnostics written = row_count;
+		end if;
+
+		if written = 0 then
+			rejected_table := record_in.table_name;
+			rejected_id := record_in.id;
+			return next;
+		end if;
+	end loop;
+end;
+$$;
+
+-- Signed-in accounts only. RLS inside the function still limits it to their own
+-- rows; this just keeps anonymous callers from reaching it at all.
+revoke all on function public.push_records(jsonb) from public;
+grant execute on function public.push_records(jsonb) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- vaults — the wrapped copy of the vault key
 -- ---------------------------------------------------------------------------
 --

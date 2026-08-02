@@ -132,6 +132,23 @@ describe('what arrives from the other device', () => {
 		expect((await db.table('notes').get(mine.id)).title).toBe('mía');
 	});
 
+	it('writes down that the server holds it, so a lost reply cannot strand it for ever', async () => {
+		// The upload landed but the answer never came back — a dropped wifi between
+		// the write and the reply. This device still believes nothing of its own is
+		// up there, so its next attempt declares "this record is new", and the
+		// server refuses it because it plainly is not. Without noticing the echo,
+		// that refusal repeats on every sync and the record never syncs again.
+		const mine = await createNote({ title: 'mía' });
+		const stored = await db.table('notes').get(mine.id);
+		expect(stored.cloudSeq).toBeUndefined();
+		await publish(stored, { changeSeq: stored.changeSeq, serverSeq: 1 });
+
+		await downloadOnce();
+
+		expect((await db.table('notes').get(mine.id)).cloudSeq).toBe(stored.changeSeq);
+		expect(await listPendingUploads()).toEqual([]);
+	});
+
 	it('ignores a version older than the one already here', async () => {
 		await publish(note({ title: 'nueva' }), { changeSeq: 1_700_000_000_010, serverSeq: 1 });
 		await downloadOnce();

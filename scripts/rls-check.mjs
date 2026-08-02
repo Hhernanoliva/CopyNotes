@@ -100,23 +100,45 @@ try {
 	assert.equal(vaults.length, 0, 'A pudo leer la bóveda envuelta de B');
 	console.log('✓ A no puede leer la llave envuelta de B');
 
-	// 6. The exact call `sync/upload.ts` makes when it re-sends a batch whose
-	//    confirmation was lost. It must overwrite, not fail on the primary key —
-	//    and `owner_id` is part of the conflict target without being in the
-	//    payload, which only the real schema can confirm.
-	unwrap(
-		await a.client
-			.from('records')
-			.upsert([{ ...record('secreto-de-A-v2'), change_seq: 2 }], {
-				onConflict: 'owner_id,table_name,id'
-			})
-	);
+	// 6. The exact call `sync/upload.ts` makes. Records go up through
+	//    `push_records`, never a bare upsert, because it is the only writer that
+	//    can refuse one. Standing on the version the server holds overwrites;
+	//    standing on a stale one is refused and changes nothing.
+	const push = async (client, payload) => unwrap(await client.rpc('push_records', { payload }));
+	const refusedNone = await push(a.client, [
+		{ ...record('secreto-de-A-v2'), change_seq: 2, base_seq: 1 }
+	]);
+	assert.equal(refusedNone.length, 0, 'el servidor rechazó una escritura que sí venía al día');
 	const afterResend = unwrap(await a.client.from('records').select('blob, change_seq'));
 	assert.equal(afterResend.length, 1, 'el reenvío duplicó la fila en vez de sobrescribirla');
 	assert.equal(atob(afterResend[0].blob), 'secreto-de-A-v2');
-	console.log('✓ reenviar el mismo registro lo sobrescribe, no lo duplica');
 
-	console.log('\nCandado OK: las seis pruebas pasaron.');
+	const refusedStale = await push(a.client, [
+		{ ...record('pisoteo'), change_seq: 3, base_seq: 1 }
+	]);
+	assert.deepEqual(
+		refusedStale,
+		[{ rejected_table: 'notes', rejected_id: SHARED_ID }],
+		'el servidor aceptó una escritura parada sobre una versión que ya no tiene'
+	);
+	const afterStale = unwrap(await a.client.from('records').select('blob'));
+	assert.equal(atob(afterStale[0].blob), 'secreto-de-A-v2', 'una escritura vieja pisó la nueva');
+	console.log('✓ push_records acepta al que viene al día y rechaza al que no');
+
+	// 7. And the guarded door is not a way around the lock: B's row has the same
+	//    id, so if `push_records` wrote by id instead of by owner it would land on
+	//    it. The insert stamps `owner_id` from the session, and the update filters
+	//    by it, so A can only ever reach A's own row.
+	await push(a.client, [{ ...record('inyectado-por-la-puerta'), change_seq: 9, base_seq: null }]);
+	const stillBAfterPush = unwrap(await b.client.from('records').select('blob'));
+	assert.equal(
+		atob(stillBAfterPush[0].blob),
+		'secreto-de-B',
+		'A alcanzó la fila de B a través de push_records'
+	);
+	console.log('✓ A no puede tocar la fila de B a través de push_records');
+
+	console.log('\nCandado OK: las siete pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);

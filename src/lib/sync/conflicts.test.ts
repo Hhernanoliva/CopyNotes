@@ -152,6 +152,11 @@ describe('deciding', () => {
 		expect((await db.table('notes').get(id)).title).toBe('versión mía');
 		// Still pending, so the other device ends up with my version.
 		expect((await listPendingUploads()).map((entry) => entry.row.id)).toContain(id);
+		// And standing on the other device's version, not on the one this device
+		// last saw. The server refuses a write that is not based on what it holds,
+		// so without this the upload would bounce for ever and the decision would
+		// quietly never travel.
+		expect((await db.table('notes').get(id)).cloudSeq).toBe(conflict.remote.changeSeq);
 	});
 
 	it('"traer la otra" replaces mine and does not bounce back up as a new change', async () => {

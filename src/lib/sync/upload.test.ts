@@ -6,7 +6,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
-import { createNote } from '../storage/notes';
+import { createNote, updateNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { grantUploadConsent, uploadedThrough } from './pending';
 import { createVault } from './vault';
@@ -17,11 +17,27 @@ const sent = vi.hoisted(() => []);
 const replies = vi.hoisted(() => []);
 // What the server answers when asked whether this account already has a vault.
 const serverVault = vi.hoisted(() => ({ row: null }));
+// `table:id` of the records this server refuses, standing in for "somebody else
+// wrote a version you never saw".
+const rejects = vi.hoisted(() => []);
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
 	supabase: () => ({
 		auth: { getSession: async () => ({ data: { session: { user: { id: 'cuenta-1' } } } }) },
+		// Records go up through the guarded function, never a bare upsert: it is the
+		// only writer that can refuse. It answers with the rows it refused.
+		rpc: async (name, args) => {
+			sent.push(['records', args.payload]);
+			const reply = replies.shift();
+			if (reply?.error) return { data: null, error: reply.error };
+			return {
+				data: args.payload
+					.filter((row) => rejects.includes(`${row.table_name}:${row.id}`))
+					.map((row) => ({ rejected_table: row.table_name, rejected_id: row.id })),
+				error: null
+			};
+		},
 		from: (table) => ({
 			upsert: async (rows) => {
 				sent.push([table, rows]);
@@ -59,6 +75,7 @@ function rowsFor(table) {
 beforeEach(async () => {
 	sent.length = 0;
 	replies.length = 0;
+	rejects.length = 0;
 	serverVault.row = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
@@ -198,5 +215,82 @@ describe('when the network or the server fails', () => {
 		expect(await uploadedThrough()).toBe(records[1].change_seq);
 		expect(syncStatus.pending).toBe(0);
 		expect(syncStatus.error).toBe(null);
+	});
+});
+
+// The hole this closes: the upload used to be a blind upsert. Two devices that
+// each edited the same note offline both "won" — the second one overwrote a
+// version it had never seen, and neither device ever noticed. The parked-conflict
+// machinery was already built and simply unreachable, because the losing version
+// was destroyed on the server before anything could compare the two.
+describe('when the other device got there first', () => {
+	it('declares which version it is standing on, so the server can tell', async () => {
+		await createVault();
+		await grantUploadConsent();
+		const note = await createNote({ title: 'una' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+		const [first] = rowsFor('records');
+		// Nothing of mine up there yet: this device stands on no server version, and
+		// the write may only land if the record is genuinely new.
+		expect(first.base_seq).toBe(null);
+
+		await updateNote(note.id, { title: 'otra' });
+		await syncNow();
+
+		const second = rowsFor('records').at(-1);
+		expect(second.base_seq).toBe(first.change_seq);
+		expect(second.change_seq).toBeGreaterThan(first.change_seq);
+	});
+
+	it('leaves a refused record pending instead of pretending it landed', async () => {
+		await createVault();
+		await grantUploadConsent();
+		const note = await createNote({ title: 'mía' });
+		const { syncNow, syncStatus } = await loadUpload();
+		rejects.push(`notes:${note.id}`);
+
+		await syncNow();
+
+		// Not marked as sent, in any of the three places that would hide it. The
+		// mark stops just below the refused record rather than at zero: everything
+		// older really did land, and re-scanning it would be pure waste.
+		const stored = await db.table('notes').get(note.id);
+		expect(await uploadedThrough()).toBeLessThan(stored.changeSeq);
+		expect(syncStatus.pending).toBe(1);
+		expect(stored.cloudSeq).toBeUndefined();
+	});
+
+	it('does not drag down the records that landed in the same batch', async () => {
+		await createVault();
+		await grantUploadConsent();
+		const first = await createNote({ title: 'primera' });
+		const second = await createNote({ title: 'segunda' });
+		const { syncNow } = await loadUpload();
+		rejects.push(`notes:${first.id}`);
+
+		await syncNow();
+		await syncNow();
+
+		const ids = rowsFor('records').map((row) => row.id);
+		// The one that landed is confirmed and never sent again; the refused one
+		// keeps trying, and the download turns it into a decision for the person.
+		expect(ids.filter((id) => id === second.id)).toHaveLength(1);
+		expect(ids.filter((id) => id === first.id)).toHaveLength(2);
+	});
+
+	it('never re-sends what the server confirmed', async () => {
+		await createVault();
+		await grantUploadConsent();
+		const note = await createNote({ title: 'una' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+		await syncNow();
+
+		expect(rowsFor('records')).toHaveLength(1);
+		const stored = await db.table('notes').get(note.id);
+		expect(stored.cloudSeq).toBe(stored.changeSeq);
 	});
 });

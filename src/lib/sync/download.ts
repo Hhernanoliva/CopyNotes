@@ -14,7 +14,7 @@ import { decryptRecord } from './records';
 import { getVaultKey } from './vault';
 import { uploadedThrough } from './pending';
 import { recordConflict } from './conflicts';
-import { db, putFromCloud } from '../storage/db';
+import { db, markSentToCloud, putFromCloud } from '../storage/db';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 
@@ -99,6 +99,24 @@ export async function downloadOnce() {
 		if (action === 'apply') {
 			await applyPayload(key, payload);
 			applied++;
+		} else if (action === 'skip') {
+			// Nothing to write, but something to write down: the server demonstrably
+			// holds this version, and the next upload has to declare the version it
+			// stands on or be refused.
+			//
+			// This is what rescues an upload whose reply was lost. The record landed,
+			// this device never heard so, and its retry keeps claiming "this one is
+			// new" — a claim the server correctly refuses, for ever. Reading the echo
+			// closes the loop.
+			//
+			// Deliberately not done for a conflict: there the server holds the *other*
+			// device's version, and recording it as this device's base would let the
+			// next upload overwrite it without anyone deciding — the exact hole the
+			// guard exists to close. `keepLocal` is the one place that may do it,
+			// because by then a person has chosen.
+			if (local.cloudSeq !== payload.change_seq) {
+				await markSentToCloud(payload.table_name, payload.id, payload.change_seq);
+			}
 		} else if (action === 'conflict') {
 			// Park the remote version instead of applying it. The local row is not
 			// touched and stays pending, so nothing is lost on either side while the

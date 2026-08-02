@@ -147,3 +147,9 @@ carpeta).
 Si en un dispositivo **borraste** algo que en el otro seguiste editando, gana la
 edición: la nota no se borra sola, y el borrado te aparece como conflicto para
 que decidas vos.
+
+**Incluso si los dos suben al mismo tiempo.** Ninguna computadora puede tapar una
+versión que nunca vio: cuando manda algo, dice también de qué versión venía, y si
+mientras tanto la otra había guardado algo, la nube no la deja pisarlo. Esa
+computadora se baja lo que le faltaba y ahí aparece el aviso de las dos
+versiones. Si no había nada que discutir, se acomoda sola y no te enterás.

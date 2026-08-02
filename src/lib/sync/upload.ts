@@ -9,13 +9,18 @@
 //
 //   1. list the oldest pending changes
 //   2. encrypt them
-//   3. upsert them
-//   4. only then advance the "uploaded through" mark
+//   3. hand them to `push_records`, declaring the version each one stands on
+//   4. only then write down what the server took
 //
 // A crash, a dead wifi or a closed laptop between 3 and 4 re-sends the same
-// batch on the next run. That is harmless: the upsert key is
-// (owner_id, table_name, id), so a re-send overwrites the identical row instead
-// of duplicating it.
+// batch on the next run. Nothing is duplicated — the key is
+// (owner_id, table_name, id) — but the re-send is *refused*, because this device
+// still claims those records are new and the server can see they are not. That
+// is on purpose, and it is the same refusal that stops one device from
+// overwriting an edit the other made: only a write that stands on the version
+// the server actually holds may land. The refusal is undone by the download
+// right after, which recognises the record as this device's own echo and writes
+// down that the server has it (see `download.ts`).
 
 import { cloudConfigured, supabase } from './supabase';
 import {
@@ -25,6 +30,7 @@ import {
 	markUploadedThrough
 } from './pending';
 import { encryptRecord } from './records';
+import { markSentToCloud } from '../storage/db';
 import { downloadAll } from './download';
 import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
@@ -55,35 +61,58 @@ async function ready() {
 	return { client, key };
 }
 
-function toRow(payload) {
+// `base_seq` is the whole guard: the version this device believes the server
+// holds. Null means "I have never seen this record up there", which the server
+// only accepts as an insert. Anything else must match, or the write is refused.
+function toRow(payload, baseSeq) {
 	return {
 		table_name: payload.table,
 		id: payload.id,
 		change_seq: payload.changeSeq,
+		base_seq: baseSeq ?? null,
 		deleted: payload.deleted,
 		iv: payload.iv,
 		blob: payload.blob
 	};
 }
 
-// One batch. Returns how many records landed, so the caller knows whether to ask
-// for another one.
+// One batch. Returns how many records were sent and how many the server took, so
+// the caller knows whether to ask for another one.
 async function uploadBatch(client, key) {
 	const pending = await listPendingUploads({ limit: BATCH });
-	if (!pending.length) return 0;
+	if (!pending.length) return { sent: 0, accepted: 0 };
 
 	const rows = await Promise.all(
-		pending.map(async ({ table, row }) => toRow(await encryptRecord(key, table, row)))
+		pending.map(async ({ table, row }) =>
+			toRow(await encryptRecord(key, table, row), row.cloudSeq)
+		)
 	);
-	const { error } = await client
-		.from('records')
-		.upsert(rows, { onConflict: 'owner_id,table_name,id' });
+	// Never a bare upsert: `push_records` is the only writer that can say no.
+	const { data, error } = await client.rpc('push_records', { payload: rows });
 	if (error) throw new Error(error.message);
 
-	// The batch is ordered oldest change first, so the last one is the highest:
-	// everything up to here is now on the server.
-	await markUploadedThrough(pending[pending.length - 1].row.changeSeq);
-	return rows.length;
+	const refused = new Set(
+		(data ?? []).map((row) => `${row.rejected_table}:${row.rejected_id}`)
+	);
+	// Confirm what landed one record at a time, so a refusal in the middle of the
+	// batch costs nothing to the records around it.
+	let lowestRefused = Infinity;
+	for (const { table, row } of pending) {
+		if (refused.has(`${table}:${row.id}`)) {
+			lowestRefused = Math.min(lowestRefused, row.changeSeq);
+			continue;
+		}
+		await markSentToCloud(table, row.id, row.changeSeq);
+	}
+
+	// The batch is ordered oldest change first, so the last one is the highest.
+	// A refusal pulls the mark back below it: the record has to stay findable as
+	// pending, or the edit would be stranded on this device for ever. The ones
+	// that landed are excluded by their `cloudSeq` instead, not by this mark.
+	await markUploadedThrough(
+		lowestRefused === Infinity ? pending[pending.length - 1].row.changeSeq : lowestRefused - 1
+	);
+	return { sent: rows.length, accepted: rows.length - refused.size };
 }
 
 // The wrapped copy of the vault key — what a second device needs together with
@@ -134,9 +163,13 @@ export async function syncNow() {
 			await uploadVaultBlob(gate.client);
 			let uploaded = 0;
 			for (let batch = 0; batch < MAX_BATCHES; batch++) {
-				const count = await uploadBatch(gate.client, gate.key);
-				uploaded += count;
-				if (count < BATCH) break;
+				const { sent, accepted } = await uploadBatch(gate.client, gate.key);
+				uploaded += accepted;
+				// Stop on the first refusal too, not only on a short batch: a refused
+				// record stays pending, so asking for another batch would hand back the
+				// same rows and spin. The download right below is what unblocks it, by
+				// turning the disagreement into a decision.
+				if (sent < BATCH || accepted < sent) break;
 			}
 			if (uploaded) {
 				syncStatus.lastUploadAt = now();

@@ -10,7 +10,7 @@
 // outside the backup's table list — a decision pending on this machine means
 // nothing on another one.
 
-import { db, putFromCloud } from '../storage/db';
+import { db, markSentToCloud, putFromCloud } from '../storage/db';
 import { now } from '../storage/ids';
 
 const conflicts = () => db.table('conflicts');
@@ -53,9 +53,18 @@ export function countConflicts() {
 
 // Keep what is on this device: the local row is already the one in the database
 // and is still pending, so the next sync pushes it up and the other device gets
-// it. Dropping the parked copy is the whole resolution.
-export function keepLocal(id) {
-	return conflicts().delete(id);
+// it.
+//
+// The one thing that has to change is the version the row stands on. The server
+// refuses a write whose declared base is not what it holds, and what it holds is
+// exactly the version parked here — so without this the upload would be refused
+// for ever and the decision would silently never travel.
+export async function keepLocal(id) {
+	const conflict = await conflicts().get(id);
+	if (!conflict) return false;
+	await markSentToCloud(conflict.table, conflict.recordId, conflict.remote.changeSeq);
+	await conflicts().delete(id);
+	return true;
 }
 
 // Take the version from the other device. It goes in through the same door every

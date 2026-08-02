@@ -185,3 +185,21 @@ for (const name of SYNCED_TABLES) {
 export function putFromCloud(tableName, row) {
 	return db.table(tableName).put({ ...row, cloudSeq: row.changeSeq, fromCloud: true });
 }
+
+// The twin of the line above, for the other direction: the server has just
+// confirmed it holds this exact version of the row.
+//
+// It matters twice. It keeps a record this device already sent from being sent
+// again, and — since spec 030 phase 3 — it is the version the next upload
+// declares as the one it is standing on. A write whose declared base does not
+// match what the server holds is refused, which is what stops a device from
+// overwriting an edit it never saw.
+//
+// `fromCloud` rides along for its usual job: this is bookkeeping about a write
+// that already happened, not a new change, so the counter must not move. Passing
+// the uploaded `changeSeq` rather than reading the current one is deliberate: an
+// edit made while the batch was in flight leaves the two different, and the
+// record correctly stays pending.
+export function markSentToCloud(tableName, id, changeSeq) {
+	return db.table(tableName).update(id, { cloudSeq: changeSeq, fromCloud: true });
+}
