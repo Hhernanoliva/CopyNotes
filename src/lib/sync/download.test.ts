@@ -149,15 +149,32 @@ describe('what arrives from the other device', () => {
 		expect(await listPendingUploads()).toEqual([]);
 	});
 
-	it('ignores a version older than the one already here', async () => {
-		await publish(note({ title: 'nueva' }), { changeSeq: 1_700_000_000_010, serverSeq: 1 });
+	it('trae la elección de la otra máquina aunque su versión sea más vieja', async () => {
+		// El caso real, y el que rompía: este aparato editó SEGUNDO y subió bien;
+		// el otro tenía su edición anterior sin subir, le salió el aviso de las dos
+		// versiones y la persona eligió "quedarme con el mío". Esa elección sube
+		// declarando NUESTRA versión como base, así que el servidor la acepta: la
+		// versión de allá es la sucesora aunque su número de cambio —derivado del
+		// reloj de ESE aparato— sea más bajo que el nuestro. Comparando los dos
+		// números la dábamos por vieja y acá no cambiaba nada.
+		await publish(note({ title: 'lo mío, subido' }), {
+			changeSeq: 1_700_000_000_010,
+			serverSeq: 1
+		});
 		await downloadOnce();
 
-		await publish(note({ title: 'vieja' }), { changeSeq: 1_700_000_000_005, serverSeq: 2 });
+		await publish(note({ title: 'lo del otro, elegido a mano' }), {
+			changeSeq: 1_700_000_000_005,
+			serverSeq: 2
+		});
 		const result = await downloadOnce();
 
-		expect(result.applied).toBe(0);
-		expect((await db.table('notes').get('nota-compartida')).title).toBe('nueva');
+		expect(result.applied).toBe(1);
+		expect((await db.table('notes').get('nota-compartida')).title).toBe(
+			'lo del otro, elegido a mano'
+		);
+		// Y no rebota: nada queda pendiente de volver a subir.
+		expect(await listPendingUploads()).toEqual([]);
 	});
 });
 

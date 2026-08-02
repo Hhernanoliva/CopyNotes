@@ -185,7 +185,9 @@ un espacio, no tenés que buscarla: te la marca. Se subraya la palabra entera,
 porque subrayar una letra suelta no se ve.
 
 Si te quedás con la tuya, el otro dispositivo termina recibiéndola; si traés la
-de allá, reemplaza lo que tenías acá.
+de allá, reemplaza lo que tenías acá. Da igual **cuál de los dos escribió
+primero**: la versión que elegís es la que gana en los dos, aunque la hayas
+escrito antes que la otra.
 
 **Si te equivocás, no pasa nada.** Después de elegir aparece abajo un avisito
 con **Deshacer** durante unos segundos: lo tocás y vuelve todo como estaba,

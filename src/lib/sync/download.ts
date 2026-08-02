@@ -49,8 +49,21 @@ function decide(local, payload, uploadMark) {
 	// gives it a screen; until then the local version is left untouched.
 	const localIsUnsent = local.changeSeq > uploadMark && local.cloudSeq !== local.changeSeq;
 	if (localIsUnsent) return 'conflict';
-	// Nothing unsent here, so the newer of the two wins and no text is at risk.
-	return payload.change_seq > local.changeSeq ? 'apply' : 'skip';
+	// Nothing unsent here: this device holds either exactly what it last sent or
+	// exactly what it last received, so whatever the server holds NOW is that
+	// version's successor and there is no text of ours to lose by taking it.
+	//
+	// It used to take the higher `changeSeq` instead, and that quietly threw away
+	// the one decision the whole conflict machinery exists to deliver. `keepLocal`
+	// is the device that edited FIRST insisting its older version wins: it uploads
+	// declaring *our* version as its base, and `push_records` accepts precisely
+	// because it stood on what the server held. Comparing the two clock-derived
+	// numbers then re-litigated a settled question — the chosen version arrived
+	// with a lower number, was read as stale, and the other device never changed.
+	// The server's chain is linear and it is the authority; a device that has
+	// nothing unsent does not get a vote. (A skewed clock had the same effect for
+	// ordinary edits, with no way to notice.)
+	return 'apply';
 }
 
 // The server column is `table_name`; the record's identity — which is bound into
