@@ -23,7 +23,7 @@ Todo funciona sin internet.
 ### Importar
 
 1. Tocá **Elegir archivo de respaldo…** y seleccioná un archivo JSON de CopyNotes.
-2. CopyNotes termina de guardar cualquier cambio reciente y después revisa el archivo. Si está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo. Además, todo el formato de texto que venga en el archivo pasa por un filtro de seguridad: lo que no es de CopyNotes (por ejemplo, código escondido en un archivo manipulado) se descarta y el texto queda intacto. Lo mismo pasa al pegar contenido copiado: si viene dañado o con algo raro, se limpia sin romper el pegado.
+2. CopyNotes termina de guardar cualquier cambio reciente y después revisa el archivo. Si está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo. Si el archivo se contradice —por ejemplo, trae dos notas con el mismo identificador— te lo dice con nombre y apellido antes de empezar, en vez de fallar a mitad de camino con un error incomprensible. Además, todo el formato de texto que venga en el archivo pasa por un filtro de seguridad: lo que no es de CopyNotes (por ejemplo, código escondido en un archivo manipulado) se descarta y el texto queda intacto. Lo mismo pasa al pegar contenido copiado: si viene dañado o con algo raro, se limpia sin romper el pegado.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
 

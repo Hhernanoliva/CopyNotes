@@ -375,6 +375,44 @@ describe('validateBackup', () => {
 			expect(result.warnings.length).toBeGreaterThan(0);
 		});
 
+		// Two rows claiming one id used to sail through validation and blow up
+		// inside the import transaction as a raw Dexie ConstraintError, which the
+		// person read as "the backup is broken" with no idea which part.
+		it('rejects a file where two rows of a table share an id', () => {
+			const backup = makeBackup({ notes: [makeNote({ id: 'n1' }), makeNote({ id: 'n1' })] });
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(false);
+			expect(result.errors.join(' ')).toContain('n1');
+		});
+
+		it('accepts the same id in two different tables', () => {
+			const backup = makeBackup({
+				notes: [makeNote({ id: 'shared' })],
+				tags: [{ id: 'shared', name: 'x', createdAt: iso, updatedAt: iso, deletedAt: null }]
+			});
+			expect(validateBackup(backup).ok).toBe(true);
+		});
+
+		// `looseObject` keeps unknown keys, and `db.ts`'s write hooks treat
+		// `fromCloud` as "this did not happen here, do not stamp it". A crafted file
+		// carrying that flag produced rows with no `changeSeq` at all: absent from
+		// the index the uploader reads, so they would never sync, silently and
+		// forever. `changeSeq`/`cloudSeq` are the same class of lie — the export
+		// side already strips them on the way out.
+		it('strips sync bookkeeping fields a file has no business carrying', () => {
+			const backup = makeBackup({
+				notes: [makeNote({ fromCloud: true, changeSeq: 99, cloudSeq: 99 })]
+			});
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			const note = result.backup.data.notes[0];
+			expect(note.fromCloud).toBeUndefined();
+			expect(note.changeSeq).toBeUndefined();
+			expect(note.cloudSeq).toBeUndefined();
+			// The note itself still imports; only the bookkeeping is gone.
+			expect(note.title).toBe(makeNote().title);
+		});
+
 		// `storage/organize.ts` hands a note created at the top of the sidebar
 		// `lowest - 1`, so a negative position is what this app's OWN backups are
 		// full of. Dropping it here rewrote the row, and a rewritten row no longer

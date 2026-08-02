@@ -6,6 +6,7 @@
 import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
+import { LOCAL_ONLY_FIELDS } from '../export-import/schema';
 
 // `activity` (the task bitácora) is part of the portable backup as of spec 030
 // phase 0: it is user-visible history, and leaving it out meant every
@@ -34,7 +35,11 @@ const TABLES = [
 // says "the server already has this exact version". Restored onto another
 // device, or after the row was edited, that claim is false — and a false claim
 // there means a change that never uploads.
-const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq'];
+//
+// The list itself lives in `export-import/schema.ts` (imported above), which is
+// the gate that strips the same fields on the way back IN. Two copies would
+// drift, and a field stripped on export but trusted on import is a hole — that
+// is exactly what `fromCloud` was.
 
 function withoutLocalOnlyFields(rows) {
 	return rows.map((row) => {

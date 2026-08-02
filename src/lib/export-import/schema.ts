@@ -194,6 +194,47 @@ function dropDanglingActivity(data, existing) {
 	return dropped;
 }
 
+// Device-local bookkeeping that must never survive a trip through a file.
+// `storage/backup.ts` strips these on the way OUT; this is the same list read on
+// the way IN, because a file is untrusted no matter who wrote it.
+//
+// `fromCloud` is the sharpest of the three: `db.ts`'s write hooks read it as
+// "this change did not happen here, do not stamp it", so a row carrying it lands
+// with no `changeSeq` — invisible to the index the uploader reads, and therefore
+// never synced, silently and for ever. `changeSeq`/`cloudSeq` are the same class
+// of lie: a claim about this device made by another one.
+export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud'];
+
+const ID_TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'activity'];
+
+function stripLocalOnlyFields(data) {
+	for (const name of ID_TABLES) {
+		for (const row of data[name] ?? []) {
+			for (const field of LOCAL_ONLY_FIELDS) delete row[field];
+		}
+	}
+}
+
+// Two rows claiming one id inside the same table. The import writes with
+// `bulkAdd`, so this used to surface as a raw Dexie ConstraintError from inside
+// the transaction — a wall of text that named neither the table nor the id.
+// Ids are only unique WITHIN a table, so each table is counted on its own.
+function duplicateIdErrors(data) {
+	const errors = [];
+	for (const name of ID_TABLES) {
+		const seen = new Set();
+		const reported = new Set();
+		for (const row of data[name] ?? []) {
+			if (seen.has(row.id) && !reported.has(row.id)) {
+				errors.push(`El respaldo trae dos filas de ${name} con el mismo id (${row.id}).`);
+				reported.add(row.id);
+			}
+			seen.add(row.id);
+		}
+	}
+	return errors;
+}
+
 function formatIssues(issues) {
 	return issues.map((issue) => {
 		const path = (issue.path ?? []).map((segment) => segment.key).join('.');
@@ -267,10 +308,20 @@ export function validateBackup(raw, existingIds = undefined) {
 		return { ok: false, errors: formatIssues(parsed.issues), warnings: [] };
 	}
 	const backup = parsed.output;
+	// Before any referential check: a file that contradicts itself about which
+	// row is which cannot be reasoned about, and the ids are what every other
+	// check is keyed on.
+	const idErrors = duplicateIdErrors(backup.data);
+	if (idErrors.length > 0) {
+		return { ok: false, errors: idErrors, warnings: [] };
+	}
 	const refErrors = referenceErrors(backup.data, existing);
 	if (refErrors.length > 0) {
 		return { ok: false, errors: refErrors, warnings: [] };
 	}
+	// Silent, not a warning: these fields are never something the person chose to
+	// put in the file, so there is nothing for them to act on.
+	stripLocalOnlyFields(backup.data);
 	const warnings = [];
 	if (normalizeOrganization(backup.data)) {
 		warnings.push(
