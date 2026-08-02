@@ -8,6 +8,8 @@ Podés resaltar palabras, ponerle títulos, enlaces y colores a cualquier rengl�
 
 Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ctrl/Cmd+A para todo el renglón— y aparece una **barra flotante** justo arriba con todos los botones de formato. Si dejás de tener texto seleccionado (por ejemplo tocando en otro lado) la barra se esconde sola; también se cierra con **Escape**.
 
+La barra **viaja con el texto que marcaste**: si scrolleás la nota con la barra abierta, se mueve con él en vez de quedarse clavada en la pantalla.
+
 ### Usar la barra sin mouse
 
 Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón. Ojo con una cosa: que la barra **aparezca** no quiere decir que las flechas ya sean de ella. Mientras estés escribiendo, las flechas siguen siendo del cursor (con algo marcado, **→** suelta la marca y seguís). Primero le pasás el mando a la barra, y ahí sí:

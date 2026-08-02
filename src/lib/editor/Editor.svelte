@@ -795,6 +795,30 @@
 		};
 	});
 
+	// La barra se planta donde estaba el texto marcado EN LA PANTALLA, y solo se
+	// vuelve a medir cuando cambia la selección. Scrollear no cambia la
+	// selección, así que la barra se quedaba clavada en la pantalla mientras el
+	// texto marcado se le iba por debajo (la nota scrollea en <main>, no en la
+	// ventana, y la barra vive fuera de <main>). El rango sigue siendo el mismo:
+	// volver a medirlo en cada scroll la deja pegada al texto.
+	// Se escribe la propiedad, no el objeto: `toolbar.rect = …` no vuelve a
+	// disparar este efecto, que solo escucha si hay barra o no.
+	const toolbarOpen = $derived(!!toolbar);
+	$effect(() => {
+		if (!toolbarOpen) return;
+		function follow() {
+			if (toolbar?.savedRange) toolbar.rect = toolbar.savedRange.getBoundingClientRect();
+		}
+		// `scroll` no burbujea: en captura llegan también los del contenedor de la
+		// nota, que es el que se mueve de verdad.
+		window.addEventListener('scroll', follow, true);
+		window.addEventListener('resize', follow);
+		return () => {
+			window.removeEventListener('scroll', follow, true);
+			window.removeEventListener('resize', follow);
+		};
+	});
+
 	// Commands mutate the contenteditable DOM directly (execCommand / manual DOM
 	// wraps), so the affected block's state is stale afterwards — re-read its
 	// innerHTML and persist it.

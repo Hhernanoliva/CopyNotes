@@ -912,3 +912,39 @@ for (const [boton, panel] of [
 		expect(alcanzables).toEqual({ perdidos: [] });
 	});
 }
+
+// La barra de formato viaja con el texto marcado al scrollear. Se medía una
+// sola vez, cuando cambiaba la selección, así que quedaba clavada en la
+// pantalla mientras la nota se movía por debajo.
+test('la barra de formato queda pegada al texto marcado al scrollear', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	for (let i = 0; i < 40; i++) {
+		await page.keyboard.type(`Renglon numero ${i} con texto`);
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(50);
+	}
+	await page.waitForTimeout(300);
+
+	const target = page.locator('main [data-block-id] .block-editable').nth(35);
+	await target.click();
+	await selectRangeInBlock(page, target, 0, 7);
+	await expect(page.locator('[data-copynotes-toolbar]')).toBeVisible();
+	await page.waitForTimeout(300); // dejar terminar la animación de entrada
+
+	// Distancia entre la barra y el texto marcado: es lo que tiene que quedar igual.
+	const gap = () =>
+		page.evaluate(() => {
+			const bar = document.querySelector('[data-copynotes-toolbar]').getBoundingClientRect();
+			const sel = window.getSelection().getRangeAt(0).getBoundingClientRect();
+			return Math.round(Math.abs(sel.top - bar.bottom));
+		});
+
+	const before = await gap();
+	expect(before).toBeLessThan(20); // pegada, no flotando
+	await page.evaluate(() => document.querySelector('main').scrollBy(0, -180));
+	await page.waitForTimeout(300);
+	expect(Math.abs((await gap()) - before)).toBeLessThan(3);
+});
