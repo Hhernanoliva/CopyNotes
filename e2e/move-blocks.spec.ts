@@ -246,6 +246,57 @@ test('dragging a selected word moves the text to another line', async ({ page })
 	await expect.poll(() => blockTexts(page)).toEqual(['hola mundo', 'otra']);
 });
 
+// El gate que se creía imposible de automatizar: arrastrar un texto dentro del
+// MISMO renglón inmediatamente después de escribirlo. El guardado con retraso
+// lleva adentro una copia del texto de hace medio segundo, así que un arrastre
+// que no pasara por `writeBlock` se revertía solo ~500 ms después de soltar —
+// y sólo si la persona se quedaba quieta, porque la próxima tecla lo tapaba.
+// El arrastre nativo del navegador no se puede guionar, pero éste es un gesto
+// de puntero propio (spec 026) y `page.mouse` lo hace igual.
+test('arrastrar un texto justo después de escribirlo no se revierte solo', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('el gato duerme en la silla', { delay: 20 });
+
+	// Sin pausa: el guardado de la última tecla sigue armado en este momento.
+	const coords = await page.evaluate(() => {
+		const el = document.querySelector('main [data-block-id] .block-editable');
+		const i = el.innerText.indexOf('gato');
+		const range = document.createRange();
+		range.setStart(el.firstChild, i);
+		range.setEnd(el.firstChild, i + 4);
+		const s = window.getSelection();
+		s.removeAllRanges();
+		s.addRange(range);
+		const r = range.getBoundingClientRect();
+		const box = el.getBoundingClientRect();
+		return {
+			x: r.left + r.width / 2,
+			y: r.top + r.height / 2,
+			dropX: box.right - 2,
+			dropY: box.top + box.height / 2
+		};
+	});
+	await page.mouse.move(coords.x, coords.y);
+	await page.mouse.down();
+	await page.mouse.move(coords.x + 10, coords.y + 6, { steps: 2 });
+	await page.mouse.move(coords.dropX, coords.dropY, { steps: 8 });
+	await page.mouse.up();
+
+	// Quedarse quieto es la única forma de ver el bug: el timer del guardado
+	// viejo vence acá, y sin la puerta única devolvía el texto de antes.
+	const moved = 'el  duerme en la sillagato';
+	await expect.poll(() => blockTexts(page)).toEqual([moved]);
+	await page.waitForTimeout(1200);
+	await expect.poll(() => blockTexts(page)).toEqual([moved]);
+
+	// Y aterrizó de verdad: recargar no lo devuelve a como estaba.
+	await page.reload();
+	await expect.poll(() => blockTexts(page)).toEqual([moved]);
+});
+
 // Regression: with several lines selected, Tab used to indent only the focused
 // one (the selection handler had no Tab branch, so the key fell through to the
 // single-row handler). Now the whole group moves a level, and Shift+Tab returns it.
