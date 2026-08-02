@@ -19,8 +19,7 @@
 		unassignTag,
 		updateBlock,
 		updateNote,
-		writeJournal,
-		clearJournal
+		writeJournal
 	} from '$lib/storage';
 	import {
 		selectionRange,
@@ -121,6 +120,12 @@
 	let focusCaret = $state(null);
 	// Last block the user touched; snippet insertion from the sidebar lands here.
 	let activeBlockId = $state(null);
+	// ...y por eso `activeBlockId` NO se limpia al salir del foco: la barra de
+	// snippets necesita saber dónde estabas. Pero el escudo contra los cambios de
+	// afuera sí tiene que apagarse cuando el cursor se va, o ese renglón queda
+	// protegido para siempre: no toma nunca lo que llegó de la nube, y la próxima
+	// edición sube la versión vieja encima de la del otro aparato.
+	let caretInside = $state(false);
 	// Blocks that just arrived from a snippet insertion, briefly highlighted so
 	// the user sees where the snippet landed. Cleared after the flash.
 	let flashBlockIds = $state(new Set());
@@ -454,7 +459,12 @@
 			if (document.visibilityState !== 'hidden') return;
 			persistJournal();
 			await flushPending();
-			clearJournal();
+			// Volver a anotar, NO borrar. `flushPending` no rechaza nunca: un
+			// guardado que falló se queda en `pending` con su bandera, así que
+			// borrar el diario acá tiraba la única copia de un cambio que jamás
+			// llegó al disco. Anotar de nuevo deja exactamente lo que sigue sin
+			// aterrizar — y si no quedó nada, `writeJournal` borra el diario solo.
+			persistJournal();
 		};
 		window.addEventListener('pagehide', journalOnPageHide);
 		document.addEventListener('visibilitychange', flushWhenHidden);
@@ -1843,7 +1853,9 @@
 
 		// Intocables: donde está el cursor y todo lo que tiene un guardado en
 		// vuelo (el mapa `pending` los tiene bajo `block:<id>` y `note:<id>`).
-		const guarded = new Set(activeBlockId ? [activeBlockId] : []);
+		// `activeBlockId` sobrevive al foco a propósito (ver arriba), así que el
+		// escudo se pregunta además si el cursor sigue adentro de la lista.
+		const guarded = new Set(caretInside && activeBlockId ? [activeBlockId] : []);
 		for (const key of pending.keys()) {
 			const [kind, entityId] = key.split(':');
 			if (kind === 'block' || kind === 'note') guarded.add(entityId);
@@ -1852,6 +1864,15 @@
 
 		const reconciled = reconcileBlocks(blocks, loadedBlocks, guarded);
 		blocks = reconciled.blocks;
+		// Llegaron o se fueron renglones: las fotos del historial describen una
+		// lista que nunca existió, y deshacer sobre ellas BORRA lo que llegó de la
+		// nube (`diffBlocks` no distingue "todavía no estaba" de "lo borraste").
+		// Perder profundidad de Deshacer es barato; borrar el renglón del otro
+		// aparato no lo es.
+		if (reconciled.membershipChanged) {
+			history.reset();
+			lastTextBlockId = null;
+		}
 		// Los que quedaron esperando se reintentan cuando el cursor se va (efecto
 		// más abajo). Sin eso, ese renglón se queda con la versión vieja hasta el
 		// próximo cambio de la nube, y editarlo sube esa versión vieja.
@@ -1870,6 +1891,7 @@
 	// pisando la del otro dispositivo.
 	$effect(() => {
 		void activeBlockId;
+		void caretInside;
 		if (!deferredRefresh) return;
 		refreshFromStorage().catch(() => {
 			// Un fallo de lectura acá no rompe nada: se reintenta en la próxima.
@@ -2128,7 +2150,14 @@
 				<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
 			</div>
 		{/if}
-		<div class="relative mt-6 flex flex-col" bind:this={listEl}>
+		<!-- focusin/focusout en la lista entera: moverse de un renglón a otro
+		     dispara los dos en el mismo tick, así que el escudo no parpadea. -->
+		<div
+			class="relative mt-6 flex flex-col"
+			bind:this={listEl}
+			onfocusin={() => (caretInside = true)}
+			onfocusout={() => (caretInside = false)}
+		>
 			{#if reorder.indicator}
 				<div
 					class="pointer-events-none absolute z-10 h-0.5 bg-primary"

@@ -97,6 +97,12 @@ En **Configuración › Nube** aparece tu cuenta y una línea de estado:
 Se sincroniza solo cada 30 segundos y también cuando volvés a tener conexión.
 **Sincronizar ahora** lo fuerza.
 
+Lo que llega del otro dispositivo **aparece en el lugar**, sin sacarte el cursor
+ni cortar el renglón que estás escribiendo. El renglón donde tenés el cursor es
+el único que espera: se actualiza recién cuando movés el cursor a otro lado. Eso
+vale también si en el otro dispositivo **borraron** ese renglón — no desaparece
+debajo de tu mano, desaparece cuando salís de él.
+
 ## Cerrar sesión
 
 **Tus notas se quedan en el dispositivo.** Cerrar sesión desconecta la cuenta y

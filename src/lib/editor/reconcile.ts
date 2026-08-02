@@ -34,11 +34,29 @@ export function reconcileBlocks(current, incoming, protectedIds) {
 	// Un renglón protegido que el almacenamiento todavía no conoce: recién
 	// creado, con su escritura en vuelo. Desaparecerlo bajo el cursor sería el
 	// mismo daño que veníamos a evitar, así que vuelve a su lugar de antes.
+	//
+	// También queda `deferred`, igual que uno que sólo cambió de texto. Las dos
+	// razones por las que pudo faltar terminan bien con un reintento: si era una
+	// creación en vuelo, la próxima pasada ya lo encuentra y no lo posterga; si
+	// lo borraron en el otro aparato, el reintento lo saca. Sin el reintento, un
+	// borrado remoto sobre el renglón donde está el cursor no se aplicaba nunca
+	// — y la próxima edición volvía a subir un renglón que allá ya no existe.
 	const present = new Set(incoming.map((row) => row.id));
 	current.forEach((block, index) => {
 		if (!protectedIds.has(block.id) || present.has(block.id)) return;
 		next.splice(Math.min(index, next.length), 0, block);
+		deferred.push(block.id);
 	});
 
-	return { blocks: next, deferred };
+	// ¿Aparecieron o desaparecieron renglones respecto de lo que había en
+	// pantalla? El historial de Deshacer guarda fotos de la lista entera, y
+	// `diffBlocks` lee "no está en la foto" como "el usuario lo borró": una foto
+	// sacada antes de que llegara un renglón de la nube lo borra de verdad al
+	// deshacer. El que llama usa esto para tirar el historial, que es lo único
+	// honesto — esas fotos ya describen una lista que no existió nunca.
+	const beforeIds = new Set(current.map((row) => row.id));
+	const membershipChanged =
+		next.length !== beforeIds.size || next.some((row) => !beforeIds.has(row.id));
+
+	return { blocks: next, deferred, membershipChanged };
 }

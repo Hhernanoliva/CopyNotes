@@ -20,6 +20,7 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - El deshacer del texto va **por tandas**: un Ctrl+Z borra el último tramo que escribiste de una, no letra por letra.
 - **Deshacer también revierte el último formato** que aplicaste —negrita, cursiva, subrayado, tachado, código, color, enlace o convertir a título—, como un paso más y sin borrar el texto. Da igual si lo aplicaste desde la barra flotante o con un atajo de teclado. **Rehacer** (Ctrl/Cmd+Shift+Z) lo vuelve a poner.
 - El historial es **por nota**: al cambiar de nota, arranca limpio.
+- Si tenés la nube prendida y **llega un renglón nuevo (o desaparece uno) desde otro dispositivo**, el historial de esa nota también arranca limpio. Es a propósito: Deshacer vuelve a una foto de la nota de hace un rato, y esa foto no conoce lo que acaba de llegar. Antes, deshacer se llevaba puesto el renglón que había escrito el otro aparato; ahora preferimos perder los pasos para atrás y no perder texto. Escribir sobre renglones que ya existían no toca el historial.
 
 ## Colapsar y expandir
 

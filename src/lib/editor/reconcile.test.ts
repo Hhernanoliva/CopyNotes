@@ -73,6 +73,44 @@ describe('traer lo que llegó de afuera', () => {
 		expect(reconcileBlocks(current, incoming, new Set()).deferred).toEqual([]);
 	});
 
+	it('un renglón protegido que borraron en el otro aparato también espera turno', () => {
+		// Se queda en pantalla (el cursor está adentro), pero tiene que volver a
+		// intentarse: sin eso el borrado del otro aparato no se aplicaba NUNCA, y
+		// la próxima edición volvía a subir un renglón que allá ya no existe.
+		const mio = block('a', 'estoy escribiendo acá');
+		const current = [mio, block('b', 'otra')];
+		const incoming = [block('b', 'otra')];
+
+		const { blocks: next, deferred } = reconcileBlocks(current, incoming, new Set(['a']));
+
+		expect(next.map((row) => row.id)).toEqual(['a', 'b']);
+		expect(deferred).toEqual(['a']);
+
+		// Y cuando el cursor se va, el reintento sí lo saca.
+		expect(reconcileBlocks(next, incoming, new Set()).blocks.map((row) => row.id)).toEqual(['b']);
+	});
+
+	it('avisa cuando la lista ganó o perdió renglones, para tirar el historial de Deshacer', () => {
+		// Las fotos de Deshacer no conocen el renglón que acaba de llegar de la
+		// nube, y "no está en la foto" se lee como "lo borraste": deshacer lo
+		// borraba de verdad.
+		const current = [block('a', 'una')];
+
+		expect(reconcileBlocks(current, [block('a', 'una'), block('nueva', 'de allá')], new Set())
+			.membershipChanged).toBe(true);
+		expect(reconcileBlocks(current, [], new Set()).membershipChanged).toBe(true);
+		// Sólo cambió el texto: el historial sigue siendo válido.
+		expect(reconcileBlocks(current, [block('a', 'otra cosa')], new Set()).membershipChanged).toBe(
+			false
+		);
+		// Un renglón recién creado que el almacenamiento no conoce se queda en su
+		// lugar, así que la lista no cambió y el historial no se tira.
+		expect(
+			reconcileBlocks([block('a', 'una'), block('nuevo', '')], [block('a', 'una')], new Set(['nuevo']))
+				.membershipChanged
+		).toBe(false);
+	});
+
 	it('un renglón deja de estar protegido y recién ahí toma lo que llegó', () => {
 		const current = [block('a', 'lo mío')];
 		const incoming = [block('a', 'lo del otro dispositivo')];
