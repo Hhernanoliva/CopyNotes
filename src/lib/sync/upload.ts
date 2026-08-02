@@ -48,6 +48,13 @@ const INTERVAL_MS = 30_000;
 // when the vault is created, so re-sending it every 30 seconds would be noise.
 let vaultBlobSent = false;
 
+// Leaving the account resets it: the next account has a different vault, and a
+// flag left true would keep its wrapped key on this device for the rest of the
+// app run — so the second device would never find one and would build a rival.
+export function forgetSentVaultBlob() {
+	vaultBlobSent = false;
+}
+
 // All four gates in one place. Any of them missing means "not now", not an
 // error: no cloud configured, not logged in, no consent yet, no vault yet.
 async function ready() {

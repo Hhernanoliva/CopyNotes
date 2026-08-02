@@ -20,9 +20,9 @@
 		requestCode,
 		signInWithCode,
 		signInWithPassword,
-		signUpWithPassword,
-		signOut
+		signUpWithPassword
 	} from '$lib/sync/supabase';
+	import { forgetCloudAccount } from '$lib/sync/leave';
 	import { createVault, hasVault, restoreVault } from '$lib/sync/vault';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
 	import { cloudVaultBlob, cloudVaultExists, syncNow } from '$lib/sync/upload';
@@ -210,12 +210,20 @@
 		});
 	}
 
+	// Two steps, like "Reemplazar todo" in Respaldo: leaving drops the vault key,
+	// and if the recovery code was never written down and this is the only
+	// device, what is already in the cloud stops being readable by anyone. The
+	// notes on this device are never at risk, and saying so is half the warning.
+	let confirmingLeave = $state(false);
+
 	function leaveCloud() {
 		return cloudAction(async () => {
-			await signOut();
+			await forgetCloudAccount();
+			confirmingLeave = false;
 			cloudSession = null;
 			codeSent = false;
 			cloudCode = '';
+			await refreshCloud();
 		});
 	}
 
@@ -257,6 +265,9 @@
 	// on desktop also the mailbox path for the MCP connection block below.
 	$effect(() => {
 		if (!open) return;
+		// A danger step must never be waiting where somebody left it: reopening
+		// Configuración should not land on "Sí, cerrar sesión".
+		confirmingLeave = false;
 		listRecentActivity(20).then((rows) => (activity = rows));
 		refreshCloud().catch((error) => console.error('No se pudo leer el estado de la nube', error));
 		if (isTauriRuntime()) {
@@ -818,24 +829,65 @@
 							{/if}
 						</div>
 					{/if}
-					<div class="flex items-center gap-2">
-						<button
-							type="button"
-							onclick={() => cloudAction(syncNow)}
-							disabled={cloudBusy || syncStatus.uploading}
-							class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-						>
-							Sincronizar ahora
-						</button>
-						<button
-							type="button"
-							onclick={leaveCloud}
-							disabled={cloudBusy}
-							class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-						>
-							Cerrar sesión
-						</button>
-					</div>
+					{#if confirmingLeave}
+						<div class="border-border flex flex-col gap-3 rounded-md border p-3">
+							<p class="text-sm font-bold">¿Cerrar sesión en este dispositivo?</p>
+							<p class="text-muted-foreground text-sm">
+								<span class="text-foreground font-bold">Tus notas se quedan acá</span> y podés
+								seguir usando CopyNotes sin conexión, como antes de conectar la nube.
+							</p>
+							<p class="text-muted-foreground text-sm">
+								Lo que se borra de este dispositivo es la llave que abre lo que está guardado en
+								la nube. Para volver a conectarlo vas a necesitar tu
+								<span class="text-foreground font-bold">código de recuperación</span>: si no lo
+								guardaste y este es tu único dispositivo, lo que ya subiste deja de poder abrirse.
+							</p>
+							{#if syncStatus.pending}
+								<p class="text-destructive text-sm">
+									Ojo: {syncStatus.pending}
+									{syncStatus.pending === 1 ? 'cambio todavía no subió' : 'cambios todavía no subieron'}.
+									Quedan en este dispositivo, pero no van a llegar a los otros.
+								</p>
+							{/if}
+							<div class="flex flex-col gap-2">
+								<button
+									type="button"
+									onclick={leaveCloud}
+									disabled={cloudBusy}
+									class="bg-destructive text-destructive-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+								>
+									Sí, cerrar sesión
+								</button>
+								<button
+									type="button"
+									onclick={() => (confirmingLeave = false)}
+									disabled={cloudBusy}
+									class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+								>
+									Volver
+								</button>
+							</div>
+						</div>
+					{:else}
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								onclick={() => cloudAction(syncNow)}
+								disabled={cloudBusy || syncStatus.uploading}
+								class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Sincronizar ahora
+							</button>
+							<button
+								type="button"
+								onclick={() => (confirmingLeave = true)}
+								disabled={cloudBusy}
+								class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Cerrar sesión
+							</button>
+						</div>
+					{/if}
 				</div>
 			{/if}
 

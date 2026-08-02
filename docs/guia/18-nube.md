@@ -90,8 +90,27 @@ En **Configuración › Nube** aparece tu cuenta y una línea de estado:
 - **Última subida hace X** — cuándo terminó la última.
 
 Se sincroniza solo cada 30 segundos y también cuando volvés a tener conexión.
-**Sincronizar ahora** lo fuerza. **Cerrar sesión** desconecta la cuenta y deja
-todas tus notas intactas en el dispositivo.
+**Sincronizar ahora** lo fuerza.
+
+## Cerrar sesión
+
+**Tus notas se quedan en el dispositivo.** Cerrar sesión desconecta la cuenta y
+CopyNotes sigue andando igual que antes de conectar la nube: sin conexión, con
+todo lo tuyo intacto.
+
+Lo que sí se borra de ese dispositivo es **la llave que abre lo que está
+guardado en la nube** —junto con el permiso de subir y la cuenta de por dónde
+iba la sincronización—. Por eso, antes de cerrar, CopyNotes te lo pregunta y te
+avisa: **para volver a conectar ese dispositivo vas a necesitar tu código de
+recuperación**. Si nunca lo guardaste y es tu único dispositivo, lo que ya
+subiste deja de poder abrirse. Si te quedaban cambios sin subir, el aviso
+también te dice cuántos: se quedan ahí, pero no van a llegar a los otros
+dispositivos.
+
+Está pensado así para que entrar con **otra** cuenta arranque limpio. Antes no
+lo hacía: quedaban puestos el permiso de subir de la cuenta anterior —o sea que
+empezaba a subir sin volver a preguntarte— y la cuenta de por dónde iba, que en
+un servidor distinto le hacía saltear notas en silencio.
 
 ## Escribir sin conexión
 
