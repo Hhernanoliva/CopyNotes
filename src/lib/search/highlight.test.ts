@@ -25,4 +25,22 @@ describe('highlightSegments', () => {
 	it('returns the whole text unmarked when nothing matches', () => {
 		expect(highlightSegments('hola', 'zzz')).toEqual([{ text: 'hola', match: false }]);
 	});
+
+	// An emoji is ONE character to spread but TWO to slice. Counting in one unit
+	// and cutting in the other slid every highlight after the emoji to the left.
+	it('highlights correctly after an emoji', () => {
+		expect(highlightSegments('🎉 fiesta hoy', 'fiesta')).toEqual([
+			{ text: '🎉 ', match: false },
+			{ text: 'fiesta', match: true },
+			{ text: ' hoy', match: false }
+		]);
+	});
+
+	it('highlights an emoji-carrying match itself', () => {
+		expect(highlightSegments('hola 🎉 chau', '🎉')).toEqual([
+			{ text: 'hola ', match: false },
+			{ text: '🎉', match: true },
+			{ text: ' chau', match: false }
+		]);
+	});
 });

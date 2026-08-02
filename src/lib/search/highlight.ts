@@ -14,13 +14,24 @@ export function highlightSegments(text, query) {
 	if (!needle) return [{ text, match: false }];
 	// Fold per character so folded indices line up with the original string
 	// (NFD can otherwise change length, e.g. one char becoming two).
-	const foldedChars = [...text].map((char) => fold(char));
-	const folded = foldedChars.join('');
-	// Map each folded-string index back to its original character index.
-	const originIndex = [];
-	foldedChars.forEach((piece, charIndex) => {
-		for (let i = 0; i < piece.length; i++) originIndex.push(charIndex);
-	});
+	//
+	// The mapping stores SLICE offsets, not character counts: an emoji is one
+	// character to iterate but two units to `slice`, so counting characters and
+	// cutting with those numbers shifted every highlight after an emoji — and cut
+	// the emoji itself in half.
+	let folded = '';
+	const sliceStart = [];
+	const sliceEnd = [];
+	let offset = 0;
+	for (const char of text) {
+		const piece = fold(char);
+		folded += piece;
+		for (let i = 0; i < piece.length; i++) {
+			sliceStart.push(offset);
+			sliceEnd.push(offset + char.length);
+		}
+		offset += char.length;
+	}
 
 	const segments = [];
 	let cursor = 0;
@@ -28,11 +39,11 @@ export function highlightSegments(text, query) {
 	while (from <= folded.length) {
 		const hit = folded.indexOf(needle, from);
 		if (hit === -1) break;
-		const startChar = originIndex[hit];
-		const endChar = originIndex[hit + needle.length - 1] + 1;
-		if (startChar > cursor) segments.push({ text: text.slice(cursor, startChar), match: false });
-		segments.push({ text: text.slice(startChar, endChar), match: true });
-		cursor = endChar;
+		const matchStart = sliceStart[hit];
+		const matchEnd = sliceEnd[hit + needle.length - 1];
+		if (matchStart > cursor) segments.push({ text: text.slice(cursor, matchStart), match: false });
+		segments.push({ text: text.slice(matchStart, matchEnd), match: true });
+		cursor = matchEnd;
 		from = hit + needle.length;
 	}
 	if (cursor < text.length) segments.push({ text: text.slice(cursor), match: false });
