@@ -30,7 +30,20 @@ function childCount(rows, folderId) {
 	return rows.filter((row) => !row.isFolder && row.folderId === folderId).length;
 }
 
-export function dropTarget(rows, pointerY) {
+// `bounds` is the list's own box, in the same list-relative units as `pointerY`.
+// Optional so the geometry tests that only care about rows can skip it; given, a
+// pointer outside the box answers null. Only row heights were ever consulted, so
+// letting go over the editor still reordered the sidebar — while the guide had
+// promised since spec 022 that dropping outside cancels.
+//
+// Edges count as inside: the bottom edge is how "move it to the end" is
+// expressed when the container is exactly as tall as its rows.
+export function dropTarget(rows, pointerY, bounds = undefined) {
+	if (bounds) {
+		const outside =
+			bounds.x < 0 || bounds.x > bounds.width || pointerY < 0 || pointerY > bounds.height;
+		if (outside) return null;
+	}
 	// A folder's middle band means "file inside", and wins over gap math.
 	for (const row of rows) {
 		if (!row.isFolder) continue;
@@ -139,8 +152,8 @@ export function sidebarDragList(getOptions) {
 			clearFeedback();
 		}
 
-		function currentTarget(clientY) {
-			const listTop = node.getBoundingClientRect().top;
+		function currentTarget(clientX, clientY) {
+			const listRect = node.getBoundingClientRect();
 			const rows = measuredRows();
 			// The dragged row keeps its space; exclude it from geometry so the
 			// gap math reflects the list as it will be after the move.
@@ -148,7 +161,8 @@ export function sidebarDragList(getOptions) {
 				rows,
 				target: dropTarget(
 					rows.filter((row) => row.id !== dragging.id),
-					clientY - listTop
+					clientY - listRect.top,
+					{ x: clientX - listRect.left, width: listRect.width, height: listRect.height }
 				)
 			};
 		}
@@ -168,10 +182,13 @@ export function sidebarDragList(getOptions) {
 			return null;
 		}
 
-		function showFeedback(clientY) {
-			const { rows, target } = currentTarget(clientY);
+		function showFeedback(clientX, clientY) {
+			const { rows, target } = currentTarget(clientX, clientY);
 			clearFeedback();
 			rows.find((row) => row.id === dragging.id)?.el.setAttribute('data-dragging', 'true');
+			// Off to the side: keep the row marked as being dragged, but show no
+			// landing place — there is none, and letting go here cancels.
+			if (!target) return;
 			if (target.type === 'into-folder') {
 				rows.find((row) => row.id === target.folderId)?.el.setAttribute('data-drag-over-folder', 'true');
 				return;
@@ -221,7 +238,7 @@ export function sidebarDragList(getOptions) {
 				startDrag(pressed.id);
 			}
 			event.preventDefault();
-			showFeedback(event.clientY);
+			showFeedback(event.clientX, event.clientY);
 		}
 
 		function onPointerUp(event) {
@@ -230,10 +247,13 @@ export function sidebarDragList(getOptions) {
 				stopDrag();
 				return; // plain click — let it through
 			}
-			const { target } = currentTarget(event.clientY);
+			const { target } = currentTarget(event.clientX, event.clientY);
 			const options = getOptions();
 			const draggedId = dragging.id;
 			stopDrag();
+			// Let go to the side of the sidebar: nothing moves. Same outcome as
+			// Escape, and it is the escape hatch people reach for.
+			if (!target) return;
 			if (
 				target.type === 'into-folder' &&
 				options.canDropInto &&
