@@ -256,14 +256,14 @@
 		if (sameBlock) {
 			source.html = plan.targetHtml;
 			source.content = htmlToPlainText(plan.targetHtml);
-			await updateBlock(source.id, { html: source.html, content: source.content });
+			await writeBlock(source.id, { html: source.html, content: source.content });
 		} else {
 			source.html = plan.sourceHtml;
 			source.content = htmlToPlainText(plan.sourceHtml);
 			target.html = plan.targetHtml;
 			target.content = htmlToPlainText(plan.targetHtml);
-			await updateBlock(source.id, { html: source.html, content: source.content });
-			await updateBlock(target.id, { html: target.html, content: target.content });
+			await writeBlock(source.id, { html: source.html, content: source.content });
+			await writeBlock(target.id, { html: target.html, content: target.content });
 		}
 		focusBlockId = targetId;
 		focusCaret = plan.caretOffset;
@@ -374,8 +374,36 @@
 		// check protects a newer entry that replaced this one meanwhile.
 		const entry = { save, journal, timer: null };
 		pending.set(key, entry);
-		if (delayMs === 0) runSave(key, entry);
-		else entry.timer = setTimeout(() => runSave(key, entry), delayMs);
+		// Immediate saves hand back the write itself, so a caller that has to read
+		// the row afterwards can await it.
+		if (delayMs === 0) return runSave(key, entry);
+		entry.timer = setTimeout(() => runSave(key, entry), delayMs);
+		return Promise.resolve();
+	}
+
+	// LA ÚNICA PUERTA para escribir un renglón desde el editor.
+	//
+	// No es prolijidad. `scheduleSave` guarda UN pendiente por clave y limpia el
+	// timer del anterior; escribir por afuera deja armado el guardado con retraso
+	// de hace un instante, que lleva adentro una copia del texto de ANTES y medio
+	// segundo después lo pisa. Así "- " seguido de una pausa volvía a "-" (el
+	// espacio convierte a viñeta escribiendo directo, y el usuario deja de teclear,
+	// así que nada vuelve a tapar el timer), y mover un texto arrastrándolo se
+	// revertía solo.
+	//
+	// Los cambios se FUNDEN con lo que haya pendiente, no lo reemplazan: bajo una
+	// sola clave, reemplazar tiraría los campos que el guardado anterior todavía no
+	// escribió — contraer un renglón se llevaría puesto lo recién tecleado.
+	function writeBlock(id, changes, delayMs = 0) {
+		const key = `block:${id}`;
+		const waiting = pending.get(key)?.journal?.changes;
+		const merged = waiting ? { ...waiting, ...changes } : changes;
+		return scheduleSave(
+			key,
+			() => updateBlock(id, merged),
+			{ table: 'blocks', id, changes: merged },
+			delayMs
+		);
 	}
 
 	// Nothing left in flight -> "guardado", unless a failed write is still parked
@@ -537,7 +565,7 @@
 			const { id, ...changes } = update;
 			const row = blocks.find((block) => block.id === id);
 			if (row) Object.assign(row, changes);
-			await updateBlock(id, changes);
+			await writeBlock(id, changes);
 		}
 	}
 
@@ -626,12 +654,17 @@
 			caret: payload.caret ?? null
 		});
 		if (trigger?.kind === 'bullet') {
-			// Structural change: persist immediately — a debounced save under the
-			// same key would be replaced by the next keystroke's content-only save.
+			// Cambio de estructura: se escribe ya. Y por la misma puerta que el
+			// tipeo, que es lo que cancela el guardado con retraso del guion — el que
+			// medio segundo después devolvía el "-" si el usuario paraba de escribir.
 			block.type = 'bullet';
 			block.content = trigger.content;
 			block.html = plainTextToHtml(trigger.content);
-			updateBlock(block.id, { type: 'bullet', content: trigger.content, html: plainTextToHtml(trigger.content) });
+			writeBlock(block.id, {
+				type: 'bullet',
+				content: trigger.content,
+				html: plainTextToHtml(trigger.content)
+			});
 			return;
 		}
 		if (trigger?.kind === 'tag') {
@@ -643,11 +676,8 @@
 		}
 		block.content = text;
 		block.html = html;
-		scheduleSave(`block:${block.id}`, () => updateBlock(block.id, { content: text, html }), {
-			table: 'blocks',
-			id: block.id,
-			changes: { content: text, html }
-		});
+		// El único con retraso: acá sí hay ráfaga de teclas que vale la pena juntar.
+		writeBlock(block.id, { content: text, html }, 500);
 	}
 
 	// Convert a block to a different type (e.g. heading) via the format engine's
@@ -659,7 +689,7 @@
 			// Convertir a tarea nace por la capa (bitácora 'created').
 			await convertToTask({ blockId: block.id, checked: changes.checked });
 		} else {
-			await updateBlock(block.id, changes);
+			await writeBlock(block.id, changes);
 		}
 	}
 
@@ -865,16 +895,11 @@
 		}
 		block.html = html;
 		block.content = htmlToPlainText(html);
-		// Guardar por la cola con la MISMA clave que usa el tipeo: así el guardado
-		// pendiente de la última tecla (que lleva el html SIN formato) se reemplaza
-		// —scheduleSave limpia su timer— y este estado con formato queda cubierto
-		// por el diario ante un cierre. No hace falta cancelPending: para inline lo
-		// reemplaza esta misma clave, y los encabezados no cambian el html.
-		scheduleSave(`block:${blockId}`, () => updateBlock(blockId, { html: block.html, content: block.content }), {
-			table: 'blocks',
-			id: blockId,
-			changes: { html: block.html, content: block.content }
-		});
+		// Por la misma puerta que el tipeo: el guardado pendiente de la última tecla
+		// lleva el html SIN formato, y salir por otro lado lo dejaría armado para
+		// pisar esto medio segundo después. Con retraso, no inmediato: aplicar
+		// formato es tan de a ráfagas como escribir (negrita, cursiva, color).
+		writeBlock(blockId, { html: block.html, content: block.content }, 500);
 	}
 
 	// Popover-dispatched commands (currently just the link editor's Save/Remove
@@ -1025,7 +1050,7 @@
 	function handleNoteInput(block, text) {
 		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
-		scheduleSave(`note:${block.id}`, () => updateBlock(block.id, { note: text }), {
+		scheduleSave(`note:${block.id}`, () => writeBlock(block.id, { note: text }), {
 			table: 'blocks',
 			id: block.id,
 			changes: { note: text }
@@ -1049,7 +1074,7 @@
 				recordSnapshot();
 				block.type = 'text';
 				block.checked = false;
-				await updateBlock(block.id, { type: 'text', checked: false });
+				await writeBlock(block.id, { type: 'text', checked: false });
 				focusBlockId = block.id;
 				return;
 			}
@@ -1103,7 +1128,7 @@
 				// misma escritura.
 				await convertToTask({ blockId: block.id, checked: first.checked, content, html });
 			} else {
-				await updateBlock(block.id, { type: first.type, content, html });
+				await writeBlock(block.id, { type: first.type, content, html });
 			}
 			startIndex = 1;
 		}
@@ -1149,7 +1174,7 @@
 		block.html = text;
 		block.checked = false;
 		block.codeCollapsed = false;
-		updateBlock(block.id, {
+		writeBlock(block.id, {
 			type: 'code',
 			content: text,
 			html: text,
@@ -1214,7 +1239,7 @@
 			recordSnapshot();
 			block.type = 'text';
 			block.checked = false;
-			await updateBlock(block.id, { type: 'text', checked: false });
+			await writeBlock(block.id, { type: 'text', checked: false });
 			focusBlockId = block.id;
 			return;
 		}
@@ -1262,7 +1287,7 @@
 		const parent = blocks.find((row) => row.id === parentId);
 		if (parent && parent.collapsed) {
 			parent.collapsed = false;
-			await updateBlock(parent.id, { collapsed: false });
+			await writeBlock(parent.id, { collapsed: false });
 		}
 		await applyUpdates(plan.updates);
 		focusBlockId = block.id;
@@ -1295,13 +1320,13 @@
 	async function handleToggleCollapsed(block) {
 		recordSnapshot();
 		block.collapsed = !block.collapsed;
-		await updateBlock(block.id, { collapsed: block.collapsed });
+		await writeBlock(block.id, { collapsed: block.collapsed });
 	}
 
 	async function handleToggleCodeCollapsed(block) {
 		recordSnapshot();
 		block.codeCollapsed = !(block.codeCollapsed ?? false);
-		await updateBlock(block.id, { codeCollapsed: block.codeCollapsed });
+		await writeBlock(block.id, { codeCollapsed: block.codeCollapsed });
 	}
 
 	async function handleCopy(block, withChildren) {
@@ -1500,7 +1525,7 @@
 		const parent = parentId && blocks.find((row) => row.id === parentId);
 		if (parent && parent.collapsed) {
 			parent.collapsed = false;
-			await updateBlock(parent.id, { collapsed: false });
+			await writeBlock(parent.id, { collapsed: false });
 		}
 		await applyUpdates(plan.updates);
 		// Reparenting moves the focused block's DOM node, which blurs it. Refocus
@@ -1530,7 +1555,7 @@
 			cancelPending(`block:${id}`);
 			if (row) Object.assign(row, changes);
 			if (becomesTask) await convertToTask({ blockId: id, checked: changes.checked });
-			else await updateBlock(id, changes);
+			else await writeBlock(id, changes);
 		}
 		// La selección sigue marcada: el siguiente Tab / Alt+↓ / Cmd+C actúa
 		// sobre el mismo grupo, así que hay que devolverle el foco.
@@ -1716,7 +1741,7 @@
 				row.html = html;
 				// The debounced save queued by handleBlockInput still holds the "#".
 				cancelPending(`block:${row.id}`);
-				updateBlock(row.id, { content, html });
+				writeBlock(row.id, { content, html });
 			}
 		}
 		const tag = option.kind === 'create' ? await findOrCreateTag(option.name) : option.tag;
@@ -1795,7 +1820,7 @@
 		} else {
 			row.content = stripped.content;
 			row.html = stripped.html;
-			await updateBlock(row.id, { content: stripped.content, html: stripped.html });
+			await writeBlock(row.id, { content: stripped.content, html: stripped.html });
 		}
 	}
 
@@ -1926,7 +1951,7 @@
 			// the snippet list must not race a database round-trip.
 			focusBlockId = row.id;
 			focusCaret = anchor + 1;
-			await updateBlock(row.id, { content: kept.content, html: kept.html });
+			await writeBlock(row.id, { content: kept.content, html: kept.html });
 			return;
 		}
 		// Strip the "/query" span; whatever the user had typed around it stays,
@@ -1939,16 +1964,16 @@
 
 		if (command.id === 'date') {
 			// The block keeps its type — a date is a field, not a block type.
-			await updateBlock(row.id, textWrite);
+			await writeBlock(row.id, textWrite);
 			datePanelFor = row.id;
 			datePanelCaret = anchor;
 			return;
 		}
 		if (command.id === 'separator') {
-			await updateBlock(row.id, textWrite);
+			await writeBlock(row.id, textWrite);
 			if (stripped.content === '') {
 				row.type = 'separator';
-				await updateBlock(row.id, { type: 'separator' });
+				await writeBlock(row.id, { type: 'separator' });
 				await handleEnter(row, 'text');
 				return;
 			}
@@ -1973,7 +1998,7 @@
 			Object.assign(row, changes);
 			focusBlockId = row.id;
 			focusCaret = anchor;
-			await updateBlock(row.id, { ...textWrite, ...changes });
+			await writeBlock(row.id, { ...textWrite, ...changes });
 			return;
 		}
 		row.type = command.id;
@@ -1983,10 +2008,10 @@
 		focusCaret = anchor;
 		if (command.id === 'todo') {
 			// La tarea nace acá: la capa escribe el tipo y la línea 'created'.
-			await updateBlock(row.id, textWrite);
+			await writeBlock(row.id, textWrite);
 			await convertToTask({ blockId: row.id, checked: false });
 		} else {
-			await updateBlock(row.id, { ...textWrite, type: command.id, html: row.html });
+			await writeBlock(row.id, { ...textWrite, type: command.id, html: row.html });
 		}
 	}
 
@@ -1995,7 +2020,7 @@
 		recordSnapshot();
 		block.dueDate = day;
 		// Structural change: persist immediately, never debounced.
-		await updateBlock(block.id, { dueDate: day });
+		await writeBlock(block.id, { dueDate: day });
 		onDatesChanged?.(); // let an open Agenda refresh live
 		pulseMenu(block.id);
 		focusBlockId = block.id;
@@ -2007,7 +2032,7 @@
 		datePanelFor = null;
 		recordSnapshot();
 		block.dueDate = null;
-		await updateBlock(block.id, { dueDate: null });
+		await writeBlock(block.id, { dueDate: null });
 		onDatesChanged?.(); // let an open Agenda refresh live
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
