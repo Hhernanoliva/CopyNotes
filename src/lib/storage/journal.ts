@@ -16,8 +16,12 @@ export const SETTINGS_JOURNAL_KEY = 'copynotes:pending-settings';
 
 export function writeJournal(entries) {
 	try {
-		if (!entries.length) return;
-		localStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
+		// Sin nada pendiente el diario se BORRA, no se deja como estaba. Una lista
+		// vieja que sobrevive a un guardado que sí aterrizó se vuelve a aplicar en
+		// el próximo arranque y pisa texto más nuevo con el de antes. El diario
+		// dice "esto todavía no llegó al disco": si no hay nada, no dice nada.
+		if (!entries.length) localStorage.removeItem(JOURNAL_KEY);
+		else localStorage.setItem(JOURNAL_KEY, JSON.stringify(entries));
 	} catch {
 		// localStorage unavailable (SSR, privacy mode) — the in-app flush on
 		// unmount and note switches still covers normal navigation.

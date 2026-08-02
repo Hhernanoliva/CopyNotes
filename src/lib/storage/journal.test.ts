@@ -59,6 +59,21 @@ describe('pending-writes journal', () => {
 		expect(localStorage.getItem(JOURNAL_KEY)).toBe(null);
 	});
 
+	it('clears a stale journal when nothing is pending any more', async () => {
+		// The editor re-journals after flushing instead of clearing, so a failed
+		// save keeps its entry. The mirror case matters just as much: once every
+		// write landed, an older list left behind would be replayed on the next
+		// boot and overwrite newer text with the old one.
+		const note = await createNote({ title: 'vieja' });
+		writeJournal([{ table: 'notes', id: note.id, changes: { title: 'a medio escribir' } }]);
+
+		writeJournal([]);
+
+		expect(localStorage.getItem(JOURNAL_KEY)).toBe(null);
+		await replayJournal();
+		expect((await getNote(note.id)).title).toBe('vieja');
+	});
+
 	it('survives a corrupt journal without touching data', async () => {
 		const note = await createNote({ title: 'intacta' });
 		localStorage.setItem(JOURNAL_KEY, 'esto no es JSON');
