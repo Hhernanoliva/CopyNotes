@@ -146,8 +146,13 @@ const backupSchema = v.looseObject({
 // pass is the actual gate). Returns true when something was dropped.
 function normalizeOrganization(data) {
 	let touched = false;
+	// A NEGATIVE position is not malformed: `storage/organize.ts` gives a note
+	// created at the top of the sidebar `lowest - 1`, so this app's own backups
+	// are full of them. Dropping it rewrote the row, and a rewritten row stops
+	// matching its local twin — which duplicated every top-created note on a
+	// re-import of your own file. Only a non-integer is really unusable here.
 	const dropOrder = (row) => {
-		if (row.sortOrder !== undefined && (!Number.isInteger(row.sortOrder) || row.sortOrder < 0)) {
+		if (row.sortOrder !== undefined && !Number.isInteger(row.sortOrder)) {
 			delete row.sortOrder;
 			touched = true;
 		}

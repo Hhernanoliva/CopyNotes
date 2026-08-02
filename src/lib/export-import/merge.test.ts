@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { planMerge } from './merge';
+import { CURRENT_VERSION, SUPPORTED_FORMAT, validateBackup } from './schema';
 
 const iso = '2026-07-10T12:00:00.000Z';
 const later = '2026-07-10T13:00:00.000Z';
@@ -39,6 +40,20 @@ function assignment(id, tagId, targetType, targetId, overrides = {}) {
 
 let counter = 0;
 const nextId = () => `new_${++counter}`;
+
+// A backup file exactly as `storage/backup.ts` writes one, so a test can run the
+// real file → validate → merge path instead of handing planMerge rows the
+// validator never touched.
+function makeBackupFile(data = {}) {
+	const full = { ...emptyTables(), folders: [], activity: [], ...data };
+	return {
+		format: SUPPORTED_FORMAT,
+		formatVersion: CURRENT_VERSION,
+		exportedAt: iso,
+		counts: Object.fromEntries(Object.entries(full).map(([name, rows]) => [name, rows.length])),
+		data: full
+	};
+}
 
 describe('planMerge', () => {
 	it('inserts everything into an empty database', () => {
@@ -278,6 +293,28 @@ describe('planMerge', () => {
 		it('merging an older backup with no activity key plans no inserts', () => {
 			const plan = planMerge(emptyTables(), { ...emptyTables(), activity: undefined });
 			expect(plan.inserts.activity).toEqual([]);
+		});
+	});
+
+	// The whole point of "importar dos veces no duplica": validation runs on the
+	// file before the merge sees it, so anything validation rewrites stops
+	// matching its local twin. A note created at the top of the sidebar carries a
+	// NEGATIVE sortOrder (storage/organize.ts), which is exactly what this used to
+	// strip — turning every re-import of your own backup into a pile of copies.
+	describe('importing your own backup twice', () => {
+		it('does not duplicate a note whose position is negative', () => {
+			const mine = note('n1', { sortOrder: -3, folderId: null });
+			const file = makeBackupFile({ notes: [structuredClone(mine)] });
+
+			const validated = validateBackup(file);
+			expect(validated.ok).toBe(true);
+
+			const plan = planMerge(
+				{ ...emptyTables(), notes: [mine] },
+				validated.backup.data
+			);
+			expect(plan.inserts.notes).toEqual([]);
+			expect(plan.summary.notes.skipped).toBe(1);
 		});
 	});
 });

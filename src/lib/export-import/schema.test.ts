@@ -365,7 +365,7 @@ describe('validateBackup', () => {
 
 		it('drops malformed sortOrder and orphan folderId instead of rejecting', () => {
 			const backup = makeBackup(
-				{ notes: [makeNote({ sortOrder: -3, folderId: 'ghost' })], folders: [] },
+				{ notes: [makeNote({ sortOrder: 1.5, folderId: 'ghost' })], folders: [] },
 				{ formatVersion: 4 }
 			);
 			const result = validateBackup(backup);
@@ -373,6 +373,22 @@ describe('validateBackup', () => {
 			expect(result.backup.data.notes[0].sortOrder).toBeUndefined();
 			expect(result.backup.data.notes[0].folderId).toBeNull();
 			expect(result.warnings.length).toBeGreaterThan(0);
+		});
+
+		// `storage/organize.ts` hands a note created at the top of the sidebar
+		// `lowest - 1`, so a negative position is what this app's OWN backups are
+		// full of. Dropping it here rewrote the row, and a rewritten row no longer
+		// matches its local twin — which made re-importing your own backup
+		// duplicate every note you had ever created at the top.
+		it('keeps a negative sortOrder: the app itself creates them', () => {
+			const backup = makeBackup(
+				{ notes: [makeNote({ sortOrder: -3, folderId: null })], folders: [] },
+				{ formatVersion: 4 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.notes[0].sortOrder).toBe(-3);
+			expect(result.warnings).toEqual([]);
 		});
 
 		it('folderId pointing at a folder of the other kind is nulled', () => {

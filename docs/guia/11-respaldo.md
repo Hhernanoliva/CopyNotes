@@ -27,6 +27,8 @@ Todo funciona sin internet.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
 
+Importar tu propio respaldo sobre las mismas notas no las duplica: lo que ya tenés igual se omite y el resumen lo dice. Antes, las notas que habías creado arriba de todo en la lista volvían como copias; ya no pasa.
+
 Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo permanece abierta y bloqueada. Se cierra recién cuando las notas restauradas ya están listas para usar.
 
 Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).
