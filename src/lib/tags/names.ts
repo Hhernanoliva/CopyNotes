@@ -6,7 +6,11 @@ export function normalizeTagName(name) {
 	return (name ?? '').trim().replace(/^#/, '').trim().replace(/\s+/g, ' ');
 }
 
-function comparable(name) {
+// Exported so the picker's FILTER folds names exactly the way its "does this
+// tag already exist?" check does. Two rules meant "cafe" listed nothing while
+// the create option stayed hidden because "café" already existed — a dead end
+// with no way out.
+export function foldTagName(name) {
 	return normalizeTagName(name)
 		.toLowerCase()
 		.normalize('NFD')
@@ -14,5 +18,5 @@ function comparable(name) {
 }
 
 export function tagNamesMatch(a, b) {
-	return comparable(a) === comparable(b);
+	return foldTagName(a) === foldTagName(b);
 }

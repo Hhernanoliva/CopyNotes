@@ -6,7 +6,7 @@ Las etiquetas te ayudan a agrupar y encontrar cosas sin carpetas. Podés etiquet
 
 ### Etiquetar una nota
 
-Al lado del título, al pasar el mouse, aparece un **icono de etiqueta**. Al tocarlo se abre un buscador chiquito: escribí y filtra tus etiquetas; movete con **↑ ↓** y elegí con **Enter** o **Tab**; si no existe, te ofrece **Crear «lo que escribiste»**. Al elegir una, el buscador **se cierra** —si querés poner otra, abrilo de nuevo—; también se cierra con Escape o tocando afuera. Las etiquetas de la nota se ven como chips (`#trabajo`) debajo del título; la **x** del chip la quita.
+Al lado del título, al pasar el mouse, aparece un **icono de etiqueta**. Al tocarlo se abre un buscador chiquito: escribí y filtra tus etiquetas; movete con **↑ ↓** y elegí con **Enter** o **Tab**; si no existe, te ofrece **Crear «lo que escribiste»**. Los acentos no importan: escribiendo `cafe` encontrás `café`, y al revés. Al elegir una, el buscador **se cierra** —si querés poner otra, abrilo de nuevo—; también se cierra con Escape o tocando afuera. Las etiquetas de la nota se ven como chips (`#trabajo`) debajo del título; la **x** del chip la quita.
 
 ### Etiquetar un renglón
 
