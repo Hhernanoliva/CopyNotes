@@ -56,6 +56,29 @@
 		};
 	});
 
+	// Escritorio: el menú sale debajo de la "/" que tipeaste, no pegado al borde
+	// izquierdo del renglón —en un renglón largo aparecía lejísimos de donde
+	// estabas escribiendo—. Se mide UNA vez, al abrirse: mientras filtrás
+	// (`/ta`) el menú se queda quieto en vez de correrse letra por letra.
+	// El menú de grupo (spec 031) no entra acá: no hay una sola "/" a la que
+	// apuntar, así que se queda alineado al renglón.
+	let leftPx = $state(null);
+	$effect(() => {
+		const el = listEl;
+		if (!el || title) return;
+		const anchor = el.offsetParent;
+		// En celular es una barra fija al pie: el ancho es la pantalla entera.
+		if (!anchor || getComputedStyle(el).position !== 'absolute') return;
+		const sel = window.getSelection();
+		const caret = sel?.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
+		if (!caret?.height) return; // sin cursor medible (renglón vacío): queda como estaba
+		const anchorBox = anchor.getBoundingClientRect();
+		const width = el.getBoundingClientRect().width;
+		// Sin pasarse del borde derecho de la pantalla.
+		const max = Math.max(0, window.innerWidth - 8 - width - anchorBox.left);
+		leftPx = Math.min(Math.max(caret.left - anchorBox.left, 0), max);
+	});
+
 	// With many snippets the menu scrolls; keep the keyboard-selected option visible.
 	$effect(() => {
 		const selected = commands[selectedIndex];
@@ -133,6 +156,7 @@
 	role="listbox"
 	id="slash-menu"
 	aria-label={title || (isSnippets ? 'Snippets guardados' : 'Tipos de bloque')}
+	style={leftPx == null ? '' : `left:${leftPx}px`}
 	class="cn-pop bg-popover border-border absolute left-8 z-10 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md {flipUp
 		? 'bottom-full mb-1'
 		: 'top-full mt-1'} max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:left-0 max-md:z-30 max-md:mt-0 max-md:mb-0 max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 {isSnippets

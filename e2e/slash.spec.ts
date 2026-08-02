@@ -410,3 +410,33 @@ test('el menú "/" queda pegado al renglón al scrollear', async ({ page }) => {
 	await page.waitForTimeout(300);
 	expect(Math.abs((await gap()) - before)).toBeLessThan(2);
 });
+
+// El menú "/" sale debajo de la "/" que tipeaste, no pegado al borde izquierdo
+// del renglón: en un renglón largo aparecía lejísimos de donde estabas
+// escribiendo. Nunca se pasa del borde derecho de la pantalla.
+test('el menú "/" se abre debajo del cursor, no al principio del renglón', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Un renglon largo para que el cursor quede lejos del borde izquierdo');
+	await page.waitForTimeout(200);
+	await page.keyboard.type('/');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.waitForTimeout(300); // dejar terminar la animación de entrada
+
+	const info = await page.evaluate(() => {
+		const menu = document.querySelector('#slash-menu');
+		const m = menu.getBoundingClientRect();
+		const row = menu.closest('[data-block-id]').getBoundingClientRect();
+		const caret = window.getSelection().getRangeAt(0).getBoundingClientRect();
+		return {
+			fromCaret: Math.abs(m.left - caret.left),
+			fromRowStart: m.left - row.left,
+			overflowsRight: m.right > window.innerWidth - 8
+		};
+	});
+	expect(info.fromCaret).toBeLessThan(2); // pegado al cursor
+	expect(info.fromRowStart).toBeGreaterThan(100); // ya no arranca en el renglón
+	expect(info.overflowsRight).toBe(false);
+});
