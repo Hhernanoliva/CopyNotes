@@ -13,8 +13,10 @@
 		CopyPlus,
 		GitCompare,
 		GripVertical,
-		Plus
+		Plus,
+		Trash2
 	} from '@lucide/svelte';
+	import { diffWords } from '$lib/sync/diff';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
 	import DatePanel from './DatePanel.svelte';
@@ -42,8 +44,6 @@
 		agentNotes = [],
 		// El mismo renglón cambió acá y en otro dispositivo: { remote } o null.
 		conflict = null,
-		conflictOpen = false,
-		onConflictToggle,
 		onConflictResolve,
 		focused = false,
 		active = false,
@@ -790,54 +790,70 @@
 			{/if}
 			{#if conflict}
 				<!-- El mismo renglón se editó acá y en otro dispositivo. No se pisó
-				     nada: la decisión se toma acá, en el renglón, no escondida en una
-				     pantalla de configuración. -->
-				<div class="mt-1 flex flex-col gap-1">
+				     nada, y la decisión se toma acá, en el renglón.
+
+				     Las dos versiones SON la elección: se toca la que queda, no un
+				     botón debajo de ellas. Por eso tampoco hay paso de "abrir" — un
+				     choque es raro e importante, y esconderlo detrás de un enlace lo
+				     vuelve fácil de ignorar. Sin caja: una barra al margen, como una
+				     cita, para que esto no compita con el texto de la nota que tiene
+				     encima. -->
+				{@const remoteDeleted = Boolean(conflict.remote?.deletedAt)}
+				{@const versions = diffWords(block.content, conflict.remote?.content)}
+				<div class="border-cn-conflict mt-1.5 flex flex-col gap-0.5 border-l-2 pl-3">
+					<p class="text-muted-foreground flex items-center gap-1.5 text-xs">
+						<GitCompare size={12} aria-hidden="true" />
+						Otra versión de este renglón · tocá la que quede
+					</p>
+
+					<!-- La etiqueta va al principio y no al final: alineadas en una
+					     columnita, las dos versiones arrancan en la misma x y se pueden
+					     comparar de un vistazo. Al final quedaban contra el borde
+					     derecho, lejísimos del texto que nombran. -->
 					<button
 						type="button"
-						aria-expanded={conflictOpen}
+						aria-label="Quedarme con esta versión, la de este dispositivo"
 						onmousedown={(event) => event.preventDefault()}
-						onclick={() => onConflictToggle?.(block)}
-						class="cn-tap text-cn-conflict hover:bg-accent focus-visible:ring-ring flex w-fit items-center gap-1.5 rounded-sm px-1.5 py-0.5 text-xs font-medium transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
+						onclick={() => onConflictResolve?.(block, 'mine')}
+						class="cn-conflict-option"
 					>
-						<GitCompare size={13} aria-hidden="true" />
-						Hay otra versión de este renglón
+						<span class="cn-conflict-side" aria-hidden="true">acá</span>
+						<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+							>{#each versions.mine as part, index (index)}{#if part.changed}<span class="cn-diff"
+										>{part.text}</span
+									>{:else}{part.text}{/if}{/each}{#if !block.content}<span
+									class="text-muted-foreground italic">(vacío)</span
+								>{/if}</span
+						>
 					</button>
 
-					{#if conflictOpen}
-						<div class="border-cn-conflict flex flex-col gap-2 rounded-md border p-2 text-sm">
-							<div class="flex flex-col gap-0.5">
-								<span class="text-muted-foreground text-xs">Lo tuyo, en este dispositivo:</span>
-								<span class="bg-muted rounded px-2 py-1">{block.content || '(vacío)'}</span>
-							</div>
-							<div class="flex flex-col gap-0.5">
-								<span class="text-muted-foreground text-xs">Lo del otro dispositivo:</span>
-								<span class="bg-muted rounded px-2 py-1"
-									>{conflict.remote?.deletedAt
-										? '(se borró en el otro dispositivo)'
-										: conflict.remote?.content || '(vacío)'}</span
-								>
-							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onmousedown={(event) => event.preventDefault()}
-									onclick={() => onConflictResolve?.(block, 'mine')}
-									class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none"
-								>
-									Quedarme con el mío
-								</button>
-								<button
-									type="button"
-									onmousedown={(event) => event.preventDefault()}
-									onclick={() => onConflictResolve?.(block, 'theirs')}
-									class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
-								>
-									Traer el otro
-								</button>
-							</div>
-						</div>
-					{/if}
+					<button
+						type="button"
+						aria-label={remoteDeleted
+							? 'Borrar este renglón, como se borró en el otro dispositivo'
+							: 'Traer esta versión, la del otro dispositivo'}
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => onConflictResolve?.(block, 'theirs')}
+						class="cn-conflict-option {remoteDeleted ? 'cn-conflict-option--danger' : ''}"
+					>
+						<span class="cn-conflict-side" aria-hidden="true">allá</span>
+						{#if remoteDeleted}
+							<!-- No es "quedate con este texto" sino "borrá el renglón". Se
+							     distingue a propósito, para no confundirla de fila. -->
+							<span class="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
+								<Trash2 size={13} aria-hidden="true" />
+								Borrar este renglón
+							</span>
+						{:else}
+							<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+								>{#each versions.theirs as part, index (index)}{#if part.changed}<span
+											class="cn-diff">{part.text}</span
+										>{:else}{part.text}{/if}{/each}{#if !conflict.remote?.content}<span
+										class="text-muted-foreground italic">(vacío)</span
+									>{/if}</span
+							>
+						{/if}
+					</button>
 				</div>
 			{/if}
 			{#each agentNotes as agentNote (agentNote.id)}

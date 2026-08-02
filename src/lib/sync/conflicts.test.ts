@@ -10,7 +10,7 @@ import { createNote, updateNote } from '../storage/notes';
 import { encryptRecord } from './records';
 import { createVault, getVaultKey } from './vault';
 import { grantUploadConsent, listPendingUploads } from './pending';
-import { countConflicts, keepLocal, listConflicts, takeRemote } from './conflicts';
+import { countConflicts, keepLocal, listConflicts, takeRemote, undoDecision } from './conflicts';
 
 const store = new Map();
 globalThis.localStorage = {
@@ -170,12 +170,55 @@ describe('deciding', () => {
 		expect(await listPendingUploads()).toEqual([]);
 	});
 
+	it('"traer la otra" se puede deshacer, y no deja rastro de haber pasado', async () => {
+		// Deciding is now one tap, so the way back has to be one tap too. Undo must
+		// put back the text, the parked version AND the version this row stands on:
+		// forget the last and the next upload is refused for ever.
+		const id = await bothEdited();
+		const before = await db.table('notes').get(id);
+		const [conflict] = await listConflicts();
+
+		const undo = await takeRemote(conflict.id);
+		expect((await db.table('notes').get(id)).title).toBe('versión de allá');
+
+		await undoDecision(undo);
+
+		const after = await db.table('notes').get(id);
+		expect(after.title).toBe('versión mía');
+		expect(after.changeSeq).toBe(before.changeSeq);
+		expect(after.cloudSeq).toBe(before.cloudSeq);
+		expect(await countConflicts()).toBe(1);
+		expect((await listConflicts())[0].remote.title).toBe('versión de allá');
+	});
+
+	it('"quedarme con lo mío" también se deshace', async () => {
+		const id = await bothEdited();
+		const before = await db.table('notes').get(id);
+		const [conflict] = await listConflicts();
+
+		const undo = await keepLocal(conflict.id);
+		await undoDecision(undo);
+
+		const after = await db.table('notes').get(id);
+		expect(after.title).toBe('versión mía');
+		// The whole point of `keepLocal` was to move this; undoing has to move it
+		// back or the row stays armed to overwrite the other device.
+		expect(after.cloudSeq).toBe(before.cloudSeq);
+		expect(await countConflicts()).toBe(1);
+	});
+
+	it('deshacer sobre una decisión que ya no existe no rompe nada', async () => {
+		expect(await undoDecision(null)).toBe(false);
+		expect(await undoDecision(undefined)).toBe(false);
+	});
+
 	it('a conflict already decided elsewhere is not resurrected', async () => {
 		const id = await bothEdited();
 		const [conflict] = await listConflicts();
 		await keepLocal(conflict.id);
 
-		expect(await takeRemote(conflict.id)).toBe(false);
+		// Nothing to undo, because nothing happened.
+		expect(await takeRemote(conflict.id)).toBe(null);
 		expect((await db.table('notes').get(id)).title).toBe('versión mía');
 	});
 });

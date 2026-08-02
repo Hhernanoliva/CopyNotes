@@ -61,10 +61,11 @@ export function countConflicts() {
 // for ever and the decision would silently never travel.
 export async function keepLocal(id) {
 	const conflict = await conflicts().get(id);
-	if (!conflict) return false;
+	if (!conflict) return null;
+	const undo = await snapshot(conflict);
 	await markSentToCloud(conflict.table, conflict.recordId, conflict.remote.changeSeq);
 	await conflicts().delete(id);
-	return true;
+	return undo;
 }
 
 // Take the version from the other device. It goes in through the same door every
@@ -72,9 +73,28 @@ export async function keepLocal(id) {
 // change — the local edit is what the person chose to discard.
 export async function takeRemote(id) {
 	const conflict = await conflicts().get(id);
-	if (!conflict) return false;
+	if (!conflict) return null;
+	const undo = await snapshot(conflict);
 	await putFromCloud(conflict.table, conflict.remote);
 	await conflicts().delete(id);
+	return undo;
+}
+
+// Everything a decision destroys, kept so one tap can put it back. Deciding is a
+// single tap now, so the way out has to be one too — and the row it restores has
+// to be the *whole* row, `cloudSeq` included: that field is what the next upload
+// declares as the version it stands on, and a wrong one is refused for ever.
+async function snapshot(conflict) {
+	return { conflict, row: await db.table(conflict.table).get(conflict.recordId) };
+}
+
+// `fromCloud` rides along for the same reason it does everywhere else: putting a
+// row back the way it was is not a new edit, so the change counter must not move
+// — otherwise undoing would itself become something to upload.
+export async function undoDecision(undo) {
+	if (!undo?.conflict) return false;
+	if (undo.row) await db.table(undo.conflict.table).put({ ...undo.row, fromCloud: true });
+	await conflicts().put(undo.conflict);
 	return true;
 }
 

@@ -36,7 +36,7 @@
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
 	import { reconcileBlocks } from './reconcile';
-	import { conflictsByBlock, keepLocal, takeRemote } from '$lib/sync/conflicts';
+	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -114,8 +114,6 @@
 	// reintentarlo cuando el cursor se vaya. Plano, no $state: lo leen efectos
 	// que no deben depender de él.
 	let deferredRefresh = false;
-	// Renglón cuyo conflicto está abierto para elegir versión.
-	let conflictOpenFor = $state(null);
 	let focusBlockId = $state(null);
 	// Plain-text caret offset to restore when focusBlockId lands (or null for
 	// caret-at-end). Set by slash-menu flows so the caret returns to where the
@@ -1843,14 +1841,36 @@
 		});
 	});
 
-	// Elegir qué versión queda, desde el propio renglón.
+	// Elegir qué versión queda, desde el propio renglón: se toca la versión, no un
+	// botón. Un solo toque decide, así que el camino de vuelta también tiene que
+	// ser uno — el aviso con "Deshacer" es lo que reemplaza al segundo clic que
+	// antes hacía de red.
 	async function resolveConflict(blockId, choice) {
 		const conflict = conflicts[blockId];
 		if (!conflict) return;
-		await (choice === 'mine' ? keepLocal(conflict.id) : takeRemote(conflict.id));
-		conflictOpenFor = null;
+		const remoteDeleted = Boolean(conflict.remote?.deletedAt);
+		const undo = await (choice === 'mine' ? keepLocal(conflict.id) : takeRemote(conflict.id));
 		await refreshFromStorage([blockId]);
 		bumpAgentData();
+		if (!undo) return;
+		toast.success(
+			choice === 'mine'
+				? 'Te quedaste con tu versión'
+				: remoteDeleted
+					? 'Borraste el renglón, como en el otro aparato'
+					: 'Trajiste la versión del otro aparato',
+			{
+				duration: 6000,
+				action: {
+					label: 'Deshacer',
+					onClick: async () => {
+						await undoDecision(undo);
+						await refreshFromStorage([blockId]);
+						bumpAgentData();
+					}
+				}
+			}
+		);
 	}
 
 	// Called from the page when the user inserts from the snippets library.
@@ -2086,9 +2106,6 @@
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}
 					conflict={conflicts[row.block.id] ?? null}
-					conflictOpen={conflictOpenFor === row.block.id}
-					onConflictToggle={(block) =>
-						(conflictOpenFor = conflictOpenFor === block.id ? null : block.id)}
 					onConflictResolve={(block, choice) => resolveConflict(block.id, choice)}
 					focused={focusBlockId === row.block.id}
 					active={activeBlockId === row.block.id}

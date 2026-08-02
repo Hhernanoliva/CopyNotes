@@ -157,16 +157,37 @@ rompe nada, simplemente no abre. Podés reintentar.
 Puede pasar: cambiaste el mismo renglón en la computadora y en el teléfono, o
 editaste algo sin conexión mientras el otro dispositivo también lo cambiaba.
 
-**Nunca se pisa nada.** Lo que ves en pantalla sigue siendo lo tuyo, y **debajo
-del renglón en cuestión** aparece un aviso en violeta:
+**Nunca se pisa nada.** Lo que ves en pantalla sigue siendo lo tuyo, y **justo
+debajo del renglón** aparecen las dos versiones, con una barrita violeta al
+costado:
 
-> ⧉ Hay otra versión de este renglón
+```
+como: cuando a namacion?
+┃ ⧉ Otra versión de este renglón · tocá la que quede
+┃   acá   como: cuando a namacion?
+┃                 ‾‾‾‾‾‾‾‾
+┃   allá  como: cuandoa namacion?
+┃                 ‾‾‾‾‾‾‾
+```
 
-Tocalo y se abren las dos versiones, una debajo de la otra —**lo tuyo, en este
-dispositivo** y **lo del otro dispositivo**— con dos botones: **Quedarme con el
-mío** o **Traer el otro**. Elegís ahí mismo, sin salir de la nota. Si te quedás
-con el tuyo, el otro dispositivo termina recibiéndolo; si traés el otro,
-reemplaza lo que tenías acá.
+**Tocás la que querés dejar y listo.** No hay botones: las versiones mismas son
+la elección. `acá` es lo que escribiste en este dispositivo, `allá` lo del otro.
+Con teclado también: Tab para pasar de una a la otra, Enter para elegir.
+
+**Lo que cambió va subrayado** en las dos. Si la diferencia es una sola letra o
+un espacio, no tenés que buscarla: te la marca. Se subraya la palabra entera,
+porque subrayar una letra suelta no se ve.
+
+Si te quedás con la tuya, el otro dispositivo termina recibiéndola; si traés la
+de allá, reemplaza lo que tenías acá.
+
+**Si te equivocás, no pasa nada.** Después de elegir aparece abajo un avisito
+con **Deshacer** durante unos segundos: lo tocás y vuelve todo como estaba,
+incluido el aviso de las dos versiones para que puedas volver a decidir.
+
+Cuando en el otro dispositivo **borraste** el renglón, esa opción se ve distinta
+—en rojo y con un tacho: **Borrar este renglón**— para que no la elijas de
+casualidad pensando que es texto.
 
 En **Configuración › Nube** también ves cuántos conflictos hay abiertos, por si
 alguno cayó en algo que no es un renglón (el nombre de una etiqueta, una
