@@ -10,6 +10,7 @@ import {
 	createBlock,
 	getBlock,
 	softDeleteBlock,
+	updateBlock,
 	setAgentsPaused
 } from '$lib/storage';
 import { createTask, listTasks, readTask } from '$lib/tasks';
@@ -108,6 +109,29 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		});
 		expect(res.ok).toBe(false);
 		expect(res.reason).toBe('not-agent-visible');
+	});
+
+	// `bridge/export.ts` discards a block's `note` (the user's private comment)
+	// on the way OUT and says so in capitals. The way BACK skipped that lock: the
+	// answer to a completeTask carried the whole block row, comment included,
+	// straight into outbox/<id>.json on disk. The MCP server only ever reads
+	// `result.block.id` — everything else was payload nobody asked for.
+	it('never carries the private comment back out in a change result', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const { block } = await createTask({ noteId: note.id, content: 'Tarea', actor: 'user' });
+		await updateBlock(block.id, { note: 'me lo debe Juan, no decirle al cliente' });
+
+		const res = await ingestAgentChange({
+			type: 'completeTask',
+			blockId: block.id,
+			agentId: 'agent'
+		});
+
+		expect(res.ok).toBe(true);
+		expect(JSON.stringify(res)).not.toContain('Juan');
+		// Still the one field the MCP server reads.
+		expect(res.result.block.id).toBe(block.id);
 	});
 
 	it('creates a task on a visible note and strips smuggled markup', async () => {

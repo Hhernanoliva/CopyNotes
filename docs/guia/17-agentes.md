@@ -240,7 +240,9 @@ Qué significa en la práctica:
 - Solo contiene las notas que marcaste **visibles para agentes**. El resto no
   está ahí.
 - Los **comentarios de tus renglones nunca** se copian a ese archivo, ni siquiera
-  de las notas visibles.
+  de las notas visibles. Tampoco viajan en la respuesta que CopyNotes le da al
+  agente cuando le marca una tarea como hecha: antes esa respuesta llevaba el
+  renglón entero, comentario incluido, y quedaba escrita en el buzón del disco.
 - Lo que se sube a la nube sí va cifrado, siempre. Esto es una copia **local**,
   en tu máquina, no en el servidor.
 - Si no querés que exista, no marques ninguna nota como visible para agentes.
