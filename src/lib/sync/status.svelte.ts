@@ -22,6 +22,13 @@ export const syncStatus = $state({
 	// `CloudLifecycle` watches it to refresh the screen — the same job the agent
 	// bridge does with `agentData.version`.
 	appliedVersion: 0,
-	// Spanish, already user-facing: this string is rendered as-is.
-	error: null
+	// Spanish, already user-facing: this string is rendered as-is. Sólo para
+	// fallas de verdad — quedarse sin conexión no es una (ver `offline`).
+	error: null,
+	// No se pudo llegar al servidor. Es un estado, no una falla: todo está
+	// guardado en el dispositivo y el próximo tic reintenta solo.
+	offline: false,
+	// El texto crudo del navegador (inglés, nombres de tipos). Nunca es la línea
+	// que se lee: viaja en el `title` para cuando haya que reportar un problema.
+	errorDetail: null
 });

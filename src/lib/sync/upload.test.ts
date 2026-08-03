@@ -199,7 +199,28 @@ describe('when the network or the server fails', () => {
 		await syncNow();
 
 		expect(await uploadedThrough()).toBe(0);
-		expect(syncStatus.error).toBe('No hay conexión');
+		expect(syncStatus.error).toBe('No se pudo sincronizar. Lo tuyo está guardado en este dispositivo.');
+		expect(syncStatus.errorDetail).toBe('No hay conexión');
+		expect(syncStatus.pending).toBe(1);
+	});
+
+	it('no pone el error del navegador en pantalla cuando no se llegó al servidor', async () => {
+		await grantUploadConsent();
+		await createVault();
+		await createNote({ title: 'una' });
+		replies.push({ error: null });
+		// Lo que devuelve el navegador cuando la llamada ni salió: inglés y nombre
+		// de tipo de dato. Eso no puede ser la línea que lee una persona.
+		replies.push({ error: { message: 'TypeError: Failed to fetch' } });
+		const { syncNow, syncStatus } = await loadUpload();
+
+		await syncNow();
+
+		// Sin conexión no es una falla: es un estado, y sin nada perdido.
+		expect(syncStatus.offline).toBe(true);
+		expect(syncStatus.error).toBe(null);
+		// El detalle técnico no se tira: queda para reportar un problema.
+		expect(syncStatus.errorDetail).toBe('TypeError: Failed to fetch');
 		expect(syncStatus.pending).toBe(1);
 	});
 

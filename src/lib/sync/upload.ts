@@ -169,10 +169,35 @@ export async function cloudVaultBlob() {
 
 // The one entry point. Safe to call from a timer, a button, or the "connection
 // came back" event: overlapping calls collapse into the one already running.
+// Qué se muestra cuando una pasada falla.
+//
+// El navegador tira "TypeError: Failed to fetch" —en inglés, con nombre de tipo
+// de dato— cuando no llegó al servidor: sin conexión, wifi caído, servidor sin
+// responder. Publicar ese texto tal cual era hablarle a la persona en el idioma
+// del navegador sobre un problema que no es suyo y que no puede arreglar; en
+// rojo, además, cuando quedarse sin conexión es una situación prevista y sin
+// consecuencias (todo está guardado en el dispositivo y el próximo tic
+// reintenta). Se separa en dos estados con significados distintos, y el detalle
+// técnico queda a mano —en el `title`— para cuando haya que reportar algo.
+const SIN_CONEXION = /failed to fetch|networkerror|network error|load failed|fetch/i;
+
+function reportSyncFailure(error) {
+	const detail = error instanceof Error ? error.message : String(error ?? '');
+	syncStatus.errorDetail = detail;
+	const desconectado = typeof navigator !== 'undefined' && navigator.onLine === false;
+	if (desconectado || SIN_CONEXION.test(detail)) {
+		syncStatus.offline = true;
+		return;
+	}
+	syncStatus.error = 'No se pudo sincronizar. Lo tuyo está guardado en este dispositivo.';
+}
+
 export async function syncNow() {
 	if (syncStatus.uploading) return;
 	syncStatus.uploading = true;
 	syncStatus.error = null;
+	syncStatus.errorDetail = null;
+	syncStatus.offline = false;
 	try {
 		// Antes que nada, y antes de la bajada también: si la sesión que hay ahora
 		// es de OTRA cuenta que la que dejó acá la llave y los cursores, no hay
@@ -210,7 +235,7 @@ export async function syncNow() {
 	} catch (error) {
 		// Never rethrown: a failed upload is a status line, not a broken app. The
 		// next run retries the same batch.
-		syncStatus.error = error instanceof Error ? error.message : 'No se pudo sincronizar.';
+		reportSyncFailure(error);
 	} finally {
 		syncStatus.uploading = false;
 		syncStatus.pending = await countPendingUploads();

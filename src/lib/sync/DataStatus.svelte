@@ -248,8 +248,19 @@
 							en segundos.
 						</p>
 					{/if}
-					{#if syncStatus.error}
-						<p class="text-destructive text-xs">{syncStatus.error}</p>
+					{#if syncStatus.offline}
+						<!-- No es rojo a propósito: no llegar al servidor es un estado
+						     previsto, no algo roto. Lo escrito está guardado acá y el próximo
+						     intento sale solo. -->
+						<p class="text-muted-foreground text-xs" title={syncStatus.errorDetail ?? undefined}>
+							Sin conexión con la nube{syncStatus.pending > 0
+							? `: ${syncStatus.pending === 1 ? 'ese cambio sube solo' : 'esos cambios suben solos'} cuando vuelva.`
+							: '. Se reintenta solo.'}
+						</p>
+					{:else if syncStatus.error}
+						<p class="text-destructive text-xs" title={syncStatus.errorDetail ?? undefined}>
+							{syncStatus.error}
+						</p>
 					{/if}
 				{/if}
 			</div>

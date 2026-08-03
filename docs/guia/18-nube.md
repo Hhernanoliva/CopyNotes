@@ -96,6 +96,10 @@ tocalo y se abre el estado de tus datos.
 - **Última subida hace X** — cuándo terminó la última.
 - **"En vivo: 1 dispositivo más"** — hay otro abierto ahora mismo y los cambios
   viajan en segundos, sin esperar el reloj.
+- **"Sin conexión con la nube"** — no se pudo llegar al servidor (te quedaste sin
+  internet, el wifi se cortó, el servidor no contestó). **No se perdió nada**: lo
+  que escribiste está guardado en el dispositivo y sube solo cuando vuelva la
+  conexión. Por eso no aparece en rojo: no hay nada que arreglar ni que hacer.
 
 En **Configuración › Nube** queda lo que es una decisión: tu cuenta, el permiso
 de subir, el código de recuperación y cerrar sesión. **Sincronizar ahora** está
