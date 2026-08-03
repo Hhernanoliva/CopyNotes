@@ -87,15 +87,20 @@ nuevo. Tampoco viaja dentro de un respaldo.
 
 ## Después: qué vas a ver
 
-En **Configuración › Nube** aparece tu cuenta y una línea de estado:
+El estado vive en el **puntito de arriba a la derecha**, el mismo del guardado:
+tocalo y se abre el estado de tus datos.
 
 - **"Todo subido."** — no queda nada pendiente.
 - **"3 cambios sin subir."** — se suben solos en menos de un minuto.
-- **"Subiendo…"** — está trabajando.
+- **"Sincronizando…"** — está trabajando.
 - **Última subida hace X** — cuándo terminó la última.
+- **"En vivo: 1 dispositivo más"** — hay otro abierto ahora mismo y los cambios
+  viajan en segundos, sin esperar el reloj.
 
-Se sincroniza solo cada 30 segundos y también cuando volvés a tener conexión.
-**Sincronizar ahora** lo fuerza.
+En **Configuración › Nube** queda lo que es una decisión: tu cuenta, el permiso
+de subir, el código de recuperación y cerrar sesión. **Sincronizar ahora** está
+ahí y fuerza una pasada; igual se sincroniza solo cada 30 segundos y cuando
+volvés a tener conexión.
 
 Lo que llega del otro dispositivo **aparece en el lugar**, sin sacarte el cursor
 ni cortar el renglón que estás escribiendo. El renglón donde tenés el cursor es
@@ -212,9 +217,13 @@ Cuando en el otro dispositivo **borraste** el renglón, esa opción se ve distin
 —en rojo y con un tacho: **Borrar este renglón**— para que no la elijas de
 casualidad pensando que es texto.
 
-En **Configuración › Nube** también ves cuántos conflictos hay abiertos, por si
-alguno cayó en algo que no es un renglón (el nombre de una etiqueta, una
-carpeta).
+**Y si el renglón está en otra nota, te enterás igual.** El puntito de arriba a
+la derecha —el del guardado— se rodea de un anillo violeta con el número al
+lado cuando hay versiones esperando. Tocalo y ahí están las dos versiones de
+cada una, con el nombre de la nota y un **Ir al renglón**; también las que no
+son renglones (el nombre de una etiqueta, una carpeta). La primera vez que
+llega una, además, aparece un avisito abajo. Elegir es un solo toque, y si te
+arrepentís tenés **Deshacer** unos segundos.
 
 **Y solo cuando las dos versiones son distintas.** Si los dos dispositivos
 terminaron escribiendo exactamente lo mismo —pasa más de lo que parece: el mismo

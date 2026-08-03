@@ -11,6 +11,7 @@
 	import SearchDialog from '$lib/components/SearchDialog.svelte';
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
+	import DataStatus from '$lib/sync/DataStatus.svelte';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
@@ -62,6 +63,8 @@
 	let searchSeed = $state('');
 	let helpOpen = $state(false);
 	let settingsOpen = $state(false);
+	// El panel del punto de estado. Vive acá porque Configuración también lo abre.
+	let statusOpen = $state(false);
 	// Note-text size multiplier (spec 027). 1 = 100%; applied via --cn-editor-scale.
 	let editorScale = $state(1);
 	let newSnippetOpen = $state(false);
@@ -90,16 +93,6 @@
 		loading = false;
 		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
 	}
-
-	// The save indicator is a fixed-size dot: it only ever changes colour, so no
-	// state of it can push the header icons around. The words live in the
-	// tooltip and in the screen-reader line.
-	const SAVE_LABELS = {
-		idle: 'Todo guardado',
-		saving: 'Guardando…',
-		saved: 'Guardado hace un momento',
-		error: 'No pudimos guardar'
-	};
 
 	// Green is a brief reassurance, not a permanent state: it settles back to the
 	// quiet grey so silence means "todo guardado". Red does NOT auto-clear — it
@@ -617,6 +610,10 @@
 		scale={editorScale}
 		onChange={changeEditorScale}
 		onDataChanged={handleExternalChange}
+		onShowStatus={() => {
+			settingsOpen = false;
+			statusOpen = true;
+		}}
 	/>
 
 	<div class="flex min-w-0 flex-1 flex-col">
@@ -690,14 +687,12 @@
 					{/if}
 				</span>
 			</button>
-			<span
-				use:tooltip={SAVE_LABELS[saveState]}
-				data-save-state={saveState}
-				class="cn-save-dot ml-1 size-2 shrink-0 rounded-full data-[save-state=saving]:animate-pulse"
-			></span>
-			<span aria-live="polite" class="sr-only">
-				{saveState === 'idle' ? '' : SAVE_LABELS[saveState]}
-			</span>
+			<DataStatus
+				bind:open={statusOpen}
+				{saveState}
+				onGoToRow={openFromAgenda}
+				onDataChanged={handleExternalChange}
+			/>
 		</header>
 
 		<main id="contenido-principal" tabindex="-1" class="flex-1 overflow-y-auto focus-visible:outline-none">

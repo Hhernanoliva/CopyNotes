@@ -337,6 +337,19 @@
 	transition-duration: 150ms;
 	transition-timing-function: var(--motion-ease);
 }
+/* El anillo: hay versiones esperando una decisión. Va SEPARADO del color del
+   núcleo —que es el guardado de este dispositivo— para que las dos señales se
+   vean a la vez: guardar dura milisegundos, un conflicto queda hasta que
+   alguien elige. El hueco entre las dos lo hace la primera sombra, del color
+   del fondo. Nunca es la única señal: al lado va el número (spec 016). */
+.cn-save-dot[data-conflicts='true'] {
+	box-shadow:
+		0 0 0 2px var(--background),
+		0 0 0 3.5px var(--cn-conflict);
+}
+.cn-conflict-count {
+	color: var(--cn-conflict);
+}
 
 @media (pointer: coarse) {
 	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al

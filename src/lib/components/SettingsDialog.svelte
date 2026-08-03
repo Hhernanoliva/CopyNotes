@@ -27,19 +27,11 @@
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
 	import { cloudVaultBlob, cloudVaultExists, syncNow } from '$lib/sync/upload';
 	import { downloadAll } from '$lib/sync/download';
-	import {
-		countConflicts,
-		describeRecord,
-		describeTable,
-		isDeletion,
-		keepLocal,
-		listConflicts,
-		takeRemote
-	} from '$lib/sync/conflicts';
-	import { db } from '$lib/storage/db';
+	import { countConflicts } from '$lib/sync/conflicts';
 	import { syncStatus } from '$lib/sync/status.svelte';
+	import { haceCuanto } from '$lib/relative-time';
 
-	let { open = $bindable(false), scale, onChange, onDataChanged } = $props();
+	let { open = $bindable(false), scale, onChange, onDataChanged, onShowStatus } = $props();
 
 	let dialogEl = $state(null);
 	let activity = $state([]);
@@ -64,9 +56,6 @@
 	let joinCode = $state('');
 	// { applied } while the first full download runs, null otherwise.
 	let downloading = $state(null);
-	// [{ id, label, mine, theirs }] — both versions, side by side.
-	let conflictList = $state([]);
-	let reviewingConflicts = $state(false);
 	let cloudEmail = $state('');
 	let cloudCode = $state('');
 	let cloudPassword = $state('');
@@ -87,34 +76,6 @@
 		// Only worth asking the server when this device has no vault of its own:
 		// the answer decides between "create one" and "join the one that exists".
 		accountHasVault = vaultReady || (cloudSession ? await cloudVaultExists() : false);
-	}
-
-	// Each side of a conflict as a person recognises it: the words, and which
-	// record they belong to. The local half is read fresh, because the point is to
-	// compare it with what is on screen right now.
-	async function loadConflicts() {
-		const rows = await listConflicts();
-		conflictList = await Promise.all(
-			rows.map(async (conflict) => {
-				const local = await db.table(conflict.table).get(conflict.recordId);
-				return {
-					id: conflict.id,
-					label: describeTable(conflict.table),
-					mine: isDeletion(local) ? '(borrado acá)' : describeRecord(conflict.table, local),
-					theirs: isDeletion(conflict.remote)
-						? '(borrado en el otro dispositivo)'
-						: describeRecord(conflict.table, conflict.remote)
-				};
-			})
-		);
-	}
-
-	function decideConflict(id, choice) {
-		return cloudAction(async () => {
-			await (choice === 'mine' ? keepLocal(id) : takeRemote(id));
-			await loadConflicts();
-			onDataChanged?.();
-		});
 	}
 
 	// Every cloud button funnels through here: one place that shows the spinner
@@ -313,17 +274,6 @@
 	const openCodeJson = $derived(paths ? openCodeConfig(paths) : '');
 	const cursorJson = $derived(paths ? cursorConfig(paths) : '');
 	const cursorLink = $derived(paths ? cursorDeeplink(paths) : '');
-
-	function haceCuanto(iso) {
-		const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-		if (s < 60) return 'hace instantes';
-		const m = Math.floor(s / 60);
-		if (m < 60) return `hace ${m} min`;
-		const h = Math.floor(m / 60);
-		if (h < 24) return `hace ${h} h`;
-		const d = Math.floor(h / 24);
-		return `hace ${d} d`;
-	}
 
 	// Activity, not presence: see `isAgentActive` for why the old wording lied.
 	const agentSignal = $derived(
@@ -752,91 +702,18 @@
 					<p class="text-muted-foreground text-sm">
 						Cuenta: <span class="text-foreground font-medium">{cloudSession.user.email}</span>
 					</p>
-					<p class="text-sm" aria-live="polite">
-						{#if syncStatus.uploading}
-							Sincronizando…
-						{:else if syncStatus.pending === 0}
-							Todo subido.
-						{:else}
-							{syncStatus.pending} {syncStatus.pending === 1 ? 'cambio' : 'cambios'} sin subir.
-						{/if}
-						{#if syncStatus.lastUploadAt}
-							<span class="text-faint">Última subida {haceCuanto(syncStatus.lastUploadAt)}.</span>
-						{/if}
+					<!-- El estado (subidas, en vivo, conflictos) vive en el punto del header:
+					     acá van las decisiones de la cuenta, no los marcadores. -->
+					<p class="text-muted-foreground text-sm">
+						Cómo va la sincronización y las versiones en conflicto se ven en el
+						<button
+							type="button"
+							onclick={() => onShowStatus?.()}
+							class="text-foreground hover:text-foreground focus-visible:ring-ring rounded-sm underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+						>
+							estado de tus datos
+						</button>, en el punto de arriba a la derecha.
 					</p>
-					<p class="text-faint text-xs">
-						{#if syncStatus.peers > 0}
-							En vivo: {syncStatus.peers}
-							{syncStatus.peers === 1 ? 'dispositivo más conectado' : 'dispositivos más conectados'}
-							— los cambios viajan en segundos.
-						{:else if syncStatus.live === 'listo'}
-							Sin otros dispositivos conectados: se sincroniza cada 30 segundos.
-						{:else if syncStatus.live === 'conectando'}
-							Conectando el canal en vivo…
-						{:else if syncStatus.live !== 'apagado'}
-							Canal en vivo no disponible ({syncStatus.live}): igual se sincroniza cada 30
-							segundos.
-						{/if}
-					</p>
-					{#if syncStatus.conflicts}
-						<div class="border-border flex flex-col gap-2 rounded-md border p-3">
-							<p class="text-sm">
-								<span class="font-medium"
-									>{syncStatus.conflicts}
-									{syncStatus.conflicts === 1 ? 'cambio' : 'cambios'} en conflicto</span
-								>: los editaste acá y también en otro dispositivo. No se pisó nada — elegí cuál
-								queda.
-							</p>
-
-							{#if !reviewingConflicts}
-								<button
-									type="button"
-									onclick={() => {
-										reviewingConflicts = true;
-										loadConflicts();
-									}}
-									class="border-border text-foreground hover:bg-accent focus-visible:ring-ring self-start rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
-								>
-									Revisar
-								</button>
-							{:else}
-								<ul class="flex flex-col gap-3">
-									{#each conflictList as conflict (conflict.id)}
-										<li class="border-border flex flex-col gap-2 border-t pt-3 text-sm">
-											<span class="text-faint text-xs">{conflict.label}</span>
-											<div class="flex flex-col gap-1">
-												<span class="text-muted-foreground text-xs">Lo tuyo, en este dispositivo:</span
-												>
-												<span class="bg-muted rounded px-2 py-1">{conflict.mine || '(vacío)'}</span>
-											</div>
-											<div class="flex flex-col gap-1">
-												<span class="text-muted-foreground text-xs">Lo del otro dispositivo:</span>
-												<span class="bg-muted rounded px-2 py-1">{conflict.theirs || '(vacío)'}</span>
-											</div>
-											<div class="flex items-center gap-2">
-												<button
-													type="button"
-													onclick={() => decideConflict(conflict.id, 'mine')}
-													disabled={cloudBusy}
-													class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-												>
-													Quedarme con el mío
-												</button>
-												<button
-													type="button"
-													onclick={() => decideConflict(conflict.id, 'theirs')}
-													disabled={cloudBusy}
-													class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-												>
-													Traer el otro
-												</button>
-											</div>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</div>
-					{/if}
 					{#if confirmingLeave}
 						<div class="border-border flex flex-col gap-3 rounded-md border p-3">
 							<p class="text-sm font-bold">¿Cerrar sesión en este dispositivo?</p>
