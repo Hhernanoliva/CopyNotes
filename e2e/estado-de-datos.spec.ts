@@ -70,9 +70,13 @@ test('una versión en conflicto se cuenta en el punto y se decide desde ahí', a
 	// Y dice en qué nota está, que es lo que un contador suelto nunca contestó.
 	await expect(panel(page)).toContainText('En "');
 
-	await panel(page).getByRole('button', { name: 'Quedarme con el mío' }).click();
+	// Las versiones son la elección: un solo toque, sin botón aparte.
+	await panel(page)
+		.getByRole('button', { name: 'Quedarme con esta versión, la de este dispositivo' })
+		.click();
 
-	await expect(panel(page)).toContainText('Todo al día.');
+	// Y sin nada más que decidir, el panel deja de tapar la nota.
+	await expect(panel(page)).toBeHidden();
 	await expect(statusDot(page)).not.toContainText('1');
 });
 
@@ -90,6 +94,8 @@ test('la nota afectada queda marcada en la lista', async ({ page }) => {
 
 	// Y se apaga sola en cuanto se decide: la marca sigue al dato, no a la vista.
 	await statusDot(page).click();
-	await panel(page).getByRole('button', { name: 'Quedarme con el mío' }).click();
+	await panel(page)
+		.getByRole('button', { name: 'Quedarme con esta versión, la de este dispositivo' })
+		.click();
 	await expect(marca).toBeHidden();
 });

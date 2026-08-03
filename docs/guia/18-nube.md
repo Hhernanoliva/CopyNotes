@@ -222,8 +222,12 @@ la derecha —el del guardado— se rodea de un anillo violeta con el número al
 lado cuando hay versiones esperando. Tocalo y ahí están las dos versiones de
 cada una, con el nombre de la nota y un **Ir al renglón**; también las que no
 son renglones (el nombre de una etiqueta, una carpeta). La primera vez que
-llega una, además, aparece un avisito abajo. Elegir es un solo toque, y si te
-arrepentís tenés **Deshacer** unos segundos.
+llega una, además, aparece un avisito abajo.
+
+**Ahí también se elige tocando la versión que quede**, igual que en el renglón:
+no hay botones. Y en cuanto no queda nada más por decidir, el panel se cierra
+solo para no taparte la nota. Si te arrepentís tenés **Deshacer** unos
+segundos.
 
 En la **lista de notas**, la nota afectada lleva el mismo puntito violeta al
 lado del nombre, y se apaga en cuanto decidís.

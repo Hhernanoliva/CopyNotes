@@ -1,4 +1,5 @@
 <script>
+	import { Trash2 } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { syncStatus } from './status.svelte';
 	import { cloudConfigured } from './supabase';
@@ -12,6 +13,7 @@
 		takeRemote,
 		undoDecision
 	} from './conflicts';
+	import { diffWords } from './diff';
 	import { db } from '$lib/storage/db';
 	import { haceCuanto } from '$lib/relative-time';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -71,6 +73,7 @@
 					theirs: isDeletion(conflict.remote)
 						? '(borrado en el otro dispositivo)'
 						: describeRecord(conflict.table, conflict.remote),
+					remoteDeleted: isDeletion(conflict.remote),
 					noteId: note ? noteId : null,
 					blockId: conflict.table === 'blocks' ? conflict.recordId : null
 				};
@@ -149,6 +152,10 @@
 			const undo = await (choice === 'mine' ? keepLocal(id) : takeRemote(id));
 			await loadConflicts();
 			onDataChanged?.();
+			// Sin nada más que decidir, el panel se va solo: quedó abierto tapando la
+			// nota por una decisión que ya se tomó. Si quedan, se queda para la
+			// siguiente.
+			if (conflictList.length === 0) close();
 			if (!undo) return;
 			toast.success(
 				choice === 'mine' ? 'Te quedaste con tu versión' : 'Trajiste la versión del otro aparato',
@@ -255,43 +262,67 @@
 						también en otro dispositivo. No se pisó nada — elegí cuál queda.
 					</p>
 					{#each conflictList as conflict (conflict.id)}
-						<div class="flex min-w-0 flex-col gap-2 text-sm">
+						{@const versions = diffWords(conflict.mine, conflict.theirs)}
+						<div class="flex min-w-0 flex-col gap-1 text-sm">
 							<span class="text-faint text-xs">{conflict.label}</span>
-							<div class="flex flex-col gap-1">
-								<span class="text-muted-foreground text-xs">Acá:</span>
-								<span class="bg-muted rounded px-2 py-1 break-words">{conflict.mine || '(vacío)'}</span>
-							</div>
-							<div class="flex flex-col gap-1">
-								<span class="text-muted-foreground text-xs">Allá:</span>
-								<span class="bg-muted rounded px-2 py-1 break-words">{conflict.theirs || '(vacío)'}</span>
-							</div>
-							<div class="flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onclick={() => decide(conflict.id, 'mine')}
-									disabled={busy}
-									class="bg-primary text-primary-foreground focus-visible:ring-ring rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							<!-- Las versiones SON la elección: un toque y listo, igual que en el
+							     propio renglón. Un botón aparte convierte una decisión de un
+							     gesto en dos, y encima obliga a leer el texto en un lado y
+							     apretar en otro. Lo que cambió va subrayado en las dos. -->
+							<button
+								type="button"
+								onclick={() => decide(conflict.id, 'mine')}
+								disabled={busy}
+								aria-label="Quedarme con esta versión, la de este dispositivo"
+								class="cn-conflict-option"
+							>
+								<span class="cn-conflict-side" aria-hidden="true">acá</span>
+								<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+									>{#each versions.mine as part, index (index)}{#if part.changed}<span class="cn-diff"
+												>{part.text}</span
+											>{:else}{part.text}{/if}{/each}{#if !conflict.mine}<span
+											class="text-muted-foreground italic">(vacío)</span
+										>{/if}</span
 								>
-									Quedarme con el mío
-								</button>
-								<button
-									type="button"
-									onclick={() => decide(conflict.id, 'theirs')}
-									disabled={busy}
-									class="border-border text-foreground hover:bg-accent focus-visible:ring-ring rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-								>
-									Traer el otro
-								</button>
-								{#if conflict.noteId && conflict.blockId}
-									<button
-										type="button"
-										onclick={() => goToRow(conflict)}
-										class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md px-1 py-1.5 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+							</button>
+							<button
+								type="button"
+								onclick={() => decide(conflict.id, 'theirs')}
+								disabled={busy}
+								aria-label={conflict.remoteDeleted
+									? 'Borrar esto acá, como se borró en el otro dispositivo'
+									: 'Traer esta versión, la del otro dispositivo'}
+								class="cn-conflict-option {conflict.remoteDeleted ? 'cn-conflict-option--danger' : ''}"
+							>
+								<span class="cn-conflict-side" aria-hidden="true">allá</span>
+								{#if conflict.remoteDeleted}
+									<!-- No es "quedate con este texto" sino "borralo". Se dice como una
+									     acción, igual que en el renglón: descrito como estado
+									     —"(borrado en el otro dispositivo)"— se lee como un cartel y no
+									     como la opción que es. -->
+									<span class="flex min-w-0 flex-1 items-center gap-1.5">
+										<Trash2 size={13} aria-hidden="true" />
+										{conflict.blockId ? 'Borrar este renglón' : 'Borrarlo acá también'}
+									</span>
+								{:else}
+									<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+										>{#each versions.theirs as part, index (index)}{#if part.changed}<span
+													class="cn-diff">{part.text}</span
+												>{:else}{part.text}{/if}{/each}{#if !conflict.theirs}<span
+												class="text-muted-foreground italic">(vacío)</span
+											>{/if}</span
 									>
-										Ir al renglón
-									</button>
 								{/if}
-							</div>
+							</button>
+							{#if conflict.noteId && conflict.blockId}
+								<button
+									type="button"
+									onclick={() => goToRow(conflict)}
+									class="text-muted-foreground hover:text-foreground focus-visible:ring-ring self-start rounded-md px-1 py-1 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+								>
+									Ir al renglón
+								</button>
+							{/if}
 						</div>
 					{/each}
 				</div>

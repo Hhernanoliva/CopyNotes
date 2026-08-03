@@ -510,6 +510,14 @@
 .cn-conflict-option--danger {
 	color: var(--destructive);
 }
+@media (pointer: coarse) {
+	/* En táctil la versión ES el botón, así que tiene que medir como uno: 44px de
+	   alto (spec 016). En escritorio no cambia nada. */
+	.cn-conflict-option {
+		min-height: var(--touch-target);
+		align-items: center;
+	}
+}
 
 /* De qué lado viene cada versión. Columnita fija a la izquierda: así los dos
    textos arrancan en la misma x y el ojo los compara bajando, en vez de saltar
