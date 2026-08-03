@@ -8,42 +8,55 @@ import {
 	planPromoteChildren,
 	previousVisibleId
 } from './enter';
+import { buildVisibleList } from './hierarchy';
 
 function block(id, parentBlockId = null, order = 0, collapsed = false) {
 	return { id, parentBlockId, order, collapsed };
 }
 
 describe('planEnter', () => {
+	// Un Enter escribe UN renglón: el que nace. Renumerar a los de abajo hacía
+	// que dos aparatos pelearan por renglones que nadie tocó (ver ordering.ts).
 	it('creates a sibling right after a leaf block', () => {
 		const blocks = [block('a', null, 0), block('b', null, 1)];
 		const plan = planEnter(blocks, 'a');
 		expect(plan.parentBlockId).toBe(null);
-		expect(plan.order).toBe(1);
-		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);
+		expect(plan.order).toBe(0.5);
+		expect(plan.updates).toEqual([]);
 	});
 
 	it('creates a first child when the block has visible children', () => {
 		const blocks = [block('a', null, 0), block('a1', 'a', 0)];
 		const plan = planEnter(blocks, 'a');
 		expect(plan.parentBlockId).toBe('a');
-		expect(plan.order).toBe(0);
-		expect(plan.updates).toEqual([{ id: 'a1', order: 1 }]);
+		expect(plan.order).toBe(-1);
+		expect(plan.updates).toEqual([]);
 	});
 
 	it('creates a sibling when children are hidden by collapse', () => {
 		const blocks = [block('a', null, 0, true), block('a1', 'a', 0), block('b', null, 1)];
 		const plan = planEnter(blocks, 'a');
 		expect(plan.parentBlockId).toBe(null);
-		expect(plan.order).toBe(1);
-		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);
+		expect(plan.order).toBe(0.5);
+		expect(plan.updates).toEqual([]);
 	});
 
 	it('creates a sibling inside a nested level', () => {
 		const blocks = [block('a', null, 0), block('a1', 'a', 0), block('a2', 'a', 1)];
 		const plan = planEnter(blocks, 'a1');
 		expect(plan.parentBlockId).toBe('a');
-		expect(plan.order).toBe(1);
-		expect(plan.updates).toEqual([{ id: 'a2', order: 2 }]);
+		expect(plan.order).toBe(0.5);
+		expect(plan.updates).toEqual([]);
+	});
+
+	// El renglón nuevo queda ENTRE los dos vecinos, mire quien lo mire. Es la
+	// prueba de que el punto medio no cambia lo que ve la persona.
+	it('lands between its neighbours in the rendered list', () => {
+		const blocks = [block('a', null, 0), block('b', null, 1)];
+		const plan = planEnter(blocks, 'a');
+		const conElNuevo = [...blocks, block('nuevo', plan.parentBlockId, plan.order)];
+
+		expect(buildVisibleList(conElNuevo).map((row) => row.block.id)).toEqual(['a', 'nuevo', 'b']);
 	});
 });
 

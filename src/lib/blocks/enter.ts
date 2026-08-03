@@ -16,11 +16,9 @@ export function planEnter(blocks, id) {
 	if (!target) return null;
 	const children = siblingsOf(blocks, id);
 	if (children.length > 0 && !target.collapsed) {
-		return {
-			parentBlockId: id,
-			order: 0,
-			updates: children.map((child) => ({ id: child.id, order: child.order + 1 }))
-		};
+		// Un lugar antes del que era primero, sin renumerar a los hermanos: la
+		// misma razón que en `planInsertAfter`. Los números negativos son normales.
+		return { parentBlockId: id, order: children[0].order - 1, updates: [] };
 	}
 	const siblings = siblingsOf(blocks, target.parentBlockId);
 	const plan = planInsertAfter(siblings, id);

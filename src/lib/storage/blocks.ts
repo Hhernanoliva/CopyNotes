@@ -1,6 +1,7 @@
 import { db } from './db';
 import { createId, now } from './ids';
 import { plainTextToHtml } from '$lib/format';
+import { nextFreeOrder } from '$lib/blocks/ordering';
 import { trackPendingWrite } from './pending-writes';
 import { bumpAgentData } from '$lib/bridge/signal.svelte';
 
@@ -28,7 +29,10 @@ export function createBlock(fields) {
 		let { order } = fields;
 		if (order === undefined) {
 			const siblings = await listChildBlocks(noteId, parentBlockId);
-			order = siblings.length;
+			// El siguiente número libre, no la cantidad de hermanos: desde que las
+			// inserciones caen en el punto medio, el nivel tiene huecos y la cuenta
+			// no dice nada sobre el último lugar ocupado.
+			order = nextFreeOrder(siblings);
 		}
 		const timestamp = now();
 		const block = {

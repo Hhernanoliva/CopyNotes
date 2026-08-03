@@ -3,7 +3,7 @@
 // the focused block, descendants get fresh ids so the inserted copy is fully
 // independent. Pure logic — the editor applies the plan through storage.
 
-import { planInsertAfter, sortByOrder } from '../blocks/ordering';
+import { nextFreeOrder, planInsertAfter, sortByOrder } from '../blocks/ordering';
 import { plainTextToHtml } from '$lib/format';
 
 export function planSnippetInsertion(blocks, snippet, options) {
@@ -15,7 +15,7 @@ export function planSnippetInsertion(blocks, snippet, options) {
 	);
 	const { order, updates } = after
 		? planInsertAfter(siblings, after.id)
-		: { order: siblings.length, updates: [] };
+		: { order: nextFreeOrder(siblings), updates: [] };
 
 	const rootNode = snippet.blockSnapshot ?? {
 		type: 'text',

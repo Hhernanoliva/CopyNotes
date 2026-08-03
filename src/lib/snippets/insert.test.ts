@@ -42,7 +42,7 @@ describe('planSnippetInsertion', () => {
 				type: 'text',
 				content: 'Hola equipo',
 				html: 'Hola equipo',
-				order: 1,
+				order: 0.5,
 				collapsed: false,
 				codeCollapsed: false,
 				dueDate: null,
@@ -50,7 +50,7 @@ describe('planSnippetInsertion', () => {
 				note: ''
 			}
 		]);
-		expect(plan.updates).toEqual([{ id: 'b', order: 2 }]);
+		expect(plan.updates).toEqual([]);
 		expect(plan.focusId).toBe('new-0');
 	});
 
@@ -127,8 +127,8 @@ describe('planSnippetInsertion', () => {
 			createId: counterIds()
 		});
 		expect(plan.newBlocks[0].parentBlockId).toBe('parent');
-		expect(plan.newBlocks[0].order).toBe(1);
-		expect(plan.updates).toEqual([{ id: 'child2', order: 2 }]);
+		expect(plan.newBlocks[0].order).toBe(0.5);
+		expect(plan.updates).toEqual([]);
 	});
 
 	it('materialized snippet blocks carry dueDate (spec 021)', () => {

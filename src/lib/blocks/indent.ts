@@ -2,7 +2,7 @@
 // the editor applies to state and storage in one pass. Children of the moved
 // block follow it implicitly because they point at its id.
 
-import { sortByOrder } from './ordering';
+import { nextFreeOrder, sortByOrder } from './ordering';
 
 function siblingsOf(blocks, parentBlockId) {
 	const parent = parentBlockId ?? null;
@@ -18,7 +18,9 @@ export function planIndent(blocks, id) {
 	const newParent = siblings[index - 1];
 	const newSiblings = siblingsOf(blocks, newParent.id);
 	const updates = [];
-	updates.push({ id, parentBlockId: newParent.id, order: newSiblings.length });
+	// Al final de los hijos del nuevo padre: el siguiente número libre, no la
+	// cantidad de hijos — desde que hay huecos, contar no dice dónde termina.
+	updates.push({ id, parentBlockId: newParent.id, order: nextFreeOrder(newSiblings) });
 	for (const later of siblings.slice(index + 1)) {
 		updates.push({ id: later.id, order: later.order - 1 });
 	}

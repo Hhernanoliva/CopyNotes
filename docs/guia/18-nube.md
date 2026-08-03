@@ -216,6 +216,13 @@ En **Configuración › Nube** también ves cuántos conflictos hay abiertos, po
 alguno cayó en algo que no es un renglón (el nombre de una etiqueta, una
 carpeta).
 
+**Aparecen solo cuando de verdad tocaste lo mismo.** Antes, escribir en las dos
+puntas de la misma nota alcanzaba para llenarla de conflictos aunque no
+compartieras ni un renglón: cada vez que apretabas Enter en el medio, CopyNotes
+le corría el lugar a todos los renglones de abajo, y los dos dispositivos se
+peleaban por renglones que vos ni habías mirado. Ahora un Enter escribe **un solo
+renglón**, el que nace.
+
 Si en un dispositivo **borraste** algo que en el otro seguiste editando, gana la
 edición: la nota no se borra sola, y el borrado te aparece como conflicto para
 que decidas vos.
