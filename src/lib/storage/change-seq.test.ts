@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from './db';
+import { db, markSentToCloud } from './db';
 import { nextChangeSeq } from './change-seq';
 import { createNote, softDeleteNote, updateNote } from './notes';
 import { applyInsertionPlan, createBlock, putBlock, softDeleteBlock, updateBlock } from './blocks';
@@ -206,6 +206,28 @@ describe('every synced write is stamped', () => {
 
 		const restored = await db.table('blocks').get(block.id);
 		expect(restored.changeSeq).toBeGreaterThan(stored.changeSeq);
+	});
+
+	it('keeps the version the server holds when a restore writes an old row', async () => {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, content: 'original' });
+		// La copia que se guarda en el historial de Deshacer: de antes de sincronizar,
+		// así que su `cloudSeq` es viejo.
+		const snapshot = await db.table('blocks').get(block.id);
+
+		await updateBlock(block.id, { content: 'subido' });
+		const uploaded = await db.table('blocks').get(block.id);
+		await markSentToCloud('blocks', block.id, uploaded.changeSeq);
+
+		await putBlock({ ...snapshot });
+
+		const restored = await db.table('blocks').get(block.id);
+		expect(restored.content).toBe('original');
+		// El puntero a la nube es del aparato, no del documento: si el restore lo
+		// devuelve al pasado, la subida declara una base que el servidor ya no tiene
+		// y queda rechazada para siempre — el Deshacer nunca sale de esta máquina.
+		expect(restored.cloudSeq).toBe(uploaded.changeSeq);
+		expect(restored.changeSeq).toBeGreaterThan(uploaded.changeSeq);
 	});
 
 	it('lists what changed after a given stamp, tombstones included', async () => {

@@ -60,7 +60,15 @@ export function createBlock(fields) {
 // createBlock cannot do because it always mints a fresh id.
 export function putBlock(block) {
 	return trackPendingWrite(async () => {
-		const key = await blocks.put(block);
+		// `cloudSeq` no es del documento: es la anotación de este aparato sobre qué
+		// versión tiene el servidor. Una copia del historial de Deshacer es de antes
+		// de sincronizar, así que trae una anotación vieja; escribirla de vuelta hace
+		// que la próxima subida declare una base que el servidor ya no tiene y quede
+		// rechazada para siempre — el Deshacer se aplica acá y no llega nunca al otro
+		// aparato. Vale la que está viva; `changeSeq` lo vuelve a sellar el hook de
+		// db.ts, que es lo que pone el cambio en la cola de subida.
+		const live = await blocks.get(block.id);
+		const key = await blocks.put(live ? { ...block, cloudSeq: live.cloudSeq } : block);
 		bumpAgentData();
 		return key;
 	});

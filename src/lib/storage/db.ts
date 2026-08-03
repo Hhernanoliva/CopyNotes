@@ -168,8 +168,17 @@ for (const name of SYNCED_TABLES) {
 	});
 	// Returning extra modifications is how the updating hook adds a field; a key
 	// set to undefined is how Dexie deletes one.
+	//
+	// Se mira el VALOR, no si la clave está. Borrar la marca deja la clave puesta
+	// en la fila guardada (con valor `undefined`), así que cualquier escritura
+	// posterior de la fila entera —Deshacer, sin ir más lejos— llegaba acá con un
+	// `fromCloud` en la lista de diferencias y se leía como "esto vino de la nube":
+	// sin sello nuevo, el cambio no entraba nunca en la cola de subida y se quedaba
+	// en este aparato. Los dos que sí vienen de la nube pasan `fromCloud: true`.
+	// (`Reflect.get` y no `modifications.fromCloud` porque Dexie tipa el parámetro
+	// como `Object` pelado y `svelte-check` no deja leerle una propiedad.)
 	table.hook('updating', (modifications) =>
-		Object.hasOwn(modifications, 'fromCloud')
+		Reflect.get(modifications, 'fromCloud') === true
 			? { fromCloud: undefined }
 			: { changeSeq: nextChangeSeq() }
 	);
