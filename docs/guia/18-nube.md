@@ -103,6 +103,14 @@ el único que espera: se actualiza recién cuando movés el cursor a otro lado. 
 vale también si en el otro dispositivo **borraron** ese renglón — no desaparece
 debajo de tu mano, desaparece cuando salís de él.
 
+Cada vez que sincroniza, CopyNotes vuelve a mirar un tramo de lo último que ya
+había traído. Es por un detalle del servidor: cuando los dos dispositivos suben
+al mismo tiempo, un cambio puede quedar guardado con un número **anterior** al
+que ya se leyó, y mirando solo hacia adelante ese cambio no se pedía nunca más
+—se quedaba en el otro aparato hasta que alguien volviera a tocar ese renglón—.
+Volver a mirar hacia atrás no cuesta nada ni repite nada: lo que ya está acá se
+reconoce y no se vuelve a escribir.
+
 ## Cerrar sesión
 
 **Tus notas se quedan en el dispositivo.** Cerrar sesión desconecta la cuenta y
@@ -122,6 +130,13 @@ Está pensado así para que entrar con **otra** cuenta arranque limpio. Antes no
 lo hacía: quedaban puestos el permiso de subir de la cuenta anterior —o sea que
 empezaba a subir sin volver a preguntarte— y la cuenta de por dónde iba, que en
 un servidor distinto le hacía saltear notas en silencio.
+
+Y si la sesión **se cae sola** (pasan los días, la cerrás desde otro lado,
+limpiás los datos del navegador) nunca pasás por ese botón. Ahora CopyNotes se
+da cuenta igual: al entrar con una cuenta distinta de la que dejó la llave en
+ese dispositivo, hace la misma limpieza antes de sincronizar nada —tus notas se
+quedan, y el dispositivo te vuelve a pedir el permiso y el código de
+recuperación, como uno nuevo—.
 
 ## Escribir sin conexión
 

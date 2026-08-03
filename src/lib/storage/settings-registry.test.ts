@@ -16,7 +16,8 @@ describe('settings registry', () => {
 				'processedChanges',
 				'syncConsent',
 				'syncUploadedThrough',
-				'syncDownloadedThrough'
+				'syncDownloadedThrough',
+				'syncAccountId'
 			].sort()
 		);
 	});
@@ -38,10 +39,19 @@ describe('settings registry', () => {
 		expect(isBackupSafe('connectedAgent')).toBe(false);
 	});
 
-	// Import only writes backup-safe keys, so keeping this false is what stops a
-	// restored file from silently un-pausing a device the user paused.
+	// Import only writes backup-safe keys, and "Reemplazar todo" preserves the
+	// keys that are NOT safe (storage/backup.ts) precisely because they describe
+	// this device: that pair is what stops a restored file from un-pausing a
+	// device the user paused.
 	it('treats agentsPaused as not backup-safe', () => {
 		expect(isBackupSafe('agentsPaused')).toBe(false);
+	});
+
+	// Which account left the vault key and the cursors here (sync/leave.ts). A
+	// file that vouched for an account this device never signed into would hand
+	// it the previous account's key.
+	it('treats syncAccountId as not backup-safe', () => {
+		expect(isBackupSafe('syncAccountId')).toBe(false);
 	});
 
 	it('treats processedChanges as not backup-safe', () => {

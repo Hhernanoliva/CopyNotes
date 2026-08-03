@@ -19,13 +19,20 @@ const conflicts = () => db.table('conflicts');
 // arrival overwrites the first, so the id is deterministic rather than random.
 const conflictId = (table, recordId) => `${table}:${recordId}`;
 
-export function recordConflict(table, row) {
+export async function recordConflict(table, row) {
+	const id = conflictId(table, row.id);
+	// La bajada relee un tramo del final en cada pasada (`download.ts`), así que
+	// un conflicto que todavía espera decisión vuelve a pasar por acá cada 30
+	// segundos. Guardar la hora de nuevo lo mandaría al tope de la lista una y
+	// otra vez, como si acabara de aparecer.
+	const parked = await conflicts().get(id);
+	const sameVersion = parked?.remote?.changeSeq === row.changeSeq;
 	return conflicts().put({
-		id: conflictId(table, row.id),
+		id,
 		table,
 		recordId: row.id,
 		remote: row,
-		at: now()
+		at: sameVersion ? parked.at : now()
 	});
 }
 

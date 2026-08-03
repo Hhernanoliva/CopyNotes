@@ -35,6 +35,7 @@ import { downloadAll } from './download';
 import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
 import { getRecoveryBlob, getVaultKey } from './vault';
+import { ensureAccountMatches } from './leave';
 import { syncStatus } from './status.svelte';
 import { now } from '../storage/ids';
 
@@ -53,6 +54,14 @@ let vaultBlobSent = false;
 // app run — so the second device would never find one and would build a rival.
 export function forgetSentVaultBlob() {
 	vaultBlobSent = false;
+}
+
+// Quién está firmado ahora mismo, o null si no hay nube o no hay sesión.
+async function currentAccount() {
+	const client = supabase();
+	if (!client) return null;
+	const { data } = await client.auth.getSession();
+	return data.session?.user?.id ?? null;
 }
 
 // All four gates in one place. Any of them missing means "not now", not an
@@ -165,6 +174,14 @@ export async function syncNow() {
 	syncStatus.uploading = true;
 	syncStatus.error = null;
 	try {
+		// Antes que nada, y antes de la bajada también: si la sesión que hay ahora
+		// es de OTRA cuenta que la que dejó acá la llave y los cursores, no hay
+		// nada que sincronizar hasta limpiar. Este tic no hace nada; el próximo se
+		// encuentra sin permiso ni bóveda y espera a que la persona conecte el
+		// aparato de nuevo.
+		const account = await currentAccount();
+		if (account && !(await ensureAccountMatches(account))) return;
+
 		const gate = await ready();
 		if (gate) {
 			await uploadVaultBlob(gate.client);

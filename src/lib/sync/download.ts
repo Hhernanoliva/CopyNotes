@@ -21,6 +21,23 @@ import { KEY } from '../storage/settings-registry';
 const BATCH = 200;
 const COLUMNS = 'table_name, id, change_seq, deleted, iv, blob, server_seq';
 
+// Cuánto se vuelve a mirar hacia atrás en cada pasada.
+//
+// El servidor reparte `server_seq` al EMPEZAR la escritura, no al confirmarla:
+// con dos aparatos subiendo a la vez, la 101 puede quedar visible antes que la
+// 100. Pidiendo sólo "lo posterior a la última que vi", esa 100 no se pedía
+// nunca más — el cambio se quedaba en el otro aparato hasta que alguien
+// volviera a tocar ese renglón.
+//
+// Releer sale gratis: una versión que ya está acá se reconoce por su número de
+// cambio y no se escribe ni se descifra.
+//
+// ponytail: 50 es holgado para dos aparatos y tiene que ser MENOR que BATCH, o
+// una tanda llena no avanzaría nunca y `downloadAll` giraría en el vacío. Un
+// hueco más largo que 50 escrituras necesitaría un cursor por transacción
+// abierta (`pg_snapshot`), que es otro orden de complejidad.
+const OVERLAP = 50;
+
 export async function downloadedThrough() {
 	return Number(await getSetting(KEY.syncDownloadedThrough)) || 0;
 }
@@ -45,6 +62,11 @@ function decide(local, payload, uploadMark) {
 	if (!local) return 'apply';
 	// My own upload coming back, or a batch I already applied.
 	if (local.changeSeq === payload.change_seq) return 'skip';
+	// Esta versión de allá ya la tengo aplicada y escribí ENCIMA de ella: es la
+	// base de lo que estoy por subir, no una discusión. Sin esto, releer el tramo
+	// final (ver OVERLAP) inventaba un conflicto contra mi propio punto de
+	// partida cada vez que pasaba por acá.
+	if (local.cloudSeq === payload.change_seq) return 'skip';
 	// Written here and not up there yet. Both sides moved: phase 2 of this spec
 	// gives it a screen; until then the local version is left untouched.
 	const localIsUnsent = local.changeSeq > uploadMark && local.cloudSeq !== local.changeSeq;
@@ -94,7 +116,7 @@ export async function downloadOnce() {
 	const { data, error } = await client
 		.from('records')
 		.select(COLUMNS)
-		.gt('server_seq', cursor)
+		.gt('server_seq', Math.max(0, cursor - OVERLAP))
 		.order('server_seq', { ascending: true })
 		.limit(BATCH);
 	if (error) throw new Error(error.message);

@@ -178,6 +178,63 @@ describe('what arrives from the other device', () => {
 	});
 });
 
+describe('cuando el servidor confirma dos escrituras en desorden', () => {
+	it('vuelve a mirar el tramo final, así un número que llegó tarde no se pierde', async () => {
+		// Postgres reparte el número al EMPEZAR la escritura, no al confirmarla:
+		// con dos aparatos subiendo a la vez, la 101 puede quedar visible antes que
+		// la 100. Mirando sólo hacia adelante, la 100 no se pedía nunca más y ese
+		// cambio no llegaba a este aparato hasta que alguien volviera a tocarlo.
+		await publish(note({ id: 'llegó-primero', title: 'la 101' }), {
+			changeSeq: 1_700_000_000_000,
+			serverSeq: 101
+		});
+		await downloadOnce();
+		expect(await downloadedThrough()).toBe(101);
+
+		// La que venía escribiéndose desde antes recién ahora se ve.
+		await publish(note({ id: 'confirmó-después', title: 'la 100' }), {
+			changeSeq: 1_700_000_000_001,
+			serverSeq: 100
+		});
+		const result = await downloadOnce();
+
+		expect(result.applied).toBe(1);
+		expect((await db.table('notes').get('confirmó-después')).title).toBe('la 100');
+		// Y la marca no retrocede por haber vuelto a mirar hacia atrás.
+		expect(await downloadedThrough()).toBe(101);
+	});
+
+	it('releer la versión sobre la que estoy escribiendo no inventa un conflicto', async () => {
+		// Bajé la versión de allá, la edité acá y todavía no subí. Al releer el
+		// tramo final vuelve a pasar esa MISMA versión: es la base de lo que estoy
+		// por subir, no una discusión. Contarla como conflicto sacaba un aviso de
+		// "dos versiones" contra el propio punto de partida.
+		await publish(note({ title: 'la de allá' }), { changeSeq: 1_700_000_000_000, serverSeq: 4 });
+		await downloadOnce();
+		await updateNote('nota-compartida', { title: 'lo que escribí encima' });
+
+		const result = await downloadOnce();
+
+		expect(result.conflicts).toBe(0);
+		expect((await db.table('notes').get('nota-compartida')).title).toBe('lo que escribí encima');
+		expect(await listPendingUploads()).toHaveLength(1);
+	});
+
+	it('lo que ya se aplicó no se vuelve a escribir ni rebota para arriba', async () => {
+		// El precio de mirar hacia atrás es releer lo mismo en cada pasada. Tiene
+		// que salir gratis: ni escrituras repetidas ni nada volviendo a la cola.
+		await publish(note({ title: 'una sola vez' }), { changeSeq: 1_700_000_000_000, serverSeq: 9 });
+		await downloadOnce();
+
+		const result = await downloadOnce();
+
+		expect(result.received).toBe(1);
+		expect(result.applied).toBe(0);
+		expect(await db.table('notes').count()).toBe(1);
+		expect(await listPendingUploads()).toEqual([]);
+	});
+});
+
 describe('when both devices touched the same record', () => {
 	it('keeps what is written here and counts a conflict instead of overwriting', async () => {
 		await publish(note({ title: 'versión de allá' }), {

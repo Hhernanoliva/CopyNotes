@@ -15,7 +15,7 @@ import { createVault, hasVault } from './vault';
 import { grantUploadConsent, hasUploadConsent, listPendingUploads, uploadedThrough } from './pending';
 import { downloadedThrough } from './download';
 import { countConflicts, recordConflict } from './conflicts';
-import { setSetting } from '../storage/settings';
+import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 
 const store = new Map();
@@ -42,7 +42,7 @@ vi.mock('./supabase', () => ({
 	signOut
 }));
 
-const { forgetCloudAccount } = await import('./leave');
+const { forgetCloudAccount, ensureAccountMatches } = await import('./leave');
 
 // A device that has been syncing for a while: vault, consent, both cursors
 // moved, a decision waiting, and a note that the server already holds.
@@ -131,6 +131,15 @@ describe('cerrar sesión', () => {
 		expect(await hasVault()).toBe(false);
 	});
 
+	it('forgets which account this was, so the next one starts from cero', async () => {
+		await aConnectedDevice();
+		await ensureAccountMatches('cuenta-vieja');
+
+		await forgetCloudAccount();
+
+		expect(await getSetting(KEY.syncAccountId)).toBeUndefined();
+	});
+
 	it('is a door every synced table goes through', async () => {
 		// A table added to SYNCED_TABLES later carries `cloudSeq` too, and would be
 		// stranded the same way.
@@ -145,5 +154,53 @@ describe('cerrar sesión', () => {
 		for (const name of SYNCED_TABLES) {
 			expect((await db.table(name).get(`x-${name}`)).cloudSeq).toBeUndefined();
 		}
+	});
+});
+
+// Cerrar sesión limpia todo, pero sólo si se pasa por ahí. Una sesión que se
+// cae sola —el token venció, la cerraron desde otro lado, se borraron los datos
+// del navegador— no pasa por esa puerta, y entrar después con OTRA cuenta
+// heredaba el permiso de subir, la llave de la bóveda y los dos cursores.
+describe('entrar a una cuenta distinta sin haber cerrado sesión', () => {
+	it('deja todo como está cuando es la misma cuenta de siempre', async () => {
+		const id = await aConnectedDevice();
+		await ensureAccountMatches('cuenta-1');
+
+		expect(await ensureAccountMatches('cuenta-1')).toBe(true);
+
+		expect(await hasVault()).toBe(true);
+		expect(await hasUploadConsent()).toBe(true);
+		expect(await downloadedThrough()).toBe(42);
+		expect((await db.table('notes').get(id)).title).toBe('mía');
+	});
+
+	it('la primera vez sólo anota de quién es este aparato', async () => {
+		// Los aparatos que ya venían sincronizando no tienen la anotación: darlos
+		// por "otra cuenta" les borraría la bóveda sin motivo.
+		await aConnectedDevice();
+
+		expect(await ensureAccountMatches('cuenta-1')).toBe(true);
+
+		expect(await hasVault()).toBe(true);
+		expect(await hasUploadConsent()).toBe(true);
+	});
+
+	it('con otra cuenta borra llave, permiso y marcas antes de sincronizar nada', async () => {
+		const id = await aConnectedDevice();
+		await ensureAccountMatches('cuenta-1');
+
+		expect(await ensureAccountMatches('cuenta-2')).toBe(false);
+
+		// Sin esto, este aparato subía notas cifradas con la llave de la cuenta
+		// anterior y leía el servidor nuevo desde el cursor del viejo.
+		expect(await hasVault()).toBe(false);
+		expect(await hasUploadConsent()).toBe(false);
+		expect(await uploadedThrough()).toBe(0);
+		expect(await downloadedThrough()).toBe(0);
+		expect(await countConflicts()).toBe(0);
+		// Las notas se quedan, igual que al cerrar sesión.
+		expect((await db.table('notes').get(id)).title).toBe('mía');
+		// Y la cuenta nueva queda anotada: el próximo tic ya no borra nada.
+		expect(await ensureAccountMatches('cuenta-2')).toBe(true);
 	});
 });

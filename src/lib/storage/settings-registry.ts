@@ -25,7 +25,8 @@ export const KEY = {
 	processedChanges: 'processedChanges',
 	syncConsent: 'syncConsent',
 	syncUploadedThrough: 'syncUploadedThrough',
-	syncDownloadedThrough: 'syncDownloadedThrough'
+	syncDownloadedThrough: 'syncDownloadedThrough',
+	syncAccountId: 'syncAccountId'
 };
 
 export const SETTINGS = {
@@ -40,7 +41,8 @@ export const SETTINGS = {
 	[KEY.processedChanges]: { backupSafe: false }, // Local agent-change dedupe ledger — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.syncConsent]: { backupSafe: false }, // Consent to upload (spec 030 phase 2) — a decision per device, never restored from a file.
 	[KEY.syncUploadedThrough]: { backupSafe: false }, // How far the change counter was uploaded — meaningless on another device, and restoring it would skip records.
-	[KEY.syncDownloadedThrough]: { backupSafe: false } // How far the server's own sequence was read (spec 030 phase 3) — restoring it on another device would skip everything before it, silently.
+	[KEY.syncDownloadedThrough]: { backupSafe: false }, // How far the server's own sequence was read (spec 030 phase 3) — restoring it on another device would skip everything before it, silently.
+	[KEY.syncAccountId]: { backupSafe: false } // Which account the key, the consent and the cursors above belong to (sync/leave.ts). Restoring it from a file would vouch for an account this device never signed into.
 };
 
 export const SETTING_KEYS = Object.keys(SETTINGS);
