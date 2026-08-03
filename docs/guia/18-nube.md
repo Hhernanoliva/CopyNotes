@@ -221,6 +221,19 @@ Cuando en el otro dispositivo **borraste** el renglón, esa opción se ve distin
 —en rojo y con un tacho: **Borrar este renglón**— para que no la elijas de
 casualidad pensando que es texto.
 
+**Y solo cuando las dos versiones son distintas.** Si los dos dispositivos
+terminaron escribiendo exactamente lo mismo —pasa más de lo que parece: el mismo
+tilde en la misma tarea, el mismo renglón movido al mismo lugar—, CopyNotes no
+te pregunta nada: se queda con esa versión en los dos y sigue. Elegir entre dos
+cosas idénticas no es una decisión.
+
+**Aparecen solo cuando de verdad tocaste lo mismo.** Antes, escribir en las dos
+puntas de la misma nota alcanzaba para llenarla de conflictos aunque no
+compartieras ni un renglón: cada vez que apretabas Enter en el medio, CopyNotes
+le corría el lugar a todos los renglones de abajo, y los dos dispositivos se
+peleaban por renglones que vos ni habías mirado. Ahora un Enter escribe **un solo
+renglón**, el que nace.
+
 **Y si el renglón está en otra nota, te enterás igual.** El puntito de arriba a
 la derecha —el del guardado— se rodea de un anillo violeta con el número al
 lado cuando hay versiones esperando. Tocalo y ahí están las dos versiones de
@@ -235,19 +248,6 @@ segundos.
 
 En la **lista de notas**, la nota afectada lleva el mismo puntito violeta al
 lado del nombre, y se apaga en cuanto decidís.
-
-**Y solo cuando las dos versiones son distintas.** Si los dos dispositivos
-terminaron escribiendo exactamente lo mismo —pasa más de lo que parece: el mismo
-tilde en la misma tarea, el mismo renglón movido al mismo lugar—, CopyNotes no
-te pregunta nada: se queda con esa versión en los dos y sigue. Elegir entre dos
-cosas idénticas no es una decisión.
-
-**Aparecen solo cuando de verdad tocaste lo mismo.** Antes, escribir en las dos
-puntas de la misma nota alcanzaba para llenarla de conflictos aunque no
-compartieras ni un renglón: cada vez que apretabas Enter en el medio, CopyNotes
-le corría el lugar a todos los renglones de abajo, y los dos dispositivos se
-peleaban por renglones que vos ni habías mirado. Ahora un Enter escribe **un solo
-renglón**, el que nace.
 
 Si en un dispositivo **borraste** algo que en el otro seguiste editando, gana la
 edición: la nota no se borra sola, y el borrado te aparece como conflicto para
