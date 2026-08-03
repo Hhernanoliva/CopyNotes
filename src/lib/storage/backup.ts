@@ -7,6 +7,7 @@ import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
 import { LOCAL_ONLY_FIELDS } from '../export-import/schema';
+import { isBackupSafe } from './settings-registry';
 
 // `activity` (the task bitácora) is part of the portable backup as of spec 030
 // phase 0: it is user-visible history, and leaving it out meant every
@@ -78,15 +79,32 @@ export async function applyMergePlan(plan) {
 
 // Caller must validate the incoming backup BEFORE calling this: once the
 // transaction commits, the previous data is gone.
+//
+// "Todo" son los datos, no el aparato. Dos cosas se salvan del borrado:
+//
+//   - Las preferencias que NO viajan en un respaldo (la pausa de los agentes,
+//     el permiso de subir a la nube, los cursores de sincronización). Son
+//     decisiones de ESTE aparato, y borrarlas las devolvía a su valor por
+//     defecto: restaurar un archivo despausaba a los agentes sin que nadie los
+//     despausara. La pausa tiene que fallar cerrada.
+//   - Nada más: los conflictos de la nube sí se tiran, porque describen dos
+//     versiones de un renglón que después de esto puede no existir.
 export async function replaceAllTables(data) {
 	await settlePendingWrites();
+	const deviceOnly = (await db.table('settings').toArray()).filter(
+		(row) => !isBackupSafe(row.key)
+	);
 	return trackPendingWrite(() =>
-		db.transaction('rw', TABLES, async () => {
+		db.transaction('rw', [...TABLES, 'conflicts'], async () => {
 			for (const name of TABLES) {
 				await db.table(name).clear();
 				const rows = data[name] ?? [];
 				if (rows.length > 0) await db.table(name).bulkPut(rows);
 			}
+			// Después del `bulkPut`: si el archivo trae una de estas claves, la del
+			// aparato es la que vale.
+			if (deviceOnly.length > 0) await db.table('settings').bulkPut(deviceOnly);
+			await db.table('conflicts').clear();
 			await normalizeSidebarOrder();
 		})
 	);

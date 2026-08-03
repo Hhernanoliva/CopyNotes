@@ -41,4 +41,6 @@ Además viaja la **bitácora** de tus tareas: quién marcó cada cosa y cuándo,
 
 En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo lo del respaldo. Pide una confirmación explícita y te recuerda descargar un respaldo de lo actual antes. No se puede deshacer.
 
+Lo que **no** se toca son los interruptores de ese dispositivo: si tenías **los agentes en pausa**, siguen en pausa después de restaurar; lo mismo con el permiso de subir a la nube. Esas decisiones no viajan dentro del archivo (por eso restaurarlo no puede prenderlas ni apagarlas) y antes se perdían al reemplazar todo, así que los agentes volvían a andar sin que vos los hubieras despausado. Las decisiones de nube que estuvieran esperando —"me quedo con esta versión"— sí se descartan: hablan de renglones que después de reemplazar todo pueden no existir.
+
 ---

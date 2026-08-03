@@ -6,6 +6,7 @@ import { createBlock } from './blocks';
 import { createTag, assignTag, listTagsFor } from './tags';
 import { appendActivity, listActivityByBlock } from './activity';
 import { setSetting, getSetting } from './settings';
+import { KEY } from './settings-registry';
 import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 import { trackPendingWrite } from './pending-writes';
 import { buildBackup } from '../export-import/backup';
@@ -167,6 +168,37 @@ describe('replaceAllTables', () => {
 			]
 		});
 		expect((await db.table('activity').toArray()).map((row) => row.id)).toEqual(['incoming']);
+	});
+
+	// El interruptor maestro de los agentes NO viaja en el respaldo (no es
+	// backupSafe), así que restaurar borraba la tabla de preferencias y lo dejaba
+	// en su valor por defecto: los agentes volvían a andar sin que nadie los
+	// despausara. La pausa tiene que fallar cerrada, siempre.
+	it('keeps this device´s own switches: restoring never un-pauses the agents', async () => {
+		await setSetting(KEY.agentsPaused, true);
+		await setSetting(KEY.syncConsent, true);
+		await setSetting(KEY.theme, 'light');
+
+		await replaceAllTables({
+			...emptyTables(),
+			settings: [{ key: KEY.theme, value: 'dark', updatedAt: iso }]
+		});
+
+		expect(await getSetting(KEY.agentsPaused)).toBe(true);
+		expect(await getSetting(KEY.syncConsent)).toBe(true);
+		// Lo que sí viaja en el archivo se reemplaza como siempre.
+		expect(await getSetting(KEY.theme)).toBe('dark');
+	});
+
+	// Un conflicto es "estas dos versiones del renglón X no coinciden". Después de
+	// reemplazar todo, ese renglón puede no existir: la decisión quedaría en
+	// pantalla apuntando a la nada.
+	it('drops pending cloud conflicts, which describe rows that no longer exist', async () => {
+		await db.table('conflicts').put({ id: 'notes:vieja', table: 'notes', rowId: 'vieja', at: iso });
+
+		await replaceAllTables({ ...emptyTables(), folders: [] });
+
+		expect(await db.table('conflicts').count()).toBe(0);
 	});
 
 	it('clears prior activity when restoring a backup that carries none', async () => {
