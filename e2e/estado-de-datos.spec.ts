@@ -75,3 +75,21 @@ test('una versión en conflicto se cuenta en el punto y se decide desde ahí', a
 	await expect(panel(page)).toContainText('Todo al día.');
 	await expect(statusDot(page)).not.toContainText('1');
 });
+
+test('la nota afectada queda marcada en la lista', async ({ page }) => {
+	await page.goto('/');
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.waitFor();
+	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
+	await seedConflict(page, blockId, { content: 'lo del otro aparato' });
+	await page.reload();
+	await first.waitFor();
+
+	const marca = page.getByRole('img', { name: 'Esta nota tiene una versión sin decidir' });
+	await expect(marca).toBeVisible();
+
+	// Y se apaga sola en cuanto se decide: la marca sigue al dato, no a la vista.
+	await statusDot(page).click();
+	await panel(page).getByRole('button', { name: 'Quedarme con el mío' }).click();
+	await expect(marca).toBeHidden();
+});

@@ -350,6 +350,12 @@
 .cn-conflict-count {
 	color: var(--cn-conflict);
 }
+/* La misma señal en la lista de notas: el punto del header dice cuántas hay,
+   esto dice en cuál nota. Nunca sola — la fila también lo dice con palabras
+   para quien no ve el color (`aria-label`). */
+.cn-conflict-dot {
+	background-color: var(--cn-conflict);
+}
 
 @media (pointer: coarse) {
 	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al

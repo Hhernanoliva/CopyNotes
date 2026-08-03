@@ -23,6 +23,9 @@
 
 	let {
 		notes,
+		// Notas con una versión esperando decisión (spec 030 fase 3). Marcarlas es
+		// la mitad que faltaba: el punto del header dice cuántas, esto dice dónde.
+		conflictNoteIds = new Set(),
 		snippets = [],
 		tags = [],
 		noteFolders = [],
@@ -260,6 +263,14 @@
 				<span class="text-faint">Sin título</span>
 			{/if}
 		</button>
+		{#if conflictNoteIds.has(note.id)}
+			<span
+				role="img"
+				aria-label="Esta nota tiene una versión sin decidir"
+				title="Tiene una versión sin decidir"
+				class="cn-conflict-dot size-1.5 shrink-0 rounded-full"
+			></span>
+		{/if}
 		<button
 			type="button"
 			aria-label="Borrar nota {note.title || 'sin título'}"

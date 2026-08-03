@@ -225,6 +225,9 @@ son renglones (el nombre de una etiqueta, una carpeta). La primera vez que
 llega una, además, aparece un avisito abajo. Elegir es un solo toque, y si te
 arrepentís tenés **Deshacer** unos segundos.
 
+En la **lista de notas**, la nota afectada lleva el mismo puntito violeta al
+lado del nombre, y se apaga en cuanto decidís.
+
 **Y solo cuando las dos versiones son distintas.** Si los dos dispositivos
 terminaron escribiendo exactamente lo mismo —pasa más de lo que parece: el mismo
 tilde en la misma tarea, el mismo renglón movido al mismo lugar—, CopyNotes no

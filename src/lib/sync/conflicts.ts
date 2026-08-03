@@ -58,6 +58,21 @@ export function countConflicts() {
 	return conflicts().count();
 }
 
+// En qué notas hay algo esperando una decisión. La lista de notas las marca con
+// eso: el número del header dice CUÁNTAS hay, y esto dice DÓNDE — sin abrirlas
+// una por una. Un renglón borrado acá ya no está en `blocks`, así que la nota
+// sale de la versión que llegó de allá.
+export async function noteIdsWithConflicts() {
+	const rows = await conflicts().where('table').equals('blocks').toArray();
+	const found = new Set();
+	for (const row of rows) {
+		const local = await db.table('blocks').get(row.recordId);
+		const noteId = local?.noteId ?? row.remote?.noteId ?? null;
+		if (noteId) found.add(noteId);
+	}
+	return found;
+}
+
 // Keep what is on this device: the local row is already the one in the database
 // and is still pending, so the next sync pushes it up and the other device gets
 // it.

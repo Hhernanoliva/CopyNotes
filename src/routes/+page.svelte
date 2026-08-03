@@ -12,6 +12,8 @@
 	import HelpDialog from '$lib/components/HelpDialog.svelte';
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import DataStatus from '$lib/sync/DataStatus.svelte';
+	import { syncStatus } from '$lib/sync/status.svelte';
+	import { noteIdsWithConflicts } from '$lib/sync/conflicts';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
@@ -65,6 +67,8 @@
 	let settingsOpen = $state(false);
 	// El panel del punto de estado. Vive acá porque Configuración también lo abre.
 	let statusOpen = $state(false);
+	// Las notas con algo esperando decisión, para marcarlas en la lista.
+	let conflictNoteIds = $state(new Set());
 	// Note-text size multiplier (spec 027). 1 = 100%; applied via --cn-editor-scale.
 	let editorScale = $state(1);
 	let newSnippetOpen = $state(false);
@@ -93,6 +97,13 @@
 		loading = false;
 		toast.error('No se pudieron abrir tus notas. Cerramos el editor para protegerlas.');
 	}
+
+	// Qué notas marcar en la lista. Se recalcula cuando cambia el contador de
+	// conflictos —lo mueven la sincronización y las decisiones—, nunca en bucle.
+	$effect(() => {
+		void syncStatus.conflicts;
+		noteIdsWithConflicts().then((ids) => (conflictNoteIds = ids));
+	});
 
 	// Green is a brief reassurance, not a permanent state: it settles back to the
 	// quiet grey so silence means "todo guardado". Red does NOT auto-clear — it
@@ -563,6 +574,7 @@
 		open={sidebarOpen && !loadError}
 		bind:view={sidebarView}
 		onSelect={selectNote}
+		{conflictNoteIds}
 		onCreate={newNote}
 		onClose={() => (sidebarOpen = false)}
 		onBackup={() => (backupOpen = true)}
