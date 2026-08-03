@@ -15,6 +15,7 @@ import { getVaultKey } from './vault';
 import { uploadedThrough } from './pending';
 import { recordConflict } from './conflicts';
 import { db, markSentToCloud, putFromCloud } from '../storage/db';
+import { sameToTheUser } from '../storage/row-compare';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 
@@ -153,12 +154,26 @@ export async function downloadOnce() {
 				await markSentToCloud(payload.table_name, payload.id, payload.change_seq);
 			}
 		} else if (action === 'conflict') {
-			// Park the remote version instead of applying it. The local row is not
-			// touched and stays pending, so nothing is lost on either side while the
-			// person decides (spec 030: no conflict is ever resolved by a silent
-			// last-write-wins).
-			await recordConflict(payload.table_name, await decryptPayload(key, payload));
-			conflicts++;
+			const remote = await decryptPayload(key, payload);
+			if (sameToTheUser(local, remote)) {
+				// Dos escrituras distintas que dejan la fila IGUAL para quien la mira.
+				// Pasa cuando los dos aparatos llegan al mismo valor por su cuenta —el
+				// mismo lugar para el mismo renglón, el mismo tilde en la misma tarea—:
+				// para el protocolo son dos versiones en pelea, para la persona son la
+				// misma cosa. Preguntar "¿cuál queda?" mostrando dos veces lo mismo no
+				// es una decisión, es ruido. Se adopta la de allá: no cambia nada en
+				// pantalla, cierra la discusión y deja a los dos aparatos parados sobre
+				// la misma versión. No hay texto que perder — son idénticas.
+				await putFromCloud(payload.table_name, remote);
+				applied++;
+			} else {
+				// Park the remote version instead of applying it. The local row is not
+				// touched and stays pending, so nothing is lost on either side while the
+				// person decides (spec 030: no conflict is ever resolved by a silent
+				// last-write-wins).
+				await recordConflict(payload.table_name, remote);
+				conflicts++;
+			}
 		}
 	}
 

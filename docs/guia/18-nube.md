@@ -216,6 +216,12 @@ En **Configuración › Nube** también ves cuántos conflictos hay abiertos, po
 alguno cayó en algo que no es un renglón (el nombre de una etiqueta, una
 carpeta).
 
+**Y solo cuando las dos versiones son distintas.** Si los dos dispositivos
+terminaron escribiendo exactamente lo mismo —pasa más de lo que parece: el mismo
+tilde en la misma tarea, el mismo renglón movido al mismo lugar—, CopyNotes no
+te pregunta nada: se queda con esa versión en los dos y sigue. Elegir entre dos
+cosas idénticas no es una decisión.
+
 **Aparecen solo cuando de verdad tocaste lo mismo.** Antes, escribir en las dos
 puntas de la misma nota alcanzaba para llenarla de conflictos aunque no
 compartieras ni un renglón: cada vez que apretabas Enter en el medio, CopyNotes

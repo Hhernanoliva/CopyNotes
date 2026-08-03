@@ -11,6 +11,8 @@
 //
 // Esta función decide la única parte delicada: qué se reemplaza y qué no.
 
+import { sameToTheUser } from '../storage/row-compare';
+
 // `protegidos` son los renglones que el usuario está escribiendo (donde está el
 // cursor) o cuyo guardado todavía no aterrizó. Pisarlos es perder texto tipeado
 // hace medio segundo; conservarlos sólo posterga el cambio hasta la próxima
@@ -70,17 +72,3 @@ export function reconcileBlocks(current, incoming, protectedIds) {
 	return { blocks: next, deferred, historyStale };
 }
 
-// Bookkeeping que se reescribe sola: la nube sella `cloudSeq`, cada guardado
-// mueve `updatedAt` y `changeSeq`. Si contaran como cambio, cualquier tic de
-// sincronización tiraría el historial de Deshacer sin que nada se viera
-// distinto en pantalla.
-const BOOKKEEPING = new Set(['updatedAt', 'changeSeq', 'cloudSeq', 'fromCloud']);
-
-// Todos los campos de un renglón son valores sueltos (texto, número, booleano o
-// null), así que comparar uno por uno alcanza.
-function sameToTheUser(before, after) {
-	for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
-		if (!BOOKKEEPING.has(key) && before[key] !== after[key]) return false;
-	}
-	return true;
-}

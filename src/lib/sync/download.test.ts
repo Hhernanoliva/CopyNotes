@@ -6,6 +6,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
 import { createNote, updateNote } from '../storage/notes';
+import { updateBlock } from '../storage/blocks';
 import { encryptRecord } from './records';
 import { createVault, getVaultKey } from './vault';
 import { grantUploadConsent, listPendingUploads, markUploadedThrough } from './pending';
@@ -256,6 +257,66 @@ describe('when both devices touched the same record', () => {
 		expect((await db.table('notes').get('nota-compartida')).title).toBe('versión mía sin subir');
 		// And the local edit is still on its way up: a conflict blocks nothing.
 		expect(await listPendingUploads()).toHaveLength(1);
+	});
+
+	it('no pregunta cuando las dos versiones son idénticas para la persona', async () => {
+		// Los dos aparatos llegaron al mismo valor por su cuenta. Para el protocolo
+		// son dos escrituras en pelea; en pantalla son la misma cosa, y preguntar
+		// "¿cuál queda?" mostrando dos veces lo mismo no es una decisión.
+		await publish(note({ title: 'igual en los dos' }), {
+			changeSeq: 1_700_000_000_000,
+			serverSeq: 1
+		});
+		await downloadOnce();
+		// Escrito acá y sin subir, pero termina en el mismo texto.
+		await updateNote('nota-compartida', { title: 'igual en los dos' });
+		await publish(note({ title: 'igual en los dos' }), {
+			changeSeq: 1_900_000_000_000,
+			serverSeq: 2
+		});
+
+		const result = await downloadOnce();
+
+		expect(result.conflicts).toBe(0);
+		expect((await db.table('notes').get('nota-compartida')).title).toBe('igual en los dos');
+		// Y la pelea queda cerrada: los dos parados sobre la misma versión, sin
+		// nada esperando para subir.
+		expect(await listPendingUploads()).toEqual([]);
+	});
+
+	it('sí pregunta cuando lo único que cambia es el lugar del renglón', async () => {
+		// El orden se ve: dos renglones en distinto lugar NO son la misma cosa para
+		// quien mira la nota, aunque digan lo mismo.
+		const bloque = {
+			id: 'renglón-1',
+			noteId: 'nota-compartida',
+			parentBlockId: null,
+			type: 'text',
+			content: 'sin cambios',
+			html: 'sin cambios',
+			order: 1,
+			collapsed: false,
+			codeCollapsed: false,
+			checked: false,
+			note: '',
+			dueDate: null,
+			createdBy: 'user',
+			createdAt: '2026-07-30T10:00:00.000Z',
+			updatedAt: '2026-07-30T10:00:00.000Z',
+			deletedAt: null
+		};
+		await publish(bloque, { table: 'blocks', changeSeq: 1_700_000_000_000, serverSeq: 1 });
+		await downloadOnce();
+		await updateBlock('renglón-1', { order: 2 });
+		await publish(
+			{ ...bloque, order: 3 },
+			{ table: 'blocks', changeSeq: 1_900_000_000_000, serverSeq: 2 }
+		);
+
+		const result = await downloadOnce();
+
+		expect(result.conflicts).toBe(1);
+		expect((await db.table('blocks').get('renglón-1')).order).toBe(2);
 	});
 });
 
