@@ -1554,15 +1554,18 @@
 		selectionMenu = null;
 		if (!plan) return;
 		recordSnapshot();
+		// Un guardado con retraso del tipeo (mismo renglón, misma clave) aterriza
+		// PRIMERO, no después: si no, llegaría encima de la conversión y la pisaría
+		// — el caso filoso es Código, que devolvería el html con formato sobre el
+		// html plano que esta conversión acaba de escribir. Cancelarlo, que era lo
+		// que se hacía antes, tiraba el texto recién tecleado: la conversión guarda
+		// sólo el tipo, así que ese texto no llegaba nunca al disco y volvía la
+		// versión vieja al recargar.
+		await flushPending();
 		for (const update of plan.updates) {
 			const { id, ...changes } = update;
 			const row = blocks.find((block) => block.id === id);
 			const becomesTask = changes.type === 'todo' && row?.type !== 'todo';
-			// A debounced content/html save from typing (still queued under this
-			// same key) would otherwise land AFTER this write and clobber it — the
-			// Código case is the sharp one: it would put the old rich html back
-			// over the escaped plain-text html this conversion just wrote.
-			cancelPending(`block:${id}`);
 			if (row) Object.assign(row, changes);
 			if (becomesTask) await convertToTask({ blockId: id, checked: changes.checked });
 			else await writeBlock(id, changes);
@@ -1864,12 +1867,12 @@
 
 		const reconciled = reconcileBlocks(blocks, loadedBlocks, guarded);
 		blocks = reconciled.blocks;
-		// Llegaron o se fueron renglones: las fotos del historial describen una
-		// lista que nunca existió, y deshacer sobre ellas BORRA lo que llegó de la
-		// nube (`diffBlocks` no distingue "todavía no estaba" de "lo borraste").
-		// Perder profundidad de Deshacer es barato; borrar el renglón del otro
-		// aparato no lo es.
-		if (reconciled.membershipChanged) {
+		// Llegó algo de afuera que las fotos del historial no conocen —un renglón
+		// nuevo, uno que se fue, o el texto de uno que ya estaba—: deshacer sobre
+		// esas fotos restaura la versión de antes ENCIMA de lo que trajo el otro
+		// aparato, y después la sube. Perder profundidad de Deshacer es barato;
+		// pisar lo del otro no lo es.
+		if (reconciled.historyStale) {
 			history.reset();
 			lastTextBlockId = null;
 		}

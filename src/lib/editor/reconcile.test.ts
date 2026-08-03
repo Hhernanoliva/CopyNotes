@@ -97,18 +97,48 @@ describe('traer lo que llegó de afuera', () => {
 		const current = [block('a', 'una')];
 
 		expect(reconcileBlocks(current, [block('a', 'una'), block('nueva', 'de allá')], new Set())
-			.membershipChanged).toBe(true);
-		expect(reconcileBlocks(current, [], new Set()).membershipChanged).toBe(true);
-		// Sólo cambió el texto: el historial sigue siendo válido.
-		expect(reconcileBlocks(current, [block('a', 'otra cosa')], new Set()).membershipChanged).toBe(
-			false
-		);
+			.historyStale).toBe(true);
+		expect(reconcileBlocks(current, [], new Set()).historyStale).toBe(true);
 		// Un renglón recién creado que el almacenamiento no conoce se queda en su
 		// lugar, así que la lista no cambió y el historial no se tira.
 		expect(
 			reconcileBlocks([block('a', 'una'), block('nuevo', '')], [block('a', 'una')], new Set(['nuevo']))
-				.membershipChanged
+				.historyStale
 		).toBe(false);
+	});
+
+	it('avisa también cuando sólo cambió el TEXTO de un renglón que ya existía', () => {
+		// El hueco que dejó el arreglo anterior: si el otro aparato edita un
+		// renglón sin agregar ni borrar ninguno, la lista no cambia — pero las
+		// fotos de Deshacer siguen guardando el texto viejo, y deshacer cualquier
+		// otra cosa lo restaura encima de lo que llegó.
+		const current = [block('a', 'lo que había'), block('b', 'otra')];
+		const incoming = [block('a', 'lo que escribió el otro'), block('b', 'otra')];
+
+		expect(reconcileBlocks(current, incoming, new Set()).historyStale).toBe(true);
+	});
+
+	it('no tira el historial cuando no cambió nada de lo que se ve', () => {
+		// Cada refresco relee el almacenamiento y devuelve objetos nuevos, y el
+		// sellado de la nube reescribe `updatedAt`/`changeSeq`/`cloudSeq` sin que
+		// el texto se mueva. Si eso contara como cambio, cualquier tic de
+		// sincronización te dejaría sin Deshacer.
+		const current = [block('a', 'una', { updatedAt: '2026-08-01T10:00:00.000Z', changeSeq: 1 })];
+		const incoming = [
+			block('a', 'una', { updatedAt: '2026-08-03T18:00:00.000Z', changeSeq: 9, cloudSeq: 9 })
+		];
+
+		expect(reconcileBlocks(current, incoming, new Set()).historyStale).toBe(false);
+	});
+
+	it('un renglón protegido que llegó distinto no tira el historial todavía', () => {
+		// No se aplicó nada: el renglón en pantalla sigue siendo el mío. Tirar el
+		// historial acá sería perderlo sin razón; el reintento de cuando el cursor
+		// se va es el que avisa.
+		const current = [block('a', 'lo mío a medio escribir')];
+		const incoming = [block('a', 'lo del otro')];
+
+		expect(reconcileBlocks(current, incoming, new Set(['a'])).historyStale).toBe(false);
 	});
 
 	it('un renglón deja de estar protegido y recién ahí toma lo que llegó', () => {

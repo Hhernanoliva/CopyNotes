@@ -48,15 +48,39 @@ export function reconcileBlocks(current, incoming, protectedIds) {
 		deferred.push(block.id);
 	});
 
-	// ¿Aparecieron o desaparecieron renglones respecto de lo que había en
-	// pantalla? El historial de Deshacer guarda fotos de la lista entera, y
-	// `diffBlocks` lee "no está en la foto" como "el usuario lo borró": una foto
-	// sacada antes de que llegara un renglón de la nube lo borra de verdad al
-	// deshacer. El que llama usa esto para tirar el historial, que es lo único
-	// honesto — esas fotos ya describen una lista que no existió nunca.
-	const beforeIds = new Set(current.map((row) => row.id));
-	const membershipChanged =
-		next.length !== beforeIds.size || next.some((row) => !beforeIds.has(row.id));
+	// ¿Quedaron viejas las fotos del historial de Deshacer? Guardan la lista
+	// entera, y `restore` reescribe TODO lo que difiera entre la foto y la
+	// pantalla — sin distinguir "esto lo borraste vos" de "esto todavía no había
+	// llegado". Cualquiera de las dos formas de quedar vieja termina igual:
+	// deshacer restaura la versión de antes encima de lo que trajo el otro
+	// aparato, y la sube. Perder pasos para atrás es barato; eso no.
+	//
+	//   - la lista ganó o perdió renglones (`diffBlocks` lee "no está en la foto"
+	//     como "el usuario lo borró");
+	//   - un renglón que ya existía llegó con otro contenido (las fotos guardan
+	//     el texto de antes, y deshacer otra cosa lo restaura de paso).
+	const beforeById = new Map(current.map((row) => [row.id, row]));
+	const historyStale =
+		next.length !== beforeById.size ||
+		next.some((row) => {
+			const before = beforeById.get(row.id);
+			return !before || (row !== before && !sameToTheUser(before, row));
+		});
 
-	return { blocks: next, deferred, membershipChanged };
+	return { blocks: next, deferred, historyStale };
+}
+
+// Bookkeeping que se reescribe sola: la nube sella `cloudSeq`, cada guardado
+// mueve `updatedAt` y `changeSeq`. Si contaran como cambio, cualquier tic de
+// sincronización tiraría el historial de Deshacer sin que nada se viera
+// distinto en pantalla.
+const BOOKKEEPING = new Set(['updatedAt', 'changeSeq', 'cloudSeq', 'fromCloud']);
+
+// Todos los campos de un renglón son valores sueltos (texto, número, booleano o
+// null), así que comparar uno por uno alcanza.
+function sameToTheUser(before, after) {
+	for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+		if (!BOOKKEEPING.has(key) && before[key] !== after[key]) return false;
+	}
+	return true;
 }

@@ -67,6 +67,29 @@ test('escribir "- " y parar ahí deja una viñeta, no vuelve a "-"', async ({ pa
 	expect(await readBlock(page, id)).toEqual({ type: 'bullet', content: '' });
 });
 
+test('cambiarle el tipo a un grupo no se lleva puesto lo recién tecleado', async ({ page }) => {
+	// La misma puerta, por el camino del grupo: marcar varios renglones y darles
+	// un tipo con "/". Esa conversión TIRABA el guardado con retraso del renglón
+	// donde se estaba escribiendo y después guardaba sólo el tipo. En pantalla el
+	// texto seguía ahí; al recargar volvía la versión de antes.
+	const id = await newRow(page);
+	await page.keyboard.type('comprar pan');
+	// Sin pausa: el guardado del texto sigue armado en este instante.
+	await page.keyboard.press('Shift+ArrowUp');
+
+	const menu = page.locator('#slash-menu');
+	await page.keyboard.press('/');
+	await expect(menu).toBeVisible();
+	await page.keyboard.press('Enter');
+	await expect(menu).toBeHidden();
+
+	await page.waitForTimeout(1200);
+	await page.reload();
+	await page.locator('main [data-block-id]').first().waitFor();
+
+	expect((await readBlock(page, id)).content).toBe('comprar pan');
+});
+
 test('un cambio de estructura no se lleva puesto lo que se estaba escribiendo', async ({
 	page
 }) => {
