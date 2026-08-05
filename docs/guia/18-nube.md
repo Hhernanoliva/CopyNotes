@@ -258,3 +258,12 @@ versión que nunca vio: cuando manda algo, dice también de qué versión venía
 mientras tanto la otra había guardado algo, la nube no la deja pisarlo. Esa
 computadora se baja lo que le faltaba y ahí aparece el aviso de las dos
 versiones. Si no había nada que discutir, se acomoda sola y no te enterás.
+
+**Y aunque los dos escriban en el mismo instante.** Para saber qué versión es más
+nueva, cada dispositivo le pone la hora al cambio. Dos que escriben el mismo
+renglón en la misma milésima de segundo le ponen la misma hora, y antes eso
+alcanzaba para que uno confundiera el cambio del otro con el suyo propio: se
+quedaba con lo suyo en pantalla, dejaba de mandarlo, y los dos seguían mostrando
+cosas distintas sin avisar nada. Ahora, cuando las horas coinciden, CopyNotes
+compara el texto: si es el mismo, sigue de largo; si no, te muestra el aviso de
+las dos versiones y elegís vos.

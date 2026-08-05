@@ -32,7 +32,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | # | Tema | Veredicto |
 | --- | --- | --- |
 | 1 | La sincronización se saltea cambios para siempre | ✅ **Arreglado**, con un techo anotado |
-| 2 | Dos ediciones distintas parecen la misma versión | 🔍 **Vivo — falta cavar** |
+| 2 | Dos ediciones distintas parecen la misma versión | ✅ **Arreglado** (5/8) |
 | 3 | Llave y permisos de la cuenta anterior | ✅ **Arreglado** |
 | 4 | Se puede escribir sin pasar por `push_records` | 🔍 **Vivo — falta cavar** |
 | 5 | Dos aparatos crean dos bóvedas | 🔍 **Vivo — falta cavar** |
@@ -78,7 +78,7 @@ mienta. Va con la limpieza.
 
 ---
 
-## 2. Dos ediciones distintas parecen la misma versión — 🔍 vivo, falta cavar
+## 2. Dos ediciones distintas parecen la misma versión — ✅ arreglado el 5/8
 
 **Decía:** cada aparato saca su número de cambio del reloj. Dos aparatos pueden
 producir el mismo número en el mismo milisegundo; `decide()` compara sólo ese
@@ -140,6 +140,29 @@ número: al cambiar la escala, los renglones viejos sin subir quedarían por deb
 de la marca de subida y se perderían de verdad. El remedio era peor.
 
 **Requiere gate manual** entre tus dos aparatos antes de darlo por cerrado.
+
+**Cavado, y una corrección al diagnóstico.** La prueba
+(`download.test.ts`, "pregunta también cuando los dos números de cambio salieron
+iguales") reproduce la colisión y falla con el código viejo: `conflicts` da 0 y la
+cola de subida queda **vacía**. Pero el renglón **no se atasca para siempre** como
+escribí arriba. Lo que pasa es peor de ver y más fácil de no notar:
+
+1. El `skip` anota `cloudSeq = change_seq` — o sea "el servidor ya tiene lo mío".
+2. Con eso el renglón deja de estar pendiente (`pending.ts:46`), así que **mi
+   texto nunca sube** y nadie lo decidió.
+3. Los dos aparatos quedan mostrando cosas distintas, sin conflicto y sin aviso.
+4. Se despega solo la próxima vez que alguien toque ese renglón (número nuevo,
+   base que el servidor sí tiene). Hasta entonces, divergencia en silencio.
+
+**Hecho.** `decide()` pregunta primero por `cloudSeq` y devuelve la acción nueva
+`confirm` cuando los números coinciden sin confirmación. `downloadOnce` la
+resuelve descifrando: `sameToTheUser` iguales → es mi eco, se anota (el rescate de
+la respuesta perdida, intacto); distintas → conflicto, que es la respuesta
+correcta. La rama `skip` quedó sin trabajo: ahora sólo la alcanza lo ya
+confirmado.
+
+**Precio:** un descifrado por eco propio, una sola vez por registro (la pasada
+siguiente ya cae en `skip`). Nada en el formato de los datos, ninguna migración.
 
 ---
 
@@ -701,8 +724,9 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 **Primero — lo que toca tus datos**
 
 1. [x] **#9** la barrera que miente. Confirmado, sin cavar. Arreglo chico. **Hecho 5/8.**
-2. [ ] **#2** colisión de números. **Cavar primero** (prueba que reproduzca el
-       atasco). Requiere gate manual entre tus dos aparatos.
+2. [x] **#2** colisión de números. Cavado: la prueba falla con el código viejo, y
+       el daño real es divergencia en silencio, no atasco. **Hecho 5/8.**
+       **Falta el gate manual** entre tus dos aparatos.
 3. [ ] **#10** restaurar. **Cavar primero** el caso (a). Tres arreglos separables.
 4. [ ] **Pedido MCP sin id.** Confirmado. Dos líneas.
 

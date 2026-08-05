@@ -61,13 +61,23 @@ async function markDownloadedThrough(serverSeq) {
 // in the `conflict` branch, which touches nothing.
 function decide(local, payload, uploadMark) {
 	if (!local) return 'apply';
-	// My own upload coming back, or a batch I already applied.
-	if (local.changeSeq === payload.change_seq) return 'skip';
-	// Esta versión de allá ya la tengo aplicada y escribí ENCIMA de ella: es la
-	// base de lo que estoy por subir, no una discusión. Sin esto, releer el tramo
-	// final (ver OVERLAP) inventaba un conflicto contra mi propio punto de
-	// partida cada vez que pasaba por acá.
+	// Esta versión de allá ya está anotada como "el servidor la tiene": o la
+	// apliqué, o es mi propia subida ya confirmada. En los dos casos no hay nada
+	// que hacer. Sin esto, releer el tramo final (ver OVERLAP) inventaba un
+	// conflicto contra mi propio punto de partida cada vez que pasaba por acá.
+	//
+	// Va PRIMERO a propósito: es la única de las dos preguntas por número que no
+	// se puede confundir con otra cosa.
 	if (local.cloudSeq === payload.change_seq) return 'skip';
+	// El mismo número, pero nadie confirmó que sea mío. Casi siempre es mi propia
+	// subida volviendo con la respuesta perdida... salvo cuando no lo es: el
+	// número sale del reloj (`storage/change-seq.ts`), así que dos aparatos que
+	// tocan el MISMO renglón en el mismo milisegundo sacan el mismo número. Darlo
+	// por eco anotaba que el servidor tenía lo mío, lo sacaba de la cola de
+	// subida sin que nadie lo decidiera, y los dos aparatos quedaban mostrando
+	// cosas distintas en silencio. El número no distingue los dos casos; el
+	// contenido sí, y para eso hay que descifrar.
+	if (local.changeSeq === payload.change_seq) return 'confirm';
 	// Written here and not up there yet. Both sides moved: phase 2 of this spec
 	// gives it a screen; until then the local version is left untouched.
 	const localIsUnsent = local.changeSeq > uploadMark && local.cloudSeq !== local.changeSeq;
@@ -135,23 +145,31 @@ export async function downloadOnce() {
 		if (action === 'apply') {
 			await applyPayload(key, payload);
 			applied++;
-		} else if (action === 'skip') {
-			// Nothing to write, but something to write down: the server demonstrably
-			// holds this version, and the next upload has to declare the version it
-			// stands on or be refused.
-			//
-			// This is what rescues an upload whose reply was lost. The record landed,
-			// this device never heard so, and its retry keeps claiming "this one is
-			// new" — a claim the server correctly refuses, for ever. Reading the echo
-			// closes the loop.
-			//
-			// Deliberately not done for a conflict: there the server holds the *other*
-			// device's version, and recording it as this device's base would let the
-			// next upload overwrite it without anyone deciding — the exact hole the
-			// guard exists to close. `keepLocal` is the one place that may do it,
-			// because by then a person has chosen.
-			if (local.cloudSeq !== payload.change_seq) {
+		} else if (action === 'confirm') {
+			// Mismo número sin confirmar: hay que abrir el sobre para saber si es mi
+			// propia versión volviendo o el cambio distinto del otro aparato.
+			const remote = await decryptPayload(key, payload);
+			if (sameToTheUser(local, remote)) {
+				// Es lo mío. Nada que escribir, pero sí algo que anotar: el servidor
+				// demostrablemente tiene esta versión, y la próxima subida tiene que
+				// declarar sobre cuál se para o va a ser rechazada.
+				//
+				// Esto es lo que rescata una subida cuya respuesta se perdió. El
+				// registro llegó, este aparato nunca se enteró, y su reintento sigue
+				// diciendo "esta es nueva" — cosa que el servidor rechaza con razón,
+				// para siempre. Leer el eco cierra el círculo.
+				//
+				// A propósito NO se hace para un conflicto: ahí el servidor tiene la
+				// versión del OTRO aparato, y anotarla como mi base dejaría que la
+				// próxima subida la pisara sin que nadie decida — justo el agujero que
+				// esta guarda cierra. `keepLocal` es el único lugar que puede hacerlo,
+				// porque para entonces una persona eligió.
 				await markSentToCloud(payload.table_name, payload.id, payload.change_seq);
+			} else {
+				// Colisión de relojes: dos cambios distintos con el mismo número. Es un
+				// desacuerdo como cualquier otro y se decide como cualquier otro.
+				await recordConflict(payload.table_name, remote);
+				conflicts++;
 			}
 		} else if (action === 'conflict') {
 			const remote = await decryptPayload(key, payload);

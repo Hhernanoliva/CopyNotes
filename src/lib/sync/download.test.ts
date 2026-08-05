@@ -284,6 +284,37 @@ describe('when both devices touched the same record', () => {
 		expect(await listPendingUploads()).toEqual([]);
 	});
 
+	it('pregunta también cuando los dos números de cambio salieron iguales', async () => {
+		// El número de cambio sale del reloj (`max(ahora, último + 1)`) y nada lo
+		// ata al aparato: dos aparatos que tocan el MISMO renglón en el mismo
+		// milisegundo sacan el mismo número. Ese número deja de distinguir "mi
+		// propia subida volviendo" de "el cambio distinto del otro", y darlo por
+		// eco anota que el servidor tiene lo mío: mi texto sale de la cola de
+		// subida sin que nadie lo decida, y los dos aparatos quedan mostrando
+		// cosas distintas para siempre, sin aviso.
+		await publish(note({ title: 'punto de partida' }), {
+			changeSeq: 1_700_000_000_000,
+			serverSeq: 1
+		});
+		await downloadOnce();
+		await updateNote('nota-compartida', { title: 'lo que escribí acá, sin subir' });
+		const mío = await db.table('notes').get('nota-compartida');
+
+		await publish(note({ title: 'lo que escribió el otro' }), {
+			changeSeq: mío.changeSeq,
+			serverSeq: 2
+		});
+
+		const result = await downloadOnce();
+
+		expect(result.conflicts).toBe(1);
+		expect((await db.table('notes').get('nota-compartida')).title).toBe(
+			'lo que escribí acá, sin subir'
+		);
+		// Y lo mío sigue en camino para arriba: nadie lo dio por confirmado.
+		expect(await listPendingUploads()).toHaveLength(1);
+	});
+
 	it('sí pregunta cuando lo único que cambia es el lugar del renglón', async () => {
 		// El orden se ve: dos renglones en distinto lugar NO son la misma cosa para
 		// quien mira la nota, aunque digan lo mismo.
