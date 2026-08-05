@@ -23,7 +23,14 @@
 					// still in flight it runs now; only then do we really close.
 					event.preventDefault();
 					try {
-						await settlePendingWrites();
+						// La barrera avisa con `false` cuando un guardado falló y su texto
+						// quedó sólo en memoria. Cerrar ahí lo perdería, así que la ventana
+						// se queda abierta — es lo mismo que hace el `catch` de abajo, que
+						// nunca se enteraba porque la barrera resolvía siempre bien.
+						if (!(await settlePendingWrites())) {
+							toast.error('No se pudo guardar. La ventana sigue abierta para reintentar.');
+							return;
+						}
 						// The barrier only covers the database. export.json is the file
 						// the agent actually reads, and its re-export is debounced, so
 						// closing now could leave behind a file that still names a note

@@ -60,6 +60,22 @@ describe('pending write barrier', () => {
 		expect(secondFinished).toBe(true);
 	});
 
+	it('reports that not everything landed when a flusher says so', async () => {
+		const unregister = registerPendingWriteFlusher(() => false);
+
+		await expect(settlePendingWrites()).resolves.toBe(false);
+
+		unregister();
+	});
+
+	it('reports success when every flusher landed', async () => {
+		const unregister = registerPendingWriteFlusher(() => {});
+
+		await expect(settlePendingWrites()).resolves.toBe(true);
+
+		unregister();
+	});
+
 	it('rejects when a tracked write cannot save', async () => {
 		let fail = () => {};
 		trackPendingWrite(

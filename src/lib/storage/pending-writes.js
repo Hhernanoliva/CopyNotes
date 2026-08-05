@@ -19,9 +19,15 @@ export function registerPendingWriteFlusher(flusher) {
 	return () => flushers.delete(flusher);
 }
 
+// Devuelve `true` sólo si TODO aterrizó. Un flusher que responde `false` guardó a
+// medias: su escritura falló y ese texto sigue únicamente en memoria. No tiramos
+// error porque quien llama decide qué hacer — el respaldo se baja igual (mejor uno
+// al que le falta un renglón que ninguno) pero avisa, y el cierre del escritorio
+// se cancela. Una escritura rastreada que falla sí rechaza, como antes.
 export async function settlePendingWrites() {
-	await Promise.all([...flushers].map((flush) => flush()));
+	const flushed = await Promise.all([...flushers].map((flush) => flush()));
 	while (pendingWrites.size > 0) {
 		await Promise.all([...pendingWrites]);
 	}
+	return flushed.every((landed) => landed !== false);
 }

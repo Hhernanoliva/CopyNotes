@@ -57,6 +57,11 @@
 	async function exportAllJson() {
 		exporting = true;
 		try {
+			// La barrera corre igual dentro de `dumpAllTables`; acá se la llama antes
+			// sólo para quedarse con la respuesta. Si algo no aterrizó, el archivo se
+			// baja lo mismo (mejor un respaldo al que le falta un renglón que ninguno)
+			// pero el mensaje no puede decir que está completo.
+			const allSaved = await settlePendingWrites();
 			const backup = buildBackup(await dumpAllTables(), {
 				appVersion: '0.0.1',
 				exportedAt: new Date().toISOString(),
@@ -67,7 +72,12 @@
 				content: JSON.stringify(backup, null, 2),
 				mimeType: 'application/json'
 			});
-			if (result.status === 'saved') toast.success('Respaldo descargado');
+			if (result.status !== 'saved') return;
+			if (allSaved) toast.success('Respaldo descargado');
+			else
+				toast.warning(
+					'Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar.'
+				);
 		} catch {
 			toast.error('No se pudo guardar el respaldo. Tus datos siguen intactos.');
 		} finally {
@@ -78,7 +88,9 @@
 	async function exportCurrentNote(format) {
 		exporting = true;
 		try {
-			await settlePendingWrites();
+			// Mismo trato que el respaldo: el archivo sale igual, pero si un guardado
+			// no aterrizó el mensaje no puede decir que la nota está entera.
+			const allSaved = await settlePendingWrites();
 			const note = await getNote(currentNoteId);
 			if (!note) return;
 			const blocks = await listBlocksByNote(note.id);
@@ -89,7 +101,10 @@
 				content,
 				mimeType
 			});
-			if (result.status === 'saved') toast.success('Nota exportada');
+			if (result.status !== 'saved') return;
+			if (allSaved) toast.success('Nota exportada');
+			else
+				toast.warning('Nota exportada — un cambio reciente no se pudo guardar y puede faltar.');
 		} catch {
 			toast.error('No se pudo exportar la nota. Tus datos siguen intactos.');
 		} finally {

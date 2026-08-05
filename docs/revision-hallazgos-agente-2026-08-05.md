@@ -39,7 +39,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 6 | Cambiar el tipo de un grupo borra el texto recién escrito | ✅ **Arreglado** |
 | 7 | Deshacer pisa un cambio del otro aparato | ✅ **Arreglado** |
 | 8 | Dos pestañas se pisan en silencio | 🔍 **Vivo — falta cavar** |
-| 9 | La barrera de guardado oculta sus propios fallos | ❌ **Vivo — confirmado** |
+| 9 | La barrera de guardado oculta sus propios fallos | ✅ **Arreglado** (5/8) |
 | 10 | Restaurar produce notas incompletas | 🔍 **Vivo — falta cavar** |
 | 11 | "Reemplazar todo" reactiva agentes | ✅ **Arreglado** |
 | 12 | Pausar agentes puede fallar y dejar las notas legibles | ❌ **Vivo — confirmado**, y menor |
@@ -338,7 +338,7 @@ entre pestañas que traen todos los navegadores, sin instalar nada — que avise
 
 ---
 
-## 9. La barrera de guardado oculta sus propios fallos — ❌ vivo, confirmado
+## 9. La barrera de guardado oculta sus propios fallos — ✅ arreglado el 5/8
 
 **Decía:** `flushPending()` marca el error pero resuelve la promesa como exitosa.
 Un respaldo puede bajarse con datos viejos, y el cierre del escritorio puede
@@ -388,6 +388,20 @@ ventana abierta y avisa. Nunca se entera, porque nunca falla.
 4. El cierre del escritorio deja de cerrar y avisa, que es lo que ya quiere hacer.
 
 Todo esto es leer una bandera que ya existe. No hace falta cavar más.
+
+**Hecho.** `flushPending` devuelve `false` si quedó alguna entrada marcada `failed`;
+`settlePendingWrites` devuelve `true` sólo si **todos** los flushers aterrizaron (una
+escritura rastreada que falla sigue rechazando, como antes). El respaldo y la
+exportación de una nota bajan el archivo igual pero avisan en el mensaje, y el
+cierre del escritorio deja la ventana abierta.
+
+**Techo anotado:** la prueba nueva cubre el contrato de la barrera
+(`pending-writes.test.js`), no el lado del editor — `Editor.svelte` no tiene
+pruebas de componente. La rama del editor son 3 líneas leyendo una bandera que ya
+existía.
+
+**Queda igual a propósito:** `exportSnippets` (`+page.svelte:541`) no mira la
+respuesta, porque los snippets no se escriben por el mapa `pending` del editor.
 
 ---
 
@@ -686,7 +700,7 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 **Primero — lo que toca tus datos**
 
-1. [ ] **#9** la barrera que miente. Confirmado, sin cavar. Arreglo chico.
+1. [x] **#9** la barrera que miente. Confirmado, sin cavar. Arreglo chico. **Hecho 5/8.**
 2. [ ] **#2** colisión de números. **Cavar primero** (prueba que reproduzca el
        atasco). Requiere gate manual entre tus dos aparatos.
 3. [ ] **#10** restaurar. **Cavar primero** el caso (a). Tres arreglos separables.

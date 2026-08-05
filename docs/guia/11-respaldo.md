@@ -12,6 +12,8 @@ Tus notas viven en el navegador de este dispositivo. Si borrás los datos del na
 
 Antes de crear cualquier archivo, CopyNotes termina de guardar lo que acabás de escribir. Podés escribir y tocar **Descargar** enseguida: el respaldo o la nota exportada incluyen hasta las últimas palabras.
 
+Si alguno de esos últimos guardados no se pudo hacer, el archivo **se baja igual** —un respaldo al que le falta un renglón sirve más que ninguno— pero el mensaje te lo dice: *"Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar"*. Antes decía "Respaldo descargado" a secas y no te enterabas. Lo mismo al exportar la nota actual.
+
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
 - **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`). La negrita, cursiva, tachado y enlaces salen en formato Markdown (`**negrita**`, `[enlace](dirección)`); el subrayado y los colores no existen en Markdown, así que ese texto sale normal.
 - **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad, y con el formato del texto completo: negrita, cursiva, subrayado, tachado, colores y enlaces.

@@ -16,6 +16,7 @@
 - **La app de escritorio es otra cosa.** Si entrás desde una computadora, abajo a la derecha aparece una tarjetita discreta: "¿Usás agentes de IA? Necesitás la app de escritorio". Solo la vas a necesitar si querés conectar un agente de IA (ver **[Agentes](17-agentes.md)**); para todo lo demás, la web alcanza. Si la cerrás, no vuelve a molestar. En el celular y la tablet no aparece, porque ahí no hay app de escritorio.
 - **También desde Configuración.** El enlace de descarga está en **Configuración** (engranaje ⚙️) › **Agentes**, cuando entrás desde el navegador.
 - **Se actualiza sola.** Cuando hay una versión nueva, se aplica sola la próxima vez que abrís la app.
+- **Al cerrar la ventana espera a guardar.** La app de escritorio no se cierra hasta terminar de guardar lo último que escribiste. Si algún guardado falla, **la ventana no se cierra** y te avisa: *"No se pudo guardar. La ventana sigue abierta para reintentar."* Así no perdés lo recién escrito por cerrar sin mirar.
 
 ## En el teléfono
 

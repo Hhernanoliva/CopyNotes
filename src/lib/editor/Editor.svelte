@@ -437,7 +437,13 @@
 				)
 			);
 		}
-		return Promise.all(saves).then(() => settleSaveState());
+		return Promise.all(saves).then(() => {
+			settleSaveState();
+			// La barrera necesita la verdad: una entrada marcada `failed` sigue en el
+			// mapa porque su texto NO está en la base. Devolver `true` siempre era la
+			// mentira que dejaba bajar un respaldo incompleto sin decir nada.
+			return ![...pending.values()].some((entry) => entry.failed);
+		});
 	}
 
 	function persistJournal() {
