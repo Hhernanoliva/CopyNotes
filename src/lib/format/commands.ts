@@ -9,10 +9,6 @@ export function applyInline(kind) {
 	if (command) document.execCommand(command, false);
 }
 
-export function removeInline(kind) {
-	applyInline(kind);
-}
-
 // Toggle inline code by wrapping/unwrapping the selection in a <code> element.
 export function toggleCode() {
 	const sel = window.getSelection();

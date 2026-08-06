@@ -1948,16 +1948,6 @@
 		);
 	}
 
-	// Called from the page when the user inserts from the snippets library.
-	export async function insertSnippet(snippet) {
-		const active = activeBlockId && blocks.some((block) => block.id === activeBlockId);
-		const afterId = active
-			? activeBlockId
-			: (visible.length ? visible[visible.length - 1].block.id : null);
-		await insertSnippetBlocks(snippet, afterId);
-		toast.success('Snippet insertado');
-	}
-
 	async function handleSaveSnippet(block) {
 		const fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
 		await createSnippet(fields);

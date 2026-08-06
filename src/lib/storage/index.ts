@@ -53,7 +53,7 @@ export {
 	listAllAssignments
 } from './tags';
 export { createFolder, listFolders, updateFolder, deleteFolderKeepContents } from './folders';
-export { applySidebarUpdates, topSortOrder, ensureSidebarOrder } from './organize';
+export { applySidebarUpdates, topSortOrder } from './organize';
 export { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 export {
 	getTheme,

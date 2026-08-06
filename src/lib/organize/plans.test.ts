@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	assignInitialOrder,
 	buildSidebarTree,
 	planDelete,
 	planFolderDelete,
@@ -15,16 +14,6 @@ describe('sortBySidebarOrder', () => {
 	it('sorts by sortOrder and sinks rows without one to the end, stable', () => {
 		const rows = [row('c', undefined), row('b', 1), row('d', undefined), row('a', 0)];
 		expect(sortBySidebarOrder(rows).map((r) => r.id)).toEqual(['a', 'b', 'c', 'd']);
-	});
-});
-
-describe('assignInitialOrder', () => {
-	it('numbers rows by their given order, only where changed', () => {
-		const updates = assignInitialOrder([row('a', 0), row('b', undefined), row('c', 5)]);
-		expect(updates).toEqual([
-			{ id: 'b', sortOrder: 1 },
-			{ id: 'c', sortOrder: 2 }
-		]);
 	});
 });
 

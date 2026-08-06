@@ -914,7 +914,7 @@ aparece un segundo.
 
 Todo confirmado leyendo el código. Cero riesgo, cero lógica nueva.
 
-### Código sin uso productivo
+### Código sin uso productivo — ✅ borrado el 6/8
 
 | Qué | Dónde | Nota |
 | --- | --- | --- |
@@ -927,13 +927,30 @@ Todo confirmado leyendo el código. Cero riesgo, cero lógica nueva.
 | `src/lib/index.ts` | — | Sólo el comentario que trae el andamio de SvelteKit |
 | 11 `.gitkeep` | varios | Carpetas que ya tienen archivos |
 
-### Dependencias sin uso
+**Dos cosas que aparecieron al borrar y no estaban en la lista:**
+
+- **Las pruebas de `ensureSidebarOrder` no se tiraron: se apuntaron a
+  `normalizeSidebarOrder`**, que es lo que el envoltorio llamaba y **sí** vive
+  (`storage/backup.ts:75,108`). Borrar las pruebas junto con el envoltorio habría
+  tirado cobertura de código vivo.
+- **`src/lib/mcp/` no era "una carpeta que ya tiene archivos": estaba vacía.** Su
+  `.gitkeep` era el único archivo, así que la carpeta se fue entera.
+
+Los cinco de arriba llevaban comentarios que explicaban un cableado que ya no
+existe; se fueron con la función. `mcp/server.js:67` y `mcp/lib/tools.js:40`
+nombraban a `makeToolHandler`: ahora nombran a `expandingHandler`, que es quien
+hace ese trabajo hoy.
+
+### Dependencias sin uso — ✅ borradas el 6/8
 
 - `@sveltejs/adapter-auto` — `vite.config.ts:4,33` usa `adapter-static`.
 - `tailwind-variants` — ni una importación.
 - `tw-animate-css` — importado en `src/app.css:2`, pero **cero clases** de
   animación (`animate-in`, `fade-in`, `zoom-in`, `slide-in-from`) en el código.
-- `serde` como dependencia directa de Rust.
+  Comprobado además que el CSS de shadcn-svelte tampoco las usa, así que sacar el
+  import no despinta nada.
+- `serde` como dependencia directa de Rust — sólo se usaba `serde_json`. `cargo
+  check` compila igual sin ella.
 
 ### Duplicación
 
@@ -1015,9 +1032,10 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 **Cuarto — limpieza**
 
-9. [ ] Código muerto (6 cosas — `SettingsDialog` sale de la lista) y 4
-       dependencias sin uso. Al borrar `makeToolHandler`, borrar también el
-       comentario de `mcp/server.js:67` que lo nombra.
+9. [x] Código muerto (6 cosas — `SettingsDialog` sale de la lista) y 4
+       dependencias sin uso. Los comentarios que nombraban a `makeToolHandler`
+       ahora nombran a `expandingHandler`; las pruebas de `ensureSidebarOrder`
+       se apuntaron a `normalizeSidebarOrder`, que sí vive. **Hecho 6/8.**
 10. [ ] La lista de tablas, de tres copias a una.
 11. [x] Comentario viejo de `schema.sql:20-24` (hablaba de un problema ya
         resuelto). Fue con el SQL de arriba: el archivo se pega entero igual, y

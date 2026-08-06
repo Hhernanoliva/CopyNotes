@@ -12,7 +12,6 @@ import {
 	createTaskResult,
 	rejectionText,
 	resolveNote,
-	makeToolHandler,
 	expandArgs,
 	historyResult,
 	listNotesResult,
@@ -367,74 +366,5 @@ describe('rejectionText', () => {
 	});
 	it('razón simple: \'Rechazado: <razón>\'', () => {
 		expect(rejectionText('not-a-task')).toBe('Rechazado: not-a-task');
-	});
-});
-
-describe('makeToolHandler', () => {
-	// A tiny mock submitChange: records every change it was called with and
-	// returns a fixed result, so a handler test can assert the EXACT change
-	// shape submitted (catching a builder↔tool mis-wire) without any real buzón.
-	function fakeSubmit(returnValue) {
-		const calls = [];
-		const fn = async (change) => {
-			calls.push(change);
-			return returnValue;
-		};
-		return { fn, calls };
-	}
-
-	it('create_task wiring: submits a createTask change and returns \'Tarea creada.\' on ok', async () => {
-		const { fn, calls } = fakeSubmit({ ok: true, result: { block: { id: 't1' }, activity: {} } });
-		const handler = makeToolHandler(createTaskChange, 'Tarea creada.', fn);
-
-		const result = await handler({ noteId: 'note-1', content: 'Llamar' });
-
-		expect(calls).toEqual([{ type: 'createTask', noteId: 'note-1', content: 'Llamar' }]);
-		expect(result.isError).toBe(false);
-		expect(result.content[0].text).toBe('Tarea creada.');
-	});
-
-	it('complete_task wiring: submits a completeTask change (text:\'\' when no summary) and returns \'Tarea marcada como hecha.\'', async () => {
-		const { fn, calls } = fakeSubmit({ ok: true, result: { block: { id: 'b' }, activity: {} } });
-		const handler = makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', fn);
-
-		const result = await handler({ blockId: 'b' });
-
-		expect(calls).toEqual([{ type: 'completeTask', blockId: 'b', text: '' }]);
-		expect(result.isError).toBe(false);
-		expect(result.content[0].text).toBe('Tarea marcada como hecha.');
-	});
-
-	it('REGRESSION: a successful complete_task result never says a task was "creada"', async () => {
-		// Guards the original bug: completeTask's result is { block, activity } —
-		// the same shape as createTask — so any wording inferred from block.id
-		// would wrongly read "Tarea creada". The okText path must not.
-		const { fn } = fakeSubmit({ ok: true, result: { block: { id: 'b' }, activity: {} } });
-		const handler = makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', fn);
-
-		const result = await handler({ blockId: 'b', summary: 'confirmado' });
-
-		expect(result.content[0].text).not.toContain('creada');
-	});
-
-	it('add_note wiring: submits an addNote change and returns \'Nota agregada a la bitácora.\'', async () => {
-		const { fn, calls } = fakeSubmit({ ok: true, result: { activity: {} } });
-		const handler = makeToolHandler(addNoteChange, 'Nota agregada a la bitácora.', fn);
-
-		const result = await handler({ blockId: 'b', text: 'esperando respuesta' });
-
-		expect(calls).toEqual([{ type: 'addNote', blockId: 'b', text: 'esperando respuesta' }]);
-		expect(result.isError).toBe(false);
-		expect(result.content[0].text).toBe('Nota agregada a la bitácora.');
-	});
-
-	it('surfaces an app rejection as isError:true with the reason, ignoring okText', async () => {
-		const { fn } = fakeSubmit({ ok: false, reason: 'not-agent-visible' });
-		const handler = makeToolHandler(completeTaskChange, 'Tarea marcada como hecha.', fn);
-
-		const result = await handler({ blockId: 'b' });
-
-		expect(result.isError).toBe(true);
-		expect(result.content[0].text).toContain('not-agent-visible');
 	});
 });

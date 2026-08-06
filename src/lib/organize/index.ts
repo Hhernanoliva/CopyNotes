@@ -1,6 +1,5 @@
 export {
 	sortBySidebarOrder,
-	assignInitialOrder,
 	planReorder,
 	planMoveToContainer,
 	planDelete,

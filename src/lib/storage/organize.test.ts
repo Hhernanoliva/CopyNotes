@@ -5,7 +5,7 @@ import { createNote, listNotes } from './notes';
 import { createSnippet, listSnippets } from './snippets';
 import { createTag, listTags } from './tags';
 import { createFolder, deleteFolderKeepContents, listFolders, updateFolder } from './folders';
-import { applySidebarUpdates, ensureSidebarOrder } from './organize';
+import { applySidebarUpdates, normalizeSidebarOrder } from './organize';
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
@@ -93,14 +93,14 @@ describe('folders', () => {
 	});
 });
 
-describe('ensureSidebarOrder', () => {
+describe('normalizeSidebarOrder', () => {
 	it('leaves a healthy sidebar alone, gaps included', async () => {
 		const a = await createNote({ title: 'a' });
 		const b = await createNote({ title: 'b' });
 		await db.table('notes').update(a.id, { sortOrder: 40 });
 		await db.table('notes').update(b.id, { sortOrder: 10 });
 
-		await ensureSidebarOrder();
+		await normalizeSidebarOrder();
 
 		const rows = await listNotes();
 		// Gaps are how "new note on top" avoids rewriting the list; closing them
@@ -117,7 +117,7 @@ describe('ensureSidebarOrder', () => {
 		await db.table('notes').update(a.id, { sortOrder: 3 });
 		await db.table('notes').update(b.id, { sortOrder: 3 });
 
-		await ensureSidebarOrder();
+		await normalizeSidebarOrder();
 
 		expect((await listNotes()).map((row) => row.sortOrder)).toEqual([0, 1]);
 	});
@@ -128,7 +128,7 @@ describe('ensureSidebarOrder', () => {
 		// Simulate imported rows: one with a gapped order, one with none.
 		await db.table('notes').update(a.id, { sortOrder: 7 });
 		await db.table('notes').update(b.id, { sortOrder: undefined });
-		await ensureSidebarOrder();
+		await normalizeSidebarOrder();
 		const rows = await listNotes();
 		expect(rows.map((row) => row.sortOrder)).toEqual([0, 1]);
 		expect(rows[0].title).toBe('a');

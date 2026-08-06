@@ -94,7 +94,3 @@ export async function normalizeSidebarOrder() {
 		await db.table('tags').update(row.id, { sortOrder: index });
 	}
 }
-
-export function ensureSidebarOrder() {
-	return trackPendingWrite(normalizeSidebarOrder);
-}

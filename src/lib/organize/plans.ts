@@ -22,10 +22,6 @@ function renumber(rows) {
 	return updates;
 }
 
-export function assignInitialOrder(rows) {
-	return renumber(rows);
-}
-
 export function planReorder(container, movedId, targetIndex) {
 	const sorted = sortBySidebarOrder(container);
 	const from = sorted.findIndex((row) => row.id === movedId);

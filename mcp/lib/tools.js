@@ -37,8 +37,8 @@ export function addNoteChange({ blockId, text }) {
 // the result shape: every successful mutation — create AND complete — comes
 // back as { block, activity }, so a result-shape heuristic can't tell "created"
 // from "completed" and would mislabel a completion as a creation. The caller
-// (server.js, via makeToolHandler) knows which action ran, so it supplies the
-// accurate wording.
+// (server.js's expandingHandler, or each tool's own handler) knows which action
+// ran, so it supplies the accurate wording.
 export function toolResult(result, okText = 'Listo.') {
 	if (result?.ok) {
 		return { content: [{ type: 'text', text: okText }], isError: false };
@@ -85,16 +85,6 @@ export function createTaskResult(result) {
 		content: [{ type: 'text', text: short ? `Tarea creada: ${short}` : 'Tarea creada.' }],
 		isError: false
 	};
-}
-
-// Builds an MCP tool callback: parsed args → build the change → submit it to
-// the buzón → map the result to a CallToolResult with this tool's own success
-// message. submitChangeFn is injected so it can be mocked in tests (the real
-// one is lib/mailbox.js's submitChange). Extracting this makes the
-// builder↔tool wiring unit-testable — a mis-wire (e.g. complete_task pointed
-// at addNoteChange) is caught by asserting the exact submitted change shape.
-export function makeToolHandler(buildChange, okText, submitChangeFn) {
-	return async (args) => toolResult(await submitChangeFn(buildChange(args)), okText);
 }
 
 // Agents act with SHORT ids (what the Markdown projection shows them). The

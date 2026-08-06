@@ -64,7 +64,7 @@ server.registerResource(
 	}
 );
 
-// Change-request tools (M3). makeToolHandler builds a change object (pure —
+// Change-request tools (M3). Each handler builds a change object (pure —
 // see lib/tools.js), hands it to submitChange() (writes the buzón inbox,
 // waits for the app's outbox answer), and maps the result to a tool result
 // with this tool's OWN accurate success message. The message is per-tool on
