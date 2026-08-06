@@ -18,9 +18,31 @@ const paths = {
 };
 
 describe('claudeCodeCommand', () => {
-	it('is a single global claude mcp add command with both paths double-quoted', () => {
+	it('is a single global claude mcp add command with both paths single-quoted', () => {
 		expect(claudeCodeCommand(paths)).toBe(
-			'claude mcp add copynotes -s user -e CN_MAILBOX="/Users/h/Library/Application Support/com.copynotes.app/mailbox" -- node "/Applications/CopyNotes.app/Contents/Resources/mcp/server.js"'
+			"claude mcp add copynotes -s user -e CN_MAILBOX='/Users/h/Library/Application Support/com.copynotes.app/mailbox' -- node '/Applications/CopyNotes.app/Contents/Resources/mcp/server.js'"
+		);
+	});
+
+	it('strips the power from a path that looks like a shell command', () => {
+		// A home folder really can be named this. Under double quotes the shell
+		// would RUN `whoami` when the person pasted the command; under single
+		// quotes the text stays text.
+		const command = claudeCodeCommand({
+			serverPath: '/Users/$(whoami)/mcp/server.js',
+			mailboxPath: '/Users/`id`/mailbox'
+		});
+
+		expect(command).toContain("'/Users/$(whoami)/mcp/server.js'");
+		expect(command).toContain("'/Users/`id`/mailbox'");
+	});
+
+	it("escapes a single quote in the path instead of ending the quoting", () => {
+		// The one character single quotes can't cover themselves: close, emit an
+		// escaped quote, reopen. Without this the rest of the path would land
+		// OUTSIDE any quoting, where $(...) works again.
+		expect(claudeCodeCommand({ serverPath: "/Users/o'brien/s.js", mailboxPath: '/m' })).toContain(
+			"node '/Users/o'\\''brien/s.js'"
 		);
 	});
 });

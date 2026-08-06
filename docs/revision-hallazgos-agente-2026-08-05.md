@@ -813,7 +813,7 @@ Cualquier proceso de tu usuario que sepa `CN_MAILBOX` puede leer el export y ped
 cambios. Es el diseño: el canal es local, por entrada/salida estándar, sin puerto
 de red. Cambiarlo es una decisión de producto, no un bug.
 
-### Comillas del comando de Claude Code — ❌ vivo, teórico
+### Comillas del comando de Claude Code — ✅ arreglado el 6/8
 
 `src/lib/bridge/mcp-config.js:28-32` arma el comando con comillas dobles:
 
@@ -824,6 +824,16 @@ return `claude mcp add copynotes -s user -e CN_MAILBOX="${mailboxPath}" -- node 
 Entre comillas dobles, `$(...)`, las comillas invertidas y una comilla doble
 siguen teniendo poder. Haría falta que tu carpeta de usuario tuviera un `$(` en el
 nombre. **Arreglo:** comillas simples con el escape estándar. Una línea.
+
+**Hecho.** Un `shellQuote` de una línea, usado en las dos rutas: comillas simples,
+y la única comilla que no se puede tapar a sí misma —la simple— sale con el escape
+estándar (`'\''`). Tres pruebas: el comando entero, una ruta con `$(whoami)` y
+comillas invertidas, y una ruta con apóstrofo. Comprobado además contra un shell
+de verdad, que devuelve el texto tal cual en vez de ejecutarlo.
+
+**Los otros tres clientes no lo tenían:** OpenCode y Cursor arman **JSON**, donde
+la ruta viaja como valor y `JSON.stringify` la escapa; el deeplink de Cursor la
+manda en base64. Ninguno pasa por un shell.
 
 ### Sin límites de tamaño en importaciones — ❌ vivo, menor
 
@@ -1047,7 +1057,9 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
         resuelto). Fue con el SQL de arriba: el archivo se pega entero igual, y
         dos pasadas por el editor de Supabase para cambiar un comentario no
         tienen sentido. **Hecho 6/8.**
-12. [ ] Comillas del comando de Claude Code.
+12. [x] Comillas del comando de Claude Code: simples, con el escape estándar
+        para el apóstrofo. Los otros tres clientes van por JSON o base64 y no
+        pasan por un shell. **Hecho 6/8.**
 13. [ ] Alinear las versiones.
 14. [ ] **Los dos generadores de HTML**: unificar en la versión de `copy`, que es
         la correcta. Ya no hay nada que investigar.

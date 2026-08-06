@@ -25,10 +25,19 @@ export function toBase64Utf8(str) {
 	return btoa(unescape(encodeURIComponent(str)));
 }
 
-// Claude Code: one global command. Paths are double-quoted so a space in the
-// mailbox path ("Application Support") doesn't split the shell argument.
+// SINGLE quotes, not double: inside double quotes the shell still expands
+// $(...), backticks and \, so a home folder named with a `$(` in it would make
+// this command RUN whatever the name says when the person pastes it. Single
+// quotes take that power away from everything except the single quote itself,
+// which is escaped the standard POSIX way — close the quoting, emit \', reopen.
+// Quoting at all is still about the space in "Application Support".
+function shellQuote(value) {
+	return `'${String(value).replaceAll("'", `'\\''`)}'`;
+}
+
+// Claude Code: one global command.
 export function claudeCodeCommand({ serverPath, mailboxPath }) {
-	return `claude mcp add copynotes -s user -e CN_MAILBOX="${mailboxPath}" -- node "${serverPath}"`;
+	return `claude mcp add copynotes -s user -e CN_MAILBOX=${shellQuote(mailboxPath)} -- node ${shellQuote(serverPath)}`;
 }
 
 export function openCodeConfig({ serverPath, mailboxPath }) {
