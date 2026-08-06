@@ -1,6 +1,7 @@
 import Dexie from 'dexie';
 import { htmlToPlainText, plainTextToHtml } from '$lib/format';
 import { nextChangeSeq } from './change-seq';
+import { announceLocalWrite } from './tab-channel';
 
 // Schema strings only declare indexes; records can hold more fields.
 // Soft-deleted rows stay in the tables and are filtered out by the repositories.
@@ -157,9 +158,16 @@ db.version(9).stores({
 // The flag is explicit rather than a "we are downloading right now" mode on
 // purpose: a mode would span `await`s, and any ordinary save landing in that
 // window would silently lose its stamp — which means losing the change.
+//
+// Estos ganchos son además por donde se avisa a las OTRAS pestañas (`tab-channel.js`).
+// El aviso va acá y no en cada repositorio por el mismo motivo que el sello: una
+// puerta sola no se puede olvidar. Se avisa también de lo que llega de la nube —
+// para la otra pestaña es un cambio de afuera igual, y distinguirlos sólo la
+// dejaría vieja hasta su propio tic de sincronización.
 for (const name of SYNCED_TABLES) {
 	const table = db.table(name);
 	table.hook('creating', (primaryKey, row) => {
+		announceLocalWrite();
 		if (row.fromCloud) {
 			delete row.fromCloud;
 			return;
@@ -177,11 +185,12 @@ for (const name of SYNCED_TABLES) {
 	// en este aparato. Los dos que sí vienen de la nube pasan `fromCloud: true`.
 	// (`Reflect.get` y no `modifications.fromCloud` porque Dexie tipa el parámetro
 	// como `Object` pelado y `svelte-check` no deja leerle una propiedad.)
-	table.hook('updating', (modifications) =>
-		Reflect.get(modifications, 'fromCloud') === true
+	table.hook('updating', (modifications) => {
+		announceLocalWrite();
+		return Reflect.get(modifications, 'fromCloud') === true
 			? { fromCloud: undefined }
-			: { changeSeq: nextChangeSeq() }
-	);
+			: { changeSeq: nextChangeSeq() };
+	});
 }
 
 // Write a record exactly as the other device had it.

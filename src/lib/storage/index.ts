@@ -71,3 +71,4 @@ export {
 	getAgentsPaused,
 	setAgentsPaused
 } from './settings';
+export { onOtherTabWrite } from './tab-channel';

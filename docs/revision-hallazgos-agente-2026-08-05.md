@@ -38,7 +38,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 5 | Dos aparatos crean dos bóvedas | ✅ **Arreglado y verificado** (6/8) |
 | 6 | Cambiar el tipo de un grupo borra el texto recién escrito | ✅ **Arreglado** |
 | 7 | Deshacer pisa un cambio del otro aparato | ✅ **Arreglado** |
-| 8 | Dos pestañas se pisan en silencio | 🔍 **Vivo — falta cavar** |
+| 8 | Dos pestañas se pisan en silencio | ✅ **Arreglado** (6/8), medido antes |
 | 9 | La barrera de guardado oculta sus propios fallos | ✅ **Arreglado** (5/8) |
 | 10 | Restaurar produce notas incompletas | ✅ **Arreglado** (6/8) |
 | 11 | "Reemplazar todo" reactiva agentes | ✅ **Arreglado** |
@@ -123,7 +123,7 @@ el punto 5 más abajo.
   igual que los registros — que es exactamente el daño del punto 5. Los dos
   arreglos son **un solo cambio de SQL**, y conviene hacerlos juntos.
 
-### 4. #8 dos pestañas: con la nube prendida no es silencioso
+### 4. #8 dos pestañas: con la nube prendida no es silencioso — ✅ arreglado el 6/8
 
 El mecanismo es el que describe el informe, pero el daño depende de si la nube
 está prendida:
@@ -506,7 +506,7 @@ contenido". `src/lib/editor/Editor.svelte:1875-1876` lo consume y llama a
 
 ---
 
-## 8. Dos pestañas se pisan en silencio — 🔍 vivo, falta cavar
+## 8. Dos pestañas se pisan en silencio — ✅ arreglado el 6/8
 
 **Decía:** no hay coordinación entre pestañas ni comprobación de versión al
 actualizar un renglón. Las dos escriben el contenido entero y gana la última.
@@ -535,6 +535,57 @@ entre pestañas que traen todos los navegadores, sin instalar nada — que avise
 ~15 líneas reutilizando lo que hay.
 
 **Sesgo:** esto es una función, no un parche. Lo pondría **último** de la lista.
+
+### Medido el 6/8, antes de tocar nada
+
+Dos pestañas sobre la misma nota, una sola sesión del navegador:
+
+| Paso | Qué pasó |
+| --- | --- |
+| B abre la nota | Ve `original` |
+| A la edita → `original EDITADO-EN-A` | — |
+| B, sin tocar nada, 1,5 s después | Sigue en `original` |
+| B vuelve a primer plano | Sigue en `original` |
+| A agrega además un renglón nuevo | A ve 2 renglones, B sigue viendo 1 |
+| B escribe sobre su copia vieja | `original EDITADO-EN-B` |
+| Recargar las dos | `original EDITADO-EN-B` **+ el renglón nuevo de A** |
+
+Las dos preguntas quedaron contestadas:
+
+1. **La segunda pestaña no se refresca nunca**, ni con el tiempo ni al volver a
+   ella. Hasta recargar a mano.
+2. **El daño es más chico de lo que parecía:** se pisa **sólo el renglón que
+   tocaste** en la pestaña vieja. El renglón nuevo del otro lado **sobrevivió**.
+   No es un retroceso de la nota entera.
+
+### Hecho el 6/8
+
+- **El aviso va en los ganchos de Dexie** (`storage/db.ts`), que son la misma
+  puerta única por la que ya pasa el sello de `changeSeq`: toda escritura a una
+  tabla sincronizada pasa por ahí, así que el próximo repositorio que alguien
+  agregue no se puede olvidar de avisar. Se avisa también de lo que baja de la
+  nube — para la otra pestaña es un cambio de afuera igual.
+- **El canal es `BroadcastChannel`** (`storage/tab-channel.js`), de fábrica en el
+  navegador, sin dependencia nueva y sin salir a la red.
+- **Recibir entra por `handleExternalChange`**, la misma puerta que la nube y los
+  agentes: actualiza en el lugar, sin re-montar el editor.
+
+**Por qué no puede entrar en bucle**, que era el riesgo real de una función así:
+el canal no le entrega el mensaje a quien lo mandó, y recibir dispara una
+**lectura**, nunca una escritura — una pestaña que se refresca no anuncia nada.
+
+**Un aviso por tanda, no por renglón:** los ganchos corren fila por fila, así que
+importar un respaldo dispararía miles de mensajes. Se juntan en uno con 150 ms de
+espera, que hace además de colchón para que la transacción de Dexie haya cerrado
+cuando la otra pestaña va a leer.
+
+**El renglón protegido sigue mandando**, y salió en la prueba: si la otra pestaña
+tiene el cursor parado en ese mismo renglón, el cambio **no** se aplica ahí — se
+aplica en cuanto el cursor se va. Es la misma regla que con la nube, y es lo
+correcto: pisar lo que alguien está tipeando es el daño que veníamos a evitar.
+
+**Cobertura:** dos pruebas de punta a punta (`e2e/two-tabs.spec.ts`) con dos
+pestañas de verdad, las dos rojas con el código de antes.
 
 ---
 
@@ -1107,8 +1158,10 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 **Quinto — lo que sigue siendo una función, no un parche**
 
-16. [ ] **#8** dos pestañas. Con la nube prendida aparece como conflicto, no como
-        pérdida silenciosa. Último.
+16. [x] **#8** dos pestañas. Medido primero: la segunda pestaña no se refresca
+        nunca, pero el daño es sólo el renglón tocado. Arreglado con
+        `BroadcastChannel` avisando desde los ganchos de Dexie y entrando por la
+        misma puerta que la nube. **Hecho 6/8.**
 
 **No entra por ahora**
 

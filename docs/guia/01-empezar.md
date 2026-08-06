@@ -7,6 +7,7 @@
 - **El puntito se toca.** Abre el **estado de tus datos**: si está todo guardado, cómo va la nube (cuánto falta subir, hace cuánto fue la última vez, si hay otro dispositivo conectado) y, si las hay, las versiones que esperan que elijas cuál queda. Cuando hay alguna, el puntito se rodea de un **anillo violeta con un número** al lado, así no tenés que ir a buscarla a ninguna parte; cada una te dice **en qué nota** está y te lleva al renglón. Si no hay nada, dice "Todo al día".
 - **Si el guardado local no responde.** CopyNotes cierra el editor para no arriesgar cambios. Muestra **Volver a intentar** para que recargues cuando el almacenamiento del dispositivo vuelva a estar disponible.
 - **Última nota abierta.** Al volver a la app, se abre la nota donde quedaste.
+- **Dos pestañas abiertas, las dos al día.** Si tenés CopyNotes abierto en más de una pestaña del navegador, lo que escribís en una aparece sola en la otra, sin recargar nada. Si en la otra pestaña estás parado escribiendo justo en ese renglón, no te lo tocan mientras tenés el cursor ahí: el cambio entra apenas movés el cursor a otro lado. Antes las pestañas no se enteraban una de la otra, y escribir en la que había quedado vieja pisaba lo de la otra sin avisar.
 - **Tema.** Arriba a la derecha está el botón de sol o luna. Tocándolo cambiás entre modo oscuro y claro; CopyNotes recuerda tu elección en este dispositivo.
 - **Ayuda y atajos.** El botón con el signo de pregunta (arriba a la derecha) abre un panel con todos los atajos de teclado. También lo abrís tocando la tecla **?**.
 

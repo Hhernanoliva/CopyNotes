@@ -31,6 +31,7 @@
 		listNotes,
 		listSnippets,
 		listTags,
+		onOtherTabWrite,
 		renameTag,
 		replayJournal,
 		setDemoNoteCreated,
@@ -352,6 +353,18 @@
 			return false;
 		}
 	}
+
+	// Otra pestaña del navegador escribió algo. Es el mismo caso que la nube o un
+	// agente —un cambio que no hizo esta pantalla— así que entra por la misma
+	// puerta: se actualiza en el lugar y respeta el renglón que estás escribiendo.
+	//
+	// Sin esto, dos pestañas sobre la misma nota no se enteraban una de la otra
+	// nunca, ni al volver a la pestaña vieja, y la que escribía segunda pisaba el
+	// renglón de la otra sin avisar. Ver `storage/tab-channel.js`.
+	//
+	// Refrescar sólo lee, así que la pestaña que recibe no vuelve a anunciar nada
+	// y las dos no pueden quedar rebotándose el aviso.
+	$effect(() => onOtherTabWrite(handleExternalChange));
 
 	// Un cambio que da vuelta todo de golpe: importar un respaldo, restaurar.
 	// Acá el re-montaje del editor es lo correcto — no queda nada que respetar.
