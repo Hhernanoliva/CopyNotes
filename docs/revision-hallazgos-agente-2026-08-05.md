@@ -975,9 +975,16 @@ hace ese trabajo hoy.
   `src/lib/export-import/note-export.ts:108-183`. **Ya divergen** en cómo tratan
   los saltos de línea — o sea que copiar una nota y exportarla dan resultados
   distintos. Vale la pena confirmar cuál está bien antes de unificar.
-- **Versiones desalineadas:** `package.json` y el respaldo dicen `0.0.1`
-  (`BackupDialog.svelte:61` la tiene escrita a mano); Tauri, Cargo y MCP dicen
-  `0.1.0`.
+- **Versiones desalineadas:** `package.json` y el respaldo decían `0.0.1`
+  (`BackupDialog.svelte:61` la tenía escrita a mano); Tauri, Cargo y MCP decían
+  `0.1.0`. ✅ **Alineadas el 6/8** en `0.1.0`, y el respaldo dejó de tenerla
+  escrita a mano: la lee de `package.json`. O sea que el archivo que bajás ya no
+  puede nombrar una versión que nunca existió.
+
+  **Techo:** siguen siendo cuatro archivos que hay que tocar juntos al subir de
+  versión (`package.json`, `mcp/package.json`, `tauri.conf.json`, `Cargo.toml`).
+  Lo que se cerró es la **quinta** copia, la escrita a mano, que era la que ya
+  se había desincronizado.
 - **El empaquetado de Tauri copia todo `mcp/lib` y `mcp/node_modules`**, pruebas
   incluidas, y depende de que corras `build:flat` a mano
   (`src-tauri/tauri.conf.json:29-32`).
@@ -1060,7 +1067,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 12. [x] Comillas del comando de Claude Code: simples, con el escape estándar
         para el apóstrofo. Los otros tres clientes van por JSON o base64 y no
         pasan por un shell. **Hecho 6/8.**
-13. [ ] Alinear las versiones.
+13. [x] Alinear las versiones en `0.1.0`, y que el respaldo lea la de
+        `package.json` en vez de tenerla escrita a mano. **Hecho 6/8.**
 14. [ ] **Los dos generadores de HTML**: unificar en la versión de `copy`, que es
         la correcta. Ya no hay nada que investigar.
 15. [ ] Tope de tamaño al importar un archivo.

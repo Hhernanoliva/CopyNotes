@@ -14,6 +14,11 @@
 		validateBackup
 	} from '$lib/export-import';
 	import { sanitizeBackupData } from '$lib/format';
+	// The version stamped into every backup file, read from package.json instead
+	// of typed here: it used to say 0.0.1 while Tauri, Cargo and the MCP package
+	// all said 0.1.0, so a restored file named a version that never shipped.
+	// Vite inlines just this named export, not the whole manifest.
+	import { version as APP_VERSION } from '../../../package.json';
 	import { getBackupSource, openTextFile, saveTextFile } from '$lib/platform';
 	import {
 		applyMergePlan,
@@ -63,7 +68,7 @@
 			// pero el mensaje no puede decir que está completo.
 			const allSaved = await settlePendingWrites();
 			const backup = buildBackup(await dumpAllTables(), {
-				appVersion: '0.0.1',
+				appVersion: APP_VERSION,
 				exportedAt: new Date().toISOString(),
 				source: getBackupSource()
 			});
