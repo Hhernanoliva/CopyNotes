@@ -126,6 +126,10 @@
 			return;
 		}
 		if (opened.status === 'cancelled') return;
+		if (opened.status === 'too-large') {
+			toast.error('Ese archivo pesa más de 64 MB. Un respaldo de CopyNotes pesa muchísimo menos.');
+			return;
+		}
 		let parsed;
 		try {
 			parsed = JSON.parse(opened.content);

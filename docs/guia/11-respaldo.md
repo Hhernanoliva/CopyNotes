@@ -16,7 +16,7 @@ Si alguno de esos últimos guardados no se pudo hacer, el archivo **se baja igua
 
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
 - **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`). La negrita, cursiva, tachado y enlaces salen en formato Markdown (`**negrita**`, `[enlace](dirección)`); el subrayado y los colores no existen en Markdown, así que ese texto sale normal.
-- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad, y con el formato del texto completo: negrita, cursiva, subrayado, tachado, colores y enlaces.
+- **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad, y con el formato del texto completo: negrita, cursiva, subrayado, tachado, colores y enlaces. Los saltos de línea dentro de un renglón (los que hacés con Shift+Enter) salen tal cual, también en las notas más viejas de la app: antes esos renglones viejos se aplastaban en una sola línea al exportar, aunque al copiarlos salían bien.
 
 Lo mismo vale al **copiar** un bloque de título: pega como título real en apps con formato, y con su marca `#` como texto plano.
 
@@ -24,7 +24,7 @@ Todo funciona sin internet.
 
 ### Importar
 
-1. Tocá **Elegir archivo de respaldo…** y seleccioná un archivo JSON de CopyNotes.
+1. Tocá **Elegir archivo de respaldo…** y seleccioná un archivo JSON de CopyNotes. Si te equivocás de archivo y elegís uno enorme —un video, por ejemplo—, CopyNotes ni lo abre: te avisa que pesa más de 64 MB y no hace nada. Un respaldo de CopyNotes pesa muchísimo menos, así que ese aviso siempre significa que agarraste el archivo equivocado.
 2. CopyNotes termina de guardar cualquier cambio reciente y después revisa el archivo. Si está roto o no es de CopyNotes, lo rechaza y **no toca nada** de lo tuyo. Si el archivo se contradice —por ejemplo, trae dos notas con el mismo identificador— te lo dice con nombre y apellido antes de empezar, en vez de fallar a mitad de camino con un error incomprensible. Además, todo el formato de texto que venga en el archivo pasa por un filtro de seguridad: lo que no es de CopyNotes (por ejemplo, código escondido en un archivo manipulado) se descarta y el texto queda intacto. Lo mismo pasa al pegar contenido copiado: si viene dañado o con algo raro, se limpia sin romper el pegado.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.

@@ -53,8 +53,18 @@ function chooseFile(accept) {
 	});
 }
 
+// Reading a file puts it in memory as a string, and whoever asked for it then
+// parses it into objects — so the tab holds it twice over. Without a ceiling, a
+// wrong pick (a video, a database dump) freezes the page before anything can say
+// what happened. 64 MB is far past any real backup: the file is note text, and
+// the whole thing is one JSON of what you typed.
+export const MAX_TEXT_FILE_BYTES = 64 * 1024 * 1024;
+
 export async function openTextFile({ accept = '' } = {}) {
 	const file = await chooseFile(accept);
 	if (!file) return { status: 'cancelled' };
+	// Checked BEFORE reading: `file.size` is metadata the browser already has,
+	// so nothing large is ever pulled into memory to find out it was too large.
+	if (file.size > MAX_TEXT_FILE_BYTES) return { status: 'too-large', fileName: file.name };
 	return { status: 'opened', fileName: file.name, content: await file.text() };
 }

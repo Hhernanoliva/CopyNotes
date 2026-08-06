@@ -835,11 +835,27 @@ de verdad, que devuelve el texto tal cual en vez de ejecutarlo.
 la ruta viaja como valor y `JSON.stringify` la escapa; el deeplink de Cursor la
 manda en base64. Ninguno pasa por un shell.
 
-### Sin límites de tamaño en importaciones — ❌ vivo, menor
+### Sin límites de tamaño en importaciones — ✅ arreglado el 6/8
 
 `src/lib/platform/files.js:56-60` lee el archivo entero a memoria sin mirar el
 tamaño. Un JSON gigante cuelga la pestaña. Es **tu propio archivo**, elegido por
 vos. **Arreglo:** un tope y un mensaje. Bajo.
+
+**Hecho.** Tope de **64 MB**, comprobado **antes** de leer: `file.size` es un dato
+que el navegador ya tiene, así que nada grande llega a entrar en memoria para
+descubrir que era grande. `openTextFile` devuelve un estado nuevo, `too-large`, y
+el diálogo de respaldo lo dibuja con su propio mensaje — el `catch` que ya existía
+habría dicho "no se puede leer como respaldo", que manda a buscar el problema
+donde no está.
+
+**Por qué 64 MB:** un respaldo es texto de notas. Está lejísimos de cualquier
+archivo real, así que el aviso siempre significa "agarraste el archivo
+equivocado". El tope no evita que un JSON de 60 MB tarde; evita que uno de 4 GB
+congele la pestaña sin decir nada.
+
+**Techo, igual que en #9:** la rama del diálogo son tres líneas leyendo un estado,
+y `BackupDialog.svelte` no tiene pruebas de componente. Lo que sí se puede probar
+—que el tamaño se mire antes de leer— es una comparación de una línea.
 
 ### Capacidad de Tauri sin permiso para `destroy()` — ✅ arreglado el 6/8
 
@@ -1086,7 +1102,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
         resultó ser `plainTextToHtml`, que ya vivía en `format/sanitize.ts`. Los
         dos la llaman, y el `escapeHtml` duplicado también salió de ahí. La
         forma de cada generador queda como está, a propósito. **Hecho 6/8.**
-15. [ ] Tope de tamaño al importar un archivo.
+15. [x] Tope de tamaño al importar un archivo: 64 MB, mirado antes de leer, con
+        mensaje propio en el diálogo de respaldo. **Hecho 6/8.**
 
 **Quinto — lo que sigue siendo una función, no un parche**
 
