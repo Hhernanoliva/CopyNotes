@@ -106,6 +106,36 @@ describe('what arrives from the other device', () => {
 		expect(await downloadedThrough()).toBe(1);
 	});
 
+	it('dice con sus palabras que no puede abrir un registro, en vez del error genérico', async () => {
+		// Lo que se ve si una cuenta llegó a tener dos bóvedas: el otro aparato subió
+		// cifrado con una llave que este no tiene. El descifrado revienta en cada
+		// pasada, para siempre, y el aviso hablaba de "no se pudo sincronizar" — que
+		// no le dice a nadie qué pasa ni qué hacer.
+		const otraLlave = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+			'encrypt',
+			'decrypt'
+		]);
+		const ajeno = await encryptRecord(otraLlave, 'notes', {
+			...note({}),
+			changeSeq: 1_700_000_000_000
+		});
+		server.rows.push({
+			table_name: ajeno.table,
+			id: ajeno.id,
+			change_seq: ajeno.changeSeq,
+			deleted: ajeno.deleted,
+			iv: ajeno.iv,
+			blob: ajeno.blob,
+			server_seq: 1
+		});
+
+		await expect(downloadOnce()).rejects.toMatchObject({
+			userFacing: true,
+			message:
+				'Hay datos en la nube que este dispositivo no puede abrir: se cifraron con otra llave. Sumá este dispositivo con el código de recuperación de la bóveda.'
+		});
+	});
+
 	it('deletes here what was deleted there', async () => {
 		await publish(note({ deletedAt: null }), { changeSeq: 1_700_000_000_000, serverSeq: 1 });
 		await downloadOnce();

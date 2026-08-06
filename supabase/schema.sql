@@ -19,9 +19,12 @@
 --
 -- `server_seq` is the download cursor for phase 3: a sequence bumped by the
 -- trigger below on every insert AND update, so "what changed on the server
--- since X" can never tie the way a timestamp can. ponytail: a sequence can
--- commit out of order under concurrent writers, which a single-device uploader
--- is not; phase 3 revisits this if two devices ever upload at the same instant.
+-- since X" can never tie the way a timestamp can. Una secuencia SÍ puede quedar
+-- visible fuera de orden con dos aparatos subiendo a la vez (el número se
+-- reparte al empezar la escritura, no al confirmarla); el que baja lo resuelve
+-- releyendo un tramo hacia atrás en cada pasada (`OVERLAP` en
+-- src/lib/sync/download.ts), así que un hueco de menos de 50 escrituras se
+-- recupera solo.
 
 create sequence if not exists public.records_server_seq;
 
@@ -89,18 +92,36 @@ create index if not exists records_owner_server_seq on public.records (owner_id,
 -- ponytail: a row-by-row loop rather than one set-based statement, because the
 -- declared base is not a column of `records` and so cannot ride in `excluded`.
 -- 200 rows in one round trip is nothing; revisit if a batch ever gets large.
+--
+-- Y "la única puerta" es literal desde acá: la política de abajo dejó de
+-- permitir escrituras directas, así que esta función es el ÚNICO camino por el
+-- que una fila puede entrar, cambiar o desaparecer. Para poder escribir con la
+-- puerta cerrada corre como su dueño (`security definer`) y no como quien
+-- llama, o sea que la seguridad a nivel de fila ya no la filtra: el filtro por
+-- dueño de acá adentro pasa a ser la única defensa, y por eso es explícito en
+-- las dos ramas —`auth.uid()` en el `insert`, `owner_id = auth.uid()` en el
+-- `update`— y hay una prueba que lo ataca de frente (scripts/rls-check.mjs, la
+-- número 7).
 
 create or replace function public.push_records(payload jsonb)
 returns table (rejected_table text, rejected_id text)
 language plpgsql
--- Runs as the caller, so row-level security still decides what it may touch.
-security invoker
+-- Corre como su dueño para poder escribir en una tabla que ya no acepta
+-- escrituras de nadie más. Ver el filtro por dueño explícito de abajo.
+security definer
 set search_path = ''
 as $$
 declare
 	record_in record;
 	written int;
 begin
+	-- Sin sesión no hay dueño, y sin dueño esta función escribiría filas de
+	-- nadie. Fallar acá y de una, en vez de dejar que el `not null` de la
+	-- columna lo descubra a mitad de la tanda.
+	if auth.uid() is null then
+		raise exception 'push_records necesita una sesión iniciada';
+	end if;
+
 	for record_in in
 		select *
 		from jsonb_to_recordset(payload) as fields (
@@ -138,8 +159,12 @@ begin
 		-- nothing here, which also covers a server rebuilt from scratch while the
 		-- devices still remember old versions.
 		if written = 0 then
-			insert into public.records (table_name, id, change_seq, deleted, iv, blob)
+			-- `owner_id` explícito y no por el valor por defecto de la columna: con
+			-- `security definer` la seguridad a nivel de fila ya no vuelve a
+			-- comprobarlo, así que tiene que verse acá.
+			insert into public.records (owner_id, table_name, id, change_seq, deleted, iv, blob)
 			values (
+				auth.uid(),
 				record_in.table_name,
 				record_in.id,
 				record_in.change_seq,
@@ -191,24 +216,47 @@ create table if not exists public.vaults (
 --
 -- With RLS enabled and no policy, nobody reads anything — not even the owner.
 -- That is the safe direction to fail in.
+--
+-- Y esa es la forma de todo lo de acá abajo: se permite LEER lo propio, y nada
+-- más. Las dos tablas eran `for all` —leer, insertar, actualizar y borrar—, lo
+-- que dejaba dos agujeros que no necesitan atacante:
+--
+--   * en `records`, un cliente viejo con un error, o un `delete` a mano, podía
+--     saltearse el control de versiones de `push_records` y vaciar la copia de
+--     la nube. Un borrado nunca viaja como fila borrada: viaja como lápida.
+--   * en `vaults`, la llave envuelta se podía PISAR. Dos aparatos que crean su
+--     bóveda casi a la vez terminaban con una llave que sólo abre la mitad de
+--     los registros, y el código de recuperación del que perdió, muerto.
+--
+-- Nada de esto le saca nada a la app: nunca escribe en `records` fuera de
+-- `push_records`, y de `vaults` sólo lee y crea la bóveda una vez.
 
 alter table public.records enable row level security;
 alter table public.vaults enable row level security;
 
 drop policy if exists own_records on public.records;
 
+-- Leer lo propio. Escribir se hace por `push_records` y por ningún otro lado.
 create policy own_records on public.records
-for all
+for select
 to authenticated
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
+using (owner_id = auth.uid());
 
 drop policy if exists own_vault on public.vaults;
+drop policy if exists read_own_vault on public.vaults;
+drop policy if exists create_own_vault on public.vaults;
 
-create policy own_vault on public.vaults
-for all
+create policy read_own_vault on public.vaults
+for select
 to authenticated
-using (owner_id = auth.uid())
+using (owner_id = auth.uid());
+
+-- Crear, no pisar: la clave primaria es el dueño, así que la primera bóveda de
+-- la cuenta gana y la segunda choca. El aparato que pierde la carrera se entera
+-- y lo dice (src/lib/sync/upload.ts), en vez de dejar registros ilegibles.
+create policy create_own_vault on public.vaults
+for insert
+to authenticated
 with check (owner_id = auth.uid());
 
 -- ---------------------------------------------------------------------------

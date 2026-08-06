@@ -41,7 +41,10 @@ vi.mock('./supabase', () => ({
 			};
 		},
 		from: (table) => ({
-			upsert: async (rows) => {
+			// `insert`, nunca `upsert`: el candado sólo deja crear la bóveda, no
+			// pisarla (supabase/schema.sql). La primera que llega gana, y la segunda
+			// choca contra la clave primaria.
+			insert: async (rows) => {
 				sent.push([table, rows]);
 				return replies.shift() ?? { error: null };
 			},
@@ -93,6 +96,33 @@ describe('a second device', () => {
 
 		serverVault.row = { owner_id: 'cuenta-1' };
 		expect(await cloudVaultExists()).toBe(true);
+	});
+});
+
+// El agujero que esto cierra: dos aparatos podían comprobar a la vez que la
+// cuenta no tenía bóveda, crear cada uno la suya con una llave distinta, y subir
+// las dos con `upsert`. Ganaba la última. Desde ese momento cada aparato subía
+// registros que el otro no podía abrir, y el código de recuperación del que
+// perdió la carrera quedaba muerto — sin que nadie dijera nada.
+describe('cuando la cuenta ya tiene una bóveda de otro aparato', () => {
+	it('para y lo dice, en vez de pisar la llave del otro', async () => {
+		await grantUploadConsent();
+		await createVault();
+		await createNote({ title: 'una' });
+		// Lo que contesta Postgres cuando ya hay una fila con ese dueño.
+		replies.push({
+			error: { code: '23505', message: 'duplicate key value violates unique constraint' }
+		});
+		const { syncNow, syncStatus } = await loadUpload();
+
+		await syncNow();
+
+		expect(syncStatus.error).toBe(
+			'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este dispositivo con su código de recuperación.'
+		);
+		// Y no sube nada: cifrado con una llave que la cuenta no tiene, cada
+		// registro sería un bulto que después nadie puede abrir.
+		expect(rowsFor('records')).toEqual([]);
 	});
 });
 

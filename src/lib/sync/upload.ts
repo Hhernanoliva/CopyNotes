@@ -36,7 +36,7 @@ import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
 import { getRecoveryBlob, getVaultKey } from './vault';
 import { ensureAccountMatches } from './leave';
-import { syncStatus } from './status.svelte';
+import { syncStatus, userFacing } from './status.svelte';
 import { now } from '../storage/ids';
 
 const BATCH = 200;
@@ -133,11 +133,24 @@ async function uploadBatch(client, key) {
 
 // The wrapped copy of the vault key — what a second device needs together with
 // the recovery code. Useless to anyone without that code.
+//
+// `insert`, nunca `upsert`. Dos aparatos pueden comprobar a la vez que la cuenta
+// no tiene bóveda y crear cada uno la suya, con llaves distintas; con `upsert`
+// ganaba la última y desde ese momento cada uno subía registros que el otro no
+// podía abrir, con el código de recuperación del perdedor ya muerto. Ahora la
+// PRIMERA bóveda gana: la segunda choca contra la clave primaria (el candado
+// tampoco deja pisarla, ver supabase/schema.sql) y este aparato para y lo dice,
+// que es lo único honesto — su llave no sirve para esta cuenta.
 async function uploadVaultBlob(client) {
 	if (vaultBlobSent) return;
 	const blob = await getRecoveryBlob();
 	if (!blob) return;
-	const { error } = await client.from('vaults').upsert(blob, { onConflict: 'owner_id' });
+	const { error } = await client.from('vaults').insert(blob);
+	// 23505 = unique_violation en Postgres.
+	if (error?.code === '23505')
+		throw userFacing(
+			'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este dispositivo con su código de recuperación.'
+		);
 	if (error) throw new Error(error.message);
 	vaultBlobSent = true;
 }
@@ -184,6 +197,12 @@ const SIN_CONEXION = /failed to fetch|networkerror|network error|load failed|fet
 function reportSyncFailure(error) {
 	const detail = error instanceof Error ? error.message : String(error ?? '');
 	syncStatus.errorDetail = detail;
+	// Un fallo que ya sabe explicarse va tal cual, y antes que nada: no es un
+	// problema de red que el próximo tic vaya a resolver solo.
+	if (error?.userFacing) {
+		syncStatus.error = detail;
+		return;
+	}
 	const desconectado = typeof navigator !== 'undefined' && navigator.onLine === false;
 	if (desconectado || SIN_CONEXION.test(detail)) {
 		syncStatus.offline = true;

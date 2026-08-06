@@ -182,6 +182,27 @@ ese renglón tuyo — toma lo que llegó recién cuando movés el cursor a otro 
 El código es lo único que abre la bóveda: si lo escribís mal, no pasa nada, no se
 rompe nada, simplemente no abre. Podés reintentar.
 
+**Una cuenta tiene una sola bóveda, y es la primera.** Si por lo que sea dos
+dispositivos intentan crear la suya casi al mismo tiempo, gana la que llegó
+primero y el otro te dice:
+
+> Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este
+> dispositivo con su código de recuperación.
+
+Ese dispositivo deja de sincronizar hasta que lo sumes con el código —lo de
+arriba— y **no sube nada mientras tanto**. Es a propósito: si subiera, mandaría
+notas cerradas con una llave que la cuenta no tiene, y después no las abriría
+nadie. Tus notas de ese dispositivo siguen enteras acá, como siempre.
+
+Si alguna vez ves este otro aviso:
+
+> Hay datos en la nube que este dispositivo no puede abrir: se cifraron con otra
+> llave. Sumá este dispositivo con el código de recuperación de la bóveda.
+
+es la misma historia contada desde el otro lado: llegaron notas cerradas con una
+llave distinta de la que tiene este dispositivo. Se arregla igual, con el código
+de recuperación.
+
 ## Si editás lo mismo en los dos lados
 
 Puede pasar: cambiaste el mismo renglón en la computadora y en el teléfono, o

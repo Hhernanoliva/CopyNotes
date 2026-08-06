@@ -63,9 +63,13 @@ function record(secret) {
 const a = await createAccount('a');
 const b = await createAccount('b');
 
+// La única puerta de escritura, y por eso también la de armado: `records` ya no
+// acepta un `insert` directo de nadie (ver la política en supabase/schema.sql).
+const push = async (client, payload) => unwrap(await client.rpc('push_records', { payload }));
+
 try {
-	unwrap(await a.client.from('records').insert(record('secreto-de-A')));
-	unwrap(await b.client.from('records').insert(record('secreto-de-B')));
+	await push(a.client, [{ ...record('secreto-de-A'), base_seq: null }]);
+	await push(b.client, [{ ...record('secreto-de-B'), base_seq: null }]);
 	console.log('✓ cada cuenta pudo guardar su propia fila (con el mismo id)');
 
 	// 1. Reading gives you your own row and nothing else.
@@ -81,30 +85,49 @@ try {
 	assert.equal(probe.length, 0, 'A pudo leer filas de B');
 	console.log('✓ A pide explícitamente las filas de B y recibe cero');
 
-	// 3. Planting a row in someone else's name must be refused by the server.
+	// 3. Escribir directo ya no existe: ni a nombre de otro, ni a nombre propio.
+	//    Antes esto se apoyaba en el filtro por dueño; ahora la razón es más
+	//    fuerte, porque no hay ninguna política que permita insertar.
 	const planted = await a.client.from('records').insert({ ...record('inyectado'), owner_id: b.id });
 	assert(planted.error, 'A pudo insertar una fila a nombre de B');
-	console.log(`✓ A no puede insertar a nombre de B (${planted.error.code})`);
+	const bare = await a.client.from('records').insert(record('por-la-ventana'));
+	assert(bare.error, 'A pudo insertar una fila saltándose push_records');
+	console.log(`✓ nadie puede insertar en records fuera de push_records (${bare.error.code})`);
 
-	// 4. Overwriting the other account's row silently changes nothing.
+	// 4. Ni actualizar ni borrar directo, ni lo de otro ni lo propio. Un cliente
+	//    viejo con un error, o una llamada a mano, ya no puede saltearse el
+	//    control de versiones ni vaciar la copia de la nube: un borrado tiene que
+	//    viajar como lápida, nunca como fila borrada.
 	unwrap(
 		await a.client.from('records').update({ blob: btoa('pisado') }).eq('table_name', 'notes')
 	);
+	unwrap(await a.client.from('records').delete().eq('table_name', 'notes'));
 	const stillB = unwrap(await b.client.from('records').select('blob'));
 	assert.equal(atob(stillB[0].blob), 'secreto-de-B', 'A pudo sobrescribir la fila de B');
-	console.log('✓ A no puede sobrescribir la fila de B');
+	const stillA = unwrap(await a.client.from('records').select('blob'));
+	assert.equal(stillA.length, 1, 'A pudo borrar su propia fila por fuera de push_records');
+	assert.equal(atob(stillA[0].blob), 'secreto-de-A', 'A pudo pisar su propia fila directo');
+	console.log('✓ actualizar y borrar directo no cambian nada, ni lo ajeno ni lo propio');
 
-	// 5. The vault key blob is locked the same way.
+	// 5. The vault key blob is locked the same way — y además sólo se puede crear
+	//    una vez. Sin eso, dos aparatos que crean su bóveda casi a la vez dejaban
+	//    la cuenta con una llave que abre la mitad de los registros.
 	unwrap(await b.client.from('vaults').insert({ salt: 's', iv: 'i', wrapped: 'w' }));
 	const vaults = unwrap(await a.client.from('vaults').select('owner_id'));
 	assert.equal(vaults.length, 0, 'A pudo leer la bóveda envuelta de B');
 	console.log('✓ A no puede leer la llave envuelta de B');
 
+	const secondVault = await b.client.from('vaults').insert({ salt: 's2', iv: 'i2', wrapped: 'w2' });
+	assert.equal(secondVault.error?.code, '23505', 'B pudo crear una segunda bóveda');
+	unwrap(await b.client.from('vaults').update({ wrapped: 'pisada' }).eq('owner_id', b.id));
+	const vaultB = unwrap(await b.client.from('vaults').select('wrapped'));
+	assert.equal(vaultB[0].wrapped, 'w', 'la llave envuelta de B se pudo pisar');
+	console.log('✓ la primera bóveda de la cuenta gana: no se puede duplicar ni pisar');
+
 	// 6. The exact call `sync/upload.ts` makes. Records go up through
 	//    `push_records`, never a bare upsert, because it is the only writer that
 	//    can refuse one. Standing on the version the server holds overwrites;
 	//    standing on a stale one is refused and changes nothing.
-	const push = async (client, payload) => unwrap(await client.rpc('push_records', { payload }));
 	const refusedNone = await push(a.client, [
 		{ ...record('secreto-de-A-v2'), change_seq: 2, base_seq: 1 }
 	]);

@@ -32,3 +32,11 @@ export const syncStatus = $state({
 	// que se lee: viaja en el `title` para cuando haya que reportar un problema.
 	errorDetail: null
 });
+
+// Un fallo cuyo `message` YA es la línea de arriba: en castellano, dice qué pasó
+// y qué hacer. Sin esta marca, `reportSyncFailure` lo toma por detalle técnico y
+// muestra la frase genérica ("No se pudo sincronizar"), que para algunos casos
+// —una cuenta con dos bóvedas, por ejemplo— no le dice nada a nadie.
+export function userFacing(message) {
+	return Object.assign(new Error(message), { userFacing: true });
+}

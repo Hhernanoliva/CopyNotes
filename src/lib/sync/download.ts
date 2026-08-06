@@ -18,6 +18,7 @@ import { db, markSentToCloud, putFromCloud } from '../storage/db';
 import { sameToTheUser } from '../storage/row-compare';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
+import { userFacing } from './status.svelte';
 
 const BATCH = 200;
 const COLUMNS = 'table_name, id, change_seq, deleted, iv, blob, server_seq';
@@ -102,8 +103,21 @@ function decide(local, payload, uploadMark) {
 // The server column is `table_name`; the record's identity — which is bound into
 // the encryption itself — is `table:id`, so it has to be renamed before the blob
 // will open at all.
+//
+// Que no abra tiene una sola causa realista: fue cifrado con OTRA llave, o sea
+// que en algún momento esta cuenta llegó a tener dos bóvedas. El navegador tira
+// ahí un `OperationError` sin nada adentro, y publicarlo como "no se pudo
+// sincronizar" era mandar a la persona a mirar la conexión de por vida, cuando
+// lo que hay que hacer es sumar este aparato con el código de recuperación.
 async function decryptPayload(key, payload) {
-	const row = await decryptRecord(key, { ...payload, table: payload.table_name });
+	let row;
+	try {
+		row = await decryptRecord(key, { ...payload, table: payload.table_name });
+	} catch {
+		throw userFacing(
+			'Hay datos en la nube que este dispositivo no puede abrir: se cifraron con otra llave. Sumá este dispositivo con el código de recuperación de la bóveda.'
+		);
+	}
 	return { ...row, changeSeq: payload.change_seq };
 }
 

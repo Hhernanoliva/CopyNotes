@@ -34,8 +34,8 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 1 | La sincronización se saltea cambios para siempre | ✅ **Arreglado**, con un techo anotado |
 | 2 | Dos ediciones distintas parecen la misma versión | ✅ **Arreglado** (5/8) |
 | 3 | Llave y permisos de la cuenta anterior | ✅ **Arreglado** |
-| 4 | Se puede escribir sin pasar por `push_records` | 🔍 **Vivo — falta cavar** |
-| 5 | Dos aparatos crean dos bóvedas | 🔍 **Vivo — falta cavar** |
+| 4 | Se puede escribir sin pasar por `push_records` | ✅ **Arreglado** (6/8), falta pegar el SQL |
+| 5 | Dos aparatos crean dos bóvedas | ✅ **Arreglado** (6/8), falta pegar el SQL |
 | 6 | Cambiar el tipo de un grupo borra el texto recién escrito | ✅ **Arreglado** |
 | 7 | Deshacer pisa un cambio del otro aparato | ✅ **Arreglado** |
 | 8 | Dos pestañas se pisan en silencio | 🔍 **Vivo — falta cavar** |
@@ -105,7 +105,8 @@ Era la pregunta que faltaba responder. Lo que le pasa:
 
 **Consecuencia para el arreglo:** prevenir no alcanza. Va `insert` en vez de
 `upsert` (la primera bóveda gana), **y** un mensaje propio cuando un registro no
-se puede abrir, en vez del error genérico.
+se puede abrir, en vez del error genérico. **Los dos están hechos (6/8)**, ver
+el punto 5 más abajo.
 
 ### 3. #4 la puerta del SQL: cavado, y la bóveda está en la misma puerta
 
@@ -368,6 +369,25 @@ como lápida, nunca como fila borrada.
 adaptar `rls-check.mjs`. **Te toca a vos** pegar el SQL nuevo en el editor de
 Supabase; el resto lo hago yo.
 
+**Hecho (6/8), junto con el 5 en un solo SQL.** `own_records` quedó en `for
+select` y nada más, así que escribir directo —insertar, actualizar o borrar— ya
+no existe para nadie. `push_records` pasó a `security definer` para poder seguir
+escribiendo con la puerta cerrada, con dos consecuencias anotadas en el archivo:
+el candado por fila ya no lo filtra, así que el filtro por dueño es ahora la
+única defensa y está escrito a la vista en las dos ramas (`auth.uid()` en el
+`insert`, `owner_id = auth.uid()` en el `update`), más un corte de entrada si no
+hay sesión.
+
+`rls-check.mjs` cambió más de lo previsto, y para mejor: el armado ya usa
+`push_records`, y las pruebas 3 y 4 pasaron de "el candado filtra lo ajeno" a
+**"escribir directo no existe"** — se comprueba también sobre la fila **propia**,
+que es el caso que de verdad se estaba tapando (un cliente viejo, o un borrado a
+mano, vaciando la copia de la nube).
+
+**Falta:** pegar el SQL en Supabase y correr `pnpm rls:check`. Hasta ahí, esto no
+está verificado — un Postgres local ya pasó las siete pruebas una vez mientras el
+proyecto real fallaba.
+
 ---
 
 ## 5. Dos aparatos crean dos bóvedas — 🔍 vivo, falta cavar
@@ -415,6 +435,28 @@ el arreglo es "prevenir" o "prevenir y avisar".
 `insert` a secas. Si choca, esta cuenta ya tiene bóveda de otro aparato → parar la
 sincronización y decirlo con todas las letras, en vez de pisar. La primera bóveda
 gana siempre.
+
+**Hecho (6/8).** Tres piezas:
+
+- **El candado.** `vaults` da `select` e `insert`, nunca `update` ni `delete`. La
+  clave primaria es el dueño, así que la segunda bóveda choca contra el servidor
+  y no contra una comprobación del cliente que se puede correr en el medio.
+- **El aviso del que pierde.** `uploadVaultBlob` lee ese choque (`23505` de
+  Postgres) y para la sincronización con un mensaje que dice qué pasó y qué
+  hacer: sumar este aparato con el código de recuperación. Y **no sube nada** —
+  cada registro que mandara sería un bulto cifrado con una llave que la cuenta no
+  tiene.
+- **El aviso del otro lado.** Lo que respondía la segunda pasada: el daño también
+  se ve como un registro que no abre. `decryptPayload` ahora traduce eso a su
+  propio mensaje en vez del genérico "No se pudo sincronizar", que mandaba a
+  mirar la conexión para siempre.
+
+Los dos mensajes van marcados `userFacing`, la única marca que `reportSyncFailure`
+publica tal cual, y **antes** de la comprobación de "sin conexión": una respuesta
+concreta del servidor no es un problema de red que el próximo tic arregle solo.
+
+**Techo:** la mitad de "subir antes de confirmar el código" queda igual, a
+propósito (arriba está el porqué).
 
 ---
 
@@ -935,11 +977,13 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 **Tercero — cerrar puertas**
 
-7. [ ] **#4 + #5 juntos, un solo SQL.** `records` y `vaults` pasan a `for select`;
-       `push_records` a `security definer` con el filtro de dueño explícito;
-       `uploadVaultBlob` deja de ser `upsert`. Más el mensaje propio para "no
-       puedo abrir este registro". `rls-check.mjs` cambia en dos líneas de armado.
-       **Te toca a vos** pegar el SQL en Supabase.
+7. [x] **#4 + #5 juntos, un solo SQL.** `records` quedó en `for select`; `vaults`
+       en `select` + `insert` (la primera bóveda gana); `push_records` pasó a
+       `security definer` con el filtro de dueño explícito; `uploadVaultBlob` es
+       `insert` y lee el choque `23505`. Más los dos mensajes propios, marcados
+       `userFacing`. `rls-check.mjs` ahora arma con `push_records` y prueba que
+       escribir directo no existe **ni sobre la fila propia**. **Hecho 6/8.**
+       **Falta:** pegás el SQL en Supabase y corrés `pnpm rls:check`.
 8. [ ] **#12** avisar en pantalla cuando la pausa no se pudo cumplir.
 
 **Cuarto — limpieza**
@@ -948,7 +992,10 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
        dependencias sin uso. Al borrar `makeToolHandler`, borrar también el
        comentario de `mcp/server.js:67` que lo nombra.
 10. [ ] La lista de tablas, de tres copias a una.
-11. [ ] Comentario viejo de `schema.sql:20-24` (habla de un problema ya resuelto).
+11. [x] Comentario viejo de `schema.sql:20-24` (hablaba de un problema ya
+        resuelto). Fue con el SQL de arriba: el archivo se pega entero igual, y
+        dos pasadas por el editor de Supabase para cambiar un comentario no
+        tienen sentido. **Hecho 6/8.**
 12. [ ] Comillas del comando de Claude Code.
 13. [ ] Alinear las versiones.
 14. [ ] **Los dos generadores de HTML**: unificar en la versión de `copy`, que es
