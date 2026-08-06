@@ -1,5 +1,19 @@
 import { test, expect } from '@playwright/test';
 
+// La página se sirve pre-renderizada, así que los botones de la cabecera existen
+// en el HTML ANTES de que la app se conecte a ellos. Un clic en esa ventana no
+// hace nada y se pierde en silencio: la prueba seguía como si el diálogo se
+// hubiera abierto y fallaba 5 segundos después, sobre un elemento que estaba en
+// el DOM pero sin dibujar. Bajo carga (la suite entera en paralelo) esa ventana
+// se agranda y fallaba la mitad de las veces.
+//
+// Esperar el título de la nota sembrada prueba que el JavaScript de la app ya
+// corrió — es la misma señal que usa `critical-flows.spec.ts` en su primer test.
+async function openApp(page) {
+	await page.goto('/');
+	await expect(page.getByLabel('Título de la nota')).toHaveValue(/Bienvenido a CopyNotes/);
+}
+
 // Reads visibility straight out of the app's IndexedDB, bypassing the UI: the
 // agent gate reads the database, not the screen, so this is the only honest way
 // to ask "is it revoked YET?".
@@ -23,7 +37,7 @@ function countVisibleNotes(page) {
 }
 
 test('note header exposes an agent-visibility toggle that persists', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	// Create a note (adjust selector to your suite's helper if one exists).
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 
@@ -45,7 +59,7 @@ test('note header exposes an agent-visibility toggle that persists', async ({ pa
 test('hiding a note from agents is persisted without waiting out the debounce', async ({
 	page
 }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 	const toggle = page.getByRole('button', { name: 'Visible para agentes' });
 
@@ -63,7 +77,7 @@ test('hiding a note from agents is persisted without waiting out the debounce', 
 test('in the browser the agent toggle says it only takes effect on the desktop app', async ({
 	page
 }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Nueva nota' }).click();
 
 	// The button stays (the mark travels to the desktop through the cloud), but
@@ -84,7 +98,7 @@ test('in the browser the agent toggle says it only takes effect on the desktop a
 test('off desktop, Settings shows only the muted MCP line (no per-client blocks)', async ({
 	page
 }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	// In the browser isTauriRuntime() is false, so the whole per-client block is
