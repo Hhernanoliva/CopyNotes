@@ -4,6 +4,7 @@
 import { isTauriRuntime } from '$lib/platform';
 import { buildAgentExport } from './export';
 import { ingestAgentChange } from './ingest';
+import { agentData } from './signal.svelte';
 
 // What Rust sends per inbox request. Declared because listen<T>() otherwise
 // hands back `unknown` and nothing can be read off the payload.
@@ -19,11 +20,28 @@ async function writeAgentExportUnsafe() {
 // Serialize exports so overlapping calls write in submission order: the newest
 // bump's payload is always the last written, so a hidden note can never be
 // clobbered back into export.json by a slower, earlier (still-visible) export.
+//
+// Y el resultado se anota. Los tres lugares que llaman a esto tragaban el fallo
+// con un `console.error`, que no lo mira nadie: si la escritura no sale —disco
+// lleno, permisos— el export.json ANTERIOR se queda en el disco y el agente lo
+// sigue leyendo. Cuando lo que se acaba de apretar es "Pausar agentes", eso es
+// un interruptor de privacidad que no se cumplió y hay que decirlo. Se marca
+// acá, en la única puerta por la que pasan las tres llamadas, y no en cada una.
 let exportChain = Promise.resolve();
 export function writeAgentExport() {
 	const run = exportChain.then(() => writeAgentExportUnsafe(), () => writeAgentExportUnsafe());
 	exportChain = run.then(() => undefined, () => undefined);
-	return run;
+	// El error se sigue propagando: quien llame puede seguir haciendo lo suyo.
+	return run.then(
+		(value) => {
+			agentData.exportFailed = false;
+			return value;
+		},
+		(error) => {
+			agentData.exportFailed = true;
+			throw error;
+		}
+	);
 }
 
 // Starts the Rust inbox watcher and ingests each agent change through the gate,

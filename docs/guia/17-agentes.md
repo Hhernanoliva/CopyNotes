@@ -74,6 +74,26 @@ No te desarma nada: las marcas 🤖 de cada nota quedan como estaban. Tocás
 computadora** —no viaja a tus otros dispositivos— y **sobrevive a restaurar un
 respaldo**: un archivo viejo nunca puede despausarte sin que te enteres.
 
+### Si la pausa no se pudo cumplir, te lo dice
+
+Para que el agente pueda leer con CopyNotes cerrada, la lista de lo que ve vive
+en un archivo en tu disco. Pausar significa vaciar ese archivo, y eso puede
+fallar: disco lleno, permisos. Cuando pasa, ahí mismo en **Configuración ›
+Agentes** aparece en rojo:
+
+> **La pausa todavía no se cumplió.** No se pudo actualizar el archivo que leen
+> los agentes, así que pueden seguir leyendo las notas que marcaste (cambiarlas
+> no: eso ya está cortado).
+
+O sea: **cambiar tus notas queda cortado igual** —eso no depende del archivo—,
+pero **leer** sigue siendo posible hasta que la escritura salga bien. Se
+reintenta sola con el próximo cambio en tus notas, así que muchas veces se
+arregla sin que hagas nada. Si el aviso no se va, es el disco: liberá espacio o
+revisá los permisos.
+
+El mismo aviso aparece sin la pausa puesta, con otro texto ("Los agentes están
+viendo una versión anterior"), porque el problema es el mismo archivo.
+
 ## Ver la actividad y pedir que lo rehaga
 
 En **Configuración** (engranaje ⚙️) hay una sección **Agentes** con la lista de

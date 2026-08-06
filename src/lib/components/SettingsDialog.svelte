@@ -6,6 +6,7 @@
 	import { isTauriRuntime } from '$lib/platform';
 	import { DESKTOP_DOWNLOAD_URL, DESKTOP_RELEASE_PUBLISHED } from '$lib/desktop/download';
 	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
+	import { agentData } from '$lib/bridge/signal.svelte';
 	import {
 		claudeCodeCommand,
 		openCodeConfig,
@@ -815,6 +816,26 @@
 						{agentsPaused ? 'Reanudar' : 'Pausar agentes'}
 					</button>
 				</div>
+
+				<!-- El archivo que el agente lee vive en el disco, así que la pausa se
+				     cumple recién cuando se pudo reemplazar. Si esa escritura falla, el
+				     archivo anterior se queda ahí y el agente lo sigue leyendo: un
+				     interruptor de privacidad que no se cumplió no puede quedar en una
+				     línea de consola. Aviso, no bloqueo — la app sigue andando. -->
+				{#if agentData.exportFailed}
+					<p role="alert" class="text-destructive text-sm">
+						{#if agentsPaused}
+							<span class="font-bold">La pausa todavía no se cumplió.</span> No se pudo
+							actualizar el archivo que leen los agentes, así que pueden seguir leyendo
+							las notas que marcaste (cambiarlas no: eso ya está cortado).
+						{:else}
+							<span class="font-bold">Los agentes están viendo una versión anterior.</span>
+							No se pudo actualizar el archivo que leen.
+						{/if}
+						Suele ser falta de espacio o de permisos en el disco. Se reintenta solo con
+						el próximo cambio en tus notas.
+					</p>
+				{/if}
 			{/if}
 
 			{#if activity.length === 0}

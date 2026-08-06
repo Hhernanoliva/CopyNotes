@@ -42,7 +42,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 9 | La barrera de guardado oculta sus propios fallos | ✅ **Arreglado** (5/8) |
 | 10 | Restaurar produce notas incompletas | ✅ **Arreglado** (6/8) |
 | 11 | "Reemplazar todo" reactiva agentes | ✅ **Arreglado** |
-| 12 | Pausar agentes puede fallar y dejar las notas legibles | ❌ **Vivo — confirmado**, y menor |
+| 12 | Pausar agentes puede fallar y dejar las notas legibles | ✅ **Arreglado** (6/8) |
 | — | Un pedido MCP sin id se aplica dos veces | ✅ **Arreglado** (6/8) |
 | — | `.env` con permisos 0644 | 🚫 **Falso** |
 | — | Rust sigue enlaces simbólicos | 🚫 **Falso en la práctica** |
@@ -741,6 +741,25 @@ buscada).
 pausa es un interruptor de privacidad: si no se pudo cumplir, hay que decirlo en
 pantalla. Un aviso, no un bloqueo.
 
+**Hecho (6/8).** La marca se pone en `writeAgentExport` (`bridge/tauri.ts`), que
+es la **única puerta** por la que pasan las tres llamadas que tragaban el error —
+poner el `catch` en cada una hubiera dejado la próxima que alguien agregue sin
+red. Escribe `agentData.exportFailed`, y `Configuración › Agentes` lo dibuja en
+rojo con dos textos distintos, porque el daño es distinto:
+
+- **Con la pausa puesta:** *"La pausa todavía no se cumplió"* — pueden seguir
+  **leyendo** las notas marcadas. Escribir sigue cortado igual, porque eso lo
+  decide `ingest.ts` leyendo la base de datos en cada pedido, no el archivo.
+- **Sin la pausa:** *"Los agentes están viendo una versión anterior"*.
+
+El error se sigue propagando a quien llamó, y la marca se borra sola apenas una
+escritura vuelve a salir bien — cosa que pasa con el próximo cambio en cualquier
+nota, así que en la mayoría de los casos se arregla sin que nadie haga nada.
+
+**Queda igual a propósito:** `mcp/lib/resources.js` sigue entregando el archivo
+viejo con su aviso de 24 horas. Leer con la app cerrada es una función buscada, y
+la app apagada no tiene forma de avisar nada.
+
 ---
 
 ## Otros riesgos
@@ -989,7 +1008,10 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
        `userFacing`. `rls-check.mjs` ahora arma con `push_records` y prueba que
        escribir directo no existe **ni sobre la fila propia**. **Hecho 6/8, con
        el SQL ya corrido en Supabase y `pnpm rls:check` en verde (7/7).**
-8. [ ] **#12** avisar en pantalla cuando la pausa no se pudo cumplir.
+8. [x] **#12** avisar en pantalla cuando la pausa no se pudo cumplir. La marca la
+       pone `writeAgentExport`, la única puerta de las tres llamadas que tragaban
+       el error, y `Configuración › Agentes` la dibuja con dos textos según haya
+       pausa o no. **Hecho 6/8.**
 
 **Cuarto — limpieza**
 
