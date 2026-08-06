@@ -48,8 +48,129 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | — | Rust sigue enlaces simbólicos | 🚫 **Falso en la práctica** |
 | — | Comillas del comando de Claude Code | ❌ **Vivo**, teórico |
 | — | Sin límites de tamaño en importaciones | ❌ **Vivo**, menor |
-| — | Capacidad de Tauri sin permiso para `destroy()` | 🔍 **Falta cavar** |
-| — | Código muerto y dependencias sin uso | ❌ **Confirmado**, todo |
+| — | Capacidad de Tauri sin permiso para `destroy()` | ❌ **Vivo — confirmado** (6/8), y no es menor |
+| — | Código muerto y dependencias sin uso | ❌ **Confirmado**, salvo un punto falso |
+
+---
+
+## Revisión de la revisión — 6 de agosto
+
+Segunda pasada sobre **todo lo que quedaba abierto**, leyendo el código de hoy,
+para ver si algo se analizó mal o se escapó. Nueve puntos se confirmaron tal cual.
+Estos siete cambian:
+
+### 1. La capacidad de Tauri no es "falta cavar": está rota — ❌ confirmado
+
+No hace falta probarlo en tu Mac, se lee en el archivo que genera Tauri.
+`src-tauri/gen/schemas/acl-manifests.json` lista qué trae `core:window:default`:
+28 permisos, todos de **preguntar** (tamaño, posición, si está minimizada). El
+permiso `allow-destroy` **existe** en el manifiesto pero **no está** en ese
+paquete. Nuestra capacidad (`capabilities/default.json`) declara sólo
+`core:default`.
+
+O sea: `appWindow.destroy()` (`TauriLifecycle.svelte:36`) lo rechaza el permiso.
+Y el `catch` que lo rodea muestra *"No se pudo guardar. La ventana sigue abierta
+para reintentar"* — un mensaje sobre guardar, cuando lo que falló fue cerrar. El
+guardado salió bien.
+
+**Por qué quizás nunca lo viste:** en Mac, ⌘Q no pasa por ese camino. Lo que
+tendría que fallar es cerrar con el botón rojo de la ventana.
+
+**Arreglo:** agregar `core:window:allow-destroy` a la capacidad (una línea) y que
+el fallo de cerrar no se disfrace de fallo de guardar. **Requiere build de
+escritorio y probarlo a mano.**
+
+### 2. #5 la bóveda: el que pierde la carrera NO queda en silencio
+
+Era la pregunta que faltaba responder. Lo que le pasa:
+
+1. `getVaultKey()` devuelve la llave vieja, así que el aparato sigue trabajando
+   normal **en local**.
+2. Al bajar, `decryptRecord` no puede abrir lo que subió el otro aparato y
+   **tira error**. `downloadOnce` lo propaga, `syncNow` lo atrapa y muestra *"No
+   se pudo sincronizar. Lo tuyo está guardado en este dispositivo"*.
+3. Eso pasa en **los dos** aparatos y en **cada** tic, para siempre. Ninguno dice
+   la verdad, que es "estas dos máquinas ya no comparten llave".
+4. Y el código de recuperación del que perdió queda **muerto**: `vaults` guarda
+   el envoltorio del que llegó último.
+
+**Consecuencia para el arreglo:** prevenir no alcanza. Va `insert` en vez de
+`upsert` (la primera bóveda gana), **y** un mensaje propio cuando un registro no
+se puede abrir, en vez del error genérico.
+
+### 3. #4 la puerta del SQL: cavado, y la bóveda está en la misma puerta
+
+- **La app nunca escribe `records` directo.** Confirmado: en todo `src/` hay una
+  sola escritura, `upload.ts:107` vía `push_records`, más un `select` en
+  `download.ts:128`. Cerrar la puerta no rompe nada de la app.
+- **`rls-check.mjs` se arregla con dos líneas.** Sólo los `insert` de armado
+  (`:67-68`) dependen de escribir directo; se reescriben con `push_records`. Las
+  pruebas 3 y 4 (plantar una fila a nombre de otro, pisar la fila de otro) siguen
+  pasando, y por un motivo **más fuerte**: ya no es "el candado lo filtra" sino
+  "escribir directo no existe".
+- **Lo que el informe no dijo:** la política `own_vault` también es `for all`
+  (`schema.sql:207-212`). O sea que la bóveda se puede **borrar o pisar** a mano
+  igual que los registros — que es exactamente el daño del punto 5. Los dos
+  arreglos son **un solo cambio de SQL**, y conviene hacerlos juntos.
+
+### 4. #8 dos pestañas: con la nube prendida no es silencioso
+
+El mecanismo es el que describe el informe, pero el daño depende de si la nube
+está prendida:
+
+- **Sin nube:** gana la última pestaña, en silencio. Como decía.
+- **Con nube:** la segunda pestaña sube parada sobre una versión que el servidor
+  ya no tiene, el servidor la **rechaza**, y al bajar aparece como **conflicto**
+  — la pantalla de las dos versiones que ya existe. Molesto, pero no silencioso.
+
+Confirmado además que no hay **nada** de coordinación entre pestañas: ni
+`BroadcastChannel`, ni `visibilitychange` que recargue (el único que hay,
+`Editor.svelte:476`, sólo vacía guardados pendientes al ocultarse).
+
+Sigue último de la lista, y ahora con más razón.
+
+### 5. "SettingsDialog toca Dexie directo" es FALSO
+
+`src/lib/components/SettingsDialog.svelte` no importa `db` ni usa `.table(`. Todo
+pasa por repositorios (`$lib/storage`, `$lib/sync/...`). Las líneas que cita el
+informe (`:39`, `:95-109`) son otra cosa: una variable de estado y los botones del
+código por email. Sale de la lista de limpieza.
+
+### 6. `makeToolHandler` está muerto **y** deja un comentario que miente
+
+Confirmado que sólo lo usan las pruebas: `mcp/server.js` no lo importa (`:21-33`).
+Pero `mcp/server.js:67` tiene un comentario que dice *"(server.js, via
+makeToolHandler)"*, describiendo un cableado que ya no existe. Al borrar la
+función hay que borrar el comentario, o queda peor que antes.
+
+### 7. Las dependencias cambiaron desde el 5/8
+
+`pnpm audit` hoy: **8 altas, 5 moderadas, 1 baja** (eran 4 altas y 1 baja).
+Módulos: `brace-expansion`, `cookie`, `fast-uri`, `postcss` y **`undici`**, que es
+nuevo. **Todas siguen siendo de herramientas de construcción** (`dev`), o sea que
+el riesgo es sobre el build, no sobre la app publicada.
+
+`@hono/node-server@1.19.14` no aparece más en esa cuenta porque vive en
+`mcp/node_modules`, que es un paquete aparte. Sigue ahí, sigue sin usarse (el
+canal es stdio) — pero vale anotar que `tauri.conf.json:29-32` **empaqueta
+`mcp/node_modules` entero dentro de la .app**, así que ese código viaja en el
+producto aunque nunca se ejecute.
+
+### 8. Dos cosas confirmadas con más precisión que antes
+
+- **Borrar el renglón padre deja la nota sin renglones: es real, y es una
+  asimetría dentro del mismo archivo.** Borrar una **selección**
+  (`Editor.svelte:1519`) crea un renglón nuevo si la nota quedó vacía. Borrar
+  desde el **menú del renglón** (`handleDeleteBlock`, `:1287`) no: `canDeleteFromMenu`
+  sólo mira `blocks.length > 1`, y esa cuenta incluye a los hijos que se van con
+  el padre. Nota con padre + hijo = 2 renglones → borrás el padre → quedan **cero**.
+- **Los dos generadores de HTML divergen donde casi nunca se llega.** La
+  diferencia está en el `inlineHtml` de respaldo, el que se usa **sólo si el
+  renglón no tiene `html` guardado**: `copy/format.ts` convierte los saltos
+  blandos en `<br>`, `note-export.ts` no. Como `createBlock` y `createTask`
+  rellenan `html` desde `plainTextToHtml`, sólo llegan ahí renglones viejos, de
+  antes de que existiera ese campo. **La versión correcta es la de `copy`**, y con
+  eso el punto 14 de la cola queda respondido sin más investigación.
 
 ---
 
@@ -635,7 +756,15 @@ nombre. **Arreglo:** comillas simples con el escape estándar. Una línea.
 tamaño. Un JSON gigante cuelga la pestaña. Es **tu propio archivo**, elegido por
 vos. **Arreglo:** un tope y un mensaje. Bajo.
 
-### Capacidad de Tauri sin permiso para `destroy()` — 🔍 falta cavar
+### Capacidad de Tauri sin permiso para `destroy()` — ❌ vivo, confirmado el 6/8
+
+**Ya no hace falta probarlo:** el manifiesto que genera Tauri
+(`src-tauri/gen/schemas/acl-manifests.json`) dice que `core:window:default` trae
+28 permisos y **ninguno** es `allow-destroy`. El detalle está arriba, en "Revisión
+de la revisión", punto 1.
+
+Lo que sigue es el texto original del triage.
+
 
 El informe dice que `src-tauri/capabilities/default.json:8-10` declara sólo
 `core:default`, y que `destroy()` necesita un permiso que no aparece.
@@ -771,26 +900,41 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 4. [x] **Pedido MCP sin id.** Rechazado con razón propia (`missing-id`).
        **Hecho 6/8.**
 
-**Segundo — cerrar puertas**
+**Segundo — cosas rotas que quedaron a la vista en la segunda pasada**
 
-5. [ ] **#4** la puerta del SQL. **Cavar** `rls-check.mjs` primero. Te toca pegar
-       el SQL en Supabase.
-6. [ ] **#5** la bóveda. **Cavar** qué le pasa al aparato que pierde la carrera.
-7. [ ] **#12** avisar en pantalla cuando la pausa no se pudo cumplir.
+5. [ ] **Capacidad de Tauri.** Cerrar con el botón rojo no puede funcionar: falta
+       `core:window:allow-destroy`. Una línea en la capacidad + que el mensaje no
+       hable de guardar. **Gate manual: build de escritorio.**
+6. [ ] **Borrar el renglón padre desde el menú deja la nota sin renglones.**
+       `canDeleteFromMenu` cuenta los hijos que se van con el padre. El camino de
+       la selección ya hace lo correcto; hay que igualarlos.
 
-**Tercero — limpieza**
+**Tercero — cerrar puertas**
 
-8. [ ] Código muerto (7 cosas) y 4 dependencias sin uso.
-9. [ ] La lista de tablas, de tres copias a una.
-10. [ ] Comentario viejo de `schema.sql:20-24` (habla de un problema ya resuelto).
-11. [ ] Comillas del comando de Claude Code.
-12. [ ] Alinear las versiones.
+7. [ ] **#4 + #5 juntos, un solo SQL.** `records` y `vaults` pasan a `for select`;
+       `push_records` a `security definer` con el filtro de dueño explícito;
+       `uploadVaultBlob` deja de ser `upsert`. Más el mensaje propio para "no
+       puedo abrir este registro". `rls-check.mjs` cambia en dos líneas de armado.
+       **Te toca a vos** pegar el SQL en Supabase.
+8. [ ] **#12** avisar en pantalla cuando la pausa no se pudo cumplir.
 
-**Cuarto — lo que hay que mirar antes de decidir**
+**Cuarto — limpieza**
 
-13. [ ] **Capacidad de Tauri**: ¿cierra bien la ventana hoy?
-14. [ ] **Los dos generadores de HTML**: ¿cuál trata bien los saltos de línea?
-15. [ ] **#8** dos pestañas. **Cavar** el daño real. Es una función, no un parche.
+9. [ ] Código muerto (6 cosas — `SettingsDialog` sale de la lista) y 4
+       dependencias sin uso. Al borrar `makeToolHandler`, borrar también el
+       comentario de `mcp/server.js:67` que lo nombra.
+10. [ ] La lista de tablas, de tres copias a una.
+11. [ ] Comentario viejo de `schema.sql:20-24` (habla de un problema ya resuelto).
+12. [ ] Comillas del comando de Claude Code.
+13. [ ] Alinear las versiones.
+14. [ ] **Los dos generadores de HTML**: unificar en la versión de `copy`, que es
+        la correcta. Ya no hay nada que investigar.
+15. [ ] Tope de tamaño al importar un archivo.
+
+**Quinto — lo que sigue siendo una función, no un parche**
+
+16. [ ] **#8** dos pestañas. Con la nube prendida aparece como conflicto, no como
+        pérdida silenciosa. Último.
 
 **No entra por ahora**
 
