@@ -5,6 +5,10 @@ export const REASON = {
 	notAllowed: 'not-allowed',
 	notAgentVisible: 'not-agent-visible',
 	notATask: 'not-a-task',
+	// Sin id no hay idempotencia: el registro de repetidos se archiva POR id y la
+	// respuesta se escribe en outbox/<id>.json. Un pedido sin id no tiene red
+	// contra el doble aplicado ni forma de contestarse.
+	missingId: 'missing-id',
 	// The user pulled the master switch. Its own reason, not not-agent-visible,
 	// so the agent can tell "this note is private" from "everything is off right
 	// now" and stop retrying against every note it knows.

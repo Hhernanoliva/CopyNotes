@@ -25,6 +25,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 	it('rejects a change targeting a non-agent-visible note', async () => {
 		const note = await createNote(); // agentVisible defaults to false
 		const res = await ingestAgentChange({
+			id: 'chg-auto-1',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'x',
@@ -44,6 +45,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		await setAgentsPaused(true);
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-2',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'x',
@@ -56,6 +58,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		// And resuming puts it back exactly as it was — no note had to be re-marked.
 		await setAgentsPaused(false);
 		const after = await ingestAgentChange({
+			id: 'chg-auto-3',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'x',
@@ -103,6 +106,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		await softDeleteBlock(block.id);
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-4',
 			type: 'completeTask',
 			blockId: block.id,
 			agentId: 'agent'
@@ -123,6 +127,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		await updateBlock(block.id, { note: 'me lo debe Juan, no decirle al cliente' });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-5',
 			type: 'completeTask',
 			blockId: block.id,
 			agentId: 'agent'
@@ -139,6 +144,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		await updateNote(note.id, { agentVisible: true });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-6',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'Hola <img src=x onerror=alert(1)> mundo',
@@ -154,18 +160,44 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		expect(tasks[0].content).toContain('mundo');
 	});
 
+	// El id es la ÚNICA red contra el doble aplicado: Rust guarda el archivo del
+	// buzón hasta que la app confirma y lo vuelve a entregar en el próximo
+	// arranque, y el registro de repetidos se archiva por id. Un pedido sin id se
+	// aplicaría dos veces — y encima nadie podría leer la respuesta, que también
+	// se escribe por id.
+	it('rejects a change with no id instead of applying it without a net', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+
+		const res = await ingestAgentChange({
+			type: 'createTask',
+			noteId: note.id,
+			content: 'sin id',
+			agentId: 'agent'
+		});
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('missing-id');
+		expect(await listTasks(note.id)).toHaveLength(0);
+	});
+
 	it('rejects a forbidden action type', async () => {
 		const note = await createNote();
 		await updateNote(note.id, { agentVisible: true });
-		const res = await ingestAgentChange({ type: 'deleteTask', noteId: note.id, agentId: 'agent' });
+		const res = await ingestAgentChange({
+			id: 'chg-prohibido',
+			type: 'deleteTask',
+			noteId: note.id,
+			agentId: 'agent'
+		});
 		expect(res.ok).toBe(false);
 		expect(res.reason).toBe('not-allowed');
 	});
 
 	it('rejects reserved-name types that are not own handlers', async () => {
 		for (const type of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
-			const res = await ingestAgentChange({ type, noteId: 'whatever', agentId: 'agent' });
-			expect(res).toEqual({ ok: false, reason: 'not-allowed' });
+			const id = `chg-${type}`;
+			const res = await ingestAgentChange({ id, type, noteId: 'whatever', agentId: 'agent' });
+			expect(res).toEqual({ id, ok: false, reason: 'not-allowed' });
 		}
 	});
 
@@ -180,6 +212,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		await updateNote(hidden.id, { agentVisible: false });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-10',
 			type: 'completeTask',
 			noteId: visible.id, // agent lies: claims the still-visible note
 			blockId: block.id, // but targets the now-hidden note's task
@@ -200,6 +233,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const textBlock = await createBlock({ noteId: note.id, type: 'text', content: 'prosa' });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-11',
 			type: 'completeTask',
 			noteId: note.id,
 			blockId: textBlock.id,
@@ -216,6 +250,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const { block } = await createTask({ noteId: note.id, content: 'tarea', actor: 'user' });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-12',
 			type: 'completeTask',
 			noteId: note.id,
 			blockId: block.id,
@@ -237,6 +272,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 		const { block } = await createTask({ noteId: note.id, content: 'tarea', actor: 'user' });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-13',
 			type: 'addNote',
 			noteId: note.id,
 			blockId: block.id,
@@ -255,6 +291,7 @@ describe('ingestAgentChange (untrusted agent input)', () => {
 
 		// A malicious file claims to be the user.
 		const res = await ingestAgentChange({
+			id: 'chg-auto-14',
 			type: 'createTask', noteId: note.id, content: 'x', agentId: 'user'
 		});
 		expect(res.ok).toBe(true);
@@ -349,6 +386,7 @@ describe('agent writes and the cloud', () => {
 		await grantUploadConsent();
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-15',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'tarea del agente',
@@ -378,6 +416,7 @@ describe('agent writes and the cloud', () => {
 		);
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-16',
 			type: 'completeTask',
 			noteId: note.id,
 			blockId: block.id,
@@ -399,6 +438,7 @@ describe('agent writes and the cloud', () => {
 		await updateNote(note.id, { agentVisible: true });
 
 		const res = await ingestAgentChange({
+			id: 'chg-auto-17',
 			type: 'createTask',
 			noteId: note.id,
 			content: 'tarea del agente',

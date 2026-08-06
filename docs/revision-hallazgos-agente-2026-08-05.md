@@ -43,7 +43,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 10 | Restaurar produce notas incompletas | ✅ **Arreglado** (6/8) |
 | 11 | "Reemplazar todo" reactiva agentes | ✅ **Arreglado** |
 | 12 | Pausar agentes puede fallar y dejar las notas legibles | ❌ **Vivo — confirmado**, y menor |
-| — | Un pedido MCP sin id se aplica dos veces | ❌ **Vivo — confirmado** |
+| — | Un pedido MCP sin id se aplica dos veces | ✅ **Arreglado** (6/8) |
 | — | `.env` con permisos 0644 | 🚫 **Falso** |
 | — | Rust sigue enlaces simbólicos | 🚫 **Falso en la práctica** |
 | — | Comillas del comando de Claude Code | ❌ **Vivo**, teórico |
@@ -568,7 +568,7 @@ pantalla. Un aviso, no un bloqueo.
 
 ## Otros riesgos
 
-### Un pedido MCP sin id se aplica dos veces — ❌ vivo, confirmado
+### Un pedido MCP sin id se aplica dos veces — ✅ arreglado el 6/8
 
 `src/lib/bridge/ingest.ts:120` y `:150`: la protección contra repetidos es
 condicional.
@@ -586,6 +586,14 @@ Haría falta un archivo escrito a mano en el buzón.
 
 **Arreglo propuesto:** rechazar el pedido sin id, en vez de aplicarlo sin red. Dos
 líneas.
+
+**Hecho.** `ingestAgentChangeUnsafe` rechaza de entrada con una razón propia,
+`missing-id`, y las tres ramas condicionales de abajo (`if (change?.id)`) quedaron
+sin sentido y se fueron: el id ahora es obligatorio y se comprueba una sola vez.
+Rechazar no le saca nada a nadie: la respuesta también se escribe por id
+(`outbox/<id>.json`), así que un pedido sin id nunca podría leer lo que le
+contestemos. Costó además ponerle id a 17 llamadas de prueba que no lo tenían —
+eran pruebas escritas contra un contrato más flojo que el real.
 
 ### `.env` con permisos 0644 — 🚫 falso
 
@@ -760,7 +768,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
        **Falta el gate manual** entre tus dos aparatos.
 3. [x] **#10** restaurar. Cavado: (a) reproducido con prueba, (c) medido — no
        cuelga, desaparece. Los tres arreglos hechos. **Hecho 6/8.**
-4. [ ] **Pedido MCP sin id.** Confirmado. Dos líneas.
+4. [x] **Pedido MCP sin id.** Rechazado con razón propia (`missing-id`).
+       **Hecho 6/8.**
 
 **Segundo — cerrar puertas**
 

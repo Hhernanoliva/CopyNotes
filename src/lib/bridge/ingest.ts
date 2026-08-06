@@ -117,10 +117,16 @@ async function checkChange(change) {
 // concurrently: the check→apply→record sequence must not interleave, so the
 // exported wrapper below serializes calls.
 async function ingestAgentChangeUnsafe(change) {
-	if (change?.id) {
-		const seen = await getProcessedChange(change.id);
-		if (seen) return seen;
-	}
+	// El id no es opcional. Rust guarda el archivo del buzón hasta que la app
+	// confirma y lo vuelve a entregar en el próximo arranque, así que un pedido
+	// sin id —que no puede archivarse en el registro de repetidos— se aplicaría
+	// dos veces. Rechazarlo no le saca nada a nadie: `mcp/lib/mailbox.js` siempre
+	// pone uno, y la respuesta también se escribe por id (outbox/<id>.json), o sea
+	// que un pedido sin id tampoco podría leer lo que le contestemos.
+	if (!change?.id) return changeResult(undefined, { ok: false, reason: REASON.missingId });
+
+	const seen = await getProcessedChange(change.id);
+	if (seen) return seen;
 
 	const checked = await checkChange(change);
 
@@ -135,8 +141,8 @@ async function ingestAgentChangeUnsafe(change) {
 	// (mcp/lib/mailbox.js), so resuming and retrying inside that window would
 	// replay the stale "paused" answer with the agents already running.
 	if (!checked.run) {
-		const result = changeResult(change?.id, { ok: false, reason: checked.reason });
-		if (change?.id && checked.reason !== REASON.agentsPaused) {
+		const result = changeResult(change.id, { ok: false, reason: checked.reason });
+		if (checked.reason !== REASON.agentsPaused) {
 			await recordProcessedChange(change.id, result);
 		}
 		return result;
@@ -155,8 +161,8 @@ async function ingestAgentChangeUnsafe(change) {
 			db.table('activity'),
 			db.table('settings'),
 			async () => {
-				const result = changeResult(change?.id, { ok: true, result: await checked.run() });
-				if (change?.id) await putProcessedChangeInTx(change.id, result);
+				const result = changeResult(change.id, { ok: true, result: await checked.run() });
+				await putProcessedChangeInTx(change.id, result);
 				return result;
 			}
 		)
