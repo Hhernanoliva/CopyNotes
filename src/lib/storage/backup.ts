@@ -6,22 +6,8 @@
 import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
-import { LOCAL_ONLY_FIELDS } from '../export-import/schema';
+import { BACKUP_TABLES, LOCAL_ONLY_FIELDS } from '../export-import/schema';
 import { isBackupSafe } from './settings-registry';
-
-// `activity` (the task bitácora) is part of the portable backup as of spec 030
-// phase 0: it is user-visible history, and leaving it out meant every
-// backup/restore round-trip silently erased it.
-const TABLES = [
-	'notes',
-	'blocks',
-	'snippets',
-	'tags',
-	'tagAssignments',
-	'folders',
-	'activity',
-	'settings'
-];
 
 // The change counter (spec 030 phase 1) is per-device bookkeeping and never
 // leaves through here: a row is re-stamped when it is written, so a counter
@@ -52,9 +38,9 @@ function withoutLocalOnlyFields(rows) {
 
 export async function dumpAllTables() {
 	await settlePendingWrites();
-	return db.transaction('r', TABLES, async () => {
+	return db.transaction('r', BACKUP_TABLES, async () => {
 		const entries = await Promise.all(
-			TABLES.map(async (name) => [name, withoutLocalOnlyFields(await db.table(name).toArray())])
+			BACKUP_TABLES.map(async (name) => [name, withoutLocalOnlyFields(await db.table(name).toArray())])
 		);
 		return Object.fromEntries(entries);
 	});
@@ -63,8 +49,8 @@ export async function dumpAllTables() {
 export async function applyMergePlan(plan) {
 	await settlePendingWrites();
 	return trackPendingWrite(() =>
-		db.transaction('rw', TABLES, async () => {
-			for (const name of TABLES) {
+		db.transaction('rw', BACKUP_TABLES, async () => {
+			for (const name of BACKUP_TABLES) {
 				if (name === 'settings') continue;
 				const rows = plan.inserts[name] ?? [];
 				if (rows.length > 0) await db.table(name).bulkAdd(rows);
@@ -95,8 +81,8 @@ export async function replaceAllTables(data) {
 		(row) => !isBackupSafe(row.key)
 	);
 	return trackPendingWrite(() =>
-		db.transaction('rw', [...TABLES, 'conflicts'], async () => {
-			for (const name of TABLES) {
+		db.transaction('rw', [...BACKUP_TABLES, 'conflicts'], async () => {
+			for (const name of BACKUP_TABLES) {
 				await db.table(name).clear();
 				const rows = data[name] ?? [];
 				if (rows.length > 0) await db.table(name).bulkPut(rows);

@@ -954,9 +954,13 @@ hace ese trabajo hoy.
 
 ### Duplicación
 
-- **La lista de tablas está escrita tres veces**, idéntica:
+- **La lista de tablas estaba escrita tres veces**, idéntica:
   `src/lib/export-import/backup.ts:7-16`, `src/lib/export-import/schema.ts:271-280`
-  y `src/lib/storage/backup.ts:15-24`. Una sola fuente y las otras dos la importan.
+  y `src/lib/storage/backup.ts:15-24`. ✅ **Unificada el 6/8** en
+  `BACKUP_TABLES` (`export-import/schema.ts`): los otros dos archivos ya
+  importaban de ahí, así que no hizo falta ningún import nuevo. Es además donde
+  ya vivía `LOCAL_ONLY_FIELDS`, con el mismo argumento escrito al lado — el
+  archivo del respaldo tiene una sola definición de qué lleva y qué se le saca.
 - **Dos generadores de HTML en paralelo**: `src/lib/copy/format.ts:56-104` y
   `src/lib/export-import/note-export.ts:108-183`. **Ya divergen** en cómo tratan
   los saltos de línea — o sea que copiar una nota y exportarla dan resultados
@@ -1036,7 +1040,9 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
        dependencias sin uso. Los comentarios que nombraban a `makeToolHandler`
        ahora nombran a `expandingHandler`; las pruebas de `ensureSidebarOrder`
        se apuntaron a `normalizeSidebarOrder`, que sí vive. **Hecho 6/8.**
-10. [ ] La lista de tablas, de tres copias a una.
+10. [x] La lista de tablas, de tres copias a una: `BACKUP_TABLES` en
+        `export-import/schema.ts`, que es donde ya vivía `LOCAL_ONLY_FIELDS`.
+        **Hecho 6/8.**
 11. [x] Comentario viejo de `schema.sql:20-24` (hablaba de un problema ya
         resuelto). Fue con el SQL de arriba: el archivo se pega entero igual, y
         dos pasadas por el editor de Supabase para cambiar un comentario no

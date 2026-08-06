@@ -295,7 +295,16 @@ function referenceErrors(data, existing) {
 	return errors;
 }
 
-const TABLES = [
+// The tables a backup file carries — the one list, imported by the builder
+// (export-import/backup.ts) and by the storage side (storage/backup.ts). Three
+// copies of it used to live side by side; a table added to one and not the
+// others would have been dumped and never restored, or validated and never
+// written.
+//
+// `activity` (the task bitácora) is part of the portable backup as of spec 030
+// phase 0: it is user-visible history, and leaving it out meant every
+// backup/restore round-trip silently erased it.
+export const BACKUP_TABLES = [
 	'notes',
 	'blocks',
 	'snippets',
@@ -371,7 +380,7 @@ export function validateBackup(raw, existingIds = undefined) {
 		activity: backup.data.activity.length,
 		settings: backup.data.settings.length
 	};
-	for (const table of TABLES) {
+	for (const table of BACKUP_TABLES) {
 		const declared = raw.counts?.[table];
 		if (declared !== undefined && declared !== counts[table]) {
 			warnings.push(`El conteo declarado de ${table} no coincide; se recalculó.`);
