@@ -40,7 +40,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 7 | Deshacer pisa un cambio del otro aparato | ✅ **Arreglado** |
 | 8 | Dos pestañas se pisan en silencio | 🔍 **Vivo — falta cavar** |
 | 9 | La barrera de guardado oculta sus propios fallos | ✅ **Arreglado** (5/8) |
-| 10 | Restaurar produce notas incompletas | 🔍 **Vivo — falta cavar** |
+| 10 | Restaurar produce notas incompletas | ✅ **Arreglado** (6/8) |
 | 11 | "Reemplazar todo" reactiva agentes | ✅ **Arreglado** |
 | 12 | Pausar agentes puede fallar y dejar las notas legibles | ❌ **Vivo — confirmado**, y menor |
 | — | Un pedido MCP sin id se aplica dos veces | ❌ **Vivo — confirmado** |
@@ -428,7 +428,7 @@ respuesta, porque los snippets no se escriben por el mapa `pending` del editor.
 
 ---
 
-## 10. Restaurar produce notas incompletas — 🔍 vivo, falta cavar
+## 10. Restaurar produce notas incompletas — ✅ arreglado el 6/8
 
 **Decía:** tres cosas distintas, en realidad.
 
@@ -469,6 +469,37 @@ círculo.
   sostenerse solo.
 - (c) Agregar al validador: el padre tiene que ser de la misma nota, y no puede
   haber círculos.
+
+**Cavado (a).** La prueba (`merge.test.ts`, "copies the rows of a duplicated note
+even when they are identical") falla con el código viejo: `inserts.blocks` queda
+en **cero**. La nota duplicada entra sólo con su título; sus renglones se quedan
+colgando de la nota local. Confirmado.
+
+**Medido (c).** Un ciclo **no cuelga la pantalla**: `buildVisibleList` sólo baja
+desde la raíz, y ningún miembro de un ciclo es alcanzable desde ahí, así que esos
+renglones simplemente **no se dibujan nunca**. Lo mismo con un padre de otra nota.
+`listDescendantIds` sí revienta la pila si se la llama sobre un miembro del ciclo,
+pero eso no pasa: como no se dibujan, no se pueden seleccionar. O sea: no es una
+pantalla colgada, es data que entra y desaparece de la vista. Por eso va como
+**error** que rechaza el archivo, no como aviso.
+
+**Hecho, los tres.**
+
+- (a) `planTable` acepta `mustCopy`; los renglones lo usan para forzar la copia
+  cuando su nota fue duplicada. Una copia forzada **no** cuenta como conflicto en
+  el resumen: nadie cambió nada en los dos lados, el renglón sólo viaja con su
+  nota.
+- (b) `BackupDialog` revalida el archivo **sin** los ids locales. Si no se
+  sostiene solo, el botón "Reemplazar todo…" no aparece y el resumen dice por qué.
+  Cuando sí se sostiene, el reemplazo escribe **esa** versión validada, que además
+  ya descartó la bitácora que se apoyaba en bloques locales.
+- (c) `referenceErrors` rechaza el padre de otra nota y los círculos (recorrido de
+  la cadena de padres con marca de visitado; un padre fuera del archivo corta la
+  cadena y no reporta nada).
+
+**Techo anotado en (a):** un renglón cuyo **renglón padre** fue duplicado —sin que
+cambiara su nota— sigue quedándose con el original. Cerrarlo pide una segunda
+pasada, porque en el archivo el padre puede venir después del hijo.
 
 ---
 
@@ -727,7 +758,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 2. [x] **#2** colisión de números. Cavado: la prueba falla con el código viejo, y
        el daño real es divergencia en silencio, no atasco. **Hecho 5/8.**
        **Falta el gate manual** entre tus dos aparatos.
-3. [ ] **#10** restaurar. **Cavar primero** el caso (a). Tres arreglos separables.
+3. [x] **#10** restaurar. Cavado: (a) reproducido con prueba, (c) medido — no
+       cuelga, desaparece. Los tres arreglos hechos. **Hecho 6/8.**
 4. [ ] **Pedido MCP sin id.** Confirmado. Dos líneas.
 
 **Segundo — cerrar puertas**

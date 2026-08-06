@@ -26,7 +26,10 @@ function identical(a, b) {
 }
 
 // Splits one table into inserts/skips and fills remap for id conflicts.
-function planTable(localRows, incomingRows, remap, createId) {
+// `mustCopy` forces a copy of a row that IS identical to its local twin: if the
+// note it belongs to was duplicated by a conflict, skipping the row would leave
+// the imported note empty and its rows attached to the local original.
+function planTable(localRows, incomingRows, remap, createId, mustCopy = (row) => false) {
 	const localById = new Map(localRows.map((row) => [row.id, row]));
 	const inserts = [];
 	let skipped = 0;
@@ -35,14 +38,19 @@ function planTable(localRows, incomingRows, remap, createId) {
 		const existing = localById.get(row.id);
 		if (!existing) {
 			inserts.push({ ...row });
-		} else if (identical(existing, row)) {
-			skipped += 1;
-		} else {
-			const newId = createId();
-			remap.set(row.id, newId);
-			inserts.push({ ...row, id: newId });
-			conflicts += 1;
+			continue;
 		}
+		const same = identical(existing, row);
+		if (same && !mustCopy(row)) {
+			skipped += 1;
+			continue;
+		}
+		const newId = createId();
+		remap.set(row.id, newId);
+		inserts.push({ ...row, id: newId });
+		// A forced copy is not a conflict: nothing changed on both sides, the row
+		// is only riding along with the note that did.
+		if (!same) conflicts += 1;
 	}
 	return { inserts, skipped, conflicts };
 }
@@ -62,7 +70,14 @@ export function planMerge(local, incoming, options = undefined) {
 	const folderRemap = new Map();
 
 	const notes = planTable(local.notes, incoming.notes, noteRemap, createId);
-	const blocks = planTable(local.blocks, incoming.blocks, blockRemap, createId);
+	// Notes are planned first, so noteRemap is already complete here: every row of
+	// a duplicated note follows it, identical or not.
+	// Ceiling: a row whose PARENT ROW was duplicated (without its note changing)
+	// still stays with the local original — that needs a second pass, because the
+	// parent can come after the child in the file.
+	const blocks = planTable(local.blocks, incoming.blocks, blockRemap, createId, (row) =>
+		noteRemap.has(row.noteId)
+	);
 	const snippets = planTable(local.snippets, incoming.snippets, snippetRemap, createId);
 	const tags = planTable(local.tags, incoming.tags, tagRemap, createId);
 	const folders = planTable(local.folders ?? [], incoming.folders ?? [], folderRemap, createId);

@@ -98,6 +98,27 @@ describe('planMerge', () => {
 		expect(plan.summary.conflicts).toBe(1);
 	});
 
+	// The duplicated note used to land EMPTY: its rows were identical to the local
+	// ones, so they were skipped, and stayed attached to the local note.
+	it('copies the rows of a duplicated note even when they are identical', () => {
+		const local = {
+			...emptyTables(),
+			notes: [note('note_1', { title: 'Local' })],
+			blocks: [block('block_1', 'note_1')]
+		};
+		const incoming = {
+			...emptyTables(),
+			notes: [note('note_1', { title: 'Importada', updatedAt: later })],
+			blocks: [block('block_1', 'note_1')]
+		};
+		const plan = planMerge(local, incoming, { createId: nextId });
+		const importedNote = plan.inserts.notes[0];
+		expect(plan.inserts.blocks).toHaveLength(1);
+		expect(plan.inserts.blocks[0].id).not.toBe('block_1');
+		expect(plan.inserts.blocks[0].noteId).toBe(importedNote.id);
+		expect(plan.summary.blocks.skipped).toBe(0);
+	});
+
 	it('remaps children and tag assignments when a block id conflicts', () => {
 		const local = {
 			...emptyTables(),

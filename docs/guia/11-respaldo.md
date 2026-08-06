@@ -31,6 +31,10 @@ Todo funciona sin internet.
 
 Importar tu propio respaldo sobre las mismas notas no las duplica: lo que ya tenés igual se omite y el resumen lo dice. Antes, las notas que habías creado arriba de todo en la lista volvían como copias; ya no pasa.
 
+Cuando una nota **sí** cambió en los dos lados, se conservan las dos versiones: la tuya queda como está y la del archivo entra como nota aparte. Esa copia viene **con todos sus renglones**, incluso los que son idénticos a los tuyos. Antes la copia llegaba vacía —solo el título— porque sus renglones se contaban como "ya lo tengo" y se quedaban en la nota original.
+
+Un archivo cuyos renglones cuelguen de un renglón de otra nota, o que formen un círculo (uno hijo del otro y viceversa), se rechaza antes de tocar nada. No es un capricho: esos renglones existirían en tus datos pero no se dibujarían en ninguna pantalla, así que entrarían y desaparecerían sin decir nada.
+
 Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo permanece abierta y bloqueada. Se cierra recién cuando las notas restauradas ya están listas para usar.
 
 Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).
@@ -42,6 +46,8 @@ Además viaja la **bitácora** de tus tareas: quién marcó cada cosa y cuándo,
 ### Reemplazar todo (con cuidado)
 
 En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo lo del respaldo. Pide una confirmación explícita y te recuerda descargar un respaldo de lo actual antes. No se puede deshacer.
+
+El botón solo aparece si el archivo **se sostiene solo**. Un respaldo completo bajado desde CopyNotes siempre se sostiene. Uno recortado a mano puede apoyarse en notas que hoy tenés en el equipo: sirve para sumarlo a lo tuyo, pero no para reemplazar todo, porque el borrado se lleva justo aquello en lo que se apoyaba. En ese caso el resumen te lo dice y queda solo **Importar y conservar lo mío**.
 
 Lo que **no** se toca son los interruptores de ese dispositivo: si tenías **los agentes en pausa**, siguen en pausa después de restaurar; lo mismo con el permiso de subir a la nube. Esas decisiones no viajan dentro del archivo (por eso restaurarlo no puede prenderlas ni apagarlas) y antes se perdían al reemplazar todo, así que los agentes volvían a andar sin que vos los hubieras despausado. Las decisiones de nube que estuvieran esperando —"me quedo con esta versión"— sí se descartan: hablan de renglones que después de reemplazar todo pueden no existir.
 

@@ -150,7 +150,14 @@
 		// backups the app itself exported.
 		const backup = { ...result.backup, data: sanitizeBackupData(result.backup.data) };
 		const plan = planMerge(local, backup.data);
-		review = { fileName: opened.fileName, backup, warnings: result.warnings, plan };
+		// La validación de arriba cuenta tus notas como existentes, que es lo
+		// correcto para importar sumando. "Reemplazar todo" borra lo tuyo ANTES de
+		// escribir el archivo, así que ahí el archivo tiene que sostenerse solo:
+		// se revalida sin tus ids, o una referencia que se apoyaba en una nota tuya
+		// queda colgando después del borrado.
+		const standalone = validateBackup(parsed);
+		const replaceData = standalone.ok ? sanitizeBackupData(standalone.backup.data) : null;
+		review = { fileName: opened.fileName, backup, warnings: result.warnings, plan, replaceData };
 		step = 'reviewing';
 	}
 
@@ -175,7 +182,7 @@
 	async function applyReplaceAll() {
 		importing = true;
 		try {
-			const data = $state.snapshot(review.backup.data);
+			const data = $state.snapshot(review.replaceData);
 			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
 			const refreshed = await finishImport();
 			if (refreshed === false) {
@@ -324,6 +331,12 @@
 				{#each review.warnings as warning (warning)}
 					<p class="text-muted-foreground mt-1">{warning}</p>
 				{/each}
+				{#if !review.replaceData}
+					<p class="text-muted-foreground mt-1">
+						Este archivo está incompleto: se apoya en notas que ya tenés. Se puede importar
+						sumándolo a lo tuyo, pero no reemplazar todo con él.
+					</p>
+				{/if}
 			</div>
 			<p class="text-muted-foreground text-sm">
 				Importar suma lo del archivo a lo que ya tenés. Nada de lo tuyo se pisa ni se borra.
@@ -349,14 +362,16 @@
 					>
 						Cancelar
 					</button>
-					<button
-						type="button"
-						onclick={() => (step = 'confirmingReplace')}
-						disabled={importing}
-						class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-					>
-						Reemplazar todo…
-					</button>
+					{#if review.replaceData}
+						<button
+							type="button"
+							onclick={() => (step = 'confirmingReplace')}
+							disabled={importing}
+							class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+						>
+							Reemplazar todo…
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>

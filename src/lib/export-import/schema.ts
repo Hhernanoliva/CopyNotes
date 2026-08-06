@@ -251,11 +251,38 @@ function referenceErrors(data, existing) {
 		...data.snippets.map((snippet) => snippet.id),
 		...existing.existingSnippetIds
 	]);
+	// Un padre que existe no alcanza: si está en otra nota, o si la cadena de
+	// padres se muerde la cola, el renglón deja de dibujarse. `buildVisibleList`
+	// sólo baja desde la raíz, y nada de eso es alcanzable desde ahí — entraría al
+	// archivo y desaparecería de la pantalla sin decir nada.
+	const noteOfBlock = new Map(data.blocks.map((block) => [block.id, block.noteId]));
 	for (const block of data.blocks) {
 		if (!noteIds.has(block.noteId))
 			errors.push(`El bloque ${block.id} apunta a una nota inexistente (${block.noteId}).`);
 		if (block.parentBlockId !== null && !blockIds.has(block.parentBlockId))
 			errors.push(`El bloque ${block.id} apunta a un bloque padre inexistente.`);
+		else if (
+			noteOfBlock.has(block.parentBlockId) &&
+			noteOfBlock.get(block.parentBlockId) !== block.noteId
+		)
+			errors.push(`El bloque ${block.id} cuelga de un bloque de otra nota.`);
+	}
+	// Un padre fuera del archivo (uno local) corta la cadena: no se puede seguir, y
+	// tampoco puede cerrar un círculo acá adentro.
+	const parentOf = new Map(data.blocks.map((block) => [block.id, block.parentBlockId]));
+	const walked = new Set();
+	for (const block of data.blocks) {
+		const path = new Set();
+		let id = block.id;
+		while (parentOf.has(id) && !walked.has(id)) {
+			if (path.has(id)) {
+				errors.push(`El bloque ${id} está en un círculo de bloques padre.`);
+				break;
+			}
+			path.add(id);
+			id = parentOf.get(id);
+		}
+		for (const seen of path) walked.add(seen);
 	}
 	const targetSets = { note: noteIds, block: blockIds, snippet: snippetIds };
 	for (const assignment of data.tagAssignments) {

@@ -192,6 +192,53 @@ describe('validateBackup', () => {
 		expect(result.ok).toBe(false);
 	});
 
+	// Medido: un renglón así no cuelga la pantalla, desaparece. `buildVisibleList`
+	// sólo baja desde la raíz, y nada de esto es alcanzable desde ahí — entraría al
+	// archivo y no se dibujaría nunca.
+	it('rejects a block hanging from a block of another note', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote(), makeNote({ id: 'note_2' })],
+				blocks: [
+					makeBlock(),
+					makeBlock({ id: 'block_2', noteId: 'note_2', parentBlockId: 'block_1' })
+				]
+			})
+		);
+		expect(result.ok).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/otra nota/i);
+	});
+
+	it('rejects a cycle of parents', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote()],
+				blocks: [
+					makeBlock({ parentBlockId: 'block_2' }),
+					makeBlock({ id: 'block_2', parentBlockId: 'block_1' })
+				]
+			})
+		);
+		expect(result.ok).toBe(false);
+		expect(result.errors.join(' ')).toMatch(/círculo|circulo/i);
+	});
+
+	it('rejects a block that is its own parent', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ parentBlockId: 'block_1' })] })
+		);
+		expect(result.ok).toBe(false);
+	});
+
+	it('accepts a deep chain of nested blocks', () => {
+		const blocks = [makeBlock()];
+		for (let i = 2; i <= 12; i += 1) {
+			blocks.push(makeBlock({ id: `block_${i}`, parentBlockId: `block_${i - 1}` }));
+		}
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks }));
+		expect(result.ok).toBe(true);
+	});
+
 	it('rejects a tag assignment with an unknown targetType', () => {
 		const result = validateBackup(
 			makeBackup({
