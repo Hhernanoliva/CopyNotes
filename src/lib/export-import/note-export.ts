@@ -6,6 +6,7 @@
 import { sortByOrder } from '../blocks/ordering';
 import { HEADING_LEVELS } from '../format/blocktype';
 import { htmlInlineToMarkdown } from '../format/inline-markdown';
+import { escapeHtml, plainTextToHtml } from '../format/sanitize';
 import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
 
 // Inline formatting (bold, links, colors) lives in block.html; blocks without
@@ -107,22 +108,17 @@ export function noteToMarkdown(note, blocks) {
 
 // --- HTML ---
 
-function escapeHtml(text) {
-	return text
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;');
-}
-
 function noteHtml(block) {
 	if (!block.note) return '';
 	return '<br>' + block.note.split('\n').map(escapeHtml).join('<br>');
 }
 
-// The stored inline html keeps bold/links/colors; fall back to escaped content.
+// The stored inline html keeps bold/links/colors; blocks without one (old data)
+// fall back to escaped content. This used to call escapeHtml, which drops the
+// soft line breaks — so a legacy two-line row exported as one line while the
+// same row copied to the clipboard kept its break. Same fallback as copy now.
 function inlineHtml(block) {
-	return block.html || escapeHtml(block.content);
+	return block.html || plainTextToHtml(block.content);
 }
 
 function headingHtml(block) {

@@ -4,6 +4,7 @@
 
 import { sortByOrder } from '../blocks/ordering';
 import { HEADING_LEVELS } from '../format/blocktype';
+import { escapeHtml, plainTextToHtml } from '../format/sanitize';
 import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
 
 export function buildCopyTree(blocks, rootId, withChildren) {
@@ -53,14 +54,6 @@ export function formatPlainText(tree) {
 	return plainLines(tree, 0).join('\n');
 }
 
-function escapeHtml(text) {
-	return text
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;');
-}
-
 function htmlChildren(node) {
 	if (node.children.length === 0) return '';
 	return '<ul>' + node.children.map(htmlNode).join('') + '</ul>';
@@ -72,9 +65,11 @@ function noteHtml(block) {
 }
 
 // The stored inline html keeps bold/links/colors; blocks without one (old
-// data) fall back to escaped content with soft breaks as <br>.
+// data) fall back to escaped content with soft breaks as <br>. Shared with the
+// note export, which used to drop those breaks — same note, two shapes,
+// depending on whether you copied it or exported it.
 function inlineHtml(block) {
-	return block.html || block.content.split('\n').map(escapeHtml).join('<br>');
+	return block.html || plainTextToHtml(block.content);
 }
 
 function htmlContent(block) {

@@ -158,6 +158,15 @@ describe('noteToHtml', () => {
 		expect(html).toContain('<h1>a&lt;b&gt;</h1>');
 		expect(html).toContain('&lt;script&gt;');
 	});
+
+	it('keeps a soft line break in a legacy row that has no stored html', () => {
+		// Rows written before block.html existed only carry `content`. The export
+		// used to escape it WITHOUT turning \n into <br>, so a two-line row came
+		// out as one line — while the same row copied to the clipboard kept the
+		// break. Same fallback for both now.
+		const blocks = [block('a', { content: 'primera\nsegunda' })];
+		expect(noteToHtml(note, blocks)).toContain('primera<br>segunda');
+	});
 });
 
 describe('noteExportFileName', () => {

@@ -148,14 +148,22 @@ export function removePlainTextRange(html, start, end) {
 	return holder.innerHTML;
 }
 
-// Escape plain text into safe HTML for the innerHTML render sink. Literal
-// markup a user typed (or pasted as plain text) becomes visible text, never
-// executable nodes. Newlines become <br> to preserve soft line breaks.
-export function plainTextToHtml(text) {
-	const escaped = (text ?? '')
+// The one place that turns a user's literal characters into HTML text. Copy and
+// note export each had their own copy of this; two escapers are two chances for
+// one of them to forget a character.
+export function escapeHtml(text) {
+	return (text ?? '')
 		.replaceAll('&', '&amp;')
 		.replaceAll('<', '&lt;')
 		.replaceAll('>', '&gt;')
 		.replaceAll('"', '&quot;');
-	return escaped.split('\n').join('<br>');
+}
+
+// Escape plain text into safe HTML for the innerHTML render sink. Literal
+// markup a user typed (or pasted as plain text) becomes visible text, never
+// executable nodes. Newlines become <br> to preserve soft line breaks — which
+// is also why this, and not escapeHtml, is what a block without stored `html`
+// falls back to: dropping the <br> silently glues two lines into one.
+export function plainTextToHtml(text) {
+	return escapeHtml(text).split('\n').join('<br>');
 }

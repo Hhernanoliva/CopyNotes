@@ -972,9 +972,22 @@ hace ese trabajo hoy.
   ya vivía `LOCAL_ONLY_FIELDS`, con el mismo argumento escrito al lado — el
   archivo del respaldo tiene una sola definición de qué lleva y qué se le saca.
 - **Dos generadores de HTML en paralelo**: `src/lib/copy/format.ts:56-104` y
-  `src/lib/export-import/note-export.ts:108-183`. **Ya divergen** en cómo tratan
-  los saltos de línea — o sea que copiar una nota y exportarla dan resultados
-  distintos. Vale la pena confirmar cuál está bien antes de unificar.
+  `src/lib/export-import/note-export.ts:108-183`. **Divergían** en cómo tratan
+  los saltos de línea — copiar una nota y exportarla daban resultados distintos.
+  ✅ **Cerrada la divergencia el 6/8**, y no escribiendo una tercera versión: la
+  correcta ya existía. `plainTextToHtml` (`format/sanitize.ts`) hace exactamente
+  lo que hacía la de `copy` — escapar y convertir los saltos en `<br>` — y es la
+  que ya usa el editor al guardar. Los dos generadores la llaman ahora, y su
+  `escapeHtml` copiado (idéntico en los dos archivos) también salió de ahí.
+
+  **Prueba:** un renglón viejo sin `html` con dos líneas. Falla con el código de
+  antes (sale en una sola línea) y pasa con el arreglo.
+
+  **Queda sin unificar a propósito:** el resto de los dos archivos arma **formas
+  distintas** —`copy` exporta un subárbol suelto, el export arma la nota entera
+  con su título y sus bloques de raíz—, así que fundirlos es un refactor de
+  verdad, no una deduplicación. Lo que estaba duplicado era el escapado, que es
+  lo que podía divergir en silencio; eso ya tiene una sola fuente.
 - **Versiones desalineadas:** `package.json` y el respaldo decían `0.0.1`
   (`BackupDialog.svelte:61` la tenía escrita a mano); Tauri, Cargo y MCP decían
   `0.1.0`. ✅ **Alineadas el 6/8** en `0.1.0`, y el respaldo dejó de tenerla
@@ -1069,8 +1082,10 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
         pasan por un shell. **Hecho 6/8.**
 13. [x] Alinear las versiones en `0.1.0`, y que el respaldo lea la de
         `package.json` en vez de tenerla escrita a mano. **Hecho 6/8.**
-14. [ ] **Los dos generadores de HTML**: unificar en la versión de `copy`, que es
-        la correcta. Ya no hay nada que investigar.
+14. [x] **Los dos generadores de HTML**: la versión de `copy` era la correcta, y
+        resultó ser `plainTextToHtml`, que ya vivía en `format/sanitize.ts`. Los
+        dos la llaman, y el `escapeHtml` duplicado también salió de ahí. La
+        forma de cada generador queda como está, a propósito. **Hecho 6/8.**
 15. [ ] Tope de tamaño al importar un archivo.
 
 **Quinto — lo que sigue siendo una función, no un parche**
