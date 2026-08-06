@@ -1291,6 +1291,15 @@
 		await softDeleteBlocks(ids);
 		const removed = new Set(ids);
 		blocks = blocks.filter((row) => !removed.has(row.id));
+		// canDeleteFromMenu sólo cuenta renglones, y acá se va el subárbol entero:
+		// una nota con padre + hijo pasa el guardia y queda en cero. Igual que al
+		// borrar una selección, la nota nunca se queda sin dónde escribir.
+		if (blocks.length === 0) {
+			const created = await createBlock({ noteId: note.id, type: 'text' });
+			blocks = [created];
+			focusBlockId = created.id;
+			return;
+		}
 		focusBlockId = prevId ?? blocks[0]?.id ?? null;
 	}
 

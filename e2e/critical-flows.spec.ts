@@ -410,6 +410,33 @@ test('copy a block writes text to the clipboard', async ({ page }) => {
 		.toBeGreaterThan(0);
 });
 
+test('deleting a parent row from its menu leaves a row to write in', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Nueva nota' }).click();
+
+	const rows = page.locator('main [data-block-id]');
+	await page.locator('main [data-block-id] .block-editable').first().click();
+	await page.keyboard.type('padre');
+	// Enter y Tab mueven el foco a otro nodo del DOM; sin esperar, lo que sigue
+	// se tipea en el renglón viejo y nunca se arma el par padre/hijo.
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(200);
+	await page.keyboard.press('Tab');
+	await page.waitForTimeout(200);
+	await page.keyboard.type('hijo');
+	await expect(rows).toHaveCount(2);
+
+	// El hijo se va con el padre, así que la nota entera desaparece de un click:
+	// tiene que quedar un renglón vacío, no cero.
+	const parent = page.locator('main .cn-row').first();
+	await parent.hover();
+	await parent.getByRole('button', { name: 'Más acciones' }).click();
+	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
+
+	await expect(rows).toHaveCount(1);
+	await expect(page.locator('main [data-block-id] .block-editable').first()).toHaveText('');
+});
+
 test('save a block as a snippet and find it in the Snippets view', async ({ page }) => {
 	await page.goto('/');
 	const row = page.locator('main .group').first();

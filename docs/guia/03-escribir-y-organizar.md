@@ -78,6 +78,7 @@ En dos pasos, como Workflowy:
 
 - Los renglones de texto vacíos y los separadores se borran con un solo Backspace.
 - Si el renglón vacío tiene sub-ítems adentro, Backspace **borra el renglón y sube los sub-ítems un nivel** para que ocupen su lugar: no se pierde nada, quedan donde estaba el renglón que borraste. (Para borrar un renglón junto con todos sus sub-ítems, usá **Borrar** en el menú ⋯).
+- Si ese **Eliminar** del menú ⋯ se lleva todo lo que había en la nota (el renglón de arriba de todo con sus sub-ítems adentro), la nota queda con **un renglón vacío** listo para escribir, no en blanco.
 
 ### Enter en un renglón con hijos
 

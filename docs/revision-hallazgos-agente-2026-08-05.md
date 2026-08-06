@@ -787,10 +787,25 @@ patrón que ya se cerró con transacciones en otros lugares (tareas, importació
 `supabase/README.md:33-46`. Sin cuotas visibles. Es configuración del panel de
 Supabase, no del código. Se resuelve prendiendo la verificación de email ahí.
 
-### Borrar el renglón padre puede dejar la nota sin renglones — ❌ vivo, bajo
+### Borrar el renglón padre puede dejar la nota sin renglones — ✅ arreglado el 6/8
 
 `src/lib/blocks/enter.ts:83-87`. Vale la pena confirmarlo a mano; el arreglo es una
 línea (si la nota queda vacía, crear un renglón).
+
+**Reproducido con una prueba de punta a punta** (`critical-flows.spec.ts`, "deleting
+a parent row from its menu leaves a row to write in"): nota nueva, "padre" + un
+hijo anidado, Eliminar desde el menú ⋯ → la nota queda en **cero** renglones, y
+sigue en cero después de recargar. Con el arreglo queda uno, vacío.
+
+**Detalle de la prueba que costó encontrar:** Enter y Tab mueven el foco a otro
+nodo del DOM, y sin una espera en el medio Playwright tipea "hijo" **dentro del
+renglón padre**. La primera versión de la prueba pasaba con el código roto porque
+nunca llegaba a armar el par padre/hijo.
+
+**Hecho.** `handleDeleteBlock` hace lo mismo que ya hacía el borrado de una
+selección: si después de sacar el subárbol no quedó ningún renglón, crea uno vacío
+y le pone el cursor. Dejé `canDeleteFromMenu` como está — sigue tapando el caso de
+un solo renglón, que es la única vez que "Eliminar" no debería hacer nada.
 
 ### `content` y `html` pueden mostrar textos distintos — ❌ vivo, bajo
 
@@ -905,9 +920,9 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 5. [ ] **Capacidad de Tauri.** Cerrar con el botón rojo no puede funcionar: falta
        `core:window:allow-destroy`. Una línea en la capacidad + que el mensaje no
        hable de guardar. **Gate manual: build de escritorio.**
-6. [ ] **Borrar el renglón padre desde el menú deja la nota sin renglones.**
-       `canDeleteFromMenu` cuenta los hijos que se van con el padre. El camino de
-       la selección ya hace lo correcto; hay que igualarlos.
+6. [x] **Borrar el renglón padre desde el menú deja la nota sin renglones.**
+       Reproducido con una prueba e2e (la nota quedaba en cero, incluso tras
+       recargar) e igualado al camino de la selección. **Hecho 6/8.**
 
 **Tercero — cerrar puertas**
 
