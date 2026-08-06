@@ -34,8 +34,8 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | 1 | La sincronización se saltea cambios para siempre | ✅ **Arreglado**, con un techo anotado |
 | 2 | Dos ediciones distintas parecen la misma versión | ✅ **Arreglado** (5/8) |
 | 3 | Llave y permisos de la cuenta anterior | ✅ **Arreglado** |
-| 4 | Se puede escribir sin pasar por `push_records` | ✅ **Arreglado** (6/8), falta pegar el SQL |
-| 5 | Dos aparatos crean dos bóvedas | ✅ **Arreglado** (6/8), falta pegar el SQL |
+| 4 | Se puede escribir sin pasar por `push_records` | ✅ **Arreglado y verificado** (6/8) |
+| 5 | Dos aparatos crean dos bóvedas | ✅ **Arreglado y verificado** (6/8) |
 | 6 | Cambiar el tipo de un grupo borra el texto recién escrito | ✅ **Arreglado** |
 | 7 | Deshacer pisa un cambio del otro aparato | ✅ **Arreglado** |
 | 8 | Dos pestañas se pisan en silencio | 🔍 **Vivo — falta cavar** |
@@ -384,9 +384,12 @@ hay sesión.
 que es el caso que de verdad se estaba tapando (un cliente viejo, o un borrado a
 mano, vaciando la copia de la nube).
 
-**Falta:** pegar el SQL en Supabase y correr `pnpm rls:check`. Hasta ahí, esto no
-está verificado — un Postgres local ya pasó las siete pruebas una vez mientras el
-proyecto real fallaba.
+**Verificado contra el proyecto real (6/8).** El SQL corrió en Supabase y
+`pnpm rls:check` da las siete pruebas en verde, incluidas las dos que cambiaron
+de significado: un `insert` directo lo rechaza el servidor con **42501**, y un
+`update` o un `delete` directo no cambian nada — ni sobre la fila ajena ni sobre
+la propia. `push_records` sigue aceptando al que viene al día y rechazando al que
+no, ahora corriendo como `security definer`.
 
 ---
 
@@ -441,6 +444,8 @@ gana siempre.
 - **El candado.** `vaults` da `select` e `insert`, nunca `update` ni `delete`. La
   clave primaria es el dueño, así que la segunda bóveda choca contra el servidor
   y no contra una comprobación del cliente que se puede correr en el medio.
+  Comprobado contra Supabase: la segunda creación devuelve `23505` y un `update`
+  sobre la bóveda propia no cambia nada.
 - **El aviso del que pierde.** `uploadVaultBlob` lee ese choque (`23505` de
   Postgres) y para la sincronización con un mensaje que dice qué pasó y qué
   hacer: sumar este aparato con el código de recuperación. Y **no sube nada** —
@@ -982,8 +987,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
        `security definer` con el filtro de dueño explícito; `uploadVaultBlob` es
        `insert` y lee el choque `23505`. Más los dos mensajes propios, marcados
        `userFacing`. `rls-check.mjs` ahora arma con `push_records` y prueba que
-       escribir directo no existe **ni sobre la fila propia**. **Hecho 6/8.**
-       **Falta:** pegás el SQL en Supabase y corrés `pnpm rls:check`.
+       escribir directo no existe **ni sobre la fila propia**. **Hecho 6/8, con
+       el SQL ya corrido en Supabase y `pnpm rls:check` en verde (7/7).**
 8. [ ] **#12** avisar en pantalla cuando la pausa no se pudo cumplir.
 
 **Cuarto — limpieza**
