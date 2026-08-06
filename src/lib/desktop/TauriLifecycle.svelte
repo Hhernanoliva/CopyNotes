@@ -40,7 +40,16 @@
 						await writeAgentExport().catch((error) =>
 							console.error('No se pudo actualizar export.json antes de cerrar', error)
 						);
-						await appWindow.destroy();
+						// Cerrar tiene su propio catch: si `destroy()` falla (le falta el
+						// permiso en la capacidad, por ejemplo) lo que falló fue cerrar, no
+						// guardar. Decirlo con el mensaje de guardado mandaba a buscar un
+						// problema de datos que no existe — el texto ya está en disco.
+						try {
+							await appWindow.destroy();
+						} catch (error) {
+							console.error('No se pudo cerrar la ventana', error);
+							toast.error('No se pudo cerrar la ventana. Tus cambios ya están guardados.');
+						}
 					} catch (error) {
 						// A save failed: keep the window open so nothing is lost and
 						// the user can retry, rather than quitting over a bad write.

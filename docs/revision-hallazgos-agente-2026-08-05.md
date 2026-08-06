@@ -48,7 +48,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | — | Rust sigue enlaces simbólicos | 🚫 **Falso en la práctica** |
 | — | Comillas del comando de Claude Code | ❌ **Vivo**, teórico |
 | — | Sin límites de tamaño en importaciones | ❌ **Vivo**, menor |
-| — | Capacidad de Tauri sin permiso para `destroy()` | ❌ **Vivo — confirmado** (6/8), y no es menor |
+| — | Capacidad de Tauri sin permiso para `destroy()` | ✅ **Arreglado** (6/8), falta el gate manual |
 | — | Código muerto y dependencias sin uso | ❌ **Confirmado**, salvo un punto falso |
 
 ---
@@ -59,7 +59,7 @@ Segunda pasada sobre **todo lo que quedaba abierto**, leyendo el código de hoy,
 para ver si algo se analizó mal o se escapó. Nueve puntos se confirmaron tal cual.
 Estos siete cambian:
 
-### 1. La capacidad de Tauri no es "falta cavar": está rota — ❌ confirmado
+### 1. La capacidad de Tauri no es "falta cavar": está rota — ✅ arreglado el 6/8
 
 No hace falta probarlo en tu Mac, se lee en el archivo que genera Tauri.
 `src-tauri/gen/schemas/acl-manifests.json` lista qué trae `core:window:default`:
@@ -79,6 +79,15 @@ tendría que fallar es cerrar con el botón rojo de la ventana.
 **Arreglo:** agregar `core:window:allow-destroy` a la capacidad (una línea) y que
 el fallo de cerrar no se disfrace de fallo de guardar. **Requiere build de
 escritorio y probarlo a mano.**
+
+**Hecho (6/8).** El permiso está en `capabilities/default.json`, y `cargo check`
+lo valida al vuelo: Tauri resuelve la capacidad durante la compilación, así que un
+nombre inventado no compilaría. El archivo que genera
+(`gen/schemas/capabilities.json`) ya lista los dos permisos. Y `destroy()` tiene
+ahora su propio `catch`: si falla, el aviso dice *"No se pudo cerrar la ventana.
+Tus cambios ya están guardados"* en vez de hablar de un guardado que salió bien.
+
+**Falta el gate manual:** build de escritorio y cerrar con el botón rojo.
 
 ### 2. #5 la bóveda: el que pierde la carrera NO queda en silencio
 
@@ -756,7 +765,7 @@ nombre. **Arreglo:** comillas simples con el escape estándar. Una línea.
 tamaño. Un JSON gigante cuelga la pestaña. Es **tu propio archivo**, elegido por
 vos. **Arreglo:** un tope y un mensaje. Bajo.
 
-### Capacidad de Tauri sin permiso para `destroy()` — ❌ vivo, confirmado el 6/8
+### Capacidad de Tauri sin permiso para `destroy()` — ✅ arreglado el 6/8
 
 **Ya no hace falta probarlo:** el manifiesto que genera Tauri
 (`src-tauri/gen/schemas/acl-manifests.json`) dice que `core:window:default` trae
@@ -917,9 +926,9 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 **Segundo — cosas rotas que quedaron a la vista en la segunda pasada**
 
-5. [ ] **Capacidad de Tauri.** Cerrar con el botón rojo no puede funcionar: falta
-       `core:window:allow-destroy`. Una línea en la capacidad + que el mensaje no
-       hable de guardar. **Gate manual: build de escritorio.**
+5. [x] **Capacidad de Tauri.** Permiso agregado y validado por `cargo check`; el
+       fallo de cerrar ya no se disfraza de fallo de guardar. **Hecho 6/8.**
+       **Falta el gate manual:** build de escritorio y cerrar con el botón rojo.
 6. [x] **Borrar el renglón padre desde el menú deja la nota sin renglones.**
        Reproducido con una prueba e2e (la nota quedaba en cero, incluso tras
        recargar) e igualado al camino de la selección. **Hecho 6/8.**
