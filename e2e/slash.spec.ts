@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote, openApp } from './app';
 
 // Slash menu anywhere in the block (fix: the menu only opened when "/" was
 // the first character). After picking a command the typed text survives and
@@ -7,8 +8,7 @@ import { test, expect } from '@playwright/test';
 test('the slash menu opens after typed text and the caret returns to the "/" position', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -35,8 +35,7 @@ test('the slash menu opens after typed text and the caret returns to the "/" pos
 // conversion, so a character typed in that window landed at offset 0 ("!Hola
 // mundo"). No waiting in between here on purpose — that IS the test.
 test('a character typed right after picking lands where the "/" was', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -52,8 +51,7 @@ test('a character typed right after picking lands where the "/" was', async ({ p
 });
 
 test('Tab picks the highlighted command, same as Enter', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -70,8 +68,7 @@ test('Tab picks the highlighted command, same as Enter', async ({ page }) => {
 });
 
 test('the "+" button opens the same menu as typing "/"', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -91,8 +88,7 @@ test('the "+" button opens the same menu as typing "/"', async ({ page }) => {
 });
 
 test('the slash menu works mid-text and strips only the "/query" span', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -117,8 +113,7 @@ test('the slash menu works mid-text and strips only the "/query" span', async ({
 test('Escape keeps the typed "/" as normal text and further typing does not reopen', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -136,8 +131,7 @@ test('Escape keeps the typed "/" as normal text and further typing does not reop
 });
 
 test('the slash menu opens on a line just emptied with Backspace', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -158,8 +152,7 @@ test('the slash menu opens on a line just emptied with Backspace', async ({ page
 // Keyboard path: the group menu lists text, h1, h2, h3, bullet, todo, code —
 // so "Tarea" is five ArrowDowns down from the top.
 test('"/" over a selection converts every marked row into a task', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -203,8 +196,7 @@ test('"/" over a selection converts every marked row into a task', async ({ page
 test('picking with the mouse keeps the selection, and one Ctrl+Z undoes the group', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -247,7 +239,7 @@ test('picking with the mouse keeps the selection, and one Ctrl+Z undoes the grou
 test('converting a mixed selection to Tarea does not duplicate the activity line for a row that was already a task', async ({
 	page
 }) => {
-	await page.goto('/');
+	await openApp(page);
 	await expect(page.getByLabel('Título de la nota')).toBeVisible();
 
 	await page.evaluate(
@@ -331,8 +323,7 @@ test('converting a mixed selection to Tarea does not duplicate the activity line
 test('shrinking the selection to one row closes the group menu, and "/" then opens the ordinary menu', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -372,8 +363,7 @@ test('shrinking the selection to one row closes the group menu, and "/" then ope
 // en la pantalla y el texto se le escapaba por debajo. Cuando no entra abajo del
 // renglón se da vuelta y sale arriba, pero sigue pegado a él.
 test('el menú "/" queda pegado al renglón al scrollear', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	for (let i = 0; i < 40; i++) {
@@ -415,8 +405,7 @@ test('el menú "/" queda pegado al renglón al scrollear', async ({ page }) => {
 // del renglón: en un renglón largo aparecía lejísimos de donde estabas
 // escribiendo. Nunca se pasa del borde derecho de la pantalla.
 test('el menú "/" se abre debajo del cursor, no al principio del renglón', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.type('Un renglon largo para que el cursor quede lejos del borde izquierdo');

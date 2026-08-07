@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Elegir qué versión queda cuando el mismo renglón cambió en dos dispositivos
 // (spec 030 fase 3). La suite corre sin proyecto Supabase, así que el conflicto
@@ -46,7 +47,7 @@ const mine = () => 'Quedarme con esta versión, la de este dispositivo';
 const theirs = () => 'Traer esta versión, la del otro dispositivo';
 
 async function seedAndReload(page, patch) {
-	await page.goto('/');
+	await openApp(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.waitFor();
 	const before = await first.textContent();
@@ -87,7 +88,7 @@ test('lo que cambió entre las dos versiones queda marcado', async ({ page }) =>
 	//
 	// La versión de allá se deriva del renglón que haya: cambia UNA palabra, la
 	// primera, y la prueba no depende de qué diga la nota de ejemplo.
-	await page.goto('/');
+	await openApp(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.waitFor();
 	const mio = (await first.textContent()) ?? '';

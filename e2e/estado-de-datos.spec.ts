@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // El punto del header dejó de ser sólo el guardado: es el estado de tus datos, y
 // es donde aparecen las versiones que esperan una decisión. Antes ese número
@@ -39,7 +40,7 @@ const statusDot = (page) => page.getByRole('button', { name: /Ver estado/ });
 const panel = (page) => page.getByRole('dialog', { name: 'Estado de tus datos' });
 
 test('el punto abre el estado y dice cuando no hay nada pendiente', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.locator('main [data-block-id] .block-editable').first().waitFor();
 
 	await statusDot(page).click();
@@ -54,7 +55,7 @@ test('el punto abre el estado y dice cuando no hay nada pendiente', async ({ pag
 });
 
 test('una versión en conflicto se cuenta en el punto y se decide desde ahí', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.waitFor();
 	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
@@ -81,7 +82,7 @@ test('una versión en conflicto se cuenta en el punto y se decide desde ahí', a
 });
 
 test('la nota afectada queda marcada en la lista', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.waitFor();
 	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');

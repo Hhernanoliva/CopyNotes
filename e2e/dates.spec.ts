@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { newNote } from './app';
 
 // Spec 021 Slice A: /fecha puts a badge on the line and it survives reload.
 
 test('slash date assigns a persistent badge', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -37,8 +37,7 @@ test('date badge rolls from mañana to hoy at midnight without reload', async ({
 	// Freeze the clock 30s before local midnight, BEFORE the app boots so its
 	// day clock reads the mocked time.
 	await page.clock.install({ time: new Date(2026, 6, 16, 23, 59, 30) });
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -61,8 +60,7 @@ test('date badge rolls from mañana to hoy at midnight without reload', async ({
 // aplicar en `change` guardaba una fecha fantasma y cerraba el panel).
 test('un toque en el día del almanaque lo aplica, sin confirmar', async ({ page }) => {
 	await page.clock.install({ time: new Date(2026, 7, 3, 10, 0, 0) }); // 3 de agosto
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -89,8 +87,7 @@ test('un toque en el día del almanaque lo aplica, sin confirmar', async ({ page
 // Los meses se caminan con las flechas y el mes cambia solo al pasarse de borde.
 test('el almanaque se camina con las flechas', async ({ page }) => {
 	await page.clock.install({ time: new Date(2026, 7, 3, 10, 0, 0) }); // lunes 3 de agosto
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -117,8 +114,7 @@ test('el almanaque se camina con las flechas', async ({ page }) => {
 
 // The date panel is fully keyboard-driven: arrows rove the options, Enter picks.
 test('date panel navigates with arrow keys', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -144,8 +140,7 @@ test('date panel navigates with arrow keys', async ({ page }) => {
 // The panel must never get stuck: clicking anywhere outside dismisses it,
 // and the badge keeps working as a toggle (open → click badge → closed).
 test('date panel closes on outside click and badge toggle', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -174,8 +169,7 @@ test('date panel closes on outside click and badge toggle', async ({ page }) => 
 // Regression: adding a date while the Agenda is already open must show up
 // live, without leaving and re-entering Agenda to force a re-read.
 test('agenda updates live when a date is added while it is open', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -202,8 +196,7 @@ test('agenda updates live when a date is added while it is open', async ({ page 
 
 // Spec 021 Slice B: the Agenda lists dated blocks and jumps to them.
 test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	// Make the first block a todo, give it today's date, then type its text.
 	// Picking "Tarea"/"Fecha" from the slash menu strips only the "/query"
@@ -260,8 +253,7 @@ test('agenda lists dated todos, toggles and navigates', async ({ page }) => {
 // dated rows live. Before, the Agenda kept a stale badge that opened a note
 // that no longer existed.
 test('agenda drops a note’s dates live when the note is deleted', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	// Name the note so we can target its trash button unambiguously.
 	await page.getByRole('textbox', { name: 'Título de la nota' }).fill('Cuentas');

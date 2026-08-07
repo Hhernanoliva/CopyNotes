@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Quiet Motion guards (spec 024). The animation helper itself is unit-tested in
 // src/lib/motion.test.ts; these cover the behaviours the spec promised at the
@@ -10,7 +11,7 @@ const settingsButton = (page) => page.getByRole('button', { name: 'Configuració
 const settingsHeading = (page) => page.getByRole('heading', { name: 'Configuración' });
 
 test('focus returns to the trigger after a dialog closes', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const trigger = settingsButton(page);
 	await trigger.click();
 	await expect(settingsHeading(page)).toBeVisible();
@@ -22,7 +23,7 @@ test('focus returns to the trigger after a dialog closes', async ({ page }) => {
 });
 
 test('rapidly opening and closing a panel leaves it usable', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const trigger = settingsButton(page);
 
 	// Two fast open→close cycles must not leave the dialog stuck open or dead.
@@ -43,7 +44,7 @@ test.describe('with reduced motion', () => {
 	test.use({ reducedMotion: 'reduce' });
 
 	test('a dialog still opens, works and returns focus with no animation', async ({ page }) => {
-		await page.goto('/');
+		await openApp(page);
 		const trigger = settingsButton(page);
 		await trigger.click();
 		await expect(settingsHeading(page)).toBeVisible();

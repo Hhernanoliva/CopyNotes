@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote } from './app';
 
 // Prueba enfocada del guard doble de la puerta de formato, pensada para correr
 // también en WebKit. Es el motor donde el evento `input` incidental de
@@ -20,8 +21,7 @@ async function selectAllInBlock(page, editable) {
 }
 
 test('deshacer revierte solo el código en línea (guard cross-engine)', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: guard código');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -47,8 +47,7 @@ test('deshacer revierte solo el código en línea (guard cross-engine)', async (
 // verifica que la tecla llegue a la página en el otro motor, donde el sistema o
 // el navegador podrían quedarse con la combinación antes que la app.
 test('Ctrl/Cmd+Alt+1 y Ctrl/Cmd+Alt+F llegan a la app (guard cross-engine)', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: atajos webkit');
 
 	const first = page.locator('main [role="textbox"]').first();

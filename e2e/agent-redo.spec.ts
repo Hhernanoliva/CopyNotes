@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // The "Rehacer" control only appears for an AGENT `done` activity entry — the
 // kind the desktop bridge produces, which no in-browser UI path can create
@@ -84,7 +85,7 @@ async function seedAgentDoneTask(page, { noteId, blockId }) {
 }
 
 test('a redo instruction unchecks the task and records a note', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	// Wait until the app has booted (and therefore created the Dexie DB) before seeding.
 	await expect(page.getByLabel('Título de la nota')).toBeVisible();
 

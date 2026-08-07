@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Accesibilidad mobile/tablet del editor. Viewport de celular con toque; en
 // las tareas que dependen de "sin hover" se agrega isMobile para que Chromium
@@ -6,7 +7,7 @@ import { test, expect } from '@playwright/test';
 test.use({ viewport: { width: 390, height: 780 }, hasTouch: true, isMobile: true });
 
 test('la fecha queda arriba en una línea de varios renglones', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	// Arranca con la nota demo; trabajamos sobre su primer renglón.
 	const line = page.locator('main [data-block-id] .block-editable').first();
@@ -44,7 +45,7 @@ test('la fecha queda arriba en una línea de varios renglones', async ({ page })
 });
 
 test('la barra de formato no supera el ancho de la pantalla', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
 	await line.click();
@@ -61,7 +62,7 @@ test('la barra de formato no supera el ancho de la pantalla', async ({ page }) =
 });
 
 test('al tacto, los controles aparecen solo en la fila activa', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
 	await line.click();
@@ -88,7 +89,7 @@ test('al tacto, los controles aparecen solo en la fila activa', async ({ page })
 });
 
 test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
 	await line.click();
@@ -107,7 +108,7 @@ test('la X de quitar etiqueta tiene área táctil de 44px', async ({ page }) => 
 });
 
 test('el botón de copiar tiene área táctil de 44px', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
 	await line.click();
@@ -124,7 +125,7 @@ test('el botón de copiar tiene área táctil de 44px', async ({ page }) => {
 });
 
 test('el checkbox de tarea tiene área táctil de 44px', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
 	await line.click();
@@ -144,7 +145,7 @@ test('el checkbox de tarea tiene área táctil de 44px', async ({ page }) => {
 });
 
 test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	// La app tiene que estar viva antes de tocar nada: el título aparece cuando
 	// la nota ya se leyó de la base, y eso solo pasa después de la hidratación.
 	// Un clic anterior a eso no hace nada y la barra nunca se abre.
@@ -164,7 +165,7 @@ test('el botón de borrar nota se ve al tacto en la barra lateral', async ({ pag
 });
 
 test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 
 	const rows = page.locator('main [data-block-id]');
 	const first = rows.first().locator('.block-editable');
@@ -201,7 +202,7 @@ async function sinAvisosFlotantes(page) {
 }
 
 test('deslizar el menú "/" no elige una opción sin querer', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await sinAvisosFlotantes(page);
 
 	const row = page.locator('main [data-block-id]').first();
@@ -230,7 +231,7 @@ test('deslizar el menú "/" no elige una opción sin querer', async ({ page }) =
 });
 
 test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await sinAvisosFlotantes(page);
 
 	const line = page.locator('main [data-block-id] .block-editable').first();
@@ -284,7 +285,7 @@ test('el panel de fecha no queda tapado por el teclado', async ({ page }) => {
 			}
 		});
 	});
-	await page.goto('/');
+	await openApp(page);
 
 	// Renglones hasta que el último quede al pie de la pantalla.
 	const first = page.locator('main [data-block-id] .block-editable').first();

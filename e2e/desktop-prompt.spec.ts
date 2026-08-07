@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // While DESKTOP_RELEASE_PUBLISHED is false (src/lib/desktop/download.ts) there
 // is no .app to download, so every download entry point stays hidden. These
@@ -12,7 +13,7 @@ import { test, expect } from '@playwright/test';
 const CARD = '[aria-label="Descargar la app de escritorio"]';
 
 test('no download card while there is no published release', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.waitForSelector('main');
 	await expect(page.locator(CARD)).toHaveCount(0);
 
@@ -21,7 +22,7 @@ test('no download card while there is no published release', async ({ page }) =>
 });
 
 test('settings explains the desktop app without offering a dead link', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: /configuraci/i }).click();
 	await expect(
 		page.getByText('La conexión con agentes está disponible solo en la app de escritorio.')

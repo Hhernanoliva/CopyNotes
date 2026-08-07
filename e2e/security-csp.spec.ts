@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // The strict CSP (spec 030, phase 0) is configured in vite.config.ts and shipped
 // as a <meta> tag in the prerendered HTML, so it guards the web app and the Tauri
@@ -20,7 +21,7 @@ test('la app arranca sin violaciones de CSP', async ({ page }) => {
 		});
 	});
 
-	await page.goto('/');
+	await openApp(page);
 	// Exercise the parts that load late: editor, sidebar, a toast.
 	await expect(page.getByRole('textbox', { name: 'Título de la nota' })).toBeVisible();
 	await page.getByRole('button', { name: 'Snippets' }).click();

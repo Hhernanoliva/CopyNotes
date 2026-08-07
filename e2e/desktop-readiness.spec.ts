@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote, openApp } from './app';
 
 async function readJsonDownload(download) {
 	const stream = await download.createReadStream();
@@ -8,7 +9,7 @@ async function readJsonDownload(download) {
 }
 
 test('la ventana de Respaldo no abre con la X enfocada', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Respaldo' }).click();
 	await expect(page.getByRole('dialog', { name: 'Respaldo' })).toBeVisible();
 
@@ -21,8 +22,7 @@ test('la ventana de Respaldo no abre con la X enfocada', async ({ page }) => {
 });
 
 test('el punto de guardado se pone verde al guardar y luego se apaga', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const dot = page.locator('[data-save-state]');
 	const box = await dot.boundingBox();
 	const block = page.locator('main [data-block-id] .block-editable').first();
@@ -37,8 +37,7 @@ test('el punto de guardado se pone verde al guardar y luego se apaga', async ({ 
 });
 
 test('an immediate backup includes the latest editor text', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const title = page.getByLabel('Título de la nota');
 	const block = page.locator('main [data-block-id] .block-editable').first();

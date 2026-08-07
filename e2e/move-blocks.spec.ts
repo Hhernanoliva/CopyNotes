@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote } from './app';
 
 // Alt+Arrow moves a line among its siblings; at the parent's edge it now
 // escapes the parent (fix: it used to stop there), landing at the parent's
@@ -10,8 +11,7 @@ const blockTexts = (page) =>
 	);
 
 test('Alt+Arrow moves a line out of its parent in both directions', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	// Build: Padre > [Hijo 1, Hijo 2]
 	const first = page.locator('main [data-block-id] .block-editable').first();
@@ -54,8 +54,7 @@ test('Alt+Arrow moves a line out of its parent in both directions', async ({ pag
 // stuck "ghost" row (empty, undeletable, caret trapped). Now the row is removed and
 // its children rise one level to take its place — nothing lost, caret goes up.
 test('Backspace on an emptied parent lifts its children up instead of ghosting', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	// Build: Padre > [Hijo 1, Hijo 2]
 	const first = page.locator('main [data-block-id] .block-editable').first();
@@ -101,8 +100,7 @@ const HOLD = 450; // exceed the controller's 350ms long-press
 
 // Seed three root lines A / B / C, top to bottom.
 async function seedABC(page) {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.type('A');
@@ -206,8 +204,7 @@ test('dragging a selected word does not move the whole line', async ({ page }) =
 // Spec 026: dragging a selected word MOVES that text (custom text drag), not the
 // whole line, and a single undo restores it. Quick grab, no long hold.
 test('dragging a selected word moves the text to another line', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.type('hola mundo', { delay: 20 });
@@ -254,8 +251,7 @@ test('dragging a selected word moves the text to another line', async ({ page })
 // El arrastre nativo del navegador no se puede guionar, pero éste es un gesto
 // de puntero propio (spec 026) y `page.mouse` lo hace igual.
 test('arrastrar un texto justo después de escribirlo no se revierte solo', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	await page.keyboard.type('el gato duerme en la silla', { delay: 20 });
@@ -301,8 +297,7 @@ test('arrastrar un texto justo después de escribirlo no se revierte solo', asyn
 // one (the selection handler had no Tab branch, so the key fell through to the
 // single-row handler). Now the whole group moves a level, and Shift+Tab returns it.
 test('Tab indents every selected line, not just the first', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -344,8 +339,7 @@ test('Tab indents every selected line, not just the first', async ({ page }) => 
 // it and leave nothing selected. Shift+click on ANOTHER row still selects the
 // range of rows.
 test('Shift+click selects text inside the row and rows across rows', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -378,8 +372,7 @@ test('Shift+click selects text inside the row and rows across rows', async ({ pa
 // the caret a zero rect, so the "am I on the last visual line?" check compared
 // against the top of the screen and never said yes. ArrowUp worked by accident.
 test('ArrowDown walks down through empty rows, not just up', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();

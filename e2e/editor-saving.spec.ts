@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // La puerta única de escritura del editor.
 //
@@ -30,7 +31,7 @@ async function readBlock(page, id) {
 // Un renglón nuevo y vacío al final del primero, para no pelear con la nota de
 // ejemplo. Devuelve su id, que es el que las pruebas después miran en la base.
 async function newRow(page) {
-	await page.goto('/');
+	await openApp(page);
 	const first = page.locator('main [data-block-id]').first();
 	await first.locator('.block-editable').waitFor();
 	const rows = page.locator('main [data-block-id]');

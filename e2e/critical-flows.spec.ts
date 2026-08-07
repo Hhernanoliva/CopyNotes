@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote, openApp } from './app';
 
 // Critical MVP flows (spec 017 quality gates). Each test gets a fresh browser
 // context — and therefore a fresh IndexedDB — so the first-run demo note is
@@ -17,15 +18,14 @@ async function pasteText(locator, text) {
 }
 
 test('first run seeds an editable demo note', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await expect(title(page)).toHaveValue(/Bienvenido a CopyNotes/);
 	await expect(page.locator('main [role="textbox"]').first()).toBeVisible();
 	await expect(page.locator('[role="checkbox"]').first()).toBeVisible();
 });
 
 test('the tag shortcut keeps # on cancel and consumes it after assigning a tag', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -64,8 +64,7 @@ test('the tag shortcut keeps # on cancel and consumes it after assigning a tag',
 });
 
 test('the tag shortcut works mid-sentence and ignores a # glued to a word', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -94,8 +93,7 @@ test('the tag shortcut works mid-sentence and ignores a # glued to a word', asyn
 });
 
 test('the slash menu groups headings and shows every block type without scrolling', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -118,8 +116,7 @@ test('the slash menu groups headings and shows every block type without scrollin
 });
 
 test('code paste keeps whitespace, scrolls horizontally and remembers collapse', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -192,8 +189,7 @@ test('code paste keeps whitespace, scrolls horizontally and remembers collapse',
 });
 
 test('multi-line code is detected without turning prose or lists into code', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	const source = 'const total = items.length;\n\tconsole.log(total);';
@@ -216,8 +212,7 @@ test('multi-line code is detected without turning prose or lists into code', asy
 });
 
 test('code paste replaces a DOM selection without corrupting line breaks', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -242,8 +237,7 @@ test('code paste replaces a DOM selection without corrupting line breaks', async
 });
 
 test('a reload right after typing keeps the last keystrokes', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Persistencia rápida');
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
@@ -258,8 +252,7 @@ test('a reload right after typing keeps the last keystrokes', async ({ page }) =
 });
 
 test('create a note, nest a bullet, and it survives a reload', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Nota E2E');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -282,8 +275,7 @@ test('create a note, nest a bullet, and it survives a reload', async ({ page }) 
 });
 
 test('undo reverses typing and a new block, and the result persists', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Undo E2E');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -310,8 +302,7 @@ test('undo reverses typing and a new block, and the result persists', async ({ p
 });
 
 test('pasting CopyNotes clipboard content rebuilds block types and nesting', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Round trip');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -357,8 +348,7 @@ test('paste falls back to the localStorage buffer when only text/plain arrives',
 	// localStorage keyed by its plain text; a paste whose text/plain matches
 	// rebuilds the exact blocks even without the custom format. (Playwright's
 	// synthetic Ctrl+V does not fire a real paste, so we dispatch the event.)
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Buffer');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -391,7 +381,7 @@ test('paste falls back to the localStorage buffer when only text/plain arrives',
 });
 
 test('a checked todo persists across reload', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const firstUnchecked = page.locator('[role="checkbox"][aria-checked="false"]').first();
 	await firstUnchecked.click();
 	await page.waitForTimeout(700);
@@ -400,7 +390,7 @@ test('a checked todo persists across reload', async ({ page }) => {
 });
 
 test('copy a block writes text to the clipboard', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const row = page.locator('main .group').first();
 	await row.hover();
 	await row.getByRole('button', { name: 'Copiar bloque' }).click();
@@ -411,8 +401,7 @@ test('copy a block writes text to the clipboard', async ({ page }) => {
 });
 
 test('deleting a parent row from its menu leaves a row to write in', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const rows = page.locator('main [data-block-id]');
 	await page.locator('main [data-block-id] .block-editable').first().click();
@@ -438,7 +427,7 @@ test('deleting a parent row from its menu leaves a row to write in', async ({ pa
 });
 
 test('save a block as a snippet and find it in the Snippets view', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const row = page.locator('main .group').first();
 	await row.hover();
 	await row.getByRole('button', { name: 'Más acciones' }).click();
@@ -455,7 +444,7 @@ test('save a block as a snippet and find it in the Snippets view', async ({ page
 });
 
 test('search finds a block by its text', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Buscar' }).click();
 	await page.getByLabel('Texto a buscar').fill('anidar');
 	await page.waitForTimeout(200);
@@ -463,7 +452,7 @@ test('search finds a block by its text', async ({ page }) => {
 });
 
 test('Ctrl+F opens the search panel and pressing it again closes it', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await expect(page.getByRole('button', { name: 'Buscar' })).toBeVisible();
 	const field = page.getByLabel('Texto a buscar');
 	await page.keyboard.press('ControlOrMeta+f');
@@ -473,7 +462,7 @@ test('Ctrl+F opens the search panel and pressing it again closes it', async ({ p
 });
 
 test('exporting a full backup downloads a JSON file with the notes', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Respaldo' }).click();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
@@ -488,7 +477,7 @@ test('exporting a full backup downloads a JSON file with the notes', async ({ pa
 });
 
 test('the theme toggle switches between dark and light', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	const root = page.locator('html');
 	const before = await root.getAttribute('class');
 	await page.getByRole('button', { name: /Activar modo/ }).click();
@@ -498,7 +487,7 @@ test('the theme toggle switches between dark and light', async ({ page }) => {
 });
 
 test('the help panel opens with the ? key and lists shortcuts', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.locator('body').click({ position: { x: 5, y: 5 } });
 	await page.keyboard.press('Shift+Slash'); // "?"
 	const dialog = page.locator('dialog[aria-labelledby="help-title"]');
@@ -565,8 +554,7 @@ test('offline after the first visit: read, write, snippets and export all work',
 });
 
 test('double Enter leaves the block note and opens a new normal line', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-surface]').first();
 	await first.click();
@@ -589,8 +577,7 @@ test('double Enter leaves the block note and opens a new normal line', async ({ 
 });
 
 test('a parent block shows a second button that copies it with its children', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 
 	const first = page.locator('main [data-block-surface]').first();
 	await first.click();

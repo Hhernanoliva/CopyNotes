@@ -1,18 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// La página se sirve pre-renderizada, así que los botones de la cabecera existen
-// en el HTML ANTES de que la app se conecte a ellos. Un clic en esa ventana no
-// hace nada y se pierde en silencio: la prueba seguía como si el diálogo se
-// hubiera abierto y fallaba 5 segundos después, sobre un elemento que estaba en
-// el DOM pero sin dibujar. Bajo carga (la suite entera en paralelo) esa ventana
-// se agranda y fallaba la mitad de las veces.
-//
-// Esperar el título de la nota sembrada prueba que el JavaScript de la app ya
-// corrió — es la misma señal que usa `critical-flows.spec.ts` en su primer test.
-async function openApp(page) {
-	await page.goto('/');
-	await expect(page.getByLabel('Título de la nota')).toHaveValue(/Bienvenido a CopyNotes/);
-}
+import { openApp } from './app';
 
 // Reads visibility straight out of the app's IndexedDB, bypassing the UI: the
 // agent gate reads the database, not the screen, so this is the only honest way

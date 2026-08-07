@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Spec 022: sidebar organization. Slice A: click a snippet's name to rename it.
 
@@ -10,7 +11,7 @@ async function readJsonDownload(download) {
 }
 
 test('click on a snippet name renames it and the name survives a reload', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	// Seed a snippet through the + dialog (name auto-derives from the text).
 	await page.getByRole('button', { name: 'Snippets' }).click();
 	await page.getByRole('button', { name: 'Nuevo snippet' }).click();
@@ -62,7 +63,7 @@ async function dragRowTo(page, source, target, offsetY = 0) {
 }
 
 test('notes can be dragged into a manual order that survives reload', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	// Three notes; each new note lands on top → visual order: C, B, A.
 	for (const title of ['Nota A', 'Nota B', 'Nota C']) {
 		await page.getByRole('button', { name: 'Nueva nota' }).click();
@@ -97,7 +98,7 @@ test('notes can be dragged into a manual order that survives reload', async ({ p
 // Spec 022 invariant: orders stay gapless after a delete (no hole left behind).
 
 test('deleting a snippet from the middle keeps the order gapless (spec 022)', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Snippets' }).click();
 	// Three snippets; each new one lands on top → sortOrder Tres=0, Dos=1, Uno=2.
 	for (const name of ['Uno', 'Dos', 'Tres']) {
@@ -132,7 +133,7 @@ test('deleting a snippet from the middle keeps the order gapless (spec 022)', as
 test('folders: file a snippet by dragging, collapse persists, delete restores contents', async ({
 	page
 }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Snippets' }).click();
 	for (const text of ['Alfa', 'Beta']) {
 		await page.getByRole('button', { name: 'Nuevo snippet' }).click();
@@ -173,7 +174,7 @@ test('folders: file a snippet by dragging, collapse persists, delete restores co
 });
 
 test('backup roundtrip keeps folders and membership', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Snippets' }).click();
 	for (const text of ['Alfa', 'Beta']) {
 		await page.getByRole('button', { name: 'Nuevo snippet' }).click();

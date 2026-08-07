@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { newNote } from './app';
 
 // Inline formatting flows (task 16): toolbar visibility, bold persistence,
 // heading conversion persistence, and a copy-button regression guard. Each
@@ -32,8 +33,7 @@ async function selectRangeInBlock(page, editable, start, end) {
 }
 
 test('selecting text shows the formatting toolbar', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: toolbar');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -45,8 +45,7 @@ test('selecting text shows the formatting toolbar', async ({ page }) => {
 });
 
 test('the toolbar waits a beat before appearing on a fresh selection', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: retardo');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -64,8 +63,7 @@ test('the toolbar waits a beat before appearing on a fresh selection', async ({ 
 });
 
 test('applying bold wraps the text in <strong> and survives a reload', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: negrita');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -86,8 +84,7 @@ test('applying bold wraps the text in <strong> and survives a reload', async ({ 
 test('converting to H2 changes the block and survives a reload without adding an empty block', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: encabezado');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -118,8 +115,7 @@ test('converting to H2 changes the block and survives a reload without adding an
 test('a Shift+Enter soft line break survives reload and copies as a real newline', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: salto suave');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -147,8 +143,7 @@ test('a Shift+Enter soft line break survives reload and copies as a real newline
 test('regression guard: the copy block button still works after formatting changes', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: copiar');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -170,8 +165,7 @@ test('regression guard: the copy block button still works after formatting chang
 });
 
 test('deshacer revierte solo el código en línea, sin borrar el texto', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: deshacer código');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -193,8 +187,7 @@ test('deshacer revierte solo el código en línea, sin borrar el texto', async (
 });
 
 test('deshacer revierte solo el color, sin borrar el texto', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: deshacer color');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -216,8 +209,7 @@ test('deshacer revierte solo el color, sin borrar el texto', async ({ page }) =>
 });
 
 test('deshacer un H2 lo devuelve a texto normal', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: deshacer H2');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -239,8 +231,7 @@ test('deshacer un H2 lo devuelve a texto normal', async ({ page }) => {
 test('deshacer quita el enlace recién puesto — sin volver a hacer clic en el texto', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: deshacer enlace');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -262,8 +253,7 @@ test('deshacer quita el enlace recién puesto — sin volver a hacer clic en el 
 });
 
 test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: quitar y deshacer');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -293,8 +283,7 @@ test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) =>
 });
 
 test('Escape en el editor de enlace cierra el popover y devuelve el foco al renglón (spec 020)', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: escape enlace');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -312,8 +301,7 @@ test('Escape en el editor de enlace cierra el popover y devuelve el foco al reng
 });
 
 test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020)', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: escape barra');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -329,8 +317,7 @@ test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020
 });
 
 test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: abrir enlace');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -354,8 +341,7 @@ test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
 });
 
 test('deshacer restaura el formato que se acababa de limpiar', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: quitar formato');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -380,8 +366,7 @@ test('deshacer restaura el formato que se acababa de limpiar', async ({ page }) 
 });
 
 test('rehacer recupera el código en línea deshecho', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: rehacer código');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -403,8 +388,7 @@ test('rehacer recupera el código en línea deshecho', async ({ page }) => {
 test('aplicar negrita por atajo a mitad de ráfaga: 1er deshacer quita negrita, 2do quita texto', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: negrita atajo deshacer');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -436,8 +420,7 @@ for (const { nombre, keys, tag } of [
 	{ nombre: 'tachado', keys: 'ControlOrMeta+Shift+s', tag: 's' }
 ]) {
 	test(`atajo de ${nombre}: un Deshacer quita solo el formato`, async ({ page }) => {
-		await page.goto('/');
-		await page.getByRole('button', { name: 'Nueva nota' }).click();
+		await newNote(page);
 		await title(page).fill(`Formato E2E: atajo ${nombre}`);
 
 		const first = page.locator('main [role="textbox"]').first();
@@ -462,8 +445,7 @@ for (const { nombre, keys, tag } of [
 test('marcar una parte y apretar H1 agranda solo eso, sin convertir el renglón', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: tamaño parcial');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -491,8 +473,7 @@ test('marcar una parte y apretar H1 agranda solo eso, sin convertir el renglón'
 test('marcar el renglón entero y apretar H1 sigue haciendo un título de verdad', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: tamaño entero');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -509,8 +490,7 @@ test('marcar el renglón entero y apretar H1 sigue haciendo un título de verdad
 });
 
 test('apretar H1 dos veces sobre lo mismo deja el texto como estaba', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: tamaño ida y vuelta');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -534,8 +514,7 @@ test('apretar H1 dos veces sobre lo mismo deja el texto como estaba', async ({ p
 // tocar sin algo marcado (el botón no haría nada con el cursor solo), así que
 // entrar al texto agrandado no debe abrirla sola.
 test('mover el cursor dentro del texto agrandado no abre la barra sola', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: la barra no se abre sola');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -560,8 +539,7 @@ test('mover el cursor dentro del texto agrandado no abre la barra sola', async (
 });
 
 test('deshacer revierte el tamaño en línea, sin borrar el texto', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: deshacer tamaño');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -582,8 +560,7 @@ test('deshacer revierte el tamaño en línea, sin borrar el texto', async ({ pag
 // --- La barra sin mouse (spec 033) ---
 
 test('Ctrl/Cmd+Alt+1 sobre el renglón entero lo convierte en título', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: atajo tamaño');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -609,8 +586,7 @@ test('Ctrl/Cmd+Alt+1 sobre el renglón entero lo convierte en título', async ({
 });
 
 test('el botón Título 1 apretado dos veces también vuelve a texto normal', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: título ida y vuelta');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -631,8 +607,7 @@ test('el botón Título 1 apretado dos veces también vuelve a texto normal', as
 });
 
 test('con el cursor solo, el atajo repetido apaga el título', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: apagar con cursor solo');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -647,8 +622,7 @@ test('con el cursor solo, el atajo repetido apaga el título', async ({ page }) 
 });
 
 test('Ctrl/Cmd+Alt+2 sobre una parte agranda solo eso', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: atajo parcial');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -664,8 +638,7 @@ test('Ctrl/Cmd+Alt+2 sobre una parte agranda solo eso', async ({ page }) => {
 test('con el cursor solo, sin nada marcado, el atajo convierte el renglón entero', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: atajo con cursor solo');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -679,8 +652,7 @@ test('con el cursor solo, sin nada marcado, el atajo convierte el renglón enter
 });
 
 test('con texto marcado, Tab entra en la barra', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: Tab entra');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -709,8 +681,7 @@ test('con texto marcado, Tab entra en la barra', async ({ page }) => {
 test('con el mouse la barra queda abierta, para aplicar dos formatos seguidos', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: la barra sigue abierta con mouse');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -730,8 +701,7 @@ test('con el mouse la barra queda abierta, para aplicar dos formatos seguidos', 
 });
 
 test('sin nada marcado, Tab sigue anidando el renglón', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: Tab sigue anidando');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -753,8 +723,7 @@ test('sin nada marcado, Tab sigue anidando el renglón', async ({ page }) => {
 test('Ctrl/Cmd+Alt+F entra en la barra y las flechas la caminan hasta aplicar', async ({
 	page
 }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: caminar la barra');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -777,8 +746,7 @@ test('Ctrl/Cmd+Alt+F entra en la barra y las flechas la caminan hasta aplicar', 
 });
 
 test('Tab aplica el botón enfocado, igual que Enter', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: Tab aplica');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -805,8 +773,7 @@ test('Tab aplica el botón enfocado, igual que Enter', async ({ page }) => {
 });
 
 test('elegir un color sin mouse: entrar, abrir el panel, caminarlo y aplicar', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: color sin mouse');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -832,8 +799,7 @@ test('elegir un color sin mouse: entrar, abrir el panel, caminarlo y aplicar', a
 });
 
 test('Escape adentro de un panel vuelve al botón que lo abrió, no al texto', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	await title(page).fill('Formato E2E: escape del panel');
 
 	const first = page.locator('main [role="textbox"]').first();
@@ -871,8 +837,7 @@ for (const [boton, panel] of [
 	['Más opciones', '[role="menu"]:not([aria-label])']
 ]) {
 	test(`el panel "${boton}" se ve entero, sin recorte de la barra`, async ({ page }) => {
-		await page.goto('/');
-		await page.getByRole('button', { name: 'Nueva nota' }).click();
+		await newNote(page);
 		await title(page).fill(`Formato E2E: panel ${boton}`);
 
 		const first = page.locator('main [role="textbox"]').first();
@@ -917,8 +882,7 @@ for (const [boton, panel] of [
 // sola vez, cuando cambiaba la selección, así que quedaba clavada en la
 // pantalla mientras la nota se movía por debajo.
 test('la barra de formato queda pegada al texto marcado al scrollear', async ({ page }) => {
-	await page.goto('/');
-	await page.getByRole('button', { name: 'Nueva nota' }).click();
+	await newNote(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();
 	await first.click();
 	for (let i = 0; i < 40; i++) {

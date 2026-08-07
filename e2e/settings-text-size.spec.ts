@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Configuración → Tamaño de texto (spec 027). El engranaje abre el diálogo;
 // A+ agranda solo el texto de la nota (variable --cn-editor-scale en <html>) y
@@ -18,7 +19,7 @@ function firstBlockFontPx(page) {
 }
 
 test('A+ agranda el texto de la nota y persiste tras recargar', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.locator('main [data-block-id] .block-editable').first().waitFor();
 
 	expect(await scaleVar(page)).toBe('1');
@@ -45,7 +46,7 @@ test('A+ agranda el texto de la nota y persiste tras recargar', async ({ page })
 });
 
 test('A− se deshabilita en el mínimo (90%)', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	const shrink = page.getByRole('button', { name: 'Achicar texto' });
@@ -60,7 +61,7 @@ test('A− se deshabilita en el mínimo (90%)', async ({ page }) => {
 // local: la sección tiene que abrirse, decirlo, y no pedir nada. Los dos estados
 // del interruptor los cubre `sync/supabase.test.ts` con el entorno fijado.
 test('la sección Nube avisa que no hay nube configurada y no pide nada', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await page.getByRole('button', { name: 'Configuración' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Nube' })).toBeVisible();
@@ -74,7 +75,7 @@ test.describe('con movimiento reducido', () => {
 	test.use({ reducedMotion: 'reduce' });
 
 	test('el diálogo funciona y el tamaño cambia sin animación', async ({ page }) => {
-		await page.goto('/');
+		await openApp(page);
 		await page.getByRole('button', { name: 'Configuración' }).click();
 		await expect(page.getByRole('heading', { name: 'Configuración' })).toBeVisible();
 		await page.getByRole('button', { name: 'Agrandar texto' }).click();

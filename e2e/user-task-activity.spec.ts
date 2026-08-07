@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Puerta única: marcar una tarea en el editor pasa por la capa de tareas, que
 // deja una línea de bitácora con actor user — visible en Configuración →
@@ -54,7 +55,7 @@ async function seedTodoNote(page, { noteId, blockId }) {
 }
 
 test('checking a task in the editor leaves a user done line in the activity feed', async ({ page }) => {
-	await page.goto('/');
+	await openApp(page);
 	await expect(page.getByLabel('Título de la nota')).toBeVisible();
 
 	await seedTodoNote(page, { noteId: 'e2e-user-note', blockId: 'e2e-user-block' });

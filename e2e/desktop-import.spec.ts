@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,7 +24,7 @@ test('a PWA backup imports into a fresh desktop container', async ({ browser }) 
 	// Phase 1 — the PWA exports a real backup.
 	const pwa = await browser.newContext();
 	const pwaPage = await pwa.newPage();
-	await pwaPage.goto('/');
+	await openApp(pwaPage);
 	await pwaPage.getByRole('button', { name: 'Nueva nota' }).click();
 	await pwaPage.getByLabel('Título de la nota').fill(marker);
 	const pwaBlock = pwaPage.locator('main [data-block-id] .block-editable').first();
@@ -47,7 +48,7 @@ test('a PWA backup imports into a fresh desktop container', async ({ browser }) 
 	// Phase 2 — a fresh desktop-like container imports that file.
 	const desktop = await browser.newContext();
 	const deskPage = await desktop.newPage();
-	await deskPage.goto('/');
+	await openApp(deskPage);
 	// The imported note does not exist here yet.
 	await expect(deskPage.getByText(marker)).toHaveCount(0);
 

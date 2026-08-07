@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { openApp } from './app';
 
 // Dos pestañas de CopyNotes sobre la misma nota (#8 de la revisión del 5/8).
 //
@@ -13,7 +14,7 @@ const rows = (page) => page.locator('main [data-block-id] .block-editable');
 
 test('a second tab picks up what the first one wrote, without reloading', async ({ context }) => {
 	const a = await context.newPage();
-	await a.goto('/');
+	await openApp(a);
 	await a.getByRole('button', { name: 'Nueva nota' }).last().click();
 	await a.getByLabel('Título de la nota').fill('Dos pestañas');
 
@@ -22,7 +23,7 @@ test('a second tab picks up what the first one wrote, without reloading', async 
 	await a.waitForTimeout(900);
 
 	const b = await context.newPage();
-	await b.goto('/');
+	await openApp(b);
 	await b
 		.getByRole('navigation', { name: 'Lista de notas' })
 		.getByRole('button', { name: 'Dos pestañas', exact: true })
@@ -65,7 +66,7 @@ test('a second tab picks up what the first one wrote, without reloading', async 
 
 test('a row added in one tab appears in the other', async ({ context }) => {
 	const a = await context.newPage();
-	await a.goto('/');
+	await openApp(a);
 	await a.getByRole('button', { name: 'Nueva nota' }).last().click();
 	await a.getByLabel('Título de la nota').fill('Renglón nuevo');
 
@@ -74,7 +75,7 @@ test('a row added in one tab appears in the other', async ({ context }) => {
 	await a.waitForTimeout(900);
 
 	const b = await context.newPage();
-	await b.goto('/');
+	await openApp(b);
 	await b
 		.getByRole('navigation', { name: 'Lista de notas' })
 		.getByRole('button', { name: 'Renglón nuevo', exact: true })
