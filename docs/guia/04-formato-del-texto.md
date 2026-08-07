@@ -98,7 +98,7 @@ El botón de color (ícono de paleta) abre una fila de colores para aplicar al t
 
 El botón de los tres puntitos, al final de la barra, abre un menú chico con dos acciones sobre el texto seleccionado:
 
-- **Quitar formato** — le saca toda la negrita, cursiva, subrayado, tachado, color, código y enlace al texto seleccionado, dejándolo en texto plano.
+- **Quitar formato** — le saca toda la negrita, cursiva, subrayado, tachado, color, código y enlace al texto seleccionado, dejándolo en texto plano. **Los enlaces se van enteros**: si marcaste sólo una parte de una palabra enlazada, igual se quita el enlace completo, porque media palabra enlazada no le sirve a nadie y después es más difícil de agarrar que la palabra entera. Si lo marcado toca varios enlaces, se van todos. (Antes esto no funcionaba: quitar formato limpiaba todo lo demás y **dejaba el enlace intacto**, por más que se marcara la palabra entera).
 - **Copiar texto seleccionado** — copia solo esa selección al portapapeles, sin copiar el renglón entero.
 
 ### El formato se guarda

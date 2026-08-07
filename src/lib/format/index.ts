@@ -13,5 +13,6 @@ export {
 	applySize,
 	applyLink,
 	removeLink,
+	removeLinksInSelection,
 	anchorForRange
 } from './commands';

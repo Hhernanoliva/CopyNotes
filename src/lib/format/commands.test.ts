@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { anchorForRange } from './commands';
+import { anchorForRange, removeLinksInSelection } from './commands';
 
 // Un renglón del editor: el <a> vive adentro de la caja editable.
 function row(html) {
@@ -53,3 +53,42 @@ test('sin enlace y sin nada marcado devuelve null', () => {
 	expect(anchorForRange(null)).toBe(null);
 });
 
+// --- removeLinksInSelection: lo que usa "Quitar formato" ---
+
+function select(range) {
+	const sel = window.getSelection();
+	sel.removeAllRanges();
+	sel.addRange(range);
+}
+
+test('marcar media palabra enlazada se lleva el enlace entero', () => {
+	const root = row('<a href="https://uno.com">enlazado</a>');
+	const range = document.createRange();
+	const text = root.querySelector('a').firstChild;
+	range.setStart(text, 2);
+	range.setEnd(text, 5);
+	select(range);
+
+	removeLinksInSelection();
+	expect(root.querySelectorAll('a')).toHaveLength(0);
+	expect(root.textContent).toBe('enlazado');
+});
+
+test('se lleva TODOS los enlaces que toca la selección, no sólo el primero', () => {
+	const root = row('<a href="https://uno.com">uno</a> y <a href="https://dos.com">dos</a>');
+	select(rangeOver(root));
+
+	removeLinksInSelection();
+	expect(root.querySelectorAll('a')).toHaveLength(0);
+	expect(root.textContent).toBe('uno y dos');
+});
+
+test('no toca un enlace que quedó fuera de lo marcado', () => {
+	const root = row('<a href="https://uno.com">uno</a> y <a href="https://dos.com">dos</a>');
+	select(rangeOver(root.querySelector('a')));
+
+	removeLinksInSelection();
+	const quedan = root.querySelectorAll('a');
+	expect(quedan).toHaveLength(1);
+	expect(quedan[0].getAttribute('href')).toBe('https://dos.com');
+});

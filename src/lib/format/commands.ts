@@ -115,6 +115,37 @@ export function removeLink() {
 	if (anchor) unwrap(anchor);
 }
 
+// Todo enlace que la selección toque, aunque lo toque a medias, y aunque sean
+// varios. Es lo que necesita "Quitar formato", que promete dejar texto pelado.
+//
+// Va aparte de `document.execCommand('removeFormat')` porque ese comando NO
+// toca los <a>: la especificación lista qué etiquetas limpia y la `a` no está.
+// Por eso limpiar formato dejaba el enlace intacto, sin importar cuánto se
+// hubiera marcado.
+//
+// Un enlace se quita ENTERO aunque esté marcado a medias. Partirlo en un pedazo
+// enlazado y otro no es un resultado que nadie pide y que además no se puede
+// deshacer marcando: la mitad que queda es más difícil de agarrar que la
+// palabra completa.
+export function removeLinksInSelection() {
+	const sel = window.getSelection();
+	if (!sel || sel.rangeCount === 0) return;
+	const range = sel.getRangeAt(0);
+	const container = range.commonAncestorContainer;
+	const inside = ancestorTag(container, 'a');
+	if (inside) {
+		unwrap(inside);
+		return;
+	}
+	const scope = container.nodeType === Node.ELEMENT_NODE ? container : container.parentNode;
+	// Se junta la lista antes de tocar nada: desarmar un <a> mientras se recorre
+	// el resultado vivo de querySelectorAll saltea elementos.
+	const touched = [...(scope?.querySelectorAll?.('a') ?? [])].filter((anchor) =>
+		range.intersectsNode(anchor)
+	);
+	for (const anchor of touched) unwrap(anchor);
+}
+
 // --- helpers ---
 function ancestorTag(node, tag) {
 	let el = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentNode;

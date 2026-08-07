@@ -416,6 +416,48 @@ test('marcar la palabra enlazada trae su dirección actual para cambiarla', asyn
 	await expect(first.locator('a')).toHaveText('sitio');
 });
 
+// Un enlace es una pieza entera: marcar media palabra enlazada y pedir "Quitar
+// formato" tiene que dejar el renglón sin enlace, no partirlo en un pedazo
+// enlazado y otro no.
+test('"Quitar formato" sobre parte de un enlace se lo lleva entero', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: limpiar enlace parcial');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('enlazado', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+	await expect(first.locator('a')).toHaveText('enlazado');
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(650);
+
+	// Marcar SOLO "laz", en el medio de la palabra enlazada.
+	await first.locator('a').evaluate((anchor) => {
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, 2);
+		range.setEnd(anchor.firstChild, 5);
+		const sel = window.getSelection();
+		sel.removeAllRanges();
+		sel.addRange(range);
+	});
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Más opciones' }).click();
+	await page.getByRole('menuitem', { name: 'Quitar formato' }).click();
+
+	// Ni un pedazo del enlace queda vivo, y el texto sigue entero.
+	await expect(first.locator('a')).toHaveCount(0);
+	await expect(first).toHaveText('enlazado');
+
+	// Y sobrevive a recargar: no fue sólo un cambio en pantalla.
+	await page.waitForTimeout(700);
+	await page.reload();
+	await expect(page.locator('main [role="textbox"]').first().locator('a')).toHaveCount(0);
+});
+
 test('arrastrar sobre el enlace lo selecciona para editarlo, no lo abre', async ({ page }) => {
 	await newNote(page);
 	await title(page).fill('Formato E2E: seleccionar enlace');

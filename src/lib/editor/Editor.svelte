@@ -88,6 +88,7 @@
 		applySize,
 		applyLink,
 		removeLink,
+		removeLinksInSelection,
 		anchorForRange
 	} from '$lib/format';
 
@@ -1007,9 +1008,15 @@
 				case 'color': applyColor(arg); break;
 				case 'link': if (!applyLink(arg)) return; break;
 				case 'removeLink': removeLink(); break;
-				// removeFormat no toca los span con clase, así que el tamaño se
-				// quita a mano antes.
-				case 'clear': applySize(null); document.execCommand('removeFormat'); break;
+				// removeFormat no toca los span con clase ni los enlaces, así que el
+				// tamaño y el <a> se quitan a mano. El enlace va al final: desarmarlo
+				// mueve los nodos de texto, y hacerlo antes le cambia el piso a
+				// removeFormat.
+				case 'clear':
+					applySize(null);
+					document.execCommand('removeFormat');
+					removeLinksInSelection();
+					break;
 				default: return;
 			}
 		} finally {
