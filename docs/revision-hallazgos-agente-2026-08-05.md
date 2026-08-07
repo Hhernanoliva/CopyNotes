@@ -1079,6 +1079,58 @@ cerrar los fallos de datos.
 
 ---
 
+## Hallazgo ABIERTO — el techo del almanaque, 7 de agosto
+
+No salió del informe del agente: apareció persiguiendo una prueba floja después
+de cerrar la cola. Queda escrito acá porque es lo único de esta ronda que no está
+resuelto.
+
+**Qué se ve.** Con el teclado en pantalla y el almanaque abierto en el último
+renglón de una nota larga, el panel se asienta con el **techo 59 px por encima
+de lo visible** — cortado arriba, con las primeras opciones inalcanzables. Es
+exactamente el modo de falla que `actions/keyboardInset.js` documenta como el
+peor y del que se defiende con un tope; el tope existe y funciona, así que el
+corrimiento no viene de ahí.
+
+**Que NO es un instante.** Fue lo que más me costó aceptar, después de explicarlo
+mal dos veces (primero como "se agotó la espera", después como "mide a mitad de
+camino"). El `poll` insistió los **5 segundos enteros** devolviendo el mismo
+valor. El estado malo se queda.
+
+**Que NO es siempre.** ~1 de cada 6 corridas. Depende de cómo quede armada la
+nota: la prueba tipea 12 renglones sin pausas, así que a veces se fusionan y el
+renglón que abre el panel termina a distinta altura. Medido cuadro por cuadro,
+hay al menos tres disposiciones distintas, con el panel asentándose en
+`279 → 282 → 199 → 174` en una y en `113 → 115 → 11` en otra. En la buena, el
+techo queda a **11 px** del borde: el margen es mínimo, y por eso una nota
+apenas distinta lo empuja afuera.
+
+**Por qué NO se puede llamar defecto confirmado todavía.** El teclado de la
+prueba es un objeto simulado cuyo `addEventListener` no hace nada. Los avisos de
+`visualViewport` —de donde `flipIntoView` y `keyboardInset` toman la señal para
+reacomodarse cuando el teclado aparece o se mueve— **nunca llegan**. Puede ser un
+agujero de la simulación o un defecto real; lo medido no distingue.
+
+**Siguiente paso, en este orden:**
+
+1. Que el teclado simulado dispare `resize`/`scroll` y volver a medir. Si
+   desaparece, era la prueba.
+2. Si sigue, mirar por qué `flipIntoView` deja el panel dado vuelta cuando, con
+   el alto ya crecido, no entra ni arriba ni abajo — su rama `else` debería
+   devolverlo abajo y no parece estar corriendo.
+3. Confirmarlo en un teléfono de verdad antes de tocar nada: esta zona ya mordió
+   varias veces y las tres causas anteriores se veían iguales entre sí.
+
+**La prueba quedó `test.fixme`** (`e2e/mobile-a11y.spec.ts`): no se borró, no
+corre, y arriba tiene todo esto en corto. Dejarla en rojo una de cada seis
+corridas enseña a ignorar los rojos, que es peor que el bug.
+
+**Lección, otra vez la misma:** una prueba que falla **a veces** puede ser un bug
+que pasa **a veces**. Pasé un buen rato buscando cómo explicarla como ruido del
+medidor. Tenía razón ella.
+
+---
+
 ## Lo que el informe reconoce como bien hecho
 
 Vale dejarlo escrito, porque es lo que no hay que romper al arreglar el resto:
