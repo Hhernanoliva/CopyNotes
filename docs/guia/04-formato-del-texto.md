@@ -10,6 +10,8 @@ Marcá un pedazo de texto —arrastrando con el mouse, o con Shift+flechas, o Ct
 
 La barra **viaja con el texto que marcaste**: si scrolleás la nota con la barra abierta, se mueve con él en vez de quedarse clavada en la pantalla.
 
+**Sólo aparece si marcaste algo.** Antes también salía sola cuando el cursor caía encima de texto con formato —una palabra en negrita, un enlace, algo de color—, aunque no hubieras marcado nada: mientras caminabas el renglón con las flechas te aparecía un cartel tapando el texto. Ya no. Los atajos de teclado (**Ctrl/Cmd+B/I/U**, etc.) nunca necesitaron la barra y siguen funcionando igual.
+
 ### Usar la barra sin mouse
 
 Si marcaste con el teclado, no hace falta soltar las manos para tocar un botón. Ojo con una cosa: que la barra **aparezca** no quiere decir que las flechas ya sean de ella. Mientras estés escribiendo, las flechas siguen siendo del cursor (con algo marcado, **→** suelta la marca y seguís). Primero le pasás el mando a la barra, y ahí sí:
@@ -81,8 +83,8 @@ Con texto seleccionado, tocá el botón de enlace (ícono de cadena) o el atajo 
 
 - No hace falta escribir "https://" adelante: si ponés `ejemplo.com`, CopyNotes le agrega el `https://` solo.
 - Los enlaces siempre **abren en una pestaña nueva**, para no perder tu nota.
-- **Abrir** un enlace: apretá **Ctrl** (o **Cmd** en Mac) y hacé clic sobre el texto enlazado; se abre en una pestaña nueva. Un clic normal no lo abre —así podés seguir escribiendo sin irte de la nota sin querer. (En celular o tablet, por ahora el enlace no se abre con el toque; se abre desde una computadora).
-- **Editar** un enlace ya puesto: parate con el cursor adentro de ese texto (no hace falta seleccionar nada) y tocá de nuevo el botón de enlace; el cuadrito aparece con la dirección actual lista para cambiar.
+- **Abrir** un enlace: **hacé clic encima** (o tocalo, en celular y tablet) y se abre en una pestaña nueva. Nada más: no hace falta mantener ninguna tecla apretada. El texto enlazado te muestra la manito del mouse para avisarte que ahí se puede clickear. **Ctrl/Cmd+clic** también lo abre, para quien ya lo tenía en el dedo.
+- **Editar** un enlace ya puesto: **seleccioná el texto enlazado** —arrastrando el mouse por encima, o manteniendo el dedo apretado en el celular— y tocá de nuevo el botón de enlace; el cuadrito aparece con la dirección actual lista para cambiar. Arrastrar sobre un enlace **lo marca, no lo abre**: sólo el clic seco te lleva a la dirección.
 - **Quitar** un enlace: mismo cuadrito, botón **Quitar**.
 - **Cerrar sin cambios:** **Escape** cierra el cuadrito del enlace (y también la barra de formato) y **te devuelve el cursor al texto**, así seguís escribiendo sin tener que volver a tocar el renglón.
 

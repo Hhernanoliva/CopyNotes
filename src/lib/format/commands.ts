@@ -58,6 +58,32 @@ export function applySize(className) {
 	selectNode(span);
 }
 
+// El enlace al que se refiere un rango, para leerlo, cambiarlo o quitarlo.
+//
+// Subir por los padres alcanza cuando el cursor está DENTRO del enlace, pero no
+// cuando el usuario marcó la palabra enlazada entera: ahí el ancestro común del
+// rango es el renglón, no el <a>, y subir no encuentra nada. Ese es hoy el
+// gesto normal para editar un enlace —pararse encima con un clic ya no se
+// puede, el clic abre la dirección—, así que también hay que mirar hacia
+// adentro.
+//
+// Se exige que lo marcado sea EXACTAMENTE el texto del enlace. Si sobra texto
+// alrededor, el gesto es "enlazá todo esto", no "editá ese enlace", y devolver
+// el <a> de adentro dejaría el resto sin enlazar.
+export function anchorForRange(range) {
+	if (!range) return null;
+	const up = ancestorTag(range.commonAncestorContainer, 'a');
+	if (up) return up;
+	const container = range.commonAncestorContainer;
+	const scope = container.nodeType === Node.ELEMENT_NODE ? container : container.parentNode;
+	const marked = range.toString().trim();
+	if (!marked) return null;
+	for (const anchor of scope?.querySelectorAll?.('a') ?? []) {
+		if (range.intersectsNode(anchor) && anchor.textContent.trim() === marked) return anchor;
+	}
+	return null;
+}
+
 // Wrap the selection in an anchor. Returns false when the URL is invalid.
 export function applyLink(rawUrl) {
 	const href = normalizeUrl(rawUrl);
@@ -65,7 +91,7 @@ export function applyLink(rawUrl) {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
 	const range = sel.getRangeAt(0);
-	const existing = ancestorTag(range.commonAncestorContainer, 'a');
+	const existing = anchorForRange(range);
 	if (existing) {
 		existing.setAttribute('href', href);
 		existing.setAttribute('target', '_blank');
@@ -85,7 +111,7 @@ export function applyLink(rawUrl) {
 export function removeLink() {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0) return;
-	const anchor = ancestorTag(sel.getRangeAt(0).commonAncestorContainer, 'a');
+	const anchor = anchorForRange(sel.getRangeAt(0));
 	if (anchor) unwrap(anchor);
 }
 

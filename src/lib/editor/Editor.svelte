@@ -87,7 +87,8 @@
 		applyColor,
 		applySize,
 		applyLink,
-		removeLink
+		removeLink,
+		anchorForRange
 	} from '$lib/format';
 
 	let {
@@ -749,16 +750,21 @@
 		const startEditable = editableFor(range.startContainer);
 		const endEditable = editableFor(range.endContainer);
 		if (!startEditable) { toolbar = null; return; }
-		// Show on a real selection, or when the caret sits inside formatted text.
+		// La barra se abre SOLO con algo seleccionado.
 		//
-		// El tamaño en línea queda FUERA de esta lista a propósito: con el cursor
-		// solo, sin nada marcado, los botones de tamaño no pueden hacer nada
-		// (applySize necesita un rango), así que abrir la barra al entrar al texto
-		// agrandado solo la hace aparecer sola mientras el usuario se mueve por el
-		// renglón. El botón sigue encendiéndose cuando la barra ya está abierta.
+		// Antes también se abría con el cursor solo si caía sobre texto formateado
+		// —negrita, cursiva, código, color, enlace—, y eso la hacía aparecer sola
+		// mientras el usuario caminaba el renglón con las flechas o clickeaba para
+		// pararse: un cartel que tapa el texto sin que nadie lo haya pedido. El
+		// tamaño en línea ya estaba afuera de esa lista por exactamente el mismo
+		// motivo; ahora la regla vale para todos los formatos, que es lo que hace
+		// cualquier editor.
+		//
+		// No se pierde nada: los atajos (Ctrl/Cmd+B/I/U/K…) nunca pasaron por la
+		// barra, y el enlace no se podía ni crear con el cursor solo — applyLink
+		// devuelve false sin un rango.
 		const marks = activeFormatsFor(range.startContainer, startEditable);
-		const hasMark = marks.bold || marks.italic || marks.underline || marks.strike || marks.code || marks.link || marks.color;
-		if (sel.isCollapsed && !hasMark) { toolbar = null; return; }
+		if (sel.isCollapsed) { toolbar = null; return; }
 
 		const row = startEditable.closest('[data-block-id]');
 		const block = blocks.find((b) => b.id === row?.dataset.blockId);
@@ -813,14 +819,12 @@
 		}
 	}
 
+	// Misma puerta que usan aplicar y quitar enlace (anchorForRange), y no una
+	// búsqueda propia: tenía su propia forma de subir por los padres, que no
+	// encontraba el enlace cuando lo marcado era la palabra enlazada entera. Con
+	// eso el cuadrito se abría sin la dirección actual y sin el botón Quitar.
 	function currentLinkHref(range) {
-		let el = range.startContainer;
-		el = el.nodeType === 1 ? el : el.parentNode;
-		while (el && !(el.classList && el.classList.contains('block-editable'))) {
-			if (el.tagName?.toLowerCase() === 'a') return el.getAttribute('href') ?? '';
-			el = el.parentNode;
-		}
-		return '';
+		return anchorForRange(range)?.getAttribute('href') ?? '';
 	}
 
 	// Show the toolbar a short beat after the selection settles, so it does not

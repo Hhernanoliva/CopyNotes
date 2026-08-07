@@ -6,4 +6,12 @@ export { HEADING_TYPES, planBlockType } from './blocktype';
 export { TEXT_COLORS } from './colors';
 export { TEXT_SIZES, sizeClassFor } from './sizes';
 export { normalizeForest, normalizeSnapshotNode, sanitizeBackupData } from './ingest';
-export { applyInline, toggleCode, applyColor, applySize, applyLink, removeLink } from './commands';
+export {
+	applyInline,
+	toggleCode,
+	applyColor,
+	applySize,
+	applyLink,
+	removeLink,
+	anchorForRange
+} from './commands';

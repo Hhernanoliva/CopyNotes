@@ -267,10 +267,12 @@ test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) =>
 	await page.keyboard.press('Enter');
 	await expect(first.locator('a')).toHaveText('sitio');
 
-	// Reabrir el popover con el cursor DENTRO del enlace (así la barra detecta el
-	// href y muestra "Quitar") y quitarlo.
+	// Reabrir el popover MARCANDO el texto enlazado (así la barra detecta el href
+	// y muestra "Quitar") y quitarlo. Con el cursor solo la barra ya no se abre:
+	// aparecía sola al caminar el renglón. Y un clic sobre el enlace hoy se lo
+	// lleva al navegador, así que tampoco sirve para pararse encima.
 	await page.waitForTimeout(650);
-	await first.locator('a').click();
+	await selectAllInBlock(page, first);
 	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
 	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
 	await page.getByRole('button', { name: 'Quitar', exact: true }).click();
@@ -316,7 +318,9 @@ test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020
 	await expect(first).toBeFocused();
 });
 
-test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
+test('un clic sobre el enlace lo abre en una pestaña nueva, con o sin Ctrl/Cmd', async ({
+	page
+}) => {
 	await newNote(page);
 	await title(page).fill('Formato E2E: abrir enlace');
 
@@ -331,13 +335,116 @@ test('Ctrl/Cmd+clic abre el enlace en una pestaña nueva', async ({ page }) => {
 	await page.keyboard.press('Enter');
 	await expect(first.locator('a')).toHaveText('sitio');
 
-	// Ctrl/Cmd+clic sobre el enlace lo abre; un clic sin modificador solo edita.
-	const [popup] = await Promise.all([
+	// Un clic pelado alcanza. Es el único camino que existe en celular, donde no
+	// hay Ctrl/Cmd para mantener apretado.
+	const [popup] = await Promise.all([page.waitForEvent('popup'), first.locator('a').click()]);
+	expect(popup.url()).toContain('ejemplo.com');
+	await popup.close();
+
+	// Y Ctrl/Cmd+clic, que era la única forma antes, sigue funcionando.
+	const [modPopup] = await Promise.all([
 		page.waitForEvent('popup'),
 		first.locator('a').click({ modifiers: ['ControlOrMeta'] })
 	]);
-	expect(popup.url()).toContain('ejemplo.com');
-	await popup.close();
+	expect(modPopup.url()).toContain('ejemplo.com');
+	await modPopup.close();
+});
+
+// Lo que reportó Hernan: la barra se abría sola al pararse sobre un enlace, sin
+// haber marcado nada. Pasaba con cualquier formato, no sólo enlaces.
+test('la barra no se abre por pararse encima del texto formateado', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: barra sin selección');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio y mas texto', { delay: 25 });
+	await page.waitForTimeout(650);
+
+	// Enlazar sólo la primera palabra.
+	await selectRangeInBlock(page, first, 0, 5);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+	await expect(first.locator('a')).toHaveText('sitio');
+	await page.keyboard.press('Escape');
+
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await expect(toolbar).toBeHidden();
+
+	// Caminar el renglón con las flechas hasta quedar adentro del enlace: el
+	// cursor solo no abre nada.
+	await first.click();
+	await page.keyboard.press('Home');
+	for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+	await page.waitForTimeout(500);
+	await expect(toolbar).toBeHidden();
+
+	// Y marcando sí se abre, que es el gesto que la pide.
+	await selectAllInBlock(page, first);
+	await expect(toolbar).toBeVisible();
+});
+
+test('marcar la palabra enlazada trae su dirección actual para cambiarla', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: cambiar dirección');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://viejo.com');
+	await page.keyboard.press('Enter');
+	await expect(first.locator('a')).toHaveAttribute('href', 'https://viejo.com/');
+	await page.keyboard.press('Escape');
+
+	// Marcar la palabra enlazada y reabrir: el cuadrito tiene que venir con la
+	// dirección puesta, no vacío.
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await expect(page.getByLabel('URL del enlace')).toHaveValue('https://viejo.com/');
+
+	await page.getByLabel('URL del enlace').fill('https://nuevo.com');
+	await page.keyboard.press('Enter');
+
+	// Se cambió el enlace que ya estaba, no se envolvió uno adentro de otro.
+	await expect(first.locator('a')).toHaveCount(1);
+	await expect(first.locator('a')).toHaveAttribute('href', 'https://nuevo.com/');
+	await expect(first.locator('a')).toHaveText('sitio');
+});
+
+test('arrastrar sobre el enlace lo selecciona para editarlo, no lo abre', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: seleccionar enlace');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, first);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+	await expect(first.locator('a')).toHaveText('sitio');
+	await page.keyboard.press('Escape');
+
+	// Arrastrar de punta a punta del enlace: el clic que cierra el arrastre NO
+	// tiene que llevarse al usuario de la nota, porque lo que quiso fue marcar
+	// el texto para cambiarle la dirección.
+	const box = await first.locator('a').boundingBox();
+	const y = box.y + box.height / 2;
+	const popupOrNothing = page.waitForEvent('popup', { timeout: 1500 }).catch(() => null);
+	await page.mouse.move(box.x + 1, y);
+	await page.mouse.down();
+	await page.mouse.move(box.x + box.width - 1, y, { steps: 8 });
+	await page.mouse.up();
+
+	expect(await popupOrNothing).toBeNull();
+	// Y quedó texto marcado, que es lo que el arrastre venía a hacer.
+	expect(await page.evaluate(() => window.getSelection().toString())).toBe('sitio');
 });
 
 test('deshacer restaura el formato que se acababa de limpiar', async ({ page }) => {

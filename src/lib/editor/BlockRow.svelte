@@ -32,7 +32,8 @@
 		normalizeNewlines,
 		recallCopy
 	} from '$lib/copy/serialize';
-	import { sanitizeHtml, htmlToPlainText, normalizeForest } from '$lib/format';
+	import { sanitizeHtml, htmlToPlainText, normalizeForest, normalizeUrl } from '$lib/format';
+	import { openExternal } from '$lib/platform';
 	import { planNoteExit } from './note';
 	import { intentFromBeforeInput } from './mobileInput';
 	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
@@ -531,18 +532,36 @@
 
 	// Shift+click selects a block range instead of moving the caret; a plain
 	// mousedown starts a potential drag-select and clears any active selection.
-	// Inside a contenteditable a plain click only parks the caret; a link never
-	// navigates. Ctrl/Cmd + click opens it in a new tab — the editor convention
-	// (Notion, Docs). No modifier means the user is editing, so we stay out.
+	// Inside a contenteditable a link NEVER navigates on its own: the browser
+	// parks the caret instead. So any click on one opens it, with or without
+	// Ctrl/Cmd. Pedir el modificador dejaba al celular sin ninguna forma de
+	// abrir un enlace, porque ahí no hay tecla que mantener apretada.
+	//
+	// Arrastrar de punta a punta del enlace también termina en un `click`, pero
+	// ahí el usuario marcó el texto para editarlo, no pidió ir a la dirección.
+	// Lo que separa un caso del otro es si el puntero se movió, NO si quedó
+	// texto seleccionado: recién creado, un enlace YA viene seleccionado, y
+	// mirar la selección dejaba sin abrir justo al que lo acababa de poner.
+	//
+	// El href se vuelve a validar acá aunque el sanitizador ya sólo deje pasar
+	// http/https/mailto: esto es lo que abre una dirección, y un `javascript:`
+	// que se filtrara por cualquier camino se ejecutaría en la nota.
 	function handleEditableClick(event) {
-		if (!(event.metaKey || event.ctrlKey)) return;
 		const anchor = event.target?.closest?.('a[href]');
 		if (!anchor) return;
+		if (pressPoint && Math.hypot(event.clientX - pressPoint.x, event.clientY - pressPoint.y) > 4)
+			return;
+		const href = normalizeUrl(anchor.getAttribute('href'));
+		if (!href) return;
 		event.preventDefault();
-		window.open(anchor.href, '_blank', 'noopener,noreferrer');
+		openExternal(href);
 	}
 
+	// Dónde empezó el apretón, para que handleEditableClick sepa si hubo arrastre.
+	let pressPoint = null;
+
 	function handleMousedown(event) {
+		pressPoint = { x: event.clientX, y: event.clientY };
 		if (event.shiftKey) {
 			// Shift+click DENTRO del renglón donde ya está el cursor es la
 			// selección de texto de toda la vida: se la dejamos al navegador.

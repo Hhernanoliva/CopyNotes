@@ -579,6 +579,9 @@
 	color: var(--fmt-color-blue);
 	text-decoration: underline;
 	text-underline-offset: 2px;
+	/* El renglón es editable, así que el resto del texto muestra el cursor de
+	   escribir. Sobre el enlace se cambia a la manito: un clic ahí lo abre. */
+	cursor: pointer;
 }
 .block-editable--h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.25; }
 .block-editable--h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.3; }

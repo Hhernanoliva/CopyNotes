@@ -53,3 +53,11 @@ Cuando un renglón ocupa varios renglones de pantalla y tiene una fecha 📅, la
 ## La barra de formato no se sale de la pantalla
 
 Al seleccionar texto en una pantalla angosta, la barra de formato **nunca se pasa del borde**: si no entra entera, su contenido se desliza para el costado dentro de la propia barra.
+
+## Los enlaces se abren con un toque
+
+**Tocá el texto enlazado y se abre**, en una pestaña nueva. Antes el enlace pedía mantener apretada la tecla Ctrl o Cmd, que en el teléfono no existe: quedaba marcado en azul pero no había forma de llegar a la dirección. Si lo que querés es **cambiarle la dirección**, mantené el dedo apretado para marcar el texto y tocá el botón de enlace en la barra de formato.
+
+## El separador ocupa un solo renglón
+
+La raya de **Separador** (la del menú `/`) se dibujaba una línea más abajo de donde correspondía, dejando un hueco vacío arriba: parecían dos renglones. Ahora ocupa uno solo, igual que en la computadora.

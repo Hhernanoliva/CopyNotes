@@ -262,6 +262,27 @@ test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => 
 	expect(optionBox.height).toBeGreaterThanOrEqual(44);
 });
 
+// Al tacto no hay Ctrl/Cmd para mantener apretado, así que mientras el enlace
+// pidió modificador, en celular y tablet NO había ninguna forma de abrirlo.
+test('un toque abre el enlace, sin tecla que mantener apretada', async ({ page }) => {
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('sitio');
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+	await expect(line.locator('a')).toHaveText('sitio');
+
+	const [popup] = await Promise.all([page.waitForEvent('popup'), line.locator('a').tap()]);
+	expect(popup.url()).toContain('ejemplo.com');
+	await popup.close();
+});
+
 // El separador es ancho completo. Con el renglón en `flex-wrap` (solo mobile),
 // pedir `w-full` lo empujaba a una segunda línea debajo de la manija: el
 // renglón medía el doble y se veía un hueco vacío arriba de la raya.
