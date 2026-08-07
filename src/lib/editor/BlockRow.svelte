@@ -702,7 +702,7 @@
 			onkeydown={handleKeydown}
 			onmousedown={handleMousedown}
 			onfocus={() => onActive(block)}
-			class="focus-visible:ring-ring flex h-7 w-full items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="focus-visible:ring-ring flex h-7 min-w-0 flex-1 items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<hr class="border-border w-full" />
 		</div>

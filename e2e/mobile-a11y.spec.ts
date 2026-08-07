@@ -262,6 +262,29 @@ test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => 
 	expect(optionBox.height).toBeGreaterThanOrEqual(44);
 });
 
+// El separador es ancho completo. Con el renglón en `flex-wrap` (solo mobile),
+// pedir `w-full` lo empujaba a una segunda línea debajo de la manija: el
+// renglón medía el doble y se veía un hueco vacío arriba de la raya.
+test('el separador ocupa un solo renglón, no dos', async ({ page }) => {
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/separador');
+	await page.getByRole('option', { name: 'Separador' }).click();
+
+	const row = page.locator('main [data-block-id]').filter({ has: page.getByRole('separator') }).first();
+	await expect(row).toBeVisible();
+	const rowBox = await row.boundingBox();
+	const lineBox = await page.locator('main [data-block-id] .block-editable').first().boundingBox();
+	// Un renglón de texto vacío mide lo mismo que la manija (h-7 + padding).
+	// El separador no tiene por qué medir más.
+	expect(rowBox.height).toBeLessThanOrEqual(lineBox.height + 8);
+});
+
 // El teclado en pantalla NO achica window.innerHeight: achica el visualViewport.
 // Por eso el panel de fecha del último renglón se dibujaba en píxeles que
 // existen para el layout pero el usuario no ve, tapado por el teclado. Se
