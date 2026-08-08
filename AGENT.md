@@ -153,6 +153,7 @@ Three rules about reading the suite, all learned by getting them wrong. **A test
 | Group type change: `/` over a multi-row selection | `031` |
 | Text size on the selection: H1/H2/H3 without splitting the row | `032` |
 | The formatting toolbar without a mouse: shortcuts + arrow navigation | `033` |
+| Sign in with Google: web (phase 1), desktop loopback (phase 2) | `034` |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 

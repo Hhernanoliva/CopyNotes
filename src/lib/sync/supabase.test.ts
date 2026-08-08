@@ -15,8 +15,18 @@ async function load({ url = '', key = '', emailCode = '' } = {}) {
 	return import('./supabase');
 }
 
+// The Google door is the one place that talks to a fake client instead of the
+// real one: `signInWithOAuth` navigates the tab away, so there is nothing to
+// observe unless the call itself is what gets inspected.
+async function loadWithFakeAuth(auth) {
+	vi.doMock('@supabase/supabase-js', () => ({ createClient: () => ({ auth }) }));
+	return load({ url: 'https://proyecto.supabase.co', key: 'sb_publishable_de_mentira' });
+}
+
 afterEach(() => {
 	vi.unstubAllEnvs();
+	vi.unstubAllGlobals();
+	vi.doUnmock('@supabase/supabase-js');
 });
 
 describe('cloud configuration', () => {
@@ -53,5 +63,42 @@ describe('which login the screen offers', () => {
 
 	it('switches to the emailed code with one variable, no code change', async () => {
 		expect((await load({ emailCode: 'true' })).emailCodeLogin()).toBe(true);
+	});
+});
+
+describe('entering with Google', () => {
+	it('sends the trip back to the app itself, not to a hard-coded address', async () => {
+		// Wrong here and the person lands on somebody else's site holding a login
+		// code — and on localhost the round trip would bounce off production.
+		const calls = [];
+		const { signInWithGoogle } = await loadWithFakeAuth({
+			signInWithOAuth: (options) => {
+				calls.push(options);
+				return { data: {}, error: null };
+			}
+		});
+		vi.stubGlobal('window', { location: { origin: 'http://localhost:5173' } });
+
+		await signInWithGoogle();
+
+		expect(calls).toEqual([
+			{ provider: 'google', options: { redirectTo: 'http://localhost:5173' } }
+		]);
+	});
+
+	it('says in Spanish what the server answers while the provider is still off', async () => {
+		// The expected failure until the manual step in the Supabase panel is done:
+		// raw English here would send Hernán looking at the app instead of the panel.
+		const { signInWithGoogle } = await loadWithFakeAuth({
+			signInWithOAuth: () => ({
+				data: {},
+				error: { message: 'Unsupported provider: provider is not enabled' }
+			})
+		});
+		vi.stubGlobal('window', { location: { origin: 'http://localhost:5173' } });
+
+		await expect(signInWithGoogle()).rejects.toThrow(
+			'Entrar con Google no está habilitado en este servidor.'
+		);
 	});
 });

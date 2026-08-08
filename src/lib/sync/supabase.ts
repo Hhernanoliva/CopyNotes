@@ -44,9 +44,17 @@ export function supabase() {
 	if (!cloudConfigured()) return null;
 	client ??= createClient(url, anonKey, {
 		auth: {
-			// No redirect flow at all: nothing ever arrives in the URL, and the
-			// prerendered shell should not go looking for tokens there.
-			detectSessionInUrl: false,
+			// PKCE, not the implicit flow: what comes back in the address bar is a
+			// one-use code that is worthless without a secret only this browser has.
+			// It is also the flow the desktop half needs (spec 034 phase 2), so that
+			// one becomes an extra caller instead of a second design.
+			flowType: 'pkce',
+			// Something DOES arrive in the URL now — but only on the way back from
+			// Google, and only for as long as it takes supabase-js to exchange it:
+			// `oauth-return.ts` erases the trace right after (spec 034). This was
+			// `false` while email + password was the only door, because then nothing
+			// ever arrived there and looking was pure risk.
+			detectSessionInUrl: true,
 			persistSession: true,
 			autoRefreshToken: true
 		}
@@ -76,6 +84,11 @@ function spanishError(error) {
 	}
 	if (/email not confirmed/i.test(message)) {
 		return 'La cuenta existe pero falta confirmar el email. En Supabase, apagá "Confirm email".';
+	}
+	// What the server answers while the provider has not been switched on in the
+	// Supabase panel — the expected failure until that manual step is done.
+	if (/provider is not enabled|unsupported provider/i.test(message)) {
+		return 'Entrar con Google no está habilitado en este servidor.';
 	}
 	if (/expired|invalid/i.test(message)) {
 		return 'El código no es correcto o ya venció. Pedí uno nuevo.';
@@ -134,6 +147,19 @@ export async function signInWithPassword(email, password) {
 	const { data, error } = await supabase().auth.signInWithPassword({ email, password });
 	if (error) throw new Error(spanishError(error));
 	return data.session;
+}
+
+// Google gives the door, never the key (spec 034): this identifies the account
+// and nothing else — the vault key stays in this device and the server never
+// sees it. The trip back lands on the app's own root, which is the address
+// Supabase has in its allow-list, and the tab navigates away right here: there
+// is nothing after this call on the happy path.
+export async function signInWithGoogle() {
+	const { error } = await supabase().auth.signInWithOAuth({
+		provider: 'google',
+		options: { redirectTo: window.location.origin }
+	});
+	if (error) throw new Error(spanishError(error));
 }
 
 export function signOut() {

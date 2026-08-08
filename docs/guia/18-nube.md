@@ -24,6 +24,21 @@ una copia local en claro de las notas que marcaste visibles, explicada en
 
 ## Entrar
 
+Lo más corto es **Continuar con Google**: tocás el botón, elegís tu cuenta en la
+pantalla de Google y volvés a CopyNotes ya adentro. Sin contraseña que recordar
+ni que tipear en el celular. Si cambiás de idea a mitad de camino, volvés como
+estabas y CopyNotes te lo dice.
+
+> **Google te da la puerta, no la llave.** Entrar con Google no le muestra tus
+> notas a nadie: lo que las abre sigue siendo el código de recuperación de acá
+> abajo, que vive solo en tus dispositivos. Google ve que entraste, nunca lo que
+> escribiste.
+
+Por ahora ese botón está solo en la **web**. En la app de escritorio se entra con
+email y contraseña, y el botón llega ahí en el próximo paso.
+
+Con email y contraseña, que sigue estando:
+
 1. Escribí tu email y una contraseña.
 2. La primera vez tocá **Crear cuenta**. Después, siempre **Entrar**.
 
