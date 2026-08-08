@@ -39,6 +39,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 31. `031-selection-type-change.md`
 32. `032-inline-text-size.md`
 33. `033-keyboard-formatting-toolbar.md`
+34. `034-google-sign-in.md`
 
 ## Required Sections For Specs
 
