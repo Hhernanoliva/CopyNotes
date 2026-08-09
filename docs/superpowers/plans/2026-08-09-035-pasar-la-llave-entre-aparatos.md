@@ -8,6 +8,45 @@
 
 **Tech Stack:** SvelteKit + Svelte 5 runes, Dexie (IndexedDB), WebCrypto (AES-GCM + PBKDF2), Supabase (Postgres + RLS), Vitest, Playwright.
 
+## Estado al 2026-08-09, para Hernán
+
+**Construido y verde: tramos 1 a 4** (código), en la rama `feat/pasar-la-llave`,
+cuatro commits, **sin pushear**. unit **1004**, e2e **158** + 1 salteada,
+`pnpm check` con los 4 errores que ya venían de antes. Aparte y ya **en
+producción**: el arreglo del bug de la bóveda (`a4c6e0d`).
+
+**Lo que falta, y por qué no lo hice yo:**
+
+1. **Pegar `supabase/schema.sql` en el editor SQL de Supabase.** Es un cambio de
+   esquema que **borra columnas** de tu proyecto real. La spec te lo asigna a vos
+   y no me pareció algo para hacer sin vos delante, aunque las notas de ahí sean
+   de prueba. Sin este paso, la rama **no se puede pushear**: el código nuevo
+   habla con columnas que todavía no existen y la nube dejaría de funcionar.
+2. **`pnpm rls:check`** después de eso. Le agregué cuatro ataques nuevos (la
+   llave de paso de una cuenta contra otra, el vencimiento, y que empezar de
+   nuevo no toque lo ajeno). Corre contra el proyecto real, así que no lo pude
+   correr todavía.
+3. **Mirar con los ojos las tres pantallas nuevas.** Verifiqué que el diálogo de
+   Configuración sigue vivo y sin errores después de borrarle una pantalla
+   entera (captura hecha, sin sesión). Las tres nuevas —el código, la caja que lo
+   pide, y el botón rojo— **no se pueden ver hasta el paso 1**: todas necesitan
+   sesión y servidor.
+4. **El gate de dos aparatos** (tramo 5).
+
+**Una decisión que tomé solo, por si la querés al revés:** el aviso de "esta
+cuenta ya tiene una bóveda" no viaja por donde yo había planeado —la
+sincronización no lanza sus fallos, los publica en la línea de estado— así que
+las dos salidas se muestran mirando ese texto (`vaultRejected`, un `$derived`
+sobre `syncStatus.error`). Se limpia solo en la primera pasada que sale bien.
+Funciona, pero es una condición basada en leer un mensaje, y eso es frágil si
+alguien cambia la frase. La alternativa honesta sería un estado propio en
+`syncStatus` (`vaultRejected: true`), que es más código y toca la sincronización.
+
+**Sin e2e**: la confirmación escrita del botón rojo no se puede probar en la
+suite, porque el e2e se construye a propósito sin proyecto Supabase y toda la
+sección Nube dice "no hay nube configurada". No inventé un servidor falso para
+eso; lo cubre el gate manual.
+
 ## Global Constraints
 
 - **Spec:** `specs/035-device-pairing-vault.md`. Read it before Task 1.
