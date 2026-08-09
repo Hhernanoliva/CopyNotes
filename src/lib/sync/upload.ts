@@ -146,11 +146,29 @@ async function uploadVaultBlob(client) {
 	const blob = await getRecoveryBlob();
 	if (!blob) return;
 	const { error } = await client.from('vaults').insert(blob);
-	// 23505 = unique_violation en Postgres.
-	if (error?.code === '23505')
+	// 23505 = unique_violation en Postgres. Y significa dos cosas muy distintas,
+	// porque el servidor contesta igual en las dos: la fila que ya está arriba
+	// puede ser de OTRO aparato —el caso de abajo, que hay que frenar— o de ESTE
+	// MISMO, de la vez anterior que se abrió la app.
+	//
+	// `vaultBlobSent` sólo vive lo que vive la ventana, así que cada arranque
+	// reintenta el insert. Sin mirar cuál de las dos filas es, un aparato sano se
+	// acusaba a sí mismo de haber llegado segundo y frenaba la subida entera: a
+	// partir de la segunda vez que se abría la app no subía nada nunca más, con un
+	// cartel que mandaba a buscar un código de recuperación que no hacía falta.
+	//
+	// Se distinguen comparando: la copia envuelta es la que guarda este aparato,
+	// byte por byte, así que si la de arriba es idéntica, es la suya.
+	if (error?.code === '23505') {
+		const cloud = await cloudVaultBlob();
+		if (cloud?.wrapped === blob.wrapped) {
+			vaultBlobSent = true;
+			return;
+		}
 		throw userFacing(
 			'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este dispositivo con su código de recuperación.'
 		);
+	}
 	if (error) throw new Error(error.message);
 	vaultBlobSent = true;
 }

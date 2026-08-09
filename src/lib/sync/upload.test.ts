@@ -124,6 +124,35 @@ describe('cuando la cuenta ya tiene una bóveda de otro aparato', () => {
 		// registro sería un bulto que después nadie puede abrir.
 		expect(rowsFor('records')).toEqual([]);
 	});
+
+	// Y el otro lado de esa misma respuesta, que es el que faltaba: la fila que
+	// hay arriba puede ser de ESTE aparato. El servidor contesta lo mismo en los
+	// dos casos, así que hay que mirar cuál es.
+	it('no confunde su propia bóveda, de la corrida anterior, con la de otro', async () => {
+		await grantUploadConsent();
+		await createVault();
+		await createNote({ title: 'una' });
+		const first = await loadUpload();
+		await first.syncNow();
+		// Lo que este aparato dejó arriba la primera vez que se abrió la app.
+		serverVault.row = rowsFor('vaults')[0];
+		sent.length = 0;
+
+		// Segunda corrida: el módulo arranca sin memoria de haberla subido, así que
+		// reintenta el insert y choca contra su propia fila.
+		replies.push({
+			error: { code: '23505', message: 'duplicate key value violates unique constraint' }
+		});
+		await createNote({ title: 'dos' });
+		const second = await loadUpload();
+
+		await second.syncNow();
+
+		// Sin esto, un aparato sano se acusaba a sí mismo de ser el segundo y dejaba
+		// de subir para siempre, desde la segunda vez que se abría la app.
+		expect(second.syncStatus.error).toBe(null);
+		expect(rowsFor('records').length).toBeGreaterThan(0);
+	});
 });
 
 describe('the consent gate', () => {
