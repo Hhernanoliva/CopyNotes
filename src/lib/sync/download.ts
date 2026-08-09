@@ -108,14 +108,14 @@ function decide(local, payload, uploadMark) {
 // que en algún momento esta cuenta llegó a tener dos bóvedas. El navegador tira
 // ahí un `OperationError` sin nada adentro, y publicarlo como "no se pudo
 // sincronizar" era mandar a la persona a mirar la conexión de por vida, cuando
-// lo que hay que hacer es sumar este aparato con el código de recuperación.
+// lo que hay que hacer es sumar este aparato con el código que muestra el otro.
 async function decryptPayload(key, payload) {
 	let row;
 	try {
 		row = await decryptRecord(key, { ...payload, table: payload.table_name });
 	} catch {
 		throw userFacing(
-			'Hay datos en la nube que este dispositivo no puede abrir: se cifraron con otra llave. Sumá este dispositivo con el código de recuperación de la bóveda.'
+			'Hay datos en la nube que este aparato no puede abrir: se cifraron con otra llave. Sumá este aparato con el código que muestra el otro.'
 		);
 	}
 	return { ...row, changeSeq: payload.change_seq };

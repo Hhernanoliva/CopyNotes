@@ -102,8 +102,8 @@ describe('a second device', () => {
 // El agujero que esto cierra: dos aparatos podían comprobar a la vez que la
 // cuenta no tenía bóveda, crear cada uno la suya con una llave distinta, y subir
 // las dos con `upsert`. Ganaba la última. Desde ese momento cada aparato subía
-// registros que el otro no podía abrir, y el código de recuperación del que
-// perdió la carrera quedaba muerto — sin que nadie dijera nada.
+// registros que el otro no podía abrir, y la llave del que perdió la carrera
+// quedaba muerta — sin que nadie dijera nada.
 describe('cuando la cuenta ya tiene una bóveda de otro aparato', () => {
 	it('para y lo dice, en vez de pisar la llave del otro', async () => {
 		await grantUploadConsent();

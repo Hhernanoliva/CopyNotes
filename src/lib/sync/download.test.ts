@@ -132,7 +132,7 @@ describe('what arrives from the other device', () => {
 		await expect(downloadOnce()).rejects.toMatchObject({
 			userFacing: true,
 			message:
-				'Hay datos en la nube que este dispositivo no puede abrir: se cifraron con otra llave. Sumá este dispositivo con el código de recuperación de la bóveda.'
+				'Hay datos en la nube que este aparato no puede abrir: se cifraron con otra llave. Sumá este aparato con el código que muestra el otro.'
 		});
 	});
 

@@ -1,5 +1,5 @@
 <script>
-	import { X, Copy, Check, Download } from '@lucide/svelte';
+	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
 	import { redoTask } from '$lib/tasks';
@@ -32,10 +32,11 @@
 		oauthErrorMessage,
 		oauthFlowId
 	} from '$lib/sync/oauth-return';
-	import { forgetCloudAccount } from '$lib/sync/leave';
-	import { createVault, hasVault, restoreVault } from '$lib/sync/vault';
+	import { forgetCloudAccount, resetCloud } from '$lib/sync/leave';
+	import { createVault, hasVault } from '$lib/sync/vault';
+	import { joinWithPairingCode, startPairing } from '$lib/sync/pairing';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
-	import { cloudVaultBlob, cloudVaultExists, syncNow } from '$lib/sync/upload';
+	import { cloudVaultExists, syncNow } from '$lib/sync/upload';
 	import { downloadAll } from '$lib/sync/download';
 	import { countConflicts } from '$lib/sync/conflicts';
 	import { syncStatus } from '$lib/sync/status.svelte';
@@ -63,7 +64,13 @@
 	let vaultReady = $state(false);
 	let accountHasVault = $state(false);
 	let consentGiven = $state(false);
-	let joinCode = $state('');
+	let pairCode = $state('');
+	// El código que este aparato le muestra a otro, mientras está en pantalla.
+	let pairingCode = $state(null);
+	let pairingExpiresAt = $state(null);
+	let clockTick = $state(0);
+	// La palabra escrita a mano que habilita el botón rojo de empezar de nuevo.
+	let resetWord = $state('');
 	// { applied } while the first full download runs, null otherwise.
 	let downloading = $state(null);
 	let cloudEmail = $state('');
@@ -73,9 +80,20 @@
 	let cloudBusy = $state(false);
 	let cloudError = $state(null);
 	let googleWaiting = $state(false);
-	// Shown once, right after the vault is created, and never again.
-	let recoveryCode = $state(null);
-	let recoverySaved = $state(false);
+
+	// Este aparato tiene una llave que la cuenta no acepta —la bóveda de otro llegó
+	// primero—, o le están llegando notas cerradas con otra llave, que es la misma
+	// historia contada desde el otro lado. Sin esto, la pantalla avisa del problema
+	// y no ofrece ninguna salida: el callejón diagnosticado el 2026-08-07.
+	//
+	// Se mira la línea de estado y no `cloudError` porque ahí es donde caen: la
+	// sincronización no lanza sus fallos, los publica (`sync/upload.ts`). Y por eso
+	// mismo se limpia sola, en la primera pasada que sale bien.
+	const vaultRejected = $derived(
+		/ya tiene una bóveda|se cifraron con otra llave/i.test(
+			`${syncStatus.error ?? ''} ${cloudError ?? ''}`
+		)
+	);
 
 	async function refreshCloud() {
 		if (!cloudConfigured()) return;
@@ -187,7 +205,9 @@
 			// When one already exists, this device joins it instead (below).
 			if (await cloudVaultExists()) {
 				accountHasVault = true;
-				throw new Error('Esta cuenta ya tiene una bóveda: sumá este dispositivo con tu código.');
+				throw new Error(
+					'Esta cuenta ya tiene una bóveda: sumá este aparato con el código que muestra el otro.'
+				);
 			}
 			// One button, both halves. Consent goes first because `createVault`
 			// refuses without it — and because if the second half fails, having said
@@ -195,24 +215,25 @@
 			// the bug this closes (sync/vault.ts spells it out).
 			await grantUploadConsent();
 			consentGiven = true;
-			const { recoveryCode: code } = await createVault();
-			recoveryCode = code;
-			recoverySaved = false;
-			// Not awaited: the recovery code has to be on screen now, not after a
-			// first full upload. `syncNow` never throws — it puts failures in the
-			// status line — so nothing is swallowed here.
+			await createVault();
+			// Not awaited: nada de esto tiene que esperar a una primera subida
+			// entera. `syncNow` nunca lanza —los fallos van a la línea de estado—
+			// así que no se traga nada.
 			syncNow();
 		});
 	}
 
-	// Second device: the wrapped key comes from the server, the code from the
-	// user. A wrong code fails inside restoreVault and leaves nothing behind.
-	function joinVault() {
+	// El aparato nuevo: la llave está arriba envuelta con el código que muestra el
+	// otro aparato, y vence a los diez minutos. Un código equivocado falla adentro
+	// de `joinWithPairingCode` y no deja nada.
+	function joinWithCode() {
 		return cloudAction(async () => {
-			const blob = await cloudVaultBlob();
-			if (!blob) throw new Error('Esta cuenta todavía no tiene una bóveda.');
-			await restoreVault(joinCode, blob);
-			joinCode = '';
+			await joinWithPairingCode(pairCode.trim());
+			pairCode = '';
+			// El problema que la línea de estado estaba reportando se acaba de
+			// resolver: dejarlo escrito mandaría a esta pantalla de vuelta al mismo
+			// cartel con la llave ya adentro.
+			syncStatus.error = null;
 			downloading = { applied: 0 };
 			try {
 				const result = await downloadAll({
@@ -226,6 +247,44 @@
 			} finally {
 				downloading = null;
 			}
+		});
+	}
+
+	// El aparato que ya tiene la llave: muestra ocho caracteres que valen diez
+	// minutos. Pedir otro pisa al anterior, así que el que está en pantalla es
+	// siempre el único que sirve.
+	function showPairingCode() {
+		return cloudAction(async () => {
+			const { code, expiresAt } = await startPairing();
+			pairingCode = code;
+			pairingExpiresAt = expiresAt;
+		});
+	}
+
+	// Cuánto le queda al código, en minutos. Es cortesía de la pantalla: la regla
+	// la aplica el servidor, que esconde la fila vencida hasta de su propio dueño.
+	const pairingLeft = $derived(
+		pairingExpiresAt
+			? Math.max(0, Math.ceil((new Date(pairingExpiresAt).getTime() - clockTick) / 60_000))
+			: 0
+	);
+
+	// Un reloj sólo mientras hay código en pantalla, y ninguno el resto del tiempo.
+	$effect(() => {
+		if (!pairingCode) return;
+		clockTick = Date.now();
+		const timer = setInterval(() => (clockTick = Date.now()), 30_000);
+		return () => clearInterval(timer);
+	});
+
+	function startCloudOver() {
+		return cloudAction(async () => {
+			await resetCloud();
+			resetWord = '';
+			pairingCode = null;
+			pairingExpiresAt = null;
+			syncStatus.error = null;
+			onDataChanged?.();
 		});
 	}
 
@@ -351,38 +410,7 @@
 		flashCopied(field);
 	}
 
-	// El código de recuperación es lo único de toda la app que no se puede volver
-	// a pedir: se muestra una vez y no se guarda en ningún lado. El portapapeles
-	// no es un lugar donde guardarlo —el próximo copiar lo pisa—, así que además
-	// de Copiar hay un archivo que queda.
-	function downloadRecoveryCode() {
-		const blob = new Blob(
-			[
-				`Código de recuperación de CopyNotes\n\n${recoveryCode}\n\n` +
-					`Guardalo en un lugar seguro. Es lo único que abre tus notas en otro ` +
-					`dispositivo. Nadie más lo tiene: ni CopyNotes ni el servidor pueden ` +
-					`recuperarlo por vos.\n`
-			],
-			{ type: 'text/plain' }
-		);
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement('a');
-		link.href = url;
-		link.download = 'copynotes-codigo-de-recuperacion.txt';
-		link.click();
-		URL.revokeObjectURL(url);
-		flashCopied('recovery-file');
-	}
-
-	// Mientras el código está en pantalla sin confirmar, el diálogo no se cierra:
-	// ni con la X, ni con Escape. Encerrar a alguien en un modal es normalmente
-	// una fea idea, pero acá la alternativa es perder las notas para siempre —
-	// después de recargar, la bóveda ya existe y esta pantalla no vuelve—. La
-	// salida está a un clic: tildar "Ya lo guardé".
-	const codePending = $derived(Boolean(recoveryCode) && !recoverySaved);
-
 	function requestClose() {
-		if (codePending) return;
 		open = false;
 	}
 
@@ -439,11 +467,6 @@
 <dialog
 	bind:this={dialogEl}
 	onclose={() => (open = false)}
-	oncancel={(event) => {
-		// Escape. El navegador cierra el <dialog> solo; `preventDefault` es la
-		// única forma de retenerlo mientras el código sigue sin confirmar.
-		if (codePending) event.preventDefault();
-	}}
 	aria-labelledby="settings-title"
 	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
 >
@@ -452,9 +475,7 @@
 		<button
 			type="button"
 			onclick={requestClose}
-			disabled={codePending}
 			aria-label="Cerrar"
-			title={codePending ? 'Guardá tu código de recuperación antes de cerrar' : undefined}
 			class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
 		>
 			<X size={18} aria-hidden="true" />
@@ -525,77 +546,6 @@
 				<p class="text-muted-foreground text-sm">
 					Esta copia de CopyNotes no tiene una nube configurada.
 				</p>
-			{:else if recoveryCode}
-				<!-- Shown once and never again. It has priority over every other cloud
-				     screen: nothing else may distract from writing this down. -->
-				<div class="border-border flex flex-col gap-3 rounded-md border p-3">
-					<h4 class="text-sm font-bold">Tu código de recuperación</h4>
-					<div class="flex items-center gap-2">
-						<code
-							class="bg-muted text-foreground border-border min-w-0 flex-1 rounded border px-2 py-2 text-center font-mono text-sm tracking-widest break-all"
-							>{recoveryCode}</code
-						>
-						<button
-							type="button"
-							aria-label="Copiar código de recuperación"
-							onclick={() => copyText(recoveryCode, 'recovery')}
-							class="cn-tap text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-7 shrink-0 items-center justify-center rounded-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
-						>
-							{#if copiedField === 'recovery'}
-								<Check size={14} aria-hidden="true" class="text-primary" />
-							{:else}
-								<Copy size={14} aria-hidden="true" />
-							{/if}
-						</button>
-					</div>
-					<button
-						type="button"
-						onclick={downloadRecoveryCode}
-						class="border-border text-foreground hover:bg-accent focus-visible:ring-ring flex items-center justify-center gap-2 self-start rounded-md border px-3 py-1.5 text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
-					>
-						{#if copiedField === 'recovery-file'}
-							<Check size={14} aria-hidden="true" class="text-primary" />
-						{:else}
-							<Download size={14} aria-hidden="true" />
-						{/if}
-						Descargar como archivo
-					</button>
-					<p class="text-destructive text-sm">
-						Guardalo ahora en un lugar seguro. Es lo único que recupera tus notas en otro
-						dispositivo. Nadie más lo tiene: si lo perdés junto con tus dispositivos, tus notas
-						no se pueden recuperar, ni por nosotros ni por el servidor.
-					</p>
-					<label class="text-muted-foreground flex items-center gap-2 text-sm">
-						<button
-							type="button"
-							role="checkbox"
-							aria-checked={recoverySaved}
-							aria-label="Ya guardé el código"
-							onclick={() => (recoverySaved = !recoverySaved)}
-							class="focus-visible:ring-ring flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-						>
-							<span
-								aria-hidden="true"
-								class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {recoverySaved
-									? 'bg-primary border-primary text-primary-foreground'
-									: 'bg-transparent'}"
-							>
-								{#if recoverySaved}
-									<Check size={12} />
-								{/if}
-							</span>
-						</button>
-						Ya lo guardé
-					</label>
-					<button
-						type="button"
-						disabled={!recoverySaved}
-						onclick={() => (recoveryCode = null)}
-						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-					>
-						Continuar
-					</button>
-				</div>
 			{:else if !cloudSession}
 				<div class="flex flex-col gap-2">
 					<!-- Google da la puerta, no la llave (spec 034). Va primero, y primero
@@ -720,26 +670,33 @@
 						</div>
 					{/if}
 				</div>
-			{:else if !vaultReady && accountHasVault}
-				<!-- Segundo dispositivo: la llave envuelta está en el servidor, el código
-				     lo tiene el usuario. Sin el código, lo del servidor es ruido. -->
+			{:else if (!vaultReady || vaultRejected) && accountHasVault}
+				<!-- El aparato nuevo. La llave está arriba envuelta con el código que el
+				     otro aparato muestra en pantalla, y sin ese código lo de arriba es
+				     ruido. `vaultRejected` entra en la condición porque un aparato con
+				     una bóveda que la cuenta no acepta necesita esta misma salida: sin
+				     eso, la pantalla le avisaba del problema y no le ofrecía ninguna. -->
 				<div class="flex flex-col gap-2">
 					<p class="text-muted-foreground text-sm">
-						Esta cuenta ya tiene notas guardadas. Para abrirlas acá hace falta el
-						<span class="text-foreground font-medium">código de recuperación</span> que guardaste
-						en el otro dispositivo. Nosotros no lo tenemos.
+						Esta cuenta ya tiene notas guardadas. Para abrirlas acá, pedile el código al aparato
+						donde ya las tenés:
+						<span class="text-foreground font-medium">Configuración › Nube › Sumar un aparato</span
+						>.
 					</p>
 					<input
-						id="cloud-join-code"
-						bind:value={joinCode}
-						aria-label="Código de recuperación"
-						placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-						class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 font-mono text-sm outline-none"
+						id="cloud-pair-code"
+						bind:value={pairCode}
+						aria-label="Código del otro aparato"
+						autocomplete="off"
+						autocapitalize="characters"
+						spellcheck="false"
+						placeholder="XXXX-XXXX"
+						class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 font-mono text-sm tracking-widest outline-none"
 					/>
 					<button
 						type="button"
-						onclick={joinVault}
-						disabled={cloudBusy || joinCode.trim().length < 24}
+						onclick={joinWithCode}
+						disabled={cloudBusy || pairCode.replace(/[\s-]/g, '').length < 8}
 						class="bg-primary text-primary-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
 					>
 						Traer mis notas
@@ -749,6 +706,7 @@
 							Trayendo tus notas… {downloading.applied}
 						</p>
 					{/if}
+					{@render startOver()}
 				</div>
 			{:else if !vaultReady}
 				<!--
@@ -797,6 +755,47 @@
 					<p class="text-muted-foreground text-sm">
 						Cuenta: <span class="text-foreground font-medium">{cloudSession.user.email}</span>
 					</p>
+					<!-- Sumar un aparato (spec 035). No hay ningún código guardado en
+					     ninguna parte: el que abre la bóveda en otro aparato se pide acá,
+					     vale diez minutos y se usa una sola vez. -->
+					<div class="border-border flex flex-col gap-2 rounded-md border p-3">
+						<h4 class="text-sm font-bold">Sumar un aparato</h4>
+						{#if pairingCode}
+							<code
+								class="bg-muted text-foreground border-border self-start rounded border px-3 py-2 font-mono text-lg tracking-widest"
+								>{pairingCode}</code
+							>
+							<p class="text-muted-foreground text-sm" aria-live="polite">
+								{#if pairingLeft > 0}
+									Escribilo en el otro aparato. Vence en {pairingLeft}
+									{pairingLeft === 1 ? 'minuto' : 'minutos'} y se usa una sola vez.
+								{:else}
+									Este código venció. Pedí otro.
+								{/if}
+							</p>
+							<button
+								type="button"
+								onclick={showPairingCode}
+								disabled={cloudBusy}
+								class="text-muted-foreground hover:text-foreground focus-visible:ring-ring self-start rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Pedir otro código
+							</button>
+						{:else}
+							<p class="text-muted-foreground text-sm">
+								Para ver estas notas en otro aparato, entrá con tu cuenta allá y escribí el código
+								que aparece acá.
+							</p>
+							<button
+								type="button"
+								onclick={showPairingCode}
+								disabled={cloudBusy}
+								class="border-border text-foreground hover:bg-accent focus-visible:ring-ring self-start rounded-md border px-3 py-1.5 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+							>
+								Mostrar el código
+							</button>
+						{/if}
+					</div>
 					<!-- El estado (subidas, en vivo, conflictos) vive en el punto del header:
 					     acá van las decisiones de la cuenta, no los marcadores. -->
 					<p class="text-muted-foreground text-sm">
@@ -818,9 +817,9 @@
 							</p>
 							<p class="text-muted-foreground text-sm">
 								Lo que se borra de este dispositivo es la llave que abre lo que está guardado en
-								la nube. Para volver a conectarlo vas a necesitar tu
-								<span class="text-foreground font-bold">código de recuperación</span>: si no lo
-								guardaste y este es tu único dispositivo, lo que ya subiste deja de poder abrirse.
+								la nube. Para volver a conectarlo vas a necesitar
+								<span class="text-foreground font-bold">el código que muestre otro aparato tuyo</span
+								>: si este es tu único dispositivo, lo que ya subiste deja de poder abrirse.
 							</p>
 							{#if syncStatus.pending}
 								<p class="text-destructive text-sm">
@@ -867,6 +866,7 @@
 								Cerrar sesión
 							</button>
 						</div>
+						{@render startOver()}
 					{/if}
 				</div>
 			{/if}
@@ -1138,4 +1138,46 @@
 		Es beta: esto es lo que hace el programa y lo probamos nosotros, pero todavía no lo revisó una
 		auditoría de seguridad independiente.
 	</p>
+{/snippet}
+
+<!--
+	La salida de quien se quedó sin ningún aparato con la llave (spec 035). Va
+	plegada y en letra chica a propósito: es la última opción, no una alternativa
+	de igual peso. Se dibuja en los dos lugares desde donde se puede llegar a
+	necesitar — el aparato que está esperando un código, y el que ya está adentro.
+
+	La confirmación se escribe a mano y no se hace con un segundo clic: es lo
+	único de la app que borra algo que no está en este dispositivo.
+-->
+{#snippet startOver()}
+	<details class="mt-1">
+		<summary class="text-faint cursor-pointer text-xs">No tengo el otro aparato</summary>
+		<div class="mt-2 flex flex-col gap-2">
+			<p class="text-muted-foreground text-sm">
+				Se borra <span class="text-foreground font-medium">todo lo que está en la nube</span> y se
+				vuelve a subir desde este aparato.
+				<span class="text-foreground font-medium">Tus notas de acá no se tocan.</span> Lo que esté en
+				la nube y no esté en este aparato, se pierde.
+			</p>
+			<label class="text-muted-foreground text-sm" for="confirm-reset">
+				Escribí BORRAR para confirmar
+			</label>
+			<input
+				id="confirm-reset"
+				bind:value={resetWord}
+				autocomplete="off"
+				autocapitalize="characters"
+				spellcheck="false"
+				class="border-border w-full min-w-0 rounded-md border bg-transparent px-2 py-1.5 font-mono text-sm outline-none"
+			/>
+			<button
+				type="button"
+				onclick={startCloudOver}
+				disabled={cloudBusy || resetWord.trim().toUpperCase() !== 'BORRAR'}
+				class="bg-destructive text-destructive-foreground focus-visible:ring-ring self-start rounded-md px-3 py-1.5 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+			>
+				Empezar de nuevo la nube
+			</button>
+		</div>
+	</details>
 {/snippet}
