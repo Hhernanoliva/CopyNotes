@@ -1,4 +1,5 @@
 mod bridge;
+mod oauth;
 
 // `window.open` no abre nada dentro del webview de Tauri: WebKit sólo atiende
 // el pedido de ventana nueva si la app registró un manejador para eso, y esta
@@ -31,8 +32,11 @@ fn open_external(url: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .manage(oauth::Pending::default())
     .invoke_handler(tauri::generate_handler![
       open_external,
+      oauth::oauth_start,
+      oauth::oauth_wait,
       bridge::bridge_mailbox_path,
       bridge::bridge_write_export,
       bridge::bridge_start_watch,

@@ -161,15 +161,24 @@ export async function signInWithPassword(email, password) {
 
 // Google gives the door, never the key (spec 034): this identifies the account
 // and nothing else — the vault key stays in this device and the server never
-// sees it. The trip back lands on the app's own root, which is the address
-// Supabase has in its allow-list, and the tab navigates away right here: there
-// is nothing after this call on the happy path.
-export async function signInWithGoogle() {
-	const { error } = await supabase().auth.signInWithOAuth({
+// sees it.
+//
+// Two callers, one door. On the web the trip back lands on the app's own root
+// and the tab navigates away right here, so there is nothing after this call on
+// the happy path. The `.app` has no address bar to come back to, so it passes a
+// loopback address of its own machine and asks for the Google URL instead of the
+// jump (`sync/google-desktop.ts`) — same flow, one extra caller, which is what
+// choosing PKCE bought.
+export async function signInWithGoogle({
+	redirectTo = window.location.origin,
+	skipBrowserRedirect = false
+} = {}) {
+	const { data, error } = await supabase().auth.signInWithOAuth({
 		provider: 'google',
-		options: { redirectTo: window.location.origin }
+		options: { redirectTo, skipBrowserRedirect }
 	});
 	if (error) throw new Error(spanishError(error));
+	return data?.url ?? null;
 }
 
 // The other half of the trip: the code that came back in the address bar is

@@ -34,8 +34,18 @@ estabas y CopyNotes te lo dice.
 > abajo, que vive solo en tus dispositivos. Google ve que entraste, nunca lo que
 > escribiste.
 
-Por ahora ese botón está solo en la **web**. En la app de escritorio se entra con
-email y contraseña, y el botón llega ahí en el próximo paso.
+En la **app de escritorio** el botón está también, y hace lo mismo por otro
+camino: al tocarlo se abre **tu navegador** con la pantalla de Google. Elegís la
+cuenta ahí, el navegador te muestra una página que dice "Listo, ya podés volver a
+CopyNotes", y cuando volvés a la app ya estás adentro. Mientras tanto el botón
+dice *Esperando a tu navegador…*.
+
+> Se abre afuera a propósito: la ventana de la app no tiene barra de direcciones,
+> así que Google no tendría por dónde devolverte.
+
+Si cerrás el navegador sin elegir la cuenta, después de unos minutos la app te
+dice que no llegó la respuesta y quedás como estabas. Podés tocar el botón de
+nuevo cuando quieras.
 
 Con email y contraseña, que sigue estando:
 

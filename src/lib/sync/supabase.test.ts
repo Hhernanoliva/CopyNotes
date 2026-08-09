@@ -82,8 +82,37 @@ describe('entering with Google', () => {
 		await signInWithGoogle();
 
 		expect(calls).toEqual([
-			{ provider: 'google', options: { redirectTo: 'http://localhost:5173' } }
+			{
+				provider: 'google',
+				options: { redirectTo: 'http://localhost:5173', skipBrowserRedirect: false }
+			}
 		]);
+	});
+
+	it('en la .app manda la vuelta al puerto de la máquina y no mueve la ventana', async () => {
+		// La ventana de la .app no tiene barra de direcciones: si la biblioteca la
+		// llevara a Google, no habría camino de vuelta. Se pide la dirección y la
+		// abre el navegador de la persona (spec 034 fase 2).
+		const calls = [];
+		const { signInWithGoogle } = await loadWithFakeAuth({
+			signInWithOAuth: (options) => {
+				calls.push(options);
+				return { data: { url: 'https://accounts.google.com/o/oauth2/v2/auth?x=1' }, error: null };
+			}
+		});
+
+		const url = await signInWithGoogle({
+			redirectTo: 'http://127.0.0.1:49731',
+			skipBrowserRedirect: true
+		});
+
+		expect(calls).toEqual([
+			{
+				provider: 'google',
+				options: { redirectTo: 'http://127.0.0.1:49731', skipBrowserRedirect: true }
+			}
+		]);
+		expect(url).toBe('https://accounts.google.com/o/oauth2/v2/auth?x=1');
 	});
 
 	it('canjea el código de la vuelta y devuelve la sesión', async () => {
