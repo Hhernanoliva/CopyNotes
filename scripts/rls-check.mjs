@@ -165,11 +165,22 @@ try {
 	// 8. La llave de paso (spec 035) es la única ventana en la que la llave existe
 	//    fuera de un aparato. Si esto se rompe, se rompe todo lo demás con ello.
 	const enDiezMinutos = new Date(Date.now() + 600_000).toISOString();
-	unwrap(
-		await a.client
-			.from('pairings')
-			.insert({ salt: 's-de-A', iv: 'i-de-A', wrapped: 'llave-de-A', expires_at: enDiezMinutos })
-	);
+	async function dejarLlaveDePaso(client, wrapped, expira) {
+		return unwrap(
+			await client.rpc('start_pairing', {
+				p_salt: 's',
+				p_iv: 'i',
+				p_wrapped: wrapped,
+				p_expires_at: expira
+			})
+		);
+	}
+	await dejarLlaveDePaso(a.client, 'llave-de-A', enDiezMinutos);
+	// Y entrar por la ventana no se puede: la única puerta es esa función.
+	const aMano = await a.client
+		.from('pairings')
+		.insert({ salt: 's', iv: 'i', wrapped: 'a-mano', expires_at: enDiezMinutos });
+	assert(aMano.error, 'se pudo dejar una llave de paso sin pasar por start_pairing');
 	const espiada = unwrap(await b.client.from('pairings').select('wrapped'));
 	assert.deepEqual(espiada, [], 'B pudo ver la llave de paso de A');
 	console.log('✓ B no puede ver la llave de paso de A');
@@ -183,28 +194,26 @@ try {
 
 	// 10. Una fila vencida no la ve ni su propio dueño: el vencimiento lo decide
 	//     el servidor y no el reloj del aparato, que se puede atrasar a mano.
-	unwrap(await a.client.from('pairings').delete().eq('owner_id', a.id));
-	unwrap(
-		await a.client.from('pairings').insert({
-			salt: 's-vieja',
-			iv: 'i-vieja',
-			wrapped: 'llave-vencida',
-			expires_at: new Date(Date.now() - 1000).toISOString()
-		})
-	);
+	await dejarLlaveDePaso(a.client, 'llave-vencida', new Date(Date.now() - 1000).toISOString());
 	const vencida = unwrap(await a.client.from('pairings').select('wrapped'));
 	assert.deepEqual(vencida, [], 'una llave de paso vencida se pudo leer');
-	// Y se puede borrar aunque esté vencida, o bloquearía para siempre la próxima:
-	// la clave primaria es el dueño.
-	unwrap(await a.client.from('pairings').delete().eq('owner_id', a.id));
-	unwrap(
-		await a.client
-			.from('pairings')
-			.insert({ salt: 's2', iv: 'i2', wrapped: 'llave-nueva', expires_at: enDiezMinutos })
-	);
-	console.log('✓ la llave de paso vencida no se lee, pero sí se puede reemplazar');
 
-	// 11. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
+	// 11. Y una vencida se tiene que poder REEMPLAZAR. Acá se cayó la primera
+	//     versión: como la política de lectura esconde la vencida y Postgres
+	//     necesita leer una fila para borrarla, el dueño no podía sacársela de
+	//     encima, y la clave primaria le bloqueaba el pedido siguiente PARA
+	//     SIEMPRE. O sea: pedir un código, no usarlo, y no poder pedir otro nunca
+	//     más. Por eso entrar es una función del servidor y no un insert.
+	await dejarLlaveDePaso(a.client, 'llave-nueva', enDiezMinutos);
+	const reemplazada = unwrap(await a.client.from('pairings').select('wrapped'));
+	assert.deepEqual(
+		reemplazada,
+		[{ wrapped: 'llave-nueva' }],
+		'una llave de paso vencida dejó bloqueado el pedido siguiente'
+	);
+	console.log('✓ la llave de paso vencida no se lee, y se puede reemplazar');
+
+	// 12. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
 	//     de borrado que existe, así que si filtrara mal, vaciaría cuentas ajenas.
 	unwrap(await a.client.rpc('reset_cloud'));
 	const deA = unwrap(await a.client.from('records').select('id'));
@@ -215,7 +224,7 @@ try {
 	assert.equal(bovedaDeB.length, 1, 'reset_cloud de A borró la bóveda de B');
 	console.log('✓ empezar de nuevo vacía lo propio y no toca lo ajeno');
 
-	console.log('\nCandado OK: las once pruebas pasaron.');
+	console.log('\nCandado OK: las doce pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);

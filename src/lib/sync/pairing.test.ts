@@ -15,6 +15,18 @@ vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
 	supabase: () => ({
 		auth: { getSession: async () => ({ data: { session: { user: { id: 'cuenta-1' } } } }) },
+		// La llave de paso entra por una función del servidor, que pisa la anterior
+		// aunque esté vencida — desde afuera no se puede (supabase/schema.sql).
+		rpc: async (name, args) => {
+			server.calls.push([name, 'pairings']);
+			server.row = {
+				salt: args.p_salt,
+				iv: args.p_iv,
+				wrapped: args.p_wrapped,
+				expires_at: args.p_expires_at
+			};
+			return { error: null };
+		},
 		from: (table) => ({
 			insert: async (row) => {
 				server.calls.push(['insert', table]);
@@ -60,20 +72,18 @@ describe('mostrar el código en el aparato que ya tiene la llave', () => {
 		expect(JSON.stringify(server.row)).not.toContain(code.replace('-', ''));
 	});
 
-	it('pisa el código anterior antes de dejar el nuevo', async () => {
-		// La clave primaria es el dueño: sin borrar primero, el segundo pedido
-		// chocaría y la persona se quedaría mirando un código que el otro aparato
-		// no va a poder usar.
+	it('pide el código por la puerta del servidor, que pisa el anterior', async () => {
+		// Y no con un borrar + insertar desde acá: si el código anterior venció, la
+		// política de lectura lo esconde y Postgres no puede borrar lo que no puede
+		// leer. Pedir un código y no usarlo dejaba trabado el pedido siguiente para
+		// siempre; lo encontró `pnpm rls:check` contra el servidor de verdad.
 		await createVault();
 
 		await startPairing();
 		server.calls.length = 0;
 		await startPairing();
 
-		expect(server.calls).toEqual([
-			['delete', 'pairings'],
-			['insert', 'pairings']
-		]);
+		expect(server.calls).toEqual([['start_pairing', 'pairings']]);
 	});
 });
 

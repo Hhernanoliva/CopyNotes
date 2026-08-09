@@ -227,6 +227,47 @@ revoke all on function public.reset_cloud() from public;
 grant execute on function public.reset_cloud() to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- start_pairing — dejar arriba la llave de paso, pisando la anterior
+-- ---------------------------------------------------------------------------
+--
+-- La única puerta por la que entra una fila a `pairings`, y existe por un motivo
+-- que se descubrió corriendo `pnpm rls:check`: **una fila vencida no se puede
+-- borrar desde afuera**. La política de lectura la esconde (`expires_at > now()`)
+-- y Postgres tiene que LEER una fila para borrarla, así que el `delete` del
+-- dueño no la alcanza aunque su propia política de borrado no mire el
+-- vencimiento. Resultado, sin esto: pedís un código, no lo usás, y la clave
+-- primaria deja bloqueado el pedido siguiente para siempre.
+--
+-- Acá adentro corre como dueña de la función, así que la seguridad a nivel de
+-- fila no vuelve a filtrar y la vencida sí se va. El filtro por dueño es
+-- explícito en las dos sentencias, que es lo único que separa una cuenta de
+-- otra, igual que en `push_records`.
+
+create or replace function public.start_pairing(
+	p_salt text,
+	p_iv text,
+	p_wrapped text,
+	p_expires_at timestamptz
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'start_pairing necesita una sesión iniciada';
+	end if;
+	delete from public.pairings where owner_id = auth.uid();
+	insert into public.pairings (owner_id, salt, iv, wrapped, expires_at)
+	values (auth.uid(), p_salt, p_iv, p_wrapped, p_expires_at);
+end;
+$$;
+
+revoke all on function public.start_pairing(text, text, text, timestamptz) from public;
+grant execute on function public.start_pairing(text, text, text, timestamptz) to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- vaults — que esta cuenta tiene bóveda, y una prueba de cuál
 -- ---------------------------------------------------------------------------
 --
@@ -339,14 +380,14 @@ for select
 to authenticated
 using (owner_id = auth.uid() and expires_at > now());
 
-create policy create_own_pairing on public.pairings
-for insert
-to authenticated
-with check (owner_id = auth.uid());
+-- Crear no se puede desde afuera: la única puerta es `start_pairing`, porque una
+-- fila vencida es invisible y por lo tanto tampoco borrable desde acá, así que
+-- pisarla hay que hacerlo del lado del servidor. Ver el comentario de esa
+-- función; sin ella, un código sin usar dejaba trabado el pedido siguiente.
 
--- Borrar la propia SIN mirar el vencimiento, a propósito: si el borrado también
--- filtrara por vencida, una fila muerta quedaría para siempre bloqueando el
--- insert de la próxima (la clave primaria es el dueño).
+-- Borrar la propia sí, y es lo que hace el aparato que acaba de usar el código:
+-- en ese momento la fila todavía vale, así que la lectura la alcanza. Una que
+-- venció en el medio queda para que la pise el próximo `start_pairing`.
 create policy drop_own_pairing on public.pairings
 for delete
 to authenticated

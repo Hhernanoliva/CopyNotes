@@ -26,13 +26,19 @@ async function ownerId(supa) {
 
 export async function startPairing() {
 	const supa = client();
-	const owner = await ownerId(supa);
+	await ownerId(supa);
 	const { code, expiresAt, blob } = await makePairingBlob();
-	// Borrar antes de crear: la clave primaria es el dueño, así que una fila vieja
-	// —vencida o no— haría chocar el insert, y la persona se quedaría mirando un
-	// código que el otro aparato no va a poder usar.
-	await supa.from('pairings').delete().eq('owner_id', owner);
-	const { error } = await supa.from('pairings').insert({ ...blob, expires_at: expiresAt });
+	// Por una función del servidor y no con un insert, porque pisar la fila
+	// anterior no se puede hacer desde acá: si venció, la política de lectura la
+	// esconde, y Postgres necesita leer una fila para borrarla. Pedir un código y
+	// no usarlo dejaba trabado el pedido siguiente para siempre — encontrado con
+	// `pnpm rls:check`, explicado en supabase/schema.sql.
+	const { error } = await supa.rpc('start_pairing', {
+		p_salt: blob.salt,
+		p_iv: blob.iv,
+		p_wrapped: blob.wrapped,
+		p_expires_at: expiresAt
+	});
 	if (error) throw new Error(error.message);
 	return { code, expiresAt };
 }
