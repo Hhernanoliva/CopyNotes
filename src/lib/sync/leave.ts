@@ -14,12 +14,30 @@
 import { db, SYNCED_TABLES } from '../storage/db';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
-import { signOut } from './supabase';
+import { signOut, supabase } from './supabase';
 import { forgetSentVaultBlob } from './upload';
 
 export async function forgetCloudAccount() {
 	await resetCloudState();
 	await signOut();
+}
+
+// Empezar de nuevo la nube (spec 035): la salida de quien se quedó sin ningún
+// aparato con la llave. Lo que hay arriba es ilegible para siempre —para
+// nosotros también— así que lo honesto es poder vaciarlo y volver a subir desde
+// el aparato que sí tiene las notas.
+//
+// El servidor primero, a propósito: si el borrado de allá falla, este aparato se
+// queda exactamente como estaba —con su llave y su permiso— en vez de a mitad de
+// camino, sin llave y con la nube todavía llena de bultos que ya no puede abrir.
+//
+// Las notas locales no se tocan. Ni una fila, igual que al cerrar sesión.
+export async function resetCloud() {
+	const client = supabase();
+	if (!client) throw new Error('Esta copia de CopyNotes no tiene nube configurada.');
+	const { error } = await client.rpc('reset_cloud');
+	if (error) throw new Error(error.message);
+	await resetCloudState();
 }
 
 // ¿Este aparato sigue siendo de la cuenta que dice ser?

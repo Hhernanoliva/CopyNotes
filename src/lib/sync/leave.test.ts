@@ -35,14 +35,21 @@ globalThis.localStorage = {
 };
 
 const signOut = vi.hoisted(() => vi.fn(async () => ({ error: null })));
+// Lo que se le pidió al servidor, y qué le contestó a `reset_cloud`.
+const servidor = vi.hoisted(() => ({ llamadas: [], falla: null }));
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
-	supabase: () => ({}),
+	supabase: () => ({
+		rpc: async (name) => {
+			servidor.llamadas.push(name);
+			return { error: servidor.falla };
+		}
+	}),
 	signOut
 }));
 
-const { forgetCloudAccount, ensureAccountMatches } = await import('./leave');
+const { forgetCloudAccount, ensureAccountMatches, resetCloud } = await import('./leave');
 
 // A device that has been syncing for a while: vault, consent, both cursors
 // moved, a decision waiting, and a note that the server already holds.
@@ -60,6 +67,8 @@ async function aConnectedDevice() {
 
 beforeEach(async () => {
 	signOut.mockClear();
+	servidor.llamadas.length = 0;
+	servidor.falla = null;
 	store.clear();
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
@@ -202,5 +211,42 @@ describe('entrar a una cuenta distinta sin haber cerrado sesión', () => {
 		expect((await db.table('notes').get(id)).title).toBe('mía');
 		// Y la cuenta nueva queda anotada: el próximo tic ya no borra nada.
 		expect(await ensureAccountMatches('cuenta-2')).toBe(true);
+	});
+});
+
+// Empezar de nuevo la nube (spec 035): la salida de quien se quedó sin ningún
+// aparato con la llave. Lo de arriba es ilegible para siempre, así que lo
+// honesto es poder vaciarlo y volver a subir desde el aparato que sí tiene las
+// notas — y lo único intocable, otra vez, son las notas.
+describe('empezar de nuevo la nube', () => {
+	it('vacía el servidor y deja este aparato como recién instalado', async () => {
+		const id = await aConnectedDevice();
+
+		await resetCloud();
+
+		expect(servidor.llamadas).toContain('reset_cloud');
+		expect(await hasVault()).toBe(false);
+		expect(await hasUploadConsent()).toBe(false);
+		expect(await uploadedThrough()).toBe(0);
+		expect(await downloadedThrough()).toBe(0);
+		expect(await countConflicts()).toBe(0);
+		// Lo único que importa de verdad.
+		expect((await db.table('notes').get(id)).title).toBe('mía');
+		// Y cuando la persona vuelve a permitir subir, todo vuelve a estar pendiente:
+		// la nube quedó vacía, así que lo de este aparato sube entero de nuevo.
+		await grantUploadConsent();
+		expect((await listPendingUploads()).map((entry) => entry.row.id)).toContain(id);
+	});
+
+	it('si el servidor no pudo borrar, este aparato queda como estaba', async () => {
+		await aConnectedDevice();
+		servidor.falla = { message: 'no se pudo' };
+
+		await expect(resetCloud()).rejects.toThrow();
+
+		// Media limpieza es peor que ninguna: sin llave acá y con la nube todavía
+		// llena, lo de arriba sería ilegible y encima no se habría borrado.
+		expect(await hasVault()).toBe(true);
+		expect(await hasUploadConsent()).toBe(true);
 	});
 });

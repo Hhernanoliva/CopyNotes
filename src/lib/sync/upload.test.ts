@@ -113,12 +113,15 @@ describe('cuando la cuenta ya tiene una bóveda de otro aparato', () => {
 		replies.push({
 			error: { code: '23505', message: 'duplicate key value violates unique constraint' }
 		});
+		// Y la prueba que hay arriba es de OTRA llave: esta bóveda no la abre. Eso
+		// es lo único que distingue este caso del de abajo (spec 035).
+		serverVault.row = { iv: btoa('123456789012'), check_blob: btoa('de-otra-llave') };
 		const { syncNow, syncStatus } = await loadUpload();
 
 		await syncNow();
 
 		expect(syncStatus.error).toBe(
-			'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este dispositivo con su código de recuperación.'
+			'Esta cuenta ya tiene una bóveda creada en otro aparato. Sumá este aparato con el código que muestra el otro.'
 		);
 		// Y no sube nada: cifrado con una llave que la cuenta no tiene, cada
 		// registro sería un bulto que después nadie puede abrir.

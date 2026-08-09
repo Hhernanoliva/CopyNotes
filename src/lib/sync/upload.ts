@@ -34,7 +34,7 @@ import { markSentToCloud } from '../storage/db';
 import { downloadAll } from './download';
 import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
-import { getRecoveryBlob, getVaultKey } from './vault';
+import { getVaultKey, makeVaultProof, proofOpens } from './vault';
 import { ensureAccountMatches } from './leave';
 import { syncStatus, userFacing } from './status.svelte';
 import { now } from '../storage/ids';
@@ -45,13 +45,13 @@ const BATCH = 200;
 const MAX_BATCHES = 50;
 const INTERVAL_MS = 30_000;
 
-// Set once per app run: the wrapped key is a single small row that only changes
+// Set once per app run: the vault row is a single small row that only changes
 // when the vault is created, so re-sending it every 30 seconds would be noise.
 let vaultBlobSent = false;
 
 // Leaving the account resets it: the next account has a different vault, and a
-// flag left true would keep its wrapped key on this device for the rest of the
-// app run — so the second device would never find one and would build a rival.
+// flag left true would keep this device from ever announcing the new one — so
+// the second device would never find one and would build a rival.
 export function forgetSentVaultBlob() {
 	vaultBlobSent = false;
 }
@@ -131,42 +131,40 @@ async function uploadBatch(client, key) {
 	return { sent: rows.length, accepted: rows.length - refused.size };
 }
 
-// The wrapped copy of the vault key — what a second device needs together with
-// the recovery code. Useless to anyone without that code.
+// Lo que este aparato deja arriba: la marca de que la cuenta tiene bóveda, y la
+// prueba de cuál (spec 035). La llave NO sube — lo que sube es un texto conocido
+// cifrado con ella, que no le sirve a nadie y que sólo abre quien la tiene.
 //
 // `insert`, nunca `upsert`. Dos aparatos pueden comprobar a la vez que la cuenta
 // no tiene bóveda y crear cada uno la suya, con llaves distintas; con `upsert`
 // ganaba la última y desde ese momento cada uno subía registros que el otro no
-// podía abrir, con el código de recuperación del perdedor ya muerto. Ahora la
-// PRIMERA bóveda gana: la segunda choca contra la clave primaria (el candado
-// tampoco deja pisarla, ver supabase/schema.sql) y este aparato para y lo dice,
-// que es lo único honesto — su llave no sirve para esta cuenta.
+// podía abrir. Ahora la PRIMERA bóveda gana: la segunda choca contra la clave
+// primaria (el candado tampoco deja pisarla, ver supabase/schema.sql).
 async function uploadVaultBlob(client) {
 	if (vaultBlobSent) return;
-	const blob = await getRecoveryBlob();
-	if (!blob) return;
-	const { error } = await client.from('vaults').insert(blob);
-	// 23505 = unique_violation en Postgres. Y significa dos cosas muy distintas,
-	// porque el servidor contesta igual en las dos: la fila que ya está arriba
-	// puede ser de OTRO aparato —el caso de abajo, que hay que frenar— o de ESTE
-	// MISMO, de la vez anterior que se abrió la app.
+	if (!(await getVaultKey())) return;
+	const proof = await makeVaultProof();
+	const { error } = await client.from('vaults').insert(proof);
+	// 23505 = unique_violation en Postgres. Y significa dos cosas opuestas, porque
+	// el servidor contesta igual en las dos: la fila que ya está arriba puede ser
+	// de OTRO aparato —el caso de abajo, que hay que frenar— o de ESTE MISMO, de
+	// la vez anterior que se abrió la app.
 	//
 	// `vaultBlobSent` sólo vive lo que vive la ventana, así que cada arranque
 	// reintenta el insert. Sin mirar cuál de las dos filas es, un aparato sano se
 	// acusaba a sí mismo de haber llegado segundo y frenaba la subida entera: a
-	// partir de la segunda vez que se abría la app no subía nada nunca más, con un
-	// cartel que mandaba a buscar un código de recuperación que no hacía falta.
+	// partir de la segunda vez que se abría la app no subía nada nunca más
+	// (commit a4c6e0d).
 	//
-	// Se distinguen comparando: la copia envuelta es la que guarda este aparato,
-	// byte por byte, así que si la de arriba es idéntica, es la suya.
+	// Se distinguen abriendo la prueba: si esta llave la abre, la bóveda de la
+	// cuenta es la de este aparato. Para eso existe la prueba y para nada más.
 	if (error?.code === '23505') {
-		const cloud = await cloudVaultBlob();
-		if (cloud?.wrapped === blob.wrapped) {
+		if (await proofOpens(await cloudVaultProof())) {
 			vaultBlobSent = true;
 			return;
 		}
 		throw userFacing(
-			'Esta cuenta ya tiene una bóveda creada en otro dispositivo. Sumá este dispositivo con su código de recuperación.'
+			'Esta cuenta ya tiene una bóveda creada en otro aparato. Sumá este aparato con el código que muestra el otro.'
 		);
 	}
 	if (error) throw new Error(error.message);
@@ -176,24 +174,20 @@ async function uploadVaultBlob(client) {
 // Does this account already have a vault, created on another device?
 //
 // A second device must never create its own: the key would be a different one,
-// and from then on each device would upload records the other cannot open, with
-// `vaults` holding whichever wrapped key arrived last. Joining an existing vault
-// with the recovery code is phase 3 (`restoreVault` is built and tested, it has
-// nothing to restore from until download exists), so until then the honest move
-// is to refuse early and say why.
+// and from then on each device would upload records the other cannot open. The
+// way in for a device without a key is asking the other one for a pairing code
+// (`sync/pairing.ts`), so this answer is what sends it to that screen.
 export async function cloudVaultExists() {
-	return Boolean(await cloudVaultBlob());
+	return Boolean(await cloudVaultProof());
 }
 
-// The wrapped key this account's other device left behind. Useless without the
-// recovery code, which is what the joining screen asks for.
-export async function cloudVaultBlob() {
+// La prueba que dejó el aparato que creó la bóveda de esta cuenta, o null. No
+// abre nada: sólo deja que un aparato compruebe si la llave que tiene es la de
+// esta cuenta.
+export async function cloudVaultProof() {
 	const client = supabase();
 	if (!client) return null;
-	const { data, error } = await client
-		.from('vaults')
-		.select('salt, iv, wrapped')
-		.maybeSingle();
+	const { data, error } = await client.from('vaults').select('iv, check_blob').maybeSingle();
 	if (error) throw new Error(error.message);
 	return data ?? null;
 }
