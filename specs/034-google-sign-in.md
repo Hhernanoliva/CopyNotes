@@ -4,6 +4,12 @@ Created: 2026-08-08. Hernan approved **phase 1 (web)** in chat on 2026-08-08 and
 asked for phase 2 (desktop) to start right after phase 1 is verified on the real
 site, by signing out and repeating the round trip inside the `.app`.
 
+**Phase 1 shipped 2026-08-09** (`main` = `0d5aca7`): built, the round trip driven
+by hand against the real Google, the identity gate passed, and the button
+verified on `copynotes-beta.vercel.app`. Phase 2 has not started. What the build
+taught is folded back into the sections below — three items in "What enters" say
+the opposite of what they said before it was built, and say why.
+
 ## En criollo (resumen para Hernán)
 
 Entrar a la cuenta con un toque, en vez de tipear email y contraseña.
@@ -68,15 +74,31 @@ stays. The reverse order risks migrating twice.
    it is the same flow phase 2 needs on the desktop, so the desktop half is an
    extra caller and not a second design.
 
-3. **`detectSessionInUrl: true`**, replacing today's `false`. This is a real
-   change of stance and the comment above it must be rewritten, not deleted: it
-   was `false` because *nothing ever arrived in the URL*. Now something does.
+3. **`detectSessionInUrl` stays `false`, and the app does the pickup itself.**
+   This reverses what the first version of this spec said, and the reason is
+   worth keeping: with `true`, supabase-js exchanges the code inside the client
+   constructor, where a failure is caught, logged nowhere and swallowed. Built
+   that way it shipped a login that, when it failed, showed the ordinary form
+   again with **no message at all** — indistinguishable from a cancelled trip.
+   `completeGoogleSignIn(code, flowId)` in `supabase.ts` calls
+   `exchangeCodeForSession` explicitly, `SettingsDialog` routes it through
+   `cloudAction`, and the reason reaches the screen. It is also the same call
+   phase 2 makes, which is what item 2 promised.
 
-4. **The URL is cleaned after pickup.** Once supabase-js has the session, the
-   app replaces the history entry with the bare origin, so a `?code=...` never
-   survives into a bookmark, a share, or a screenshot.
+4. **The trip has a name, and it has to be handed over.** supabase-js 2.111
+   marks each PKCE trip with `sb_flow_id` in the address bar and keeps **one
+   secret per trip**, falling back to a shared slot it calls legacy when nobody
+   names the trip. It reads that id off `window.location.href` at exchange time,
+   so cleaning the address first left the exchange leaning on the legacy slot.
+   The id is read together with the code and passed as
+   `exchangeCodeForSession(code, { flowId })`.
 
-5. **The button** in `SettingsDialog.svelte`, in the signed-out branch, above the
+5. **The URL is cleaned before the exchange, `sb_flow_id` included.** Both the
+   code and the id are read into variables first, so nothing is lost, and the
+   address bar never holds a `?code=...` that could survive into a bookmark, a
+   share or a screenshot — not even for the length of a network call.
+
+6. **The button** in `SettingsDialog.svelte`, in the signed-out branch, above the
    email field, with a divider and the word "o" between it and the existing
    form. Google's brand rules apply: their wordmark, their "G", the required
    label text ("Continuar con Google" is allowed and reads better in Spanish
@@ -84,7 +106,7 @@ stays. The reverse order risks migrating twice.
    through `cloudAction`, like every other cloud button, so failures land in
    `cloudError` and not in the console.
 
-6. **Hidden on desktop until phase 2.** `isTauriRuntime()` from `$lib/platform`
+7. **Hidden on desktop until phase 2.** `isTauriRuntime()` from `$lib/platform`
    gates the button. A button that opens Google inside a webview with no way
    back is worse than no button.
 
@@ -257,6 +279,17 @@ optional.
    Authentication › Users holds exactly one user and its id is the id noted
    before. If it holds two, phase 1 is still "done" — but the finding is written
    into the vault spec that follows, because it changes the migration.
+
+   **Passed on 2026-08-09: it linked.** `hhernanoliva@gmail.com` kept its id
+   (`c659c685-…`, noted before the attempt) and came out holding two identities,
+   `email + google`. No new user. **The vault migration that follows is
+   unaffected**, which is the whole reason this spec was sequenced first.
+
+   One thing the gate does not protect against, learned by doing it: **the email
+   in the account chooser must be the one the cloud account uses**, and that is
+   read from the Supabase panel, never assumed. A first attempt picked a
+   different personal address and Google correctly minted a separate user, which
+   then had to be deleted by hand.
 7. The CSP e2e test still passes and the console shows no CSP violation during
    the round trip.
 
@@ -280,13 +313,23 @@ and the round trip itself is a manual gate (criteria 2, 6, 8, 9, 10).
   `signInWithOAuth` with provider `google` and `redirectTo` equal to the current
   origin; a Supabase error comes back translated into Spanish through
   `spanishError`, not raw.
+- **Unit (`src/lib/sync/supabase.test.ts`)**: `completeGoogleSignIn` hands the
+  code **and its `flowId`** to `exchangeCodeForSession`, and a failed exchange
+  comes back as a Spanish sentence — the PKCE error says "invalid request",
+  which without its own branch lands on the message about the 6-digit code and
+  sends the person to look at their email.
 - **Unit (new, `src/lib/sync/oauth-return.test.ts`)**: the URL cleaner strips
-  `code`, `error` and `error_description` while preserving any other query the
-  app might carry, and does nothing when there is nothing to strip. Pure
-  function, no DOM.
-- **E2E (`e2e/cloud-login.spec.ts` or the nearest existing file)**: the button is
-  visible on the web build and absent when `isTauriRuntime()` is stubbed true;
-  it has an accessible name; the keyboard reaches it before the email field.
+  `code`, `error`, `error_description` and `sb_flow_id` while preserving any
+  other query the app might carry, and does nothing when there is nothing to
+  strip. Pure function, no DOM.
+- **E2E (`e2e/cloud-login.spec.ts`)**: the address bar comes out clean and the
+  Spanish message appears — both run with or without a cloud project.
+  **The button's own visibility cannot be tested here and no attempt should be
+  made to**: the e2e build is deliberately made without a Supabase project
+  (`playwright.config.ts` explains why), so the whole Nube section renders as
+  "this copy has no cloud configured" and there is no button on screen. There is
+  no component-test layer either (spec 013). What protects the button is the
+  manual pass.
 - **E2E (existing `e2e/security-csp.spec.ts`)**: unchanged and still green — the
   policy is not touched by this spec.
 - **Rust (phase 2, `src-tauri/src/lib.rs`)**: the listener returns a free port,
@@ -295,14 +338,23 @@ and the round trip itself is a manual gate (criteria 2, 6, 8, 9, 10).
 
 ## Agent notes
 
-- `detectSessionInUrl: false` and its comment in `supabase.ts` are load-bearing
-  history, not clutter. Rewrite the comment to say what is true after this spec:
-  something *does* arrive in the URL now, it arrives only on the OAuth return,
-  and it is erased immediately after.
+- **A cloud call that dies as "no se pudo conectar" on a dev machine is a CSP
+  snapshot, not a network problem, and it will cost an afternoon to anyone who
+  believes the message.** `connect-src` is built in `vite.config.ts` from
+  `PUBLIC_SUPABASE_URL` **when the dev server starts**. A `vite dev` left running
+  from before that variable existed keeps serving `connect-src 'self' ipc: …`
+  with no Supabase host, so every fetch to the cloud is blocked by the browser
+  and arrives as `Failed to fetch` — which `spanishError` correctly translates
+  as a connection problem. Two Google sign-ins died there. The check is one
+  command, `curl -sI http://localhost:5173/ | grep -i content-security`, and the
+  fix is restarting the dev server. Production is never affected: Vercel rebuilds
+  the policy on every deploy. Note the asymmetry that makes it confusing —
+  **the OAuth user IS created in Supabase**, because that half happens by
+  navigation; only the exchange, which is a `fetch`, dies.
 - The prerendered shell has no server, so there is no `+page.server.ts` callback
-  route to add and none should be invented. supabase-js picks the code out of
-  the URL on the client, which is why `detectSessionInUrl` is the whole
-  mechanism.
+  route to add and none should be invented. The code is picked out of the URL on
+  the client, by the app itself — see "What enters" items 3 to 5 for why
+  supabase-js is deliberately not the one doing it.
 - `openExternal` (`$lib/platform`) and `open_external`
   (`src-tauri/src/lib.rs`) already exist and already validate the scheme. Phase 2
   reuses them; it does not add a second way to open a link.
