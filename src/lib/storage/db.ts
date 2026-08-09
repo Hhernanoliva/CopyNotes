@@ -143,6 +143,20 @@ db.version(9).stores({
 	conflicts: 'id, table, at'
 });
 
+// v10 (spec 035): las bóvedas de antes no se pueden pasar a otro aparato. Su
+// llave se importó sin permiso de exportación, así que el navegador no la
+// entrega ni para envolverla — y una fila así se ve sana mientras no puede hacer
+// lo único nuevo. Se borra: el aparato queda pidiendo el código del otro, que es
+// un estado que las pantallas saben atender.
+//
+// Las notas no se tocan. Están en claro en este dispositivo y no dependen de la
+// bóveda para nada (spec 030, decisión D1).
+db.version(10)
+	.stores({ vault: 'id' })
+	.upgrade(async (tx) => {
+		await tx.table('vault').clear();
+	});
+
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
 // added later cannot forget it, and a change sync never sees is a change lost.
