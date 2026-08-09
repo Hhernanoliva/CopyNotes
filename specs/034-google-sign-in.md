@@ -6,9 +6,16 @@ site, by signing out and repeating the round trip inside the `.app`.
 
 **Phase 1 shipped 2026-08-09** (`main` = `0d5aca7`): built, the round trip driven
 by hand against the real Google, the identity gate passed, and the button
-verified on `copynotes-beta.vercel.app`. Phase 2 has not started. What the build
-taught is folded back into the sections below — three items in "What enters" say
-the opposite of what they said before it was built, and say why.
+verified on `copynotes-beta.vercel.app`. What the build taught is folded back
+into the sections below — three items in "What enters" say the opposite of what
+they said before it was built, and say why.
+
+**Phase 2 built 2026-08-09**, same day, in `src-tauri/src/oauth.rs` and
+`src/lib/sync/google-desktop.ts`. Automated tests are green; **its manual gate
+(criteria 8, 9, 10) has not been run**, and it cannot be until two things
+happen: `http://127.0.0.1:*` and `http://127.0.0.1:*/**` are added to the
+Supabase redirect list (step 7 below), and the round trip is driven by hand in a
+real build. Until then the desktop button is code that has never met Google.
 
 ## En criollo (resumen para Hernán)
 
@@ -108,7 +115,8 @@ stays. The reverse order risks migrating twice.
 
 7. **Hidden on desktop until phase 2.** `isTauriRuntime()` from `$lib/platform`
    gates the button. A button that opens Google inside a webview with no way
-   back is worse than no button.
+   back is worse than no button. **Lifted by phase 2**: the same check now
+   chooses *which* trip the button starts, and no longer whether it exists.
 
 ### Phase 2 — Desktop (`.app`)
 
@@ -117,23 +125,40 @@ The webview loads bundled files (`frontendDist: ../build` in
 redirect from the outside can reach. Same wall that killed the magic-link login
 in spec 030 — `supabase.ts` records that decision.
 
-The way through, **loopback**:
+The way through, **loopback**. Written as built:
 
-1. `signInWithOAuth({ provider: 'google', options: { skipBrowserRedirect: true,
-   redirectTo: 'http://127.0.0.1:<port>' } })` returns the Google URL instead of
-   navigating to it.
-2. A new Rust command starts a one-shot `std::net::TcpListener` on
-   `127.0.0.1:0` (the OS picks a free port), and returns the port.
+1. `oauth_start` binds a `std::net::TcpListener` on `127.0.0.1:0` (the OS picks
+   a free port) and returns the port. **Two commands and not one**, because the
+   port has to reach the frontend before the browser opens — it goes inside
+   `redirectTo` — while the answer arrives minutes later. Binding first is also
+   what makes the gap safe: a browser that comes back before `oauth_wait` runs
+   is queued in the socket's backlog instead of refused.
+2. `signInWithGoogle({ redirectTo: 'http://127.0.0.1:<port>',
+   skipBrowserRedirect: true })` — the same function phase 1 built, now with
+   arguments — returns the Google URL instead of navigating to it.
 3. `openExternal(url)` from `$lib/platform` — already built and already used for
    the links inside a note — opens the system browser.
 4. The person approves in their own browser. Google returns to Supabase,
    Supabase redirects to `http://127.0.0.1:<port>/?code=…&sb_flow_id=…`.
-5. The listener reads the request line, answers with a small "ya podés volver a
-   CopyNotes" HTML page, shuts down, and hands **both** values back to the
-   frontend.
+5. `oauth_wait` accepts, answers with a small "ya podés volver a CopyNotes" HTML
+   page, shuts down — which releases the port — and hands the **whole address**
+   back. Not the parsed pieces: the frontend reads it with the same pure
+   functions the web half uses (`sync/oauth-return.ts`), so there is no second
+   parser and no second percent-decoder to keep honest.
 6. `completeGoogleSignIn(code, flowId)` — the same function phase 1 already has
    — completes the login, called through `cloudAction` so a failure lands on
    screen instead of in the console.
+
+Two details found while building, both cheap and both load-bearing:
+
+- **A browser sends more than the one request that matters** — a preconnected
+  socket with nothing on it, a `/favicon.ico`. A listener that stops at the
+  first connection would shut the port before Google's answer arrived. Anything
+  whose query carries neither `code` nor `error` is answered `204` and ignored,
+  and the wait continues until the deadline.
+- **On macOS a socket accepted from a non-blocking listener inherits that flag**,
+  so the read comes back empty before the browser has said anything. It is set
+  back to blocking, with a read timeout, before the request line is read.
 
 #### What phase 1 already paid for, and this half must not re-learn
 
@@ -399,9 +424,14 @@ and the round trip itself is a manual gate (criteria 2, 6, 8, 9, 10).
   manual pass.
 - **E2E (existing `e2e/security-csp.spec.ts`)**: unchanged and still green — the
   policy is not touched by this spec.
-- **Rust (phase 2, `src-tauri/src/lib.rs`)**: the listener returns a free port,
-  parses `code` out of a well-formed request line, rejects a request without a
-  code, and stops listening after the first one.
+- **Rust (phase 2, `src-tauri/src/oauth.rs`)**: the request line of Google's trip
+  back is recognised (`code` and `error` both count), the browser's side traffic
+  is not, and one end-to-end test over a real socket checks that the page is
+  served, the whole address comes back, and **the port is free afterwards** —
+  which is criterion 10's automatable half.
+- **Unit (new, `src/lib/sync/google-desktop.test.ts`)**: the order — listener
+  before browser — the loopback `redirectTo`, and `code` + `sb_flow_id` reaching
+  `completeGoogleSignIn`. A refusal never reaches the exchange.
 
 ## Agent notes
 
