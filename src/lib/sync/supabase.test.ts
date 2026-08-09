@@ -86,6 +86,36 @@ describe('entering with Google', () => {
 		]);
 	});
 
+	it('canjea el código de la vuelta y devuelve la sesión', async () => {
+		const canjeados = [];
+		const { completeGoogleSignIn } = await loadWithFakeAuth({
+			exchangeCodeForSession: (code) => {
+				canjeados.push(code);
+				return { data: { session: { user: { email: 'vos@ejemplo.com' } } }, error: null };
+			}
+		});
+
+		const session = await completeGoogleSignIn('4/0Ab_secreto');
+
+		expect(canjeados).toEqual(['4/0Ab_secreto']);
+		expect(session.user.email).toBe('vos@ejemplo.com');
+	});
+
+	it('cuando el canje falla lo dice, en vez de dejar la pantalla muda', async () => {
+		// El error que da un viaje que volvió a otra dirección. Sin esta rama cae
+		// en la del código de 6 dígitos y manda a la persona a mirar su email.
+		const { completeGoogleSignIn } = await loadWithFakeAuth({
+			exchangeCodeForSession: () => ({
+				data: {},
+				error: { message: 'invalid request: both auth code and code verifier should be non-empty' }
+			})
+		});
+
+		await expect(completeGoogleSignIn('4/0Ab_secreto')).rejects.toThrow(
+			/no terminó en el mismo lugar/
+		);
+	});
+
 	it('says in Spanish what the server answers while the provider is still off', async () => {
 		// The expected failure until the manual step in the Supabase panel is done:
 		// raw English here would send Hernán looking at the app instead of the panel.

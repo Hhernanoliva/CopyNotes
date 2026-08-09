@@ -16,16 +16,16 @@
 	} from '$lib/bridge/mcp-config';
 	import {
 		cloudConfigured,
+		completeGoogleSignIn,
 		currentSession,
 		emailCodeLogin,
 		requestCode,
 		signInWithCode,
 		signInWithGoogle,
 		signInWithPassword,
-		signUpWithPassword,
-		supabase
+		signUpWithPassword
 	} from '$lib/sync/supabase';
-	import { cleanOAuthUrl, oauthErrorMessage } from '$lib/sync/oauth-return';
+	import { cleanOAuthUrl, oauthCode, oauthErrorMessage } from '$lib/sync/oauth-return';
 	import { forgetCloudAccount } from '$lib/sync/leave';
 	import { createVault, hasVault, restoreVault } from '$lib/sync/vault';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
@@ -99,21 +99,26 @@
 	}
 
 	// La vuelta de Google cae en la raíz de la app con `?code=...` (spec 034).
-	// supabase-js canjea ese código cuando se construye el cliente, así que
-	// primero se pide el cliente y recién después se limpia la barra: al revés se
-	// quedaría sin el código que tiene que canjear. Configuración se abre sola
-	// porque de acá se fue la persona, y acá tiene que aterrizar — con la cuenta
-	// adentro, o con el aviso de que no se completó.
+	// El código se lee ANTES de limpiar la barra —limpiarla es justamente lo que
+	// lo vuelve ilegible— y se canjea acá, a mano, para que un canje fallido diga
+	// por qué en vez de dejar el formulario de siempre en pantalla sin una
+	// palabra. Configuración se abre sola porque de acá se fue la persona, y acá
+	// tiene que aterrizar: con la cuenta adentro, o con el motivo.
 	$effect(() => {
 		const href = window.location.href;
 		const cleaned = cleanOAuthUrl(href);
 		if (cleaned === href) return;
-		supabase();
+		const code = oauthCode(href);
+		const refusal = oauthErrorMessage(href);
 		// El router de SvelteKit no interviene: la app es una sola página
 		// prerenderizada y lo único que cambia es la barra de direcciones.
 		window.history.replaceState(window.history.state, '', cleaned);
-		cloudError = oauthErrorMessage(href);
 		open = true;
+		if (!code || !cloudConfigured()) {
+			cloudError = refusal;
+			return;
+		}
+		cloudAction(() => completeGoogleSignIn(code));
 	});
 
 	function enterWithGoogle() {

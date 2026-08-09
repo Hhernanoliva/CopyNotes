@@ -3,7 +3,7 @@
 // somebody else can read.
 
 import { describe, expect, it } from 'vitest';
-import { cleanOAuthUrl, oauthErrorMessage } from './oauth-return';
+import { cleanOAuthUrl, oauthCode, oauthErrorMessage } from './oauth-return';
 
 const APP = 'https://copynotes-beta.vercel.app/';
 
@@ -26,6 +26,16 @@ describe('cleaning the address after Google', () => {
 
 	it('empties a hash that carries a token', () => {
 		expect(cleanOAuthUrl(`${APP}#access_token=xyz&expires_in=3600`)).toBe(APP);
+	});
+});
+
+describe('el código que hay que canjear', () => {
+	it('sale entero de la dirección', () => {
+		expect(oauthCode(`${APP}?code=4%2F0Ab_secreto&nota=abc`)).toBe('4/0Ab_secreto');
+	});
+
+	it('no existe cuando la vuelta fue una negativa', () => {
+		expect(oauthCode(`${APP}?error=access_denied`)).toBe(null);
 	});
 });
 

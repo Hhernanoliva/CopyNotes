@@ -32,6 +32,12 @@ export function cleanOAuthUrl(href) {
 	return stripped ? url.toString() : href;
 }
 
+// The one-use code Google's trip back leaves behind, or null. Read before the
+// address is cleaned, because cleaning it is what makes the code unreadable.
+export function oauthCode(href) {
+	return new URL(href).searchParams.get('code');
+}
+
 export function oauthErrorMessage(href) {
 	const params = new URL(href).searchParams;
 	const error = params.get('error');

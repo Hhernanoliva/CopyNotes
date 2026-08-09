@@ -49,12 +49,15 @@ export function supabase() {
 			// It is also the flow the desktop half needs (spec 034 phase 2), so that
 			// one becomes an extra caller instead of a second design.
 			flowType: 'pkce',
-			// Something DOES arrive in the URL now — but only on the way back from
-			// Google, and only for as long as it takes supabase-js to exchange it:
-			// `oauth-return.ts` erases the trace right after (spec 034). This was
-			// `false` while email + password was the only door, because then nothing
-			// ever arrived there and looking was pure risk.
-			detectSessionInUrl: true,
+			// Something DOES arrive in the URL now (spec 034) — but the app picks it
+			// up itself, in `SettingsDialog`, with `completeGoogleSignIn`. Letting
+			// supabase-js detect it was the first shape and it cost a whole
+			// afternoon: its own pickup runs inside the constructor, where a failed
+			// exchange is caught, logged to nowhere and swallowed. The screen showed
+			// the login form again with no message and no way to tell a cancelled
+			// trip from a broken redirect. Doing it by hand is the same call phase 2
+			// needs on the desktop, and its error reaches the user.
+			detectSessionInUrl: false,
 			persistSession: true,
 			autoRefreshToken: true
 		}
@@ -89,6 +92,13 @@ function spanishError(error) {
 	// Supabase panel — the expected failure until that manual step is done.
 	if (/provider is not enabled|unsupported provider/i.test(message)) {
 		return 'Entrar con Google no está habilitado en este servidor.';
+	}
+	// PKCE: the trip back landed somewhere that does not hold the secret this
+	// browser stored when it left — another address, another browser, storage
+	// cleared in between. Reads as "invalid" otherwise, which would hand back the
+	// message about the 6-digit code and send the person looking at their email.
+	if (/code.?verifier|code challenge/i.test(message)) {
+		return 'El viaje de vuelta de Google no terminó en el mismo lugar donde empezó, así que este navegador no pudo completar la entrada. Probá de nuevo desde esta misma pestaña.';
 	}
 	if (/expired|invalid/i.test(message)) {
 		return 'El código no es correcto o ya venció. Pedí uno nuevo.';
@@ -160,6 +170,17 @@ export async function signInWithGoogle() {
 		options: { redirectTo: window.location.origin }
 	});
 	if (error) throw new Error(spanishError(error));
+}
+
+// The other half of the trip: the code that came back in the address bar is
+// worth a session only together with the secret this browser kept when it left
+// (PKCE). Failing here is not exotic — a redirect that landed on a different
+// address loses that secret — so the error is thrown, in Spanish, instead of
+// leaving the login form on screen with nothing said.
+export async function completeGoogleSignIn(code) {
+	const { data, error } = await supabase().auth.exchangeCodeForSession(code);
+	if (error) throw new Error(spanishError(error));
+	return data.session;
 }
 
 export function signOut() {
