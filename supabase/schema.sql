@@ -191,19 +191,87 @@ revoke all on function public.push_records(jsonb) from public;
 grant execute on function public.push_records(jsonb) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- vaults — the wrapped copy of the vault key
+-- reset_cloud — empezar de nuevo la nube
 -- ---------------------------------------------------------------------------
 --
--- Exactly what `getRecoveryBlob()` returns. Useless without the recovery code,
--- which is shown once on the device and never stored anywhere — that is why the
--- server is allowed to hold this at all: it is what a second device needs.
+-- La única forma de borrar algo de acá arriba, y tiene nombre a propósito.
+-- `records` no acepta escrituras directas de nadie —todo entra por
+-- `push_records`— así que abrir una política general de borrado desharía eso;
+-- esta función borra exactamente lo de quien llama y nada más.
+--
+-- Es la salida de quien se quedó sin ningún aparato con la llave: lo que hay
+-- arriba es ilegible para siempre, y lo honesto es poder vaciarlo y volver a
+-- subir desde el aparato que todavía tiene las notas (spec 035).
+
+create or replace function public.reset_cloud()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	-- Sin sesión no hay dueño, y sin dueño esto borraría filas de nadie.
+	if auth.uid() is null then
+		raise exception 'reset_cloud necesita una sesión iniciada';
+	end if;
+	-- Con `security definer` la seguridad a nivel de fila ya no vuelve a
+	-- filtrar: el filtro por dueño de acá es la única defensa, y por eso está
+	-- escrito en las tres.
+	delete from public.records where owner_id = auth.uid();
+	delete from public.pairings where owner_id = auth.uid();
+	delete from public.vaults where owner_id = auth.uid();
+end;
+$$;
+
+revoke all on function public.reset_cloud() from public;
+grant execute on function public.reset_cloud() to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- vaults — que esta cuenta tiene bóveda, y una prueba de cuál
+-- ---------------------------------------------------------------------------
+--
+-- Ya no guarda la llave envuelta (spec 035): la llave se pasa de aparato a
+-- aparato por `pairings`, y acá arriba no queda ninguna copia de ella.
+--
+-- Lo que queda es una prueba: el texto `copynotes` cifrado con la llave de la
+-- bóveda. No abre nada y no le sirve a nadie, pero deja contestar una pregunta
+-- que sin ella no tiene respuesta. La clave primaria es el dueño, así que crear
+-- la bóveda dos veces choca con 23505 — y ese choque significa dos cosas
+-- opuestas: que otro aparato llegó primero, o que la fila la dejó este mismo la
+-- corrida anterior. El que puede abrir la prueba es el segundo caso. Confundir
+-- los dos ya costó una salida de servicio (commit a4c6e0d).
 
 create table if not exists public.vaults (
+	owner_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+	iv text not null,
+	check_blob text not null,
+	created_at timestamptz not null default now()
+);
+
+-- El proyecto que ya existe: la copia envuelta se va, la prueba entra. `iv` se
+-- queda donde estaba y ahora es el de la prueba.
+alter table public.vaults add column if not exists check_blob text;
+alter table public.vaults drop column if exists salt;
+alter table public.vaults drop column if exists wrapped;
+
+-- ---------------------------------------------------------------------------
+-- pairings — la llave de paso, mientras dura
+-- ---------------------------------------------------------------------------
+--
+-- Casi siempre está vacía. Cuando alguien suma un aparato, acá aparece la llave
+-- de la bóveda envuelta con un código de 8 caracteres que muestra el aparato
+-- viejo, y se va: la borra el que la usa, y la esconde el vencimiento.
+--
+-- Una fila por cuenta (la clave primaria es el dueño), así que pedir un código
+-- nuevo pisa al anterior. Sin barrendero y sin cron: una fila vencida son unos
+-- cientos de bytes que ya no abren nada y que el próximo pedido reemplaza.
+
+create table if not exists public.pairings (
 	owner_id uuid primary key default auth.uid() references auth.users (id) on delete cascade,
 	salt text not null,
 	iv text not null,
 	wrapped text not null,
-	created_at timestamptz not null default now()
+	expires_at timestamptz not null
 );
 
 -- ---------------------------------------------------------------------------
@@ -233,6 +301,7 @@ create table if not exists public.vaults (
 
 alter table public.records enable row level security;
 alter table public.vaults enable row level security;
+alter table public.pairings enable row level security;
 
 drop policy if exists own_records on public.records;
 
@@ -258,6 +327,30 @@ create policy create_own_vault on public.vaults
 for insert
 to authenticated
 with check (owner_id = auth.uid());
+
+drop policy if exists read_own_pairing on public.pairings;
+drop policy if exists create_own_pairing on public.pairings;
+drop policy if exists drop_own_pairing on public.pairings;
+
+-- Leer la propia, y sólo mientras vale. El vencimiento es regla del servidor y
+-- no cortesía del cliente: una fila vencida no existe ni para su dueño.
+create policy read_own_pairing on public.pairings
+for select
+to authenticated
+using (owner_id = auth.uid() and expires_at > now());
+
+create policy create_own_pairing on public.pairings
+for insert
+to authenticated
+with check (owner_id = auth.uid());
+
+-- Borrar la propia SIN mirar el vencimiento, a propósito: si el borrado también
+-- filtrara por vencida, una fila muerta quedaría para siempre bloqueando el
+-- insert de la próxima (la clave primaria es el dueño).
+create policy drop_own_pairing on public.pairings
+for delete
+to authenticated
+using (owner_id = auth.uid());
 
 -- ---------------------------------------------------------------------------
 -- The live channel (spec 030 phase 3)

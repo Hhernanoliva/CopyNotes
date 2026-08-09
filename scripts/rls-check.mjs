@@ -109,19 +109,20 @@ try {
 	assert.equal(atob(stillA[0].blob), 'secreto-de-A', 'A pudo pisar su propia fila directo');
 	console.log('✓ actualizar y borrar directo no cambian nada, ni lo ajeno ni lo propio');
 
-	// 5. The vault key blob is locked the same way — y además sólo se puede crear
+	// 5. La marca de la bóveda está cerrada igual — y además sólo se puede crear
 	//    una vez. Sin eso, dos aparatos que crean su bóveda casi a la vez dejaban
-	//    la cuenta con una llave que abre la mitad de los registros.
-	unwrap(await b.client.from('vaults').insert({ salt: 's', iv: 'i', wrapped: 'w' }));
+	//    la cuenta con una llave que abre la mitad de los registros. Desde la spec
+	//    035 lo que hay acá es la prueba (un texto conocido cifrado), no la llave.
+	unwrap(await b.client.from('vaults').insert({ iv: 'i', check_blob: 'prueba-de-B' }));
 	const vaults = unwrap(await a.client.from('vaults').select('owner_id'));
-	assert.equal(vaults.length, 0, 'A pudo leer la bóveda envuelta de B');
-	console.log('✓ A no puede leer la llave envuelta de B');
+	assert.equal(vaults.length, 0, 'A pudo leer la marca de bóveda de B');
+	console.log('✓ A no puede leer la bóveda de B');
 
-	const secondVault = await b.client.from('vaults').insert({ salt: 's2', iv: 'i2', wrapped: 'w2' });
+	const secondVault = await b.client.from('vaults').insert({ iv: 'i2', check_blob: 'otra' });
 	assert.equal(secondVault.error?.code, '23505', 'B pudo crear una segunda bóveda');
-	unwrap(await b.client.from('vaults').update({ wrapped: 'pisada' }).eq('owner_id', b.id));
-	const vaultB = unwrap(await b.client.from('vaults').select('wrapped'));
-	assert.equal(vaultB[0].wrapped, 'w', 'la llave envuelta de B se pudo pisar');
+	unwrap(await b.client.from('vaults').update({ check_blob: 'pisada' }).eq('owner_id', b.id));
+	const vaultB = unwrap(await b.client.from('vaults').select('check_blob'));
+	assert.equal(vaultB[0].check_blob, 'prueba-de-B', 'la bóveda de B se pudo pisar');
 	console.log('✓ la primera bóveda de la cuenta gana: no se puede duplicar ni pisar');
 
 	// 6. The exact call `sync/upload.ts` makes. Records go up through
@@ -161,7 +162,60 @@ try {
 	);
 	console.log('✓ A no puede tocar la fila de B a través de push_records');
 
-	console.log('\nCandado OK: las siete pruebas pasaron.');
+	// 8. La llave de paso (spec 035) es la única ventana en la que la llave existe
+	//    fuera de un aparato. Si esto se rompe, se rompe todo lo demás con ello.
+	const enDiezMinutos = new Date(Date.now() + 600_000).toISOString();
+	unwrap(
+		await a.client
+			.from('pairings')
+			.insert({ salt: 's-de-A', iv: 'i-de-A', wrapped: 'llave-de-A', expires_at: enDiezMinutos })
+	);
+	const espiada = unwrap(await b.client.from('pairings').select('wrapped'));
+	assert.deepEqual(espiada, [], 'B pudo ver la llave de paso de A');
+	console.log('✓ B no puede ver la llave de paso de A');
+
+	// 9. Y tampoco puede borrársela, que dejaría a A sin poder sumar el aparato
+	//    justo mientras lo está sumando.
+	await b.client.from('pairings').delete().eq('owner_id', a.id);
+	const sigue = unwrap(await a.client.from('pairings').select('wrapped'));
+	assert.equal(sigue.length, 1, 'B pudo borrar la llave de paso de A');
+	console.log('✓ B no puede borrar la llave de paso de A');
+
+	// 10. Una fila vencida no la ve ni su propio dueño: el vencimiento lo decide
+	//     el servidor y no el reloj del aparato, que se puede atrasar a mano.
+	unwrap(await a.client.from('pairings').delete().eq('owner_id', a.id));
+	unwrap(
+		await a.client.from('pairings').insert({
+			salt: 's-vieja',
+			iv: 'i-vieja',
+			wrapped: 'llave-vencida',
+			expires_at: new Date(Date.now() - 1000).toISOString()
+		})
+	);
+	const vencida = unwrap(await a.client.from('pairings').select('wrapped'));
+	assert.deepEqual(vencida, [], 'una llave de paso vencida se pudo leer');
+	// Y se puede borrar aunque esté vencida, o bloquearía para siempre la próxima:
+	// la clave primaria es el dueño.
+	unwrap(await a.client.from('pairings').delete().eq('owner_id', a.id));
+	unwrap(
+		await a.client
+			.from('pairings')
+			.insert({ salt: 's2', iv: 'i2', wrapped: 'llave-nueva', expires_at: enDiezMinutos })
+	);
+	console.log('✓ la llave de paso vencida no se lee, pero sí se puede reemplazar');
+
+	// 11. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
+	//     de borrado que existe, así que si filtrara mal, vaciaría cuentas ajenas.
+	unwrap(await a.client.rpc('reset_cloud'));
+	const deA = unwrap(await a.client.from('records').select('id'));
+	assert.equal(deA.length, 0, 'reset_cloud no borró lo de quien lo llamó');
+	const deB = unwrap(await b.client.from('records').select('blob'));
+	assert.equal(atob(deB[0].blob), 'secreto-de-B', 'reset_cloud de A se llevó puesto lo de B');
+	const bovedaDeB = unwrap(await b.client.from('vaults').select('check_blob'));
+	assert.equal(bovedaDeB.length, 1, 'reset_cloud de A borró la bóveda de B');
+	console.log('✓ empezar de nuevo vacía lo propio y no toca lo ajeno');
+
+	console.log('\nCandado OK: las once pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);
