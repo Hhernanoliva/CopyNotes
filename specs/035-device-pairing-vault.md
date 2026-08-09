@@ -122,9 +122,23 @@ screen says that in those words before the box appears.
 
 ### 5. Server (`supabase/schema.sql`)
 
-- **`vaults` loses `salt`, `iv` and `wrapped`.** It becomes a marker: which
-  account has a vault, and since when. The wrapped copy of the key stops
-  existing up there.
+- **`vaults` loses `salt` and `wrapped`, and gains a proof.** The wrapped copy of
+  the key stops existing up there. What replaces it is one short known
+  plaintext — the literal string `copynotes` — encrypted with the vault key:
+  columns `iv` and `check_blob`. Anybody may read it and it opens nothing; the
+  device that holds the right key can open it, and no other device can.
+
+  **This is not decoration, and it was nearly missed.** The account's vault row
+  is what answers "does this account already have a vault?", and its primary key
+  is the owner, so a second insert comes back as `23505`. That one answer means
+  two opposite things: *another device got here first* (stop everything) or
+  *this is my own row from a previous run* (carry on). Today they are told apart
+  by comparing the wrapped copy byte for byte — which is exactly what this spec
+  deletes. Without a replacement, the choice would be between a device that
+  never notices a rival vault and a device that accuses itself, which is the bug
+  fixed in `a4c6e0d` (see "The bug this spec must not bring back").
+  Opening the proof answers it properly: *my key opens this account's vault, so
+  it is mine.*
 - **New table `pairings`**: `owner_id` (primary key, so one live pairing per
   account), `salt`, `iv`, `wrapped`, `expires_at`. RLS: select, insert and
   **delete** your own row, nothing else — and the select policy carries
@@ -261,6 +275,29 @@ the two ways out on the same screen.
   destructive button until the word matches. The pairing round trip itself is
   not e2e-able — it needs two browsers with two accounts' storage — and no fake
   should be built for it; criterion 9 is the manual gate.
+
+## The bug this spec must not bring back
+
+Found on 2026-08-09 while planning this work, fixed the same day in `a4c6e0d`,
+and written down here because this spec touches the exact line that had it.
+
+`uploadVaultBlob` remembers whether it already sent the vault row in a
+module-level variable, which lives as long as the window does. Every app start
+therefore retries the insert and collides with the row it left behind last time.
+That collision was read as "another device created a vault first", so a healthy
+device accused itself, threw before the first upload batch, and **stopped
+syncing entirely from its second run onwards** — while showing a message that
+sent the person looking for a recovery code they did not need. It is the state
+Hernán's Mac was in on 2026-08-07 with 117 changes stuck, diagnosed then as a
+race between two devices. There was never a second vault.
+
+Two things follow for this spec:
+
+1. The proof blob in `vaults` exists to answer that question, and any change
+   that removes it has to answer it another way first.
+2. `uploadVaultBlob`'s regression test (`upload.test.ts`, "no confunde su propia
+   bóveda, de la corrida anterior, con la de otro") must survive the rewrite. It
+   is the only thing standing between here and the same outage.
 
 ## Agent notes
 
