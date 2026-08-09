@@ -127,10 +127,49 @@ The way through, **loopback**:
 3. `openExternal(url)` from `$lib/platform` — already built and already used for
    the links inside a note — opens the system browser.
 4. The person approves in their own browser. Google returns to Supabase,
-   Supabase redirects to `http://127.0.0.1:<port>/?code=...`.
+   Supabase redirects to `http://127.0.0.1:<port>/?code=…&sb_flow_id=…`.
 5. The listener reads the request line, answers with a small "ya podés volver a
-   CopyNotes" HTML page, shuts down, and hands the code back to the frontend.
-6. `supabase().auth.exchangeCodeForSession(code)` completes the login.
+   CopyNotes" HTML page, shuts down, and hands **both** values back to the
+   frontend.
+6. `completeGoogleSignIn(code, flowId)` — the same function phase 1 already has
+   — completes the login, called through `cloudAction` so a failure lands on
+   screen instead of in the console.
+
+#### What phase 1 already paid for, and this half must not re-learn
+
+Written after phase 1 shipped, because three of these were found the hard way
+and the fourth is the same trap wearing a different hat.
+
+- **`sb_flow_id` has to travel back too, and here nothing carries it by
+  accident.** supabase-js appends it to `redirectTo` and expects to read it off
+  `window.location.href` at exchange time — but in the desktop flow the webview
+  never navigates, so its address bar holds no such thing and the lookup would
+  quietly fall back to the shared slot the library calls legacy. The listener
+  must parse it out of the request line beside `code`, and the frontend must
+  pass it explicitly. On the web this was a latent bug; here it would be the
+  normal case.
+- **The redirect allow-list is matched as a pattern, and the bare form is not
+  the same as the glob.** Phase 1 lost an attempt to exactly this: `redirectTo`
+  was `http://localhost:5173` while the panel held `http://localhost:5173/**`,
+  so Supabase fell back to the Site URL. Here the address carries a random port
+  *and* a query string (`?sb_flow_id=…`), so the entry has to cover both — add
+  `http://127.0.0.1:*` **and** `http://127.0.0.1:*/**`, then verify by landing
+  on the loopback page rather than assuming. The failure is silent and looks
+  like the app: the person ends up on `copynotes-beta.vercel.app` and the `.app`
+  waits for a knock that never comes, until its 3-minute timeout.
+- **`connect-src` is baked at build time, and a desktop build has no second
+  chance.** The policy in `vite.config.ts` is built from `PUBLIC_SUPABASE_URL`
+  as it stands when the build runs, so a `pnpm tauri build` in an environment
+  without `.env` ships an `.app` whose every cloud call is blocked by its own
+  policy — reported to the user as a connection problem, on a machine where the
+  connection is fine. `pnpm tauri dev` has the dev-server version of the same
+  trap. Check it before blaming the loopback: the policy is visible in the
+  bundled `index.html`.
+- **The exchange is a `fetch`; the rest of the trip is not.** Which is why a
+  blocked policy still produces a *user in Supabase* and no session at all —
+  the sign-in half travels by navigation, in the system browser, far away from
+  the app's policy. Two users and no session is the signature of this failure,
+  not of a broken listener.
 
 **No new dependency, in either half.** The listener is standard library, and the
 browser is opened by the command that already exists (`open_external` in
@@ -205,26 +244,41 @@ panel, once, by hand.
 
 ## Manual configuration (once, by Hernán)
 
+Done on 2026-08-09. Kept because it has to be redone on a new project, and
+because Google renamed every screen: what used to be *APIs & Services › OAuth
+consent screen* is now **Google Auth Platform**, with the steps split across
+*Información de la marca* (names and emails), *Acceso a los datos* (scopes),
+*Público* (publish) and *Clientes* (the client id).
+
 **Google Cloud Console**
 
 1. Create a project (or reuse one).
-2. *APIs & Services › OAuth consent screen*: External. App name "CopyNotes",
-   support email, developer email. Scopes: `email`, `profile`, `openid` — all
-   three are non-sensitive, so no verification review is needed. Publish the app
-   (leaving it in Testing mode limits it to explicitly listed accounts).
-3. *Credentials › Create credentials › OAuth client ID › Web application*.
-   Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`
-   — the Supabase callback, **not** the CopyNotes address. Copy the client id
-   and the client secret.
+2. *Google Auth Platform › Información de la marca*: app name "CopyNotes",
+   support email, developer email.
+3. *Acceso a los datos*: add `openid`, `.../auth/userinfo.email`,
+   `.../auth/userinfo.profile` — all three non-sensitive, so no verification
+   review is needed.
+4. *Público*: publish the app. Left in Testing it works only for accounts listed
+   by hand, and stops working on its own after a few days.
+5. *Clientes › Crear cliente › Aplicación web*. **Authorized redirect URI**:
+   `https://<project-ref>.supabase.co/auth/v1/callback` — the Supabase callback,
+   **not** the CopyNotes address. Leave *Orígenes autorizados de JavaScript*
+   empty: two adjacent fields, and pasting into the wrong one fails later, at
+   Google, with `redirect_uri_mismatch`. Copy the client id and secret.
 
 **Supabase dashboard**
 
-4. *Authentication › Providers › Google*: enable, paste the client id and
-   secret.
-5. *Authentication › URL Configuration*: Site URL =
-   `https://copynotes-beta.vercel.app`. Redirect URLs must include the site URL,
-   `http://localhost:5173/**` for development, and — for phase 2 —
-   `http://127.0.0.1:*` for the loopback listener.
+6. *Authentication › Sign In / Providers › Google*: enable, paste the client id
+   and secret. The read-only **Callback URL** shown there must match step 5
+   character for character — checking it takes five seconds and is the cheapest
+   guard against the most common failure.
+7. *Authentication › URL Configuration*: Site URL =
+   `https://copynotes-beta.vercel.app`. Redirect URLs need the site URL,
+   `http://localhost:5173/**` **and** the bare `http://localhost:5173` for
+   development — `redirectTo` is `window.location.origin`, which has no trailing
+   slash, and the glob does not match it; an unmatched address is not an error,
+   it silently falls back to the Site URL. For phase 2, `http://127.0.0.1:*` and
+   `http://127.0.0.1:*/**`.
 
 Nothing here goes into `.env`: the client secret lives only in Supabase, and the
 app already has everything it needs (`PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`).
