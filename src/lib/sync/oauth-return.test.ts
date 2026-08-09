@@ -3,7 +3,7 @@
 // somebody else can read.
 
 import { describe, expect, it } from 'vitest';
-import { cleanOAuthUrl, oauthCode, oauthErrorMessage } from './oauth-return';
+import { cleanOAuthUrl, oauthCode, oauthErrorMessage, oauthFlowId } from './oauth-return';
 
 const APP = 'https://copynotes-beta.vercel.app/';
 
@@ -36,6 +36,13 @@ describe('el código que hay que canjear', () => {
 
 	it('no existe cuando la vuelta fue una negativa', () => {
 		expect(oauthCode(`${APP}?error=access_denied`)).toBe(null);
+	});
+
+	it('viene con el nombre del viaje al que pertenece', () => {
+		const href = `${APP}?code=4%2F0Ab_secreto&sb_flow_id=e31b9a44`;
+		expect(oauthFlowId(href)).toBe('e31b9a44');
+		// Y ese nombre tampoco se queda en la barra: se entrega a mano al canje.
+		expect(cleanOAuthUrl(href)).toBe(APP);
 	});
 });
 

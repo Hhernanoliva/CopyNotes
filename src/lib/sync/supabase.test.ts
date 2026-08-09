@@ -89,15 +89,17 @@ describe('entering with Google', () => {
 	it('canjea el código de la vuelta y devuelve la sesión', async () => {
 		const canjeados = [];
 		const { completeGoogleSignIn } = await loadWithFakeAuth({
-			exchangeCodeForSession: (code) => {
-				canjeados.push(code);
+			exchangeCodeForSession: (code, options) => {
+				canjeados.push([code, options]);
 				return { data: { session: { user: { email: 'vos@ejemplo.com' } } }, error: null };
 			}
 		});
 
-		const session = await completeGoogleSignIn('4/0Ab_secreto');
+		const session = await completeGoogleSignIn('4/0Ab_secreto', 'e31b9a44');
 
-		expect(canjeados).toEqual(['4/0Ab_secreto']);
+		// El viaje se nombra a mano: la biblioteca guarda un secreto por viaje y
+		// si nadie lo nombra cae en una ranura compartida que ella llama vieja.
+		expect(canjeados).toEqual([['4/0Ab_secreto', { flowId: 'e31b9a44' }]]);
 		expect(session.user.email).toBe('vos@ejemplo.com');
 	});
 

@@ -11,7 +11,17 @@
 // `access_token` cannot appear while we ask for PKCE (the token never travels in
 // a URL). It is stripped anyway because it is the one parameter that would
 // actually matter if a future change ever put it there.
-const RETURN_PARAMS = ['code', 'error', 'error_code', 'error_description', 'access_token'];
+const RETURN_PARAMS = [
+	'code',
+	'error',
+	'error_code',
+	'error_description',
+	'access_token',
+	// supabase-js marks each trip with an id and expects to read it back off the
+	// address bar. We hand it over explicitly instead, so it may be swept up here
+	// with the rest — left behind it would sit in the bar for ever.
+	'sb_flow_id'
+];
 
 export function cleanOAuthUrl(href) {
 	const url = new URL(href);
@@ -36,6 +46,13 @@ export function cleanOAuthUrl(href) {
 // address is cleaned, because cleaning it is what makes the code unreadable.
 export function oauthCode(href) {
 	return new URL(href).searchParams.get('code');
+}
+
+// Which trip that code belongs to. supabase-js keeps one secret per trip and
+// falls back to a single shared slot it calls legacy when nobody names the
+// trip; naming it is one parameter and does not depend on that fallback.
+export function oauthFlowId(href) {
+	return new URL(href).searchParams.get('sb_flow_id');
 }
 
 export function oauthErrorMessage(href) {

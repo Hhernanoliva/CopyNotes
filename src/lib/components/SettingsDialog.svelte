@@ -25,7 +25,12 @@
 		signInWithPassword,
 		signUpWithPassword
 	} from '$lib/sync/supabase';
-	import { cleanOAuthUrl, oauthCode, oauthErrorMessage } from '$lib/sync/oauth-return';
+	import {
+		cleanOAuthUrl,
+		oauthCode,
+		oauthErrorMessage,
+		oauthFlowId
+	} from '$lib/sync/oauth-return';
 	import { forgetCloudAccount } from '$lib/sync/leave';
 	import { createVault, hasVault, restoreVault } from '$lib/sync/vault';
 	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
@@ -109,6 +114,7 @@
 		const cleaned = cleanOAuthUrl(href);
 		if (cleaned === href) return;
 		const code = oauthCode(href);
+		const flowId = oauthFlowId(href);
 		const refusal = oauthErrorMessage(href);
 		// El router de SvelteKit no interviene: la app es una sola página
 		// prerenderizada y lo único que cambia es la barra de direcciones.
@@ -118,7 +124,7 @@
 			cloudError = refusal;
 			return;
 		}
-		cloudAction(() => completeGoogleSignIn(code));
+		cloudAction(() => completeGoogleSignIn(code, flowId));
 	});
 
 	function enterWithGoogle() {
