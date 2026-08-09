@@ -177,7 +177,7 @@ export async function signInWithGoogle() {
 // (PKCE). Failing here is not exotic — a redirect that landed on a different
 // address loses that secret — so the error is thrown, in Spanish, instead of
 // leaving the login form on screen with nothing said.
-export async function completeGoogleSignIn(code, flowId) {
+export async function completeGoogleSignIn(code, flowId = null) {
 	const { data, error } = await supabase().auth.exchangeCodeForSession(
 		code,
 		flowId ? { flowId } : undefined

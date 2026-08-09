@@ -225,6 +225,19 @@ What changes is **which account owns the cloud rows**:
   become invisible to the new session. Nothing is deleted, and no local note is
   touched — the device keeps every note in plaintext, as always.
 
+  **But the device does not come out unchanged, and this spec said so too
+  lightly at first.** A new auth id is a different account to `syncNow`, so
+  `ensureAccountMatches` (`sync/leave.ts`) fires on the first sync and does what
+  it does for any account switch: consent off, both cursors to zero, parked
+  conflicts cleared, every row's `cloudSeq` forgotten — **and the `vault` table
+  emptied**, which is the device's encryption key. That is correct behaviour and
+  must not be softened: the point of it is that the next account is never handed
+  the previous account's key. The consequence to say out loud before anybody
+  runs this gate is that **the recovery code stops being optional** — without
+  it, that device cannot rejoin the vault, even though every note on it is
+  intact and readable. So: have the recovery code in hand before the first
+  Google sign-in, exactly as you would before signing out.
+
 ### Identity linking
 
 Supabase links a new OAuth identity to an existing user when the email matches
