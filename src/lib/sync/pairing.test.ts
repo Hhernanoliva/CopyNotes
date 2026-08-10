@@ -114,14 +114,14 @@ describe('sumar el aparato nuevo', () => {
 		expect(server.row).toBe(null);
 	});
 
-	it('cuando no hay nada arriba dice que venció, no que el código está mal', async () => {
-		// El servidor esconde la fila vencida, así que "no hay fila" es exactamente
-		// lo que ve un aparato que tardó. Decirle "código equivocado" lo mandaría a
-		// mirarse los dedos en vez de a pedir otro código.
+	it('cuando no hay nada arriba manda a pedir otro, no a revisar los dedos', async () => {
+		// El servidor esconde la fila vencida, así que "no hay fila" es lo que ve
+		// tanto el que tardó como el que escribió un código sin que nadie lo haya
+		// pedido. Decirle "código equivocado" lo mandaría a mirarse los dedos.
 		await createVault();
 		await db.table('vault').clear();
 
-		await expect(joinWithPairingCode('ABCD-EFGH')).rejects.toThrow(/venció/i);
+		await expect(joinWithPairingCode('ABCD-EFGH')).rejects.toThrow(/ya no vale/i);
 		expect(await hasVault()).toBe(false);
 	});
 

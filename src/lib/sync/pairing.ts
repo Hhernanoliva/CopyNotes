@@ -50,11 +50,14 @@ export async function joinWithPairingCode(code) {
 	const owner = await ownerId(supa);
 	const { data, error } = await supa.from('pairings').select('salt, iv, wrapped').maybeSingle();
 	if (error) throw new Error(error.message);
-	// El servidor esconde la fila vencida, así que "no hay nada" y "venció" son lo
-	// mismo visto desde acá — y es lo que hay que decir, porque manda a la persona
-	// a pedir otro código en vez de a revisar cómo lo escribió.
+	// El servidor esconde la fila vencida, así que desde acá "venció" y "nunca
+	// existió" se ven igual. Se dice sin afirmar cuál de las dos fue: a alguien que
+	// escribió un código sin haber pedido ninguno, "venció" le suena a que hizo
+	// algo mal. Lo que importa es a dónde lo manda, y es al otro aparato.
 	if (!data) {
-		throw new Error('El código venció. Pedí uno nuevo en el aparato donde ya tenés las notas.');
+		throw new Error(
+			'Ese código ya no vale: duran diez minutos. Pedí uno nuevo en el aparato donde ya tenés las notas.'
+		);
 	}
 	let key;
 	try {
