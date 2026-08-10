@@ -256,6 +256,30 @@ the two ways out on the same screen.
 9. **Manual gate, two real devices**: pair, download, then start over from one
    of them and confirm the other reports the account has no vault.
 
+   **Passed on 2026-08-10**, driven by hand by Hernán on two storage jars of one
+   Mac (a normal window and an incognito one, both on the dev server), with the
+   server checked from outside after every step. What it proved: the code was
+   shown with its countdown, typed on the second device, and 1000 records came
+   down; the `pairings` row was gone from the server after each use; **a device
+   that had joined could then add another** — A re-joined with a code B produced;
+   a wrong code said so and left the live code usable; and **Empezar de nuevo la
+   nube** emptied the account and the device rebuilt the vault and re-uploaded
+   all 1000 records by itself.
+
+   Three defects surfaced during the gate, all fixed before the push:
+
+   - **An expired pairing row could not be replaced** (`19b3f94`). The read
+     policy hides it and Postgres must read a row to delete it, so asking for a
+     code and not using it locked the next request for ever. Found by
+     `pnpm rls:check`, not by a person. `start_pairing` now owns that write.
+   - **Downloading nothing was treated as a failure** (`640feb4`). A device
+     re-joining its own account already holds every note, so the throw fired on
+     the happy path — and it skipped the screen refresh, leaving the code box on
+     screen with the vault already open.
+   - **"El código venció" was told to people who had never asked for one**
+     (`e847a6b`). The server hides expired rows, so "gone" and "never existed"
+     look identical from the client; the sentence now says neither.
+
 ## Minimum tests
 
 - **Unit (`src/lib/sync/vault.test.ts`)**: wrap-then-unwrap returns a key that
