@@ -236,14 +236,17 @@
 			syncStatus.error = null;
 			downloading = { applied: 0 };
 			try {
-				const result = await downloadAll({
+				await downloadAll({
 					onProgress: (progress) => (downloading = progress)
 				});
 				downloading = null;
 				onDataChanged?.();
-				if (!result.applied) {
-					throw new Error('La bóveda se abrió, pero todavía no había notas guardadas en la nube.');
-				}
+				// Que no baje nada NO es un fallo, y tratarlo como tal costó una tarde:
+				// un aparato que se vuelve a sumar a su propia cuenta ya tiene todas
+				// las notas, así que no hay nada que aplicar. Lanzando ahí, el error se
+				// llevaba puesto el refresco de la pantalla —queda en `cloudAction`,
+				// después de esto— y la cajita del código seguía a la vista como si la
+				// bóveda no se hubiera abierto, con la bóveda abierta.
 			} finally {
 				downloading = null;
 			}
