@@ -32,7 +32,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | # | Tema | Veredicto |
 | --- | --- | --- |
 | 1 | La sincronización se saltea cambios para siempre | ✅ **Arreglado**, con un techo anotado |
-| 2 | Dos ediciones distintas parecen la misma versión | ✅ **Arreglado** (5/8) |
+| 2 | Dos ediciones distintas parecen la misma versión | ✅ **Arreglado y verificado a mano** (11/8) |
 | 3 | Llave y permisos de la cuenta anterior | ✅ **Arreglado** |
 | 4 | Se puede escribir sin pasar por `push_records` | ✅ **Arreglado y verificado** (6/8) |
 | 5 | Dos aparatos crean dos bóvedas | ✅ **Arreglado y verificado** (6/8) |
@@ -275,6 +275,28 @@ número: al cambiar la escala, los renglones viejos sin subir quedarían por deb
 de la marca de subida y se perderían de verdad. El remedio era peor.
 
 **Requiere gate manual** entre tus dos aparatos antes de darlo por cerrado.
+
+**Gate manual PASADO el 11/8** (Mac + iPhone, cuentas reales). No reproduce la
+colisión —para eso hacen falta el mismo renglón y el mismo milisegundo, y eso ya
+lo cubre el test de acá abajo— sino que comprueba que reordenar `decide()` no
+rompió la sincronización de todos los días: ida y vuelta, editar cinco veces
+seguidas en un solo aparato **sin** que salga conflicto (el eco propio, que es la
+rama que el reordenamiento tocó), conflicto real con los dos sin conexión, la
+elección viajando al otro lado, y los dos terminando al día.
+
+**Dos trampas de método que costaron tres intentos, anotadas para el próximo:**
+
+1. **El modo avión de iOS no garantiza estar sin conexión.** Se puede volver a
+   prender el Wi-Fi con el avión puesto, y el teléfono sigue subiendo. La única
+   señal confiable es la de la app: el panel tiene que decir *"Sin conexión con
+   la nube"*, y después de editar, *"ese cambio sube solo cuando vuelva"* — esa
+   segunda frase es la que prueba que hay una versión propia esperando, que es
+   exactamente la condición `localIsUnsent` de `decide()`. Sin las dos frases, la
+   prueba no significa nada.
+2. **La nota de prueba tiene que tener UN SOLO renglón.** Con varios es fácil
+   editar líneas distintas en cada aparato sin darse cuenta, y entonces no hay
+   conflicto **porque no lo hay**: los dos cambios se suman, que es lo correcto.
+   Dos de los tres intentos fallidos fueron eso.
 
 **Cavado, y una corrección al diagnóstico.** La prueba
 (`download.test.ts`, "pregunta también cuando los dos números de cambio salieron
@@ -1158,7 +1180,8 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 1. [x] **#9** la barrera que miente. Confirmado, sin cavar. Arreglo chico. **Hecho 5/8.**
 2. [x] **#2** colisión de números. Cavado: la prueba falla con el código viejo, y
        el daño real es divergencia en silencio, no atasco. **Hecho 5/8.**
-       **Falta el gate manual** entre tus dos aparatos.
+       **Gate manual PASADO el 11/8** (Mac + iPhone; las dos trampas de método,
+       arriba en la sección #2).
 3. [x] **#10** restaurar. Cavado: (a) reproducido con prueba, (c) medido — no
        cuelga, desaparece. Los tres arreglos hechos. **Hecho 6/8.**
 4. [x] **Pedido MCP sin id.** Rechazado con razón propia (`missing-id`).
