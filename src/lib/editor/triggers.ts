@@ -7,13 +7,39 @@
 
 const BULLET_PREFIXES = ['- ', '* '];
 
-export function detectTrigger(block, text, { prevText = null, caret = null } = {}) {
+// Lo que hay que saber para decidir si un "/" o un "#" es un pedido o es
+// contenido: ¿lo escribió una persona, o entró de golpe desde otro lado? El
+// navegador lo dice en `inputType` del evento, y es la respuesta directa; lo que
+// había acá era comparar el texto de antes con el de ahora, que es un sustituto.
+//
+// El sustituto alcanza en escritorio, donde una tecla es un evento. En un celular
+// no: el teclado confirma o corrige la palabra que venías escribiendo en el MISMO
+// evento en que llega el carácter, así que "cambió algo antes del cursor" es
+// normal y no significa que hayas pegado nada. Por eso los gatillos no abrían en
+// renglones con texto y sí en los vacíos, donde no hay palabra que corregir.
+//
+// Lista de exclusión y no de inclusión: los `insertFrom*` que traen contenido de
+// afuera son pocos y conocidos, mientras que las formas de escribir una letra se
+// siguen inventando (composición, dictado, sugerencias). Ante un `inputType` que
+// no conocemos, el que manda es el sustituto viejo — no se abre de más.
+const PASTED = new Set([
+	'insertFromPaste',
+	'insertFromPasteAsQuotation',
+	'insertFromDrop',
+	'insertFromYank'
+]);
+
+export function typedByHand(inputType) {
+	return typeof inputType === 'string' && inputType.startsWith('insert') && !PASTED.has(inputType);
+}
+
+export function detectTrigger(block, text, { prevText = null, caret = null, inputType = null } = {}) {
 	if (block.type === 'code') return null;
 	if (block.type === 'text') {
 		const prefix = BULLET_PREFIXES.find((candidate) => text.startsWith(candidate));
 		if (prefix) return { kind: 'bullet', content: text.slice(prefix.length) };
 	}
-	const anchor = tagAnchor(text, prevText, caret);
+	const anchor = tagAnchor(text, prevText, caret, inputType);
 	if (anchor != null) return { kind: 'tag', anchor };
 	return null;
 }
@@ -21,7 +47,7 @@ export function detectTrigger(block, text, { prevText = null, caret = null } = {
 // The "#" is a command only when it stands alone: it is the character that just
 // arrived, and there is nothing or whitespace before it. Glued to a word
 // ("hola#") it is content.
-function tagAnchor(text, prevText, caret) {
+function tagAnchor(text, prevText, caret, inputType) {
 	// Without a caret we only know the whole block, so fall back to a lone "#".
 	if (caret == null) return text === '#' ? 0 : null;
 	const prev = prevText ?? '';
@@ -31,7 +57,11 @@ function tagAnchor(text, prevText, caret) {
 	// character after an old "#" is not a request to tag). Comparing prefixes
 	// rather than lengths on purpose: emptying a line leaves a browser <br>
 	// behind, so prevText can carry a phantom newline that skews any length.
-	if (text.slice(0, caret - 1) !== prev.slice(0, caret - 1)) return null;
+	//
+	// Cuando el navegador ya dijo que esto lo escribió una persona, esa
+	// comparación sobra: ver `typedByHand`. Se suma, no reemplaza — sin
+	// `inputType` (o con uno desconocido) sigue mandando la comparación.
+	if (!typedByHand(inputType) && text.slice(0, caret - 1) !== prev.slice(0, caret - 1)) return null;
 	if (prev[caret - 1] === '#') return null;
 	const before = caret >= 2 ? text[caret - 2] : '';
 	if (before !== '' && !/\s/.test(before)) return null;

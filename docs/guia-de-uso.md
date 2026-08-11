@@ -2,7 +2,12 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-10 (Nuevo: **los avisos de "dos versiones" dejaron
+Última actualización: 2026-08-11 (Nuevo: **el menú `/` ya funciona en el celular
+sobre renglones que tienen texto**. Escribías la `/` y no pasaba nada; en un
+renglón vacío sí abría. La culpa era del corrector del teclado del teléfono, que
+confirma o corrige la palabra anterior en el mismo momento en que llega la `/`, y
+CopyNotes lo tomaba por texto pegado. El `#` de las etiquetas tenía exactamente el
+mismo problema y se arregló junto; ver el tema 2. Antes: **los avisos de "dos versiones" dejaron
 de multiplicarse**. Si borraste algo en los dos dispositivos, CopyNotes ya no te
 pregunta cuál de los dos borrados preferís —los dos están de acuerdo—; antes una
 nota borrada en los dos aparatos te dejaba un aviso **por renglón**, decenas de

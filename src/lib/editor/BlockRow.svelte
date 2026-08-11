@@ -468,14 +468,19 @@
 		return plainTextOffset(el, range.startContainer, range.startOffset);
 	}
 
-	function handleInput() {
+	// `inputType` viaja hasta los gatillos ("/" y "#"): es el navegador diciendo si
+	// esto lo escribió una persona o entró de un pegado, y sin él hay que
+	// adivinarlo comparando textos — cosa que en un celular sale mal (ver
+	// `typedByHand` en triggers.ts).
+	function handleInput(event) {
 		const caret = caretPlainOffset();
+		const inputType = event?.inputType ?? null;
 		if (isRich) {
 			const html = sanitizeHtml(el.innerHTML);
-			onInput(block, { html, content: htmlToPlainText(html), caret });
+			onInput(block, { html, content: htmlToPlainText(html), caret, inputType });
 		} else {
 			const text = el.innerText;
-			onInput(block, { html: text, content: text, caret });
+			onInput(block, { html: text, content: text, caret, inputType });
 		}
 	}
 

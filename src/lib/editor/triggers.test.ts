@@ -72,6 +72,25 @@ describe('detectTrigger with a caret (typing mid-line)', () => {
 		});
 	});
 
+	// Mismo caso que el menú "/": el teclado de un celular corrige la palabra
+	// anterior en el mismo evento en que llega el "#", y la comparación de
+	// prefijos lo leía como un pegado.
+	it('abre cuando el teclado corrige la palabra anterior en el mismo evento que el "#"', () => {
+		expect(
+			detectTrigger(text, 'cuándo #', {
+				prevText: 'cuando ',
+				caret: 8,
+				inputType: 'insertReplacementText'
+			})
+		).toEqual({ kind: 'tag', anchor: 7 });
+	});
+
+	it('un pegado que termina en "#" sigue sin abrir', () => {
+		expect(
+			detectTrigger(text, 'hola #', { prevText: '', caret: 6, inputType: 'insertFromPaste' })
+		).toBe(null);
+	});
+
 	it('ignores a deletion that leaves the caret behind an older "#"', () => {
 		expect(detectTrigger(text, 'hola #', { prevText: 'hola #x', caret: 6 })).toBe(null);
 	});

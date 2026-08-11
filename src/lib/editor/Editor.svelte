@@ -652,7 +652,8 @@
 			const next = nextSlashState(prev, {
 				prevText: block.content ?? '',
 				text,
-				caret: payload.caret ?? null
+				caret: payload.caret ?? null,
+				inputType: payload.inputType ?? null
 			});
 			if (next && prev) {
 				slash.query = next.query;
@@ -669,7 +670,8 @@
 		// picker. The caret tells "#" apart from a "#" glued to a word.
 		const trigger = detectTrigger(block, text, {
 			prevText: block.content ?? '',
-			caret: payload.caret ?? null
+			caret: payload.caret ?? null,
+			inputType: payload.inputType ?? null
 		});
 		if (trigger?.kind === 'bullet') {
 			// Cambio de estructura: se escribe ya. Y por la misma puerta que el

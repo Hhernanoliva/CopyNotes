@@ -92,6 +92,53 @@ describe('nextSlashState', () => {
 		expect(nextSlashState(null, { prevText: 'a', text: 'ab', caret: 2 })).toBeNull();
 	});
 
+	// El teclado de un celular no manda una tecla por evento: confirma o corrige la
+	// palabra que venías escribiendo en el MISMO evento en que llega la "/". Para la
+	// comparación de prefijos eso es "cambió algo antes del cursor" —o sea, un
+	// pegado— y el menú no abría. Pasaba sólo en renglones con texto: en uno vacío
+	// no hay palabra que corregir.
+	it('abre cuando el teclado corrige la palabra anterior en el mismo evento que la "/"', () => {
+		expect(
+			nextSlashState(null, {
+				prevText: 'cuando',
+				text: 'cuándo/',
+				caret: 7,
+				inputType: 'insertReplacementText'
+			})
+		).toEqual({ anchor: 6, query: '' });
+	});
+
+	it('abre igual cuando la "/" llega dentro de una composición', () => {
+		expect(
+			nextSlashState(null, {
+				prevText: 'hola',
+				text: 'hola/',
+				caret: 5,
+				inputType: 'insertCompositionText'
+			})
+		).toEqual({ anchor: 4, query: '' });
+	});
+
+	it('un pegado que termina en "/" sigue sin abrir, lo diga quien lo diga', () => {
+		expect(
+			nextSlashState(null, { prevText: '', text: 'todo/', caret: 5, inputType: 'insertFromPaste' })
+		).toBeNull();
+		expect(
+			nextSlashState(null, { prevText: '', text: 'todo/', caret: 5, inputType: 'insertFromDrop' })
+		).toBeNull();
+	});
+
+	it('un borrado que deja el cursor detrás de una "/" vieja sigue sin abrir', () => {
+		expect(
+			nextSlashState(null, {
+				prevText: 'Hola /x',
+				text: 'Hola /',
+				caret: 6,
+				inputType: 'deleteContentBackward'
+			})
+		).toBeNull();
+	});
+
 	it('extends the query as the user types after the "/"', () => {
 		expect(
 			nextSlashState({ anchor: 5, query: '' }, { prevText: 'Hola /', text: 'Hola /t', caret: 7 })
