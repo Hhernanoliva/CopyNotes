@@ -6,7 +6,7 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db, SYNCED_TABLES } from '../storage/db';
 import { dumpAllTables } from '../storage/backup';
-import { createNote, updateNote } from '../storage/notes';
+import { createNote, softDeleteNote, updateNote } from '../storage/notes';
 import { encryptRecord } from './records';
 import { createVault, getVaultKey } from './vault';
 import { grantUploadConsent, listPendingUploads } from './pending';
@@ -125,6 +125,35 @@ describe('when both devices edited the same record', () => {
 
 		expect(await countConflicts()).toBe(1);
 		expect((await listConflicts())[0].remote.title).toBe('versión de allá, más nueva');
+	});
+});
+
+describe('lo que dejó de ser un desacuerdo', () => {
+	it('se cierra solo cuando los dos lados terminaron borrando la misma fila', async () => {
+		// Un borrado de allá esperando decisión, y después la persona borra lo mismo
+		// acá. Ya no hay nada que elegir: las dos opciones dicen "borralo". Quedaba
+		// esperando para siempre — y una nota borrada en los dos aparatos dejaba uno
+		// de estos POR RENGLÓN.
+		const id = await bothEdited({ remoteDeleted: true });
+		expect(await countConflicts()).toBe(1);
+
+		await softDeleteNote(id);
+
+		expect(await countConflicts()).toBe(0);
+		expect(await listConflicts()).toEqual([]);
+		// Y queda parada sobre la versión del servidor. Sin esto, la próxima subida
+		// declararía una base que el servidor no tiene y sería rechazada para
+		// siempre.
+		expect(await listPendingUploads()).toEqual([]);
+	});
+
+	it('no toca el que sigue siendo una decisión de verdad', async () => {
+		// Borrado allá, vivo acá: ahí sí hay algo que perder, y nadie más que la
+		// persona puede decidirlo.
+		await bothEdited({ remoteDeleted: true });
+
+		expect(await countConflicts()).toBe(1);
+		expect(await listConflicts()).toHaveLength(1);
 	});
 });
 

@@ -523,7 +523,10 @@
    al borde derecho a buscar de quién era cada uno. */
 .cn-conflict-side {
 	flex: none;
-	width: 2.5rem;
+	/* Ancho para "Tu versión" / "La del otro" en una línea. Antes decía "acá" y
+	   "allá" en 2.5rem: entraba, pero nombraba los dos aparatos como si fueran
+	   lugares del cuarto. */
+	width: 4.5rem;
 	text-align: right;
 	/* El mismo tamaño mínimo que el resto del chrome de la app: más chico que
 	   esto no existe en ninguna otra parte, y no hay razón para estrenarlo acá. */
@@ -537,6 +540,63 @@
 @media (pointer: coarse) {
 	.cn-conflict-option {
 		min-height: var(--touch-target);
+	}
+}
+
+/* La decisión de una nota entera. Sí lleva borde, al revés que las versiones:
+   actúa sobre muchas filas a la vez, así que tiene que leerse como un botón y no
+   como una de las opciones que tiene debajo. */
+.cn-conflict-bulk {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	gap: 0.375rem;
+	border: 1px solid var(--border);
+	border-radius: 0.375rem;
+	padding: 0.375rem 0.5rem;
+	text-align: left;
+	font-size: 0.75rem;
+	background-color: transparent;
+	transition:
+		background-color var(--motion-fast) var(--motion-ease),
+		transform var(--motion-fast) var(--motion-ease);
+}
+.cn-conflict-bulk:hover {
+	background-color: var(--accent);
+}
+.cn-conflict-bulk:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ring);
+}
+.cn-conflict-bulk:active {
+	transform: scale(0.99);
+}
+.cn-conflict-bulk:disabled {
+	opacity: 0.5;
+}
+
+/* La lista larga, para quien quiera revisarla. Cerrada por omisión: 59 renglones
+   abiertos tapan las otras notas que también esperan decisión. */
+.cn-conflict-details > summary {
+	cursor: pointer;
+	padding: 0.25rem 0;
+	font-size: 0.75rem;
+	color: var(--muted-foreground);
+}
+.cn-conflict-details > summary:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ring);
+	border-radius: 0.25rem;
+}
+
+@media (pointer: coarse) {
+	.cn-conflict-bulk,
+	.cn-conflict-details > summary {
+		min-height: var(--touch-target);
+	}
+	.cn-conflict-details > summary {
+		display: flex;
+		align-items: center;
 	}
 }
 

@@ -836,7 +836,7 @@
 						onclick={() => onConflictResolve?.(block, 'mine')}
 						class="cn-conflict-option"
 					>
-						<span class="cn-conflict-side" aria-hidden="true">acá</span>
+						<span class="cn-conflict-side" aria-hidden="true">Tu versión</span>
 						<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
 							>{#each versions.mine as part, index (index)}{#if part.changed}<span class="cn-diff"
 										>{part.text}</span
@@ -855,7 +855,7 @@
 						onclick={() => onConflictResolve?.(block, 'theirs')}
 						class="cn-conflict-option {remoteDeleted ? 'cn-conflict-option--danger' : ''}"
 					>
-						<span class="cn-conflict-side" aria-hidden="true">allá</span>
+						<span class="cn-conflict-side" aria-hidden="true">La del otro</span>
 						{#if remoteDeleted}
 							<!-- No es "quedate con este texto" sino "borrá el renglón". Se
 							     distingue a propósito, para no confundirla de fila. -->

@@ -13,7 +13,7 @@ import { supabase } from './supabase';
 import { decryptRecord } from './records';
 import { getVaultKey } from './vault';
 import { uploadedThrough } from './pending';
-import { recordConflict } from './conflicts';
+import { isDeletion, recordConflict } from './conflicts';
 import { db, markSentToCloud, putFromCloud } from '../storage/db';
 import { sameToTheUser } from '../storage/row-compare';
 import { getSetting, setSetting } from '../storage/settings';
@@ -100,6 +100,26 @@ function decide(local, payload, uploadMark) {
 	return 'apply';
 }
 
+// ¿Hay realmente algo que preguntar? Dos casos dicen que no.
+//
+// El obvio: las dos versiones se ven igual para quien las mira.
+//
+// El otro cuesta más de ver. Los dos lados BORRARON la misma fila. `deletedAt`
+// es un campo como cualquier otro, así que dos borrados con milisegundos
+// distintos se leen como versiones en pelea — y la pregunta que salía en
+// pantalla era "¿cuál de los dos borrados preferís?", con las dos opciones
+// diciendo "borrarlo". Peor: borrar una nota marca también cada uno de sus
+// renglones (`storage/notes.ts`), así que una nota borrada en los dos aparatos
+// producía un conflicto POR RENGLÓN — 59 en el caso que lo destapó.
+//
+// No se puede arreglar ignorando `deletedAt` en la comparación: entre una fila
+// borrada acá y la misma viva allá, ignorarlo las haría "iguales" y el borrado
+// se aplicaría solo. Lo que no es un desacuerdo es que los DOS estén borrados.
+function nothingToDecide(local, remote) {
+	if (isDeletion(local) && isDeletion(remote)) return true;
+	return sameToTheUser(local, remote);
+}
+
 // The server column is `table_name`; the record's identity — which is bound into
 // the encryption itself — is `table:id`, so it has to be renamed before the blob
 // will open at all.
@@ -163,7 +183,7 @@ export async function downloadOnce() {
 			// Mismo número sin confirmar: hay que abrir el sobre para saber si es mi
 			// propia versión volviendo o el cambio distinto del otro aparato.
 			const remote = await decryptPayload(key, payload);
-			if (sameToTheUser(local, remote)) {
+			if (nothingToDecide(local, remote)) {
 				// Es lo mío. Nada que escribir, pero sí algo que anotar: el servidor
 				// demostrablemente tiene esta versión, y la próxima subida tiene que
 				// declarar sobre cuál se para o va a ser rechazada.
@@ -187,7 +207,7 @@ export async function downloadOnce() {
 			}
 		} else if (action === 'conflict') {
 			const remote = await decryptPayload(key, payload);
-			if (sameToTheUser(local, remote)) {
+			if (nothingToDecide(local, remote)) {
 				// Dos escrituras distintas que dejan la fila IGUAL para quien la mira.
 				// Pasa cuando los dos aparatos llegan al mismo valor por su cuenta —el
 				// mismo lugar para el mismo renglón, el mismo tilde en la misma tarea—:

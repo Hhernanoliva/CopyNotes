@@ -314,6 +314,30 @@ describe('when both devices touched the same record', () => {
 		expect(await listPendingUploads()).toEqual([]);
 	});
 
+	it('no pregunta cuál de dos borrados queda: los dos aparatos dicen lo mismo', async () => {
+		// Borrar una nota marca también cada uno de sus renglones, así que una nota
+		// borrada en los dos lados llegaba acá como un conflicto POR RENGLÓN. Y la
+		// pregunta no tenía respuesta: las dos opciones eran "borrarlo".
+		await publish(note({ deletedAt: null }), { changeSeq: 1_700_000_000_000, serverSeq: 1 });
+		await downloadOnce();
+		// Borrada acá, sin subir todavía.
+		await updateNote('nota-compartida', { deletedAt: '2026-07-30T11:00:00.000Z' });
+		// Y borrada allá un instante después: mismo destino, distinto milisegundo.
+		await publish(note({ deletedAt: '2026-07-30T11:00:02.000Z' }), {
+			changeSeq: 1_900_000_000_000,
+			serverSeq: 2
+		});
+
+		const result = await downloadOnce();
+
+		expect(result.conflicts).toBe(0);
+		expect((await db.table('notes').get('nota-compartida')).deletedAt).toBe(
+			'2026-07-30T11:00:02.000Z'
+		);
+		// Y la discusión queda cerrada, los dos parados sobre la misma versión.
+		expect(await listPendingUploads()).toEqual([]);
+	});
+
 	it('pregunta también cuando los dos números de cambio salieron iguales', async () => {
 		// El número de cambio sale del reloj (`max(ahora, último + 1)`) y nada lo
 		// ata al aparato: dos aparatos que tocan el MISMO renglón en el mismo

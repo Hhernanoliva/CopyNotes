@@ -249,15 +249,16 @@ costado:
 ```
 como: cuando a namacion?
 ┃ ⧉ Otra versión de este renglón · tocá la que quede
-┃   acá   como: cuando a namacion?
-┃                 ‾‾‾‾‾‾‾‾
-┃   allá  como: cuandoa namacion?
-┃                 ‾‾‾‾‾‾‾
+┃   Tu versión   como: cuando a namacion?
+┃                        ‾‾‾‾‾‾‾‾
+┃   La del otro  como: cuandoa namacion?
+┃                        ‾‾‾‾‾‾‾
 ```
 
 **Tocás la que querés dejar y listo.** No hay botones: las versiones mismas son
-la elección. `acá` es lo que escribiste en este dispositivo, `allá` lo del otro.
-Con teclado también: Tab para pasar de una a la otra, Enter para elegir.
+la elección. **Tu versión** es lo que escribiste en este dispositivo, **La del
+otro** lo que llegó del otro. Con teclado también: Tab para pasar de una a la
+otra, Enter para elegir.
 
 **Lo que cambió va subrayado** en las dos. Si la diferencia es una sola letra o
 un espacio, no tenés que buscarla: te la marca. Se subraya la palabra entera,
@@ -282,6 +283,14 @@ tilde en la misma tarea, el mismo renglón movido al mismo lugar—, CopyNotes n
 te pregunta nada: se queda con esa versión en los dos y sigue. Elegir entre dos
 cosas idénticas no es una decisión.
 
+**Tampoco te pregunta cuál de dos borrados preferís.** Si borraste algo en los
+dos dispositivos, los dos están de acuerdo en que se va, y no hay nada que
+elegir. Antes sí preguntaba, y era peor de lo que suena: borrar una nota marca
+también cada uno de sus renglones, así que una nota borrada en los dos aparatos
+te dejaba **un aviso por renglón** —decenas—, todos con las dos opciones
+diciendo "borralo". Ahora se cierran solos, y los que te hayan quedado de antes
+desaparecen la próxima vez que abras el panel.
+
 **Aparecen solo cuando de verdad tocaste lo mismo.** Antes, escribir en las dos
 puntas de la misma nota alcanzaba para llenarla de conflictos aunque no
 compartieras ni un renglón: cada vez que apretabas Enter en el medio, CopyNotes
@@ -300,6 +309,28 @@ llega una, además, aparece un avisito abajo.
 no hay botones. Y en cuanto no queda nada más por decidir, el panel se cierra
 solo para no taparte la nota. Si te arrepentís tenés **Deshacer** unos
 segundos.
+
+**Todo lo de una misma nota va junto, y se decide de una vez.** Si hay varios
+renglones de la misma nota esperando, el panel los agrupa bajo el nombre de esa
+nota y te dice cuántos son:
+
+```
+En "Reunión del lunes" — 12 renglones
+Lo borraste en este dispositivo. En el otro sigue existiendo, con cambios.
+
+  [ Quedarme con lo de este dispositivo ]
+  [ Traer lo del otro dispositivo       ]
+  ▸ Revisar renglón por renglón
+```
+
+Un toque resuelve los doce. Si querés mirarlos igual de a uno, **Revisar renglón
+por renglón** los despliega y ahí elegís por separado, como siempre. El
+**Deshacer** del aviso también funciona para el grupo entero: revierte los doce
+juntos.
+
+**El "Ir al renglón" aparece solo cuando hay adónde ir.** Si ese renglón lo
+borraste en este dispositivo, ya no está en pantalla, así que el enlace no se
+ofrece.
 
 En la **lista de notas**, la nota afectada lleva el mismo puntito violeta al
 lado del nombre, y se apaga en cuanto decidís.

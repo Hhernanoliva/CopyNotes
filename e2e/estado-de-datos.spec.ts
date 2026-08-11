@@ -81,6 +81,70 @@ test('una versión en conflicto se cuenta en el punto y se decide desde ahí', a
 	await expect(statusDot(page)).not.toContainText('1');
 });
 
+test('todo lo de una misma nota se decide de una vez', async ({ page }) => {
+	// Borrar una nota tocada en los dos aparatos deja un conflicto POR RENGLÓN.
+	// Servidos de a uno son 59 decisiones idénticas; agrupados son una.
+	await openApp(page);
+	await page.locator('main [data-block-id] .block-editable').first().waitFor();
+	const ids = await page.locator('main [data-block-id]').evaluateAll((rows) =>
+		rows.slice(0, 3).map((row) => row.getAttribute('data-block-id'))
+	);
+	for (const id of ids) await seedConflict(page, id, { content: `versión de allá ${id}` });
+	await page.reload();
+	await page.locator('main [data-block-id] .block-editable').first().waitFor();
+
+	await expect(statusDot(page)).toContainText('3');
+	await statusDot(page).click();
+	// Una sola cabecera para los tres, y dice cuántos son.
+	await expect(panel(page)).toContainText('3 renglones');
+
+	// Los renglones sueltos existen, pero cerrados: abiertos tapan las otras notas.
+	await expect(
+		panel(page).getByRole('button', { name: 'Quedarme con esta versión, la de este dispositivo' })
+	).toBeHidden();
+	await panel(page).getByText('Revisar renglón por renglón').click();
+	await expect(
+		panel(page).getByRole('button', { name: 'Quedarme con esta versión, la de este dispositivo' })
+	).toHaveCount(3);
+
+	// Un toque cierra los tres.
+	await panel(page).getByRole('button', { name: 'Quedarme con lo de este dispositivo' }).click();
+	await expect(panel(page)).toBeHidden();
+	await expect(statusDot(page)).not.toContainText('3');
+});
+
+test('no ofrece ir a un renglón que acá ya no existe', async ({ page }) => {
+	// El enlace se ofrecía siempre. Con el renglón borrado acá no hay adónde ir:
+	// se tocaba y no pasaba nada.
+	await openApp(page);
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.waitFor();
+	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
+	await seedConflict(page, blockId, { content: 'lo del otro aparato' });
+	// Y después se borra acá, que es lo que deja una nota borrada en este aparato.
+	await page.evaluate(
+		(id) =>
+			new Promise((resolve) => {
+				const open = indexedDB.open('copynotes');
+				open.onsuccess = () => {
+					const store = open.result.transaction('blocks', 'readwrite').objectStore('blocks');
+					const read = store.get(id);
+					read.onsuccess = () => {
+						store.put({ ...read.result, deletedAt: new Date().toISOString() });
+					};
+					store.transaction.oncomplete = () => resolve();
+				};
+			}),
+		blockId
+	);
+	await page.reload();
+	await first.waitFor();
+
+	await statusDot(page).click();
+	await expect(panel(page)).toContainText('(borrado en este dispositivo)');
+	await expect(panel(page).getByRole('button', { name: 'Ir al renglón' })).toBeHidden();
+});
+
 test('la nota afectada queda marcada en la lista', async ({ page }) => {
 	await openApp(page);
 	const first = page.locator('main [data-block-id] .block-editable').first();

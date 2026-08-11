@@ -36,7 +36,31 @@ export async function recordConflict(table, row) {
 	});
 }
 
-export function listConflicts() {
+// Un conflicto parkeado puede dejar de serlo sin que nadie lo decida: los dos
+// lados terminaron borrando la misma fila. Pasa cuando la persona borra acá algo
+// que allá ya estaba borrado, y pasó en masa con las notas —borrar una nota marca
+// cada uno de sus renglones (`storage/notes.ts`), así que una nota borrada en los
+// dos aparatos dejaba un conflicto POR RENGLÓN, con las dos opciones diciendo
+// "borralo".
+//
+// Cerrarlo solo no rompe la promesa de la spec 030 ("ningún conflicto se resuelve
+// en silencio"): esa regla existe para que nadie pierda texto, y acá los dos
+// aparatos ya coinciden en que la fila se va. `takeRemote` y no un `delete` a
+// secas, porque hay que quedar parado sobre la versión del servidor o la próxima
+// subida se rechaza para siempre.
+//
+// `download.ts` ya no crea estos, pero los que quedaron de antes no vuelven a
+// bajar nunca: el cursor pasó hace rato. Se limpian al leer.
+async function closeSettled() {
+	const parked = await conflicts().toArray();
+	for (const row of parked) {
+		if (!isDeletion(row.remote)) continue;
+		if (isDeletion(await db.table(row.table).get(row.recordId))) await takeRemote(row.id);
+	}
+}
+
+export async function listConflicts() {
+	await closeSettled();
 	return conflicts().orderBy('at').reverse().toArray();
 }
 
@@ -54,7 +78,8 @@ export async function conflictsByBlock(blockIds) {
 	return found;
 }
 
-export function countConflicts() {
+export async function countConflicts() {
+	await closeSettled();
 	return conflicts().count();
 }
 

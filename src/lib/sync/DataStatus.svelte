@@ -64,23 +64,54 @@
 				const noteId =
 					conflict.table === 'blocks' ? (local?.noteId ?? conflict.remote?.noteId ?? null) : null;
 				const note = noteId ? await db.table('notes').get(noteId) : null;
+				const localDeleted = isDeletion(local);
 				return {
 					id: conflict.id,
+					// Todo lo de una misma nota va junto. Sin esto, borrar una nota
+					// tocada en los dos aparatos servía la lista renglón por renglón —59
+					// decisiones idénticas, sin decir en ningún lado que eran la misma.
+					groupKey: noteId ?? conflict.table,
 					label: note
 						? `En "${note.title || 'Nota sin título'}"`
 						: describeTable(conflict.table),
-					mine: isDeletion(local) ? '(borrado acá)' : describeRecord(conflict.table, local),
+					mine: localDeleted
+						? '(borrado en este dispositivo)'
+						: describeRecord(conflict.table, local),
 					theirs: isDeletion(conflict.remote)
 						? '(borrado en el otro dispositivo)'
 						: describeRecord(conflict.table, conflict.remote),
 					remoteDeleted: isDeletion(conflict.remote),
-					noteId: note ? noteId : null,
+					localDeleted,
+					// Un renglón borrado acá no está en pantalla, y una nota borrada no
+					// se puede abrir: `openFromAgenda` la busca en la lista viva, no la
+					// encuentra y se vuelve sin decir nada. Ofrecer "Ir al renglón" ahí
+					// era un enlace a un lugar que ya no existe — se tocaba y no pasaba
+					// nada.
+					canGoToRow: Boolean(noteId) && !localDeleted && !isDeletion(note),
+					noteId,
 					blockId: conflict.table === 'blocks' ? conflict.recordId : null
 				};
 			})
 		);
 		loaded = true;
 	}
+
+	// Una nota, una decisión. El orden de la lista se respeta: el primer conflicto
+	// de cada nota fija dónde aparece esa nota.
+	const conflictGroups = $derived.by(() => {
+		const groups = [];
+		const byKey = new Map();
+		for (const conflict of conflictList) {
+			let group = byKey.get(conflict.groupKey);
+			if (!group) {
+				group = { key: conflict.groupKey, label: conflict.label, items: [] };
+				byKey.set(conflict.groupKey, group);
+				groups.push(group);
+			}
+			group.items.push(conflict);
+		}
+		return groups;
+	});
 
 	function toggle() {
 		open = !open;
@@ -139,32 +170,45 @@
 		const isNew = count > announced;
 		announced = count;
 		if (!isNew || open) return;
-		toast('Llegó otra versión de algo que editaste acá.', {
+		toast('Llegó otra versión de algo que editaste en este dispositivo.', {
 			action: { label: 'Ver', onClick: () => (open = true) }
 		});
 	});
 
 	// Un solo toque decide, así que el camino de vuelta también tiene que ser uno:
-	// el aviso con "Deshacer" es la red, igual que al elegir desde el renglón.
-	async function decide(id, choice) {
+	// el aviso con "Deshacer" es la red, igual que al elegir desde el renglón. Vale
+	// para uno o para una nota entera — decidir de a 59 y tener que deshacer de a
+	// uno sería una trampa, así que el Deshacer del grupo revierte el grupo.
+	async function decide(ids, choice) {
 		busy = true;
 		try {
-			const undo = await (choice === 'mine' ? keepLocal(id) : takeRemote(id));
+			const undos = [];
+			for (const id of ids) {
+				const undo = await (choice === 'mine' ? keepLocal(id) : takeRemote(id));
+				if (undo) undos.push(undo);
+			}
 			await loadConflicts();
 			onDataChanged?.();
 			// Sin nada más que decidir, el panel se va solo: quedó abierto tapando la
 			// nota por una decisión que ya se tomó. Si quedan, se queda para la
 			// siguiente.
 			if (conflictList.length === 0) close();
-			if (!undo) return;
+			if (!undos.length) return;
+			const many = undos.length > 1;
 			toast.success(
-				choice === 'mine' ? 'Te quedaste con tu versión' : 'Trajiste la versión del otro aparato',
+				choice === 'mine'
+					? many
+						? `Te quedaste con lo de este dispositivo (${undos.length})`
+						: 'Te quedaste con tu versión'
+					: many
+						? `Trajiste lo del otro dispositivo (${undos.length})`
+						: 'Trajiste la versión del otro aparato',
 				{
 					duration: 6000,
 					action: {
 						label: 'Deshacer',
 						onClick: async () => {
-							await undoDecision(undo);
+							for (const undo of undos) await undoDecision(undo);
 							await loadConflicts();
 							onDataChanged?.();
 						}
@@ -269,70 +313,66 @@
 				<div class="border-border flex flex-col gap-3 border-t pt-3">
 					<p class="text-sm">
 						{conflictCount}
-						{conflictCount === 1 ? 'versión distinta' : 'versiones distintas'}: lo editaste acá y
-						también en otro dispositivo. No se pisó nada — elegí cuál queda.
+						{conflictCount === 1 ? 'versión distinta' : 'versiones distintas'}: lo editaste en este
+						dispositivo y también en otro. No se pisó nada — elegí cuál queda.
 					</p>
-					{#each conflictList as conflict (conflict.id)}
-						{@const versions = diffWords(conflict.mine, conflict.theirs)}
+					{#each conflictGroups as group (group.key)}
+						{@const many = group.items.length > 1}
+						{@const allRemoteDeleted = group.items.every((item) => item.remoteDeleted)}
+						{@const allLocalDeleted = group.items.every((item) => item.localDeleted)}
+						{@const ids = group.items.map((item) => item.id)}
 						<div class="flex min-w-0 flex-col gap-1 text-sm">
-							<span class="text-faint text-xs">{conflict.label}</span>
-							<!-- Las versiones SON la elección: un toque y listo, igual que en el
-							     propio renglón. Un botón aparte convierte una decisión de un
-							     gesto en dos, y encima obliga a leer el texto en un lado y
-							     apretar en otro. Lo que cambió va subrayado en las dos. -->
-							<button
-								type="button"
-								onclick={() => decide(conflict.id, 'mine')}
-								disabled={busy}
-								aria-label="Quedarme con esta versión, la de este dispositivo"
-								class="cn-conflict-option"
-							>
-								<span class="cn-conflict-side" aria-hidden="true">acá</span>
-								<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
-									>{#each versions.mine as part, index (index)}{#if part.changed}<span class="cn-diff"
-												>{part.text}</span
-											>{:else}{part.text}{/if}{/each}{#if !conflict.mine}<span
-											class="text-muted-foreground italic">(vacío)</span
-										>{/if}</span
-								>
-							</button>
-							<button
-								type="button"
-								onclick={() => decide(conflict.id, 'theirs')}
-								disabled={busy}
-								aria-label={conflict.remoteDeleted
-									? 'Borrar esto acá, como se borró en el otro dispositivo'
-									: 'Traer esta versión, la del otro dispositivo'}
-								class="cn-conflict-option {conflict.remoteDeleted ? 'cn-conflict-option--danger' : ''}"
-							>
-								<span class="cn-conflict-side" aria-hidden="true">allá</span>
-								{#if conflict.remoteDeleted}
-									<!-- No es "quedate con este texto" sino "borralo". Se dice como una
-									     acción, igual que en el renglón: descrito como estado
-									     —"(borrado en el otro dispositivo)"— se lee como un cartel y no
-									     como la opción que es. -->
-									<span class="flex min-w-0 flex-1 items-center gap-1.5">
-										<Trash2 size={13} aria-hidden="true" />
-										{conflict.blockId ? 'Borrar este renglón' : 'Borrarlo acá también'}
-									</span>
-								{:else}
-									<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
-										>{#each versions.theirs as part, index (index)}{#if part.changed}<span
-													class="cn-diff">{part.text}</span
-												>{:else}{part.text}{/if}{/each}{#if !conflict.theirs}<span
-												class="text-muted-foreground italic">(vacío)</span
-											>{/if}</span
-									>
-								{/if}
-							</button>
-							{#if conflict.noteId && conflict.blockId}
+							<span class="text-faint text-xs">
+								{group.label}{many ? ` — ${group.items.length} renglones` : ''}
+							</span>
+
+							{#if allLocalDeleted && !allRemoteDeleted}
+								<!-- El contexto que faltaba. Sin esta línea, la persona ve una pila
+								     de "(borrado en este dispositivo)" sin entender por qué le
+								     preguntan: fue ELLA quien borró, y lo que la app necesita saber
+								     es si ese borrado vale también para el otro aparato. -->
+								<p class="text-muted-foreground text-xs">
+									Lo borraste en este dispositivo. En el otro sigue existiendo, con cambios.
+								</p>
+							{/if}
+
+							{#if many}
+								<!-- Una nota, una decisión. 59 elecciones idénticas no son 59
+								     decisiones: son una, servida 59 veces. -->
 								<button
 									type="button"
-									onclick={() => goToRow(conflict)}
-									class="text-muted-foreground hover:text-foreground focus-visible:ring-ring self-start rounded-md px-1 py-1 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+									onclick={() => decide(ids, 'mine')}
+									disabled={busy}
+									class="cn-conflict-bulk"
 								>
-									Ir al renglón
+									Quedarme con lo de este dispositivo
 								</button>
+								<button
+									type="button"
+									onclick={() => decide(ids, 'theirs')}
+									disabled={busy}
+									class="cn-conflict-bulk {allRemoteDeleted ? 'cn-conflict-option--danger' : ''}"
+								>
+									{#if allRemoteDeleted}
+										<Trash2 size={13} aria-hidden="true" />
+										Borrarlos también en este dispositivo
+									{:else}
+										Traer lo del otro dispositivo
+									{/if}
+								</button>
+								<!-- `<details>` nativo: la lista larga existe para quien quiera
+								     revisarla renglón por renglón, pero cerrada por omisión — abierta
+								     tapa el resto del panel y esconde las otras notas. -->
+								<details class="cn-conflict-details">
+									<summary>Revisar renglón por renglón</summary>
+									<div class="mt-1 flex flex-col gap-2">
+										{#each group.items as conflict (conflict.id)}
+											{@render conflictRow(conflict)}
+										{/each}
+									</div>
+								</details>
+							{:else}
+								{@render conflictRow(group.items[0])}
 							{/if}
 						</div>
 					{/each}
@@ -343,3 +383,66 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Las versiones SON la elección: un toque y listo, igual que en el propio
+     renglón. Un botón aparte convierte una decisión de un gesto en dos, y encima
+     obliga a leer el texto en un lado y apretar en otro. Lo que cambió va
+     subrayado en las dos. -->
+{#snippet conflictRow(conflict)}
+	{@const versions = diffWords(conflict.mine, conflict.theirs)}
+	<div class="flex min-w-0 flex-col gap-1">
+		<button
+			type="button"
+			onclick={() => decide([conflict.id], 'mine')}
+			disabled={busy}
+			aria-label="Quedarme con esta versión, la de este dispositivo"
+			class="cn-conflict-option"
+		>
+			<span class="cn-conflict-side" aria-hidden="true">Tu versión</span>
+			<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+				>{#each versions.mine as part, index (index)}{#if part.changed}<span class="cn-diff"
+							>{part.text}</span
+						>{:else}{part.text}{/if}{/each}{#if !conflict.mine}<span
+						class="text-muted-foreground italic">(vacío)</span
+					>{/if}</span
+			>
+		</button>
+		<button
+			type="button"
+			onclick={() => decide([conflict.id], 'theirs')}
+			disabled={busy}
+			aria-label={conflict.remoteDeleted
+				? 'Borrar esto en este dispositivo, como se borró en el otro'
+				: 'Traer esta versión, la del otro dispositivo'}
+			class="cn-conflict-option {conflict.remoteDeleted ? 'cn-conflict-option--danger' : ''}"
+		>
+			<span class="cn-conflict-side" aria-hidden="true">La del otro</span>
+			{#if conflict.remoteDeleted}
+				<!-- No es "quedate con este texto" sino "borralo". Se dice como una
+				     acción, igual que en el renglón: descrito como estado —"(borrado en el
+				     otro dispositivo)"— se lee como un cartel y no como la opción que es. -->
+				<span class="flex min-w-0 flex-1 items-center gap-1.5">
+					<Trash2 size={13} aria-hidden="true" />
+					{conflict.blockId ? 'Borrar este renglón' : 'Borrarlo también en este dispositivo'}
+				</span>
+			{:else}
+				<span class="cn-conflict-text min-w-0 flex-1 break-words whitespace-pre-wrap"
+					>{#each versions.theirs as part, index (index)}{#if part.changed}<span class="cn-diff"
+								>{part.text}</span
+							>{:else}{part.text}{/if}{/each}{#if !conflict.theirs}<span
+							class="text-muted-foreground italic">(vacío)</span
+						>{/if}</span
+				>
+			{/if}
+		</button>
+		{#if conflict.canGoToRow && conflict.blockId}
+			<button
+				type="button"
+				onclick={() => goToRow(conflict)}
+				class="text-muted-foreground hover:text-foreground focus-visible:ring-ring self-start rounded-md px-1 py-1 text-xs underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+			>
+				Ir al renglón
+			</button>
+		{/if}
+	</div>
+{/snippet}
