@@ -11,11 +11,21 @@ into the sections below — three items in "What enters" say the opposite of wha
 they said before it was built, and say why.
 
 **Phase 2 built 2026-08-09**, same day, in `src-tauri/src/oauth.rs` and
-`src/lib/sync/google-desktop.ts`. Automated tests are green; **its manual gate
-(criteria 8, 9, 10) has not been run**, and it cannot be until two things
-happen: `http://127.0.0.1:*` and `http://127.0.0.1:*/**` are added to the
-Supabase redirect list (step 7 below), and the round trip is driven by hand in a
-real build. Until then the desktop button is code that has never met Google.
+`src/lib/sync/google-desktop.ts`.
+
+**Phase 2's manual gate passed on 2026-08-10 in a real build** (`.app` rebuilt at
+`7d451d7`), and with it this spec is complete. Criteria 8 and 9 held: the button
+opens the system browser and approving there lands the `.app` signed in, no
+copy-paste. **Criterion 10, the one that had never been run, passed in all three
+of its parts**: after closing the browser without approving, the wait ends at the
+three-minute `WAIT_LIMIT`, the button returns from "Esperando a tu navegador…"
+and shows "No llegó la respuesta de Google. Probá de nuevo.", the person is left
+signed out rather than half-way in, and `lsof` against the app's pid shows **no
+listening socket left behind**.
+
+Worth keeping: the gate needs a *packaged* build, never `tauri dev` — the whole
+reason phase 2 exists is that the `.app` window has no address bar, and a dev
+window is not that window.
 
 ## En criollo (resumen para Hernán)
 
@@ -392,6 +402,12 @@ optional.
 9. Approving there leaves the `.app` signed in without any copy-paste.
 10. Closing the browser without approving leaves the app signed out, with a
     message, and no process listening on the port afterwards.
+
+    **Passed on 2026-08-10.** The three minutes elapse, the button comes back
+    from "Esperando a tu navegador…", the refusal reads "No llegó la respuesta
+    de Google. Probá de nuevo.", the session stays signed out, and
+    `lsof -nP -iTCP -sTCP:LISTEN -p <pid>` against the running `.app` returns
+    nothing — the listener is released, not merely ignored.
 11. `cargo test` covers the listener's port handling and its refusal to accept a
     second request.
 
