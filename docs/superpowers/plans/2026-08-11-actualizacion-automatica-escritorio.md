@@ -146,7 +146,7 @@ Actualizaciones
 
 ---
 
-## Tarea 1: Una sola versión, no tres
+## Tarea 1: Una sola versión, no tres ✅ HECHA (`7e33c4d`, 2026-08-11)
 
 **Archivos:**
 - Modificar: `src-tauri/tauri.conf.json:4`
@@ -155,14 +155,14 @@ Actualizaciones
 **Interfaces:**
 - Produce: `package.json` como única fuente del número de versión.
 
-- [ ] **Paso 1: Ver el problema**
+- [x] **Paso 1: Ver el problema**
 
 ```bash
 grep '"version"' package.json mcp/package.json src-tauri/tauri.conf.json && grep '^version' src-tauri/Cargo.toml
 ```
 Esperado: cuatro `0.1.0` que hoy nadie mantiene sincronizados.
 
-- [ ] **Paso 2: Que `tauri.conf.json` lea la versión de `package.json`**
+- [x] **Paso 2: Que `tauri.conf.json` lea la versión de `package.json`**
 
 En `src-tauri/tauri.conf.json`, reemplazar la línea `"version": "0.1.0",` por:
 
@@ -170,7 +170,7 @@ En `src-tauri/tauri.conf.json`, reemplazar la línea `"version": "0.1.0",` por:
   "version": "../package.json",
 ```
 
-- [ ] **Paso 3: Subir `package.json` a la primera versión pública**
+- [x] **Paso 3: Subir `package.json` a la primera versión pública**
 
 En `package.json`, cambiar `"version": "0.1.0"` por:
 
@@ -178,16 +178,24 @@ En `package.json`, cambiar `"version": "0.1.0"` por:
 	"version": "0.2.0",
 ```
 
-- [ ] **Paso 4: Verificar que Tauri la toma**
+- [x] **Paso 4: Verificar que Tauri la toma**
+
+`pnpm tauri info` **no imprime la versión de la app** (CLI 2.11.4): lista Rust, node
+y los plugins, nada más. La verificación que sí sirve es compilar y mirar la config
+que Tauri embebió en el binario:
 
 ```bash
-pnpm tauri info | grep -i version
+export PATH="$HOME/.cargo/bin:$PATH" && cd src-tauri && touch build.rs && cargo build --bin copynotes
+strings -a target/debug/copynotes | grep -oE 'CopyNotes0\.[0-9.]+'
 ```
-Esperado: la app figura como `0.2.0`.
+Esperado: `CopyNotes0.2.0` — el `productName` pegado a la versión resuelta. Si la
+ruta `../package.json` no resolviera, `cargo build` cortaría antes.
+(`Compiling copynotes v0.1.0` en la salida de cargo es el `Cargo.toml`, que queda
+en `0.1.0` a propósito. No es la versión del bundle.)
 
 `src-tauri/Cargo.toml` y `mcp/package.json` quedan en `0.1.0` **a propósito**: ninguno alimenta la versión del bundle.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add package.json src-tauri/tauri.conf.json
@@ -332,7 +340,7 @@ git commit -m "feat(escritorio): consultar si hay una versión nueva publicada"
 
 ---
 
-## Tarea 3: Leer el changelog y decidir qué mostrar
+## Tarea 3: Leer el changelog y decidir qué mostrar ✅ HECHA (`d078f71`, 2026-08-11)
 
 **Archivos:**
 - Crear: `src/lib/desktop/update-check.js`
@@ -347,7 +355,7 @@ git commit -m "feat(escritorio): consultar si hay una versión nueva publicada"
 
   Las Tareas 4, 5 y 6 usan estas tres.
 
-- [ ] **Paso 1: Escribir los tests que fallan**
+- [x] **Paso 1: Escribir los tests que fallan**
 
 Crear `src/lib/desktop/update-check.test.js`:
 
@@ -461,14 +469,14 @@ describe('parseNotes', () => {
 });
 ```
 
-- [ ] **Paso 2: Correrlos y ver que fallan**
+- [x] **Paso 2: Correrlos y ver que fallan**
 
 ```bash
 pnpm test:unit --run src/lib/desktop/update-check.test.js
 ```
 Esperado: FALLA con `Failed to resolve import "./update-check"`.
 
-- [ ] **Paso 3: Escribir la implementación mínima**
+- [x] **Paso 3: Escribir la implementación mínima**
 
 Crear `src/lib/desktop/update-check.js`:
 
@@ -531,14 +539,14 @@ export function describeUpdate({ current, update, failed = false }) {
 }
 ```
 
-- [ ] **Paso 4: Correr los tests y verlos pasar**
+- [x] **Paso 4: Correr los tests y verlos pasar**
 
 ```bash
 pnpm test:unit --run src/lib/desktop/update-check.test.js
 ```
 Esperado: 12 tests en verde.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/lib/desktop/update-check.js src/lib/desktop/update-check.test.js
