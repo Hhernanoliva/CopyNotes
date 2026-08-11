@@ -1221,3 +1221,61 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 - Cuotas y verificación de email en Supabase: es configuración del panel, no
   código.
 - Las vulnerabilidades de `pnpm audit`: todas de herramientas de build.
+
+---
+
+## El techo del almanaque, 10 de agosto: la pregunta cambió
+
+Hernán lo probó en su iPhone y **no lo pudo reproducir**. Eso solo no cerraba
+nada —la falla es de 1 cada 20, así que "se ve bien una vez" es exactamente lo
+que pasa las otras 19—, pero motivó volver a mirarlo con instrumentación en vez
+de teoría.
+
+**El dato que faltaba desde el 7 de agosto: el panel no está mal puesto.** Con
+`flipIntoView` y `keyboardInset` escupiendo su geometría en cada llamada, la
+corrida que falla dice:
+
+```
+FLIP {"height":340,"anchorTop":-145,"anchorBottom":-63,"fitsBelow":true,"topAhora":-59}
+INSET {"boxTop":-59,"overlap":-149,"room":0,"aplicado":"","topFinal":-59}
+```
+
+`fitsBelow: true`. El panel se cuelga debajo de su renglón, que es exactamente
+su trabajo, y `keyboardInset` no lo toca porque no hay nada que corregir. Lo que
+pasa es que **el renglón está en `y = -63`: la nota scrolleó y se lo llevó arriba,
+fuera de la pantalla.** El panel lo sigue, obediente. En las corridas que pasan,
+ese mismo renglón está en `anchorTop: 438`.
+
+**La pregunta ya no es "¿por qué se posiciona mal el panel?"** —no se posiciona
+mal— **sino "¿por qué la nota scrollea ~341 px al abrirse el almanaque?"**. Ahí
+hay que mirar, y no en `flipIntoView`.
+
+Y queda abierta una pregunta de producto antes de tocar código: si el renglón se
+fue de la pantalla, **¿el panel tiene que quedarse pegado arriba o irse con su
+renglón?** Un panel flotando sin el renglón que lo abrió no es obviamente mejor.
+La prueba afirma que el panel entero cae dentro de lo visible, y esa afirmación
+puede ser la que está mal cuando el ancla legítimamente no lo está.
+
+**Tres arreglos probados y descartados con números** (60 corridas cada uno, la
+base es 3/60):
+
+1. *"El vuelco se decide con una altura vieja."* Leer el rect después de voltear
+   y revertir si el techo se fue. **3/60, sin cambio.**
+2. *"El orden entre `keyboardInset` y `flipIntoView` no está garantizado."* Las
+   dos acciones viven sobre el mismo nodo y las dos escuchan al mismo
+   `ResizeObserver`; diferir `keyboardInset` un cuadro para que mida la posición
+   definitiva dio **1/60 la primera vez y 3/60 la segunda**. Era ruido, y estuvo
+   a punto de venderse como arreglo.
+3. *"El teclado simulado está sordo"* — el siguiente paso que había escrito acá.
+   **Falso.** Convertido `visualViewport` en un `EventTarget` de verdad que
+   dispara `resize` y `scroll`, la tasa es **2/60 contra 3/60**. Sin diferencia.
+   El mock corregido igual quedó en el árbol: el anterior mentía sobre lo que es,
+   y eso no se arregla solo porque no fuera la causa.
+
+**La regla que esto refuerza** (ya estaba en `AGENT.md` y volvió a morder): 12
+corridas verdes no prueban nada contra una falla de 1 en 20 — la probabilidad de
+que 12 pasen por casualidad es del 50 %. Cada hipótesis se mide con 60 y contra
+la base medida el mismo día, o no se mide. Dos de los tres descartes de arriba
+se habrían "confirmado" con una corrida corta.
+
+La prueba sigue en `test.fixme` con toda la evidencia arriba.

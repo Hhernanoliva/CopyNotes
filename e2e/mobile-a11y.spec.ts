@@ -319,31 +319,59 @@ test('el separador ocupa un solo renglón, no dos', async ({ page }) => {
 // `actions/keyboardInset.js` nombra como el peor: cortado arriba, con las
 // primeras opciones inalcanzables.
 //
-// Lo que impide llamarlo "defecto confirmado" y arreglarlo a ciegas: el teclado
-// de esta prueba es un objeto simulado cuyo `addEventListener` no hace nada, así
-// que los avisos de `visualViewport` —que es de donde el código real toma la
-// señal para reacomodarse— nunca llegan. Puede ser un agujero de la simulación o
-// un defecto de verdad; con lo medido hasta acá no se puede distinguir.
+// 2026-08-10: instrumentado y medido. **El panel NO está mal puesto.** En la
+// corrida que falla, `flipIntoView` reporta `fitsBelow: true` y lo cuelga debajo
+// de su renglón, que es exactamente su trabajo; lo que pasa es que el renglón
+// está en `anchorTop: -145, anchorBottom: -63` — **la nota scrolleó y se lo llevó
+// arriba, fuera de la pantalla**. El panel lo sigue, obediente, y termina en -59.
+// En las corridas que pasan el mismo renglón está en `anchorTop: 438`.
 //
-// Siguiente paso, en este orden: hacer que el teclado simulado dispare
-// `resize`/`scroll` y volver a medir. Si sigue fallando, es de la app. Detalle
-// completo en `docs/revision-hallazgos-agente-2026-08-05.md`.
+// Entonces la pregunta ya no es "¿por qué se posiciona mal el panel?" sino **"¿por
+// qué la nota scrollea ~341 px al abrirse el almanaque?"**. Eso es lo próximo que
+// hay que mirar, y no `flipIntoView`.
+//
+// Tres arreglos probados y DESCARTADOS con números (60 corridas cada uno):
+//   1. "El vuelco se decide con una altura vieja" — comprobar el rect después de
+//      voltear y revertir: 3/60, sin cambio.
+//   2. "El orden entre `keyboardInset` y `flipIntoView` no está garantizado" —
+//      diferir `keyboardInset` un cuadro: 1/60 la primera vez, **3/60 la
+//      segunda**. Era ruido.
+//   3. "El teclado simulado está sordo" (era el siguiente paso escrito acá):
+//      **falso**. Con `visualViewport` convertido en un EventTarget de verdad que
+//      dispara `resize`/`scroll` —el arreglo que quedó abajo, porque el mock
+//      anterior mentía igual— la tasa es 2/60 contra 3/60 del sordo. Sin
+//      diferencia.
+//
+// Moraleja anotada: 12 corridas verdes no prueban nada contra una falla de 1 en
+// 20. Cada hipótesis se mide con 60, contra la base, o no se mide.
+// Detalle completo en `docs/revision-hallazgos-agente-2026-08-05.md`.
 test.fixme('el panel de fecha no queda tapado por el teclado', async ({ page }) => {
 	await page.addInitScript(() => {
-		Object.defineProperty(window, 'visualViewport', {
-			configurable: true,
-			value: {
-				offsetTop: 0,
-				offsetLeft: 0,
-				pageTop: 0,
-				pageLeft: 0,
-				width: 390,
-				height: 430,
-				scale: 1,
-				addEventListener() {},
-				removeEventListener() {}
-			}
+		// Un EventTarget de verdad, no un objeto con `addEventListener() {}` vacío.
+		// De acá toman la señal `flipIntoView` y `keyboardInset` para reacomodarse;
+		// con los avisos desconectados no se podía distinguir un agujero de la
+		// simulación de un defecto de la app.
+		const vv = new EventTarget();
+		Object.assign(vv, {
+			offsetTop: 0,
+			offsetLeft: 0,
+			pageTop: 0,
+			pageLeft: 0,
+			width: 390,
+			height: 430,
+			scale: 1
 		});
+		Object.defineProperty(window, 'visualViewport', { configurable: true, value: vv });
+		// Y que los avise, como hace un teclado real al aparecer: el foco entra en
+		// un campo, la ventana visible se achica y llegan `resize` + `scroll`.
+		document.addEventListener(
+			'focusin',
+			() => {
+				vv.dispatchEvent(new Event('resize'));
+				vv.dispatchEvent(new Event('scroll'));
+			},
+			true
+		);
 	});
 	await openApp(page);
 
