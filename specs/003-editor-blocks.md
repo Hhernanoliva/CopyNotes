@@ -163,6 +163,31 @@ shared contract, implemented in `editor/slash.ts` (`nextSlashState`) and
   prevText.slice(0, caret - 1)`, which rejects pastes); and the same character
   was not already at that offset (`prevText[caret - 1] !== char`, which rejects a
   deletion that parks the caret behind an older `/` or `#`).
+- **The browser's own answer overrides the prefix check** (added 2026-08-11,
+  `typedByHand` in `triggers.ts`). The prefix comparison is a *proxy* for the
+  real question — did a person type this, or did it arrive from somewhere else?
+  — and on a phone the proxy is simply wrong: the on-screen keyboard commits or
+  autocorrects the word in progress **in the same `input` event that delivers the
+  trigger character**, so "something before the caret changed" is the normal case
+  and the menu never opened on a row that already had text. It opened fine on an
+  empty row, because there was no word to correct. `InputEvent.inputType` answers
+  the question directly and was being discarded; it now travels
+  `BlockRow.handleInput` → `payload.inputType` → both trigger functions.
+  - **Deny-list, not allow-list.** `insertFrom*` (paste, drop, yank, paste-as-
+    quotation) are few and known; the ways to *type* a character keep being
+    invented (composition, dictation, suggestion bars). An unrecognised
+    `inputType` therefore falls back to the prefix check, which errs toward not
+    opening.
+  - **Additive on purpose.** It only ever *relaxes* the prefix check, so
+    everything that opened the menu before still opens it — desktop behaviour
+    cannot regress. The fragile proxy stays in the file as the fallback; that is
+    a known, deliberate piece of debt.
+  - The single-line paste that the browser handles natively is what this must
+    never break: it arrives as `insertFromPaste` and is rejected by the
+    deny-list. Programmatic insertions were audited at the time — the `+` button
+    (`execCommand('insertText', '/')`) *should* open the menu and does;
+    `insertLineBreak` fails the `text[caret - 1] === char` test; formatting
+    commands exit earlier via `formattingBlockId`.
 - **`#` additionally must stand alone**: nothing or whitespace before it, so
   `hola#` stays ordinary text. `/` has no such rule — it opens anywhere.
 
