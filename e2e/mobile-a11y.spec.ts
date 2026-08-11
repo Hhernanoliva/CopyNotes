@@ -193,6 +193,34 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await expect(page.getByText('quedo yo')).toBeVisible();
 });
 
+// El menú se abría hacia arriba con sólo no entrar abajo, sin mirar si arriba
+// había lugar: en el primer renglón con el teclado en pantalla se iba fuera de
+// la vista. Ahora decide con los dos lados (flipIntoView); la parte que este
+// test puede ver es que sale para el lado correcto según dónde esté la fila.
+test('el menú de acciones se abre para el lado donde entra', async ({ page }) => {
+	await openApp(page);
+	const rows = page.locator('main [data-block-id]');
+	const menu = page.getByRole('menu', { name: 'Acciones del bloque' });
+
+	async function abrirEn(index: number) {
+		const row = rows.nth(index);
+		await row.locator('.block-editable').first().click();
+		await row.getByRole('button', { name: 'Más acciones' }).click();
+		await expect(menu).toBeVisible();
+		return { row: await row.boundingBox(), menu: await menu.boundingBox() };
+	}
+
+	// Primer renglón: hay lugar abajo, así que baja y arranca dentro de la vista.
+	const arriba = await abrirEn(0);
+	expect(arriba.menu.y).toBeGreaterThan(arriba.row.y);
+	expect(arriba.menu.y).toBeGreaterThanOrEqual(0);
+	await page.keyboard.press('Escape');
+
+	// Último renglón, pegado al pie: no entra abajo pero sí arriba, se da vuelta.
+	const abajo = await abrirEn((await rows.count()) - 1);
+	expect(abajo.menu.y + abajo.menu.height).toBeLessThanOrEqual(abajo.row.y + 2);
+});
+
 // En celular el menú "/" es una barra al pie y los avisos flotantes también
 // viven abajo al centro, así que un aviso puede tapar la barra mientras dura
 // (1,8s). Se ocultan para medir la barra sola; el choque real está anotado en

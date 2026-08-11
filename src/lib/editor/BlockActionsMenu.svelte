@@ -9,6 +9,7 @@
 		Trash2
 	} from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
+	import { flipIntoView } from '$lib/actions/flipIntoView';
 
 	// The 3-dots menu holding every block action except the always-visible copy
 	// buttons (editor UX pass). Each item shows its typed quick key when it has
@@ -17,21 +18,7 @@
 	let { onAddNote, onMoveUp, onMoveDown, onDelete, onSaveSnippet, onTag, onDismiss, pulseMenu = false } = $props();
 
 	let open = $state(false);
-	let openUp = $state(false);
 	let rootEl = $state();
-
-	// Abrir hacia arriba cuando no entra abajo (fila cerca del borde inferior o
-	// teclado en pantalla tapando la mitad de abajo). Así el último ítem
-	// ("Eliminar") nunca queda cortado. Se decide justo antes de abrir.
-	function toggleOpen() {
-		if (!open && rootEl) {
-			const rect = rootEl.getBoundingClientRect();
-			const visibleBottom = window.visualViewport?.height ?? window.innerHeight;
-			const estimatedMenuHeight = 280; // ~6 ítems + separación
-			openUp = rect.bottom + estimatedMenuHeight > visibleBottom;
-		}
-		open = !open;
-	}
 
 	$effect(() => {
 		if (!open) return;
@@ -71,7 +58,7 @@
 		aria-expanded={open}
 		use:tooltip={'Más acciones'}
 		onmousedown={(event) => event.preventDefault()}
-		onclick={toggleOpen}
+		onclick={() => (open = !open)}
 		class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
 			? 'text-foreground'
 			: ''} {pulseMenu ? 'cn-pulse' : ''}"
@@ -80,12 +67,16 @@
 	</button>
 
 	{#if open}
+		<!-- Se abre hacia abajo salvo que no entre y arriba sí haya lugar; el piso
+		     y el techo son los del visualViewport, no los de la ventana, así que
+		     con el teclado en pantalla no se va de la vista por ningún lado (ver
+		     flipIntoView). Antes se daba vuelta con sólo no entrar abajo, y en el
+		     primer renglón terminaba fuera de la pantalla. -->
 		<div
+			use:flipIntoView
 			role="menu"
 			aria-label="Acciones del bloque"
-			class="cn-pop bg-popover border-border absolute right-0 z-20 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md {openUp
-				? 'bottom-full mb-1'
-				: 'top-full mt-1'}"
+			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md"
 		>
 			<button
 				type="button"
