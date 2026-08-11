@@ -48,7 +48,7 @@ Uso cuatro y no dos, porque hay cosas que **leí** y cosas que **deduje**:
 | — | Rust sigue enlaces simbólicos | 🚫 **Falso en la práctica** |
 | — | Comillas del comando de Claude Code | ❌ **Vivo**, teórico |
 | — | Sin límites de tamaño en importaciones | ❌ **Vivo**, menor |
-| — | Capacidad de Tauri sin permiso para `destroy()` | ✅ **Arreglado** (6/8), falta el gate manual |
+| — | Capacidad de Tauri sin permiso para `destroy()` | ✅ **Arreglado y verificado a mano** (11/8) |
 | — | Código muerto y dependencias sin uso | ❌ **Confirmado**, salvo un punto falso |
 
 ---
@@ -87,7 +87,11 @@ nombre inventado no compilaría. El archivo que genera
 ahora su propio `catch`: si falla, el aviso dice *"No se pudo cerrar la ventana.
 Tus cambios ya están guardados"* en vez de hablar de un guardado que salió bien.
 
-**Falta el gate manual:** build de escritorio y cerrar con el botón rojo.
+**Gate manual PASADO el 11/8.** Build empaquetada (`pnpm tauri build --bundles
+app`, con el `node_modules` plano de `mcp/`), app abierta desde
+`bundle/macos/CopyNotes.app`: cerrar con el **botón rojo** funciona y el texto
+recién escrito sobrevive. ⌘Q también, que era el control — si el botón rojo
+hubiera fallado y ⌘Q no, el problema era exactamente este permiso.
 
 ### 2. #5 la bóveda: el que pierde la carrera NO queda en silencio
 
@@ -1164,7 +1168,7 @@ De a uno, en este orden. Cada tema se cierra con su commit y se tacha acá.
 
 5. [x] **Capacidad de Tauri.** Permiso agregado y validado por `cargo check`; el
        fallo de cerrar ya no se disfraza de fallo de guardar. **Hecho 6/8.**
-       **Falta el gate manual:** build de escritorio y cerrar con el botón rojo.
+       **Gate manual PASADO el 11/8** (botón rojo y ⌘Q en la app empaquetada).
 6. [x] **Borrar el renglón padre desde el menú deja la nota sin renglones.**
        Reproducido con una prueba e2e (la nota quedaba en cero, incluso tras
        recargar) e igualado al camino de la selección. **Hecho 6/8.**
