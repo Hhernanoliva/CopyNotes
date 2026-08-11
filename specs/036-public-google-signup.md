@@ -19,7 +19,8 @@ carteles.
   un trámite ni se paga; es un interruptor.
 - **La prueba que manda**: una cuenta de Google ajena, que nunca entró, haciendo
   el recorrido entero en el sitio de verdad.
-- **Lo que toco yo**: tres textos y la guía. El clic del permiso **se queda**
+- **Lo que toco yo**: un texto y la guía —los otros dos que iba a escribir ya
+  estaban escritos, y uno de ellos habría sido mentira—. El clic del permiso **se queda**
   donde está: es el momento en que autorizás que tus notas salgan del aparato, y
   no se regala por ahorrar un toque.
 - **Lo que se dice y hoy no se dice**: que la llave vive sólo en ese aparato. Un
@@ -78,25 +79,35 @@ says it reached the cloud.
 Then, from outside the screen: the Supabase admin API lists a **third** user,
 created today, whose identity provider is `google`.
 
-### 3. The three texts (only if the gate is clean)
+### 3. The one text that is missing (only if the gate is clean)
 
-All in `src/lib/components/SettingsDialog.svelte`, in the Nube section.
+This section was rewritten on 2026-08-11 after reading the screens instead of
+remembering them. Two of the three texts planned here already exist, word for
+word in spirit, and re-writing them would have been churn:
 
-1. **Signed out.** One line above the Google button saying what the cloud is for
-   and that CopyNotes works without it. Today the section opens with a login form
-   and no explanation, which reads as a wall to a person who does not yet know
-   the account is optional.
+- **Signed out** already opens with *"Tus notas en más de un dispositivo… Sin
+  cuenta, CopyNotes funciona igual."* (`SettingsDialog.svelte:541`). Nothing to
+  do.
+- **The permission step** already states what goes up, that it goes up
+  encrypted, that the key does not, what the server still sees, and that this is
+  unaudited beta (the `uploadTerms` snippet, `SettingsDialog.svelte:1130`).
+  Nothing to do — and the third thing this spec first asked for, *"the permission
+  can be withdrawn later"*, **must not be written**: there is no revoke button.
+  The only exit is signing out, which drops the key. A screen that promises a
+  door the app does not have is worse than a screen that stays quiet.
 
-2. **The permission step** (`!vaultReady` branch, the "Crear bóveda y permitir
-   subir" button). Say the three things that decide it: the notes go up
-   **encrypted**, the key that opens them **never** leaves this device, and the
-   permission can be withdrawn later. The button keeps doing both halves in one
-   press — `createVault` refuses to run without consent on purpose, and splitting
-   them would let a vault exist whose wrapped copy never reaches the server.
+What is missing is the third one, and the reason it is missing is instructive.
+The warning **does** exist — *"si este es tu único dispositivo, lo que ya subiste
+deja de poder abrirse"* — but it lives inside the **Cerrar sesión** confirmation
+(`SettingsDialog.svelte:821`), a panel a happy new user never opens. The person
+who most needs it, the stranger who just made a vault on their only phone, is
+exactly the person who will never see it.
 
-3. **Right after the vault exists.** The key lives only on this device. Say it,
-   and point at the two exits that already exist: "Sumar un aparato" (a second
-   device is a second copy of the key) and the file backup.
+So: **one line in the signed-in state**, inside the "Sumar un aparato" box,
+saying the key exists only on this device and naming the two exits that already
+exist — a second device (which is a second copy of the key) and the file backup.
+One place, no new state, visible to every signed-in device from the moment the
+vault is born.
 
 ### 4. The guide
 
@@ -151,13 +162,15 @@ hole — there is no "forgot my password", and the screen says so — is unchang
 4. The Supabase admin API shows the new user with a `google` identity, and the
    pre-existing two users are untouched.
 5. Signed out, the Nube section states in one line that the account is optional
-   and what it buys.
-6. The permission step states: encrypted upload, key never leaves the device,
-   revocable.
-7. After the vault is created, the screen states that the key exists only on this
-   device and names both exits (second device, file backup).
-8. `docs/guia/18-nube.md` carries the same three statements, and the index date
-   is updated.
+   and what it buys — **already true**, verified at `SettingsDialog.svelte:541`.
+6. The permission step states what goes up, that it is encrypted, and that the
+   key does not — **already true**, verified in `uploadTerms`. No claim of a
+   revoke that does not exist.
+7. In the signed-in state, without opening any confirmation panel, the screen
+   states that the key exists only on this device and names both exits (a second
+   device, the file backup).
+8. `docs/guia/18-nube.md` says the same thing in the same words, and the index
+   date is updated.
 9. Unit and e2e suites stay green (1013 / 160 at the time of writing).
 
 ## Minimum tests
@@ -169,9 +182,10 @@ verification:
 
 - **The stranger round trip** (criteria 1-4) is manual, once, and is the real
   test. It cannot be automated without giving CI a Google account.
-- **The three texts** (criteria 5-7) are verified by screenshot of each of the
-  three states, read back, per the project's standing rule that green tests do
-  not see composition.
+- **The missing line** (criterion 7) is verified by screenshot of the signed-in
+  Nube section, read back, per the project's standing rule that green tests do
+  not see composition. Criteria 5 and 6 were verified by reading the source on
+  2026-08-11 and need no further work.
 - **No new unit test is added.** Nothing here has branching logic; a test
   asserting the wording of a paragraph tests the paragraph against itself.
 - The existing suites run and stay green (criterion 9).
