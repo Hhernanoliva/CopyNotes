@@ -42,6 +42,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 34. `034-google-sign-in.md`
 35. `035-device-pairing-vault.md`
 36. `036-public-google-signup.md`
+37. `037-newsletter-consent-privacy.md`
 
 ## Required Sections For Specs
 

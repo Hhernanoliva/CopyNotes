@@ -44,6 +44,32 @@ The gap is not code. Measured on 2026-08-11:
 What is left is one switch in Google Cloud, one honest test, and the fact that
 the screens were written for the two people who already knew what a vault is.
 
+## Prerequisite: the domain, decided 2026-08-11
+
+**A real domain has to be in place before anyone is invited** — Hernán decided
+this on 2026-08-11, and it is a prerequisite of *spreading the word*, not of this
+spec's gate. Publishing the Google app and running the stranger round trip work
+fine on `copynotes-beta.vercel.app` today.
+
+Google is not the reason. Google never sees the CopyNotes address: the redirect
+URI registered in the client is Supabase's callback, so changing the site's
+domain changes nothing in the Google console. Two other things are:
+
+1. **IndexedDB is per origin.** `copynotes-beta.vercel.app` and a future
+   `copynotes.com` are two different boxes to the browser. Every note and — the
+   expensive part — **the vault key** stay behind on the old origin. A person who
+   follows the new address finds an empty app and an account that says it already
+   has a vault, and needs a pairing code from a device that is really the same
+   computer on the old address. For two people that is an afternoon; for a
+   hundred strangers it is an incident. Moving before there are users costs
+   nothing.
+2. **Email can only be signed from a domain you own** (spec 037). Nothing can be
+   sent from a `vercel.app` subdomain that Gmail will accept.
+
+The move itself, when it happens: buy the domain, point it at Vercel, add the new
+Site URL and Redirect URLs in Supabase. No code changes — `redirectTo` is
+`window.location.origin`, and the desktop app returns through `127.0.0.1`.
+
 ## What enters
 
 ### 1. Publish the Google app (manual, once, by Hernán)
