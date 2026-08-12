@@ -1,0 +1,109 @@
+# Compila y publica la app de escritorio cuando se empuja un tag `vX.Y.Z`.
+#
+# Sale como BORRADOR a propósito: `latest.json` en /releases/latest/download/
+# sólo resuelve para releases publicadas, así que mientras el borrador exista
+# nadie recibe el aviso. Publicarlo a mano después de probarlo es la única
+# marcha atrás que este sistema tiene.
+#
+# Sin firma de Apple todavía (decisión 2026-08-11): el .dmg va firmado ad-hoc y
+# la primera apertura pide clic derecho → Abrir. Cuando exista el certificado,
+# el cambio es agregar el paso que importa el .p12 y las variables APPLE_*.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publicar:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guardia barata contra el error más caro de este workflow. `includeUpdaterJson`
+      # no genera nada por su cuenta: el `latest.json` lo produce el bundler sólo si
+      # `createUpdaterArtifacts` está prendido, y firmarlo necesita el `pubkey`. Si
+      # falta cualquiera de los dos, la release sale sin el archivo que la app
+      # consulta y el aviso de versión nueva no le llega a nadie — pero recién se
+      # nota al mirar los adjuntos, después de ~25 minutos de compilar Rust.
+      # Cortar acá cuesta cinco segundos.
+      - name: Comprobar que el actualizador está configurado
+        run: |
+          CONF=src-tauri/tauri.conf.json
+          grep -q '"createUpdaterArtifacts": *true' "$CONF" \
+            || { echo "::error::Falta \"createUpdaterArtifacts\": true en $CONF (Tarea 2 del plan)."; exit 1; }
+          node -e '
+            const pubkey = require("./src-tauri/tauri.conf.json").plugins?.updater?.pubkey ?? "";
+            if (!pubkey || pubkey.includes("PEGAR")) {
+              console.error("::error::Falta plugins.updater.pubkey en src-tauri/tauri.conf.json (Tarea 2 del plan).");
+              process.exit(1);
+            }
+          '
+          for secreto in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+            [ -n "${!secreto}" ] || { echo "::error::Falta el secreto $secreto en el repositorio."; exit 1; }
+          done
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Instalar dependencias del frontend
+        run: pnpm install --frozen-lockfile
+
+      # Las novedades tienen que estar ANTES de compilar: tauri-action las mete
+      # adentro del latest.json en esta misma corrida, y ese archivo no se puede
+      # editar después. Si CHANGELOG.md no tiene la sección, el script corta acá.
+      - name: Sacar las novedades de esta versión del CHANGELOG
+        id: notas
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo 'body<<CHANGELOG_EOF'
+            node scripts/changelog-section.mjs "$VERSION"
+            echo ''
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # `mcp/` NO es parte del workspace de pnpm y Tauri copia archivos, no
+      # symlinks: sin este paso el .app viaja con symlinks rotos y el puente de
+      # agentes muere con ERR_MODULE_NOT_FOUND en runtime.
+      - name: node_modules plano para el servidor MCP
+        working-directory: mcp
+        run: pnpm run build:flat
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'CopyNotes v__VERSION__'
+          releaseBody: ${{ steps.notas.outputs.body }}
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          # Un solo binario universal: anda en Mac con chip Apple y con Intel, y
+          # tauri-action escribe las dos claves de darwin en latest.json
+          # apuntando al mismo archivo. Un job en vez de dos.
+          args: --target universal-apple-darwin
