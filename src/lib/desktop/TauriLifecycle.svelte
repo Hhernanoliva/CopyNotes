@@ -2,6 +2,7 @@
 	import { settlePendingWrites } from '$lib/storage';
 	import { writeAgentExport } from '$lib/bridge/tauri';
 	import { toast } from 'svelte-sonner';
+	import { checkForUpdate } from './update-status.svelte';
 
 	// Desktop-only counterpart to PwaLifecycle. The layout mounts this only in
 	// the Tauri runtime. It intercepts the native window-close so the same
@@ -12,6 +13,11 @@
 	// runs during the static prerender (there is no Tauri global there) and so
 	// the browser build does not need to resolve them at module load.
 	$effect(() => {
+		// Preguntar si hay versión nueva, una vez por arranque. No bloquea nada:
+		// el resultado solo pinta un punto y una sección de Configuración, y si
+		// falla el estado queda en 'sin-respuesta', que no muestra nada.
+		checkForUpdate();
+
 		let unlisten = null;
 		let disposed = false;
 

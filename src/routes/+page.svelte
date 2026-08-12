@@ -13,6 +13,7 @@
 	import SettingsDialog from '$lib/components/SettingsDialog.svelte';
 	import DataStatus from '$lib/sync/DataStatus.svelte';
 	import { syncStatus } from '$lib/sync/status.svelte';
+	import { updateStatus } from '$lib/desktop/update-status.svelte';
 	import { noteIdsWithConflicts } from '$lib/sync/conflicts';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
@@ -676,14 +677,30 @@
 			>
 				<CircleHelp size={18} aria-hidden="true" />
 			</button>
+			<!-- El punto avisa que hay una versión nueva. Va acá y no en DataStatus
+			     porque eso es "el estado de tus datos" y una versión de la app no lo
+			     es; y no rompe la regla de que el engranaje no lleva marcadores,
+			     porque señala una DECISIÓN que se toma adentro (ver el plan
+			     2026-08-11). Las palabras van en el tooltip y el aria-label, nunca
+			     en el header: el ancho de los íconos no puede cambiar. -->
 			<button
 				type="button"
 				onclick={() => (settingsOpen = true)}
-				aria-label="Configuración"
-				use:tooltip={'Configuración'}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+				aria-label={updateStatus.state === 'nueva'
+					? `Configuración — la versión ${updateStatus.latest} está disponible`
+					: 'Configuración'}
+				use:tooltip={updateStatus.state === 'nueva'
+					? 'Configuración — hay una versión nueva'
+					: 'Configuración'}
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring relative flex size-(--touch-target) items-center justify-center rounded-md transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
 			>
 				<Settings size={18} aria-hidden="true" />
+				{#if updateStatus.state === 'nueva'}
+					<span
+						aria-hidden="true"
+						class="bg-primary absolute top-1.5 right-1.5 size-2 rounded-full"
+					></span>
+				{/if}
 			</button>
 			<button
 				type="button"
