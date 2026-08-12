@@ -140,6 +140,26 @@ describe('flipIntoView', () => {
 		expect(opensUp(node)).toBe(true);
 	});
 
+	// En celular el menú de acciones es una hoja fija al pie, no un panel colgado
+	// de un renglón: no hay nada que dar vuelta. El navegador devuelve
+	// offsetParent null justo para los elementos fijos a la pantalla.
+	it('le borra la posición a un panel que pasa a estar fijo a la pantalla', () => {
+		const { node } = scene({
+			anchorTop: 600,
+			anchorBottom: 640,
+			panelHeight: 280,
+			viewport: { height: 800 }
+		});
+		flipIntoView(node);
+		expect(opensUp(node)).toBe(true);
+
+		// Gira el teléfono: el mismo panel pasa a ser hoja fija.
+		Object.defineProperty(node, 'offsetParent', { value: null, configurable: true });
+		shrinkViewport(800);
+		expect(node.style.bottom).toBe('');
+		expect(node.style.top).toBe('');
+	});
+
 	it('sin visualViewport cae en la altura de la ventana', () => {
 		const { node } = scene({
 			anchorTop: 600,

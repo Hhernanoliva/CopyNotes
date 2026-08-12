@@ -16,9 +16,21 @@ const GAP = 4; // px entre el renglón y el panel
 export function flipIntoView(node) {
 	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
 
+	function anclarAbajo() {
+		node.style.top = '';
+		node.style.bottom = '';
+		node.style.marginTop = '';
+		node.style.marginBottom = '';
+	}
+
 	function check() {
 		const anchor = node.offsetParent;
-		if (!anchor) return;
+		// Sin ancla no hay de qué colgarse. Es el caso de la hoja al pie en
+		// celular: el navegador devuelve null para lo que está fijo a la pantalla.
+		// Hay que BORRAR lo escrito antes, no sólo irse: si el panel se dio vuelta
+		// y después la pantalla cambió de tamaño, ese `bottom:100%` en línea le
+		// gana a las clases y manda la hoja fuera de la vista.
+		if (!anchor) return anclarAbajo();
 		// Medir siempre en la posición de abajo: la altura no cambia, pero el rect
 		// del ancla sí, y encadenar estados dejaba el panel dado vuelta para
 		// siempre una vez que se daba vuelta la primera vez.
@@ -34,10 +46,7 @@ export function flipIntoView(node) {
 			node.style.marginTop = '0';
 			node.style.marginBottom = `${GAP}px`;
 		} else {
-			node.style.top = '';
-			node.style.bottom = '';
-			node.style.marginTop = '';
-			node.style.marginBottom = '';
+			anclarAbajo();
 		}
 	}
 
