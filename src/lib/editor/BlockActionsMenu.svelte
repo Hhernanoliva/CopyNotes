@@ -10,6 +10,7 @@
 	} from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { flipIntoView } from '$lib/actions/flipIntoView';
+	import { virtualKeyboardOpen } from '$lib/actions/keyboardInset';
 
 	// The 3-dots menu holding every block action except the always-visible copy
 	// buttons (editor UX pass). Each item shows its typed quick key when it has
@@ -19,6 +20,16 @@
 
 	let open = $state(false);
 	let rootEl = $state();
+
+	// Tocar "..." no es escribir. Con el teclado en pantalla quedan ~350px
+	// visibles y el menú no entra ni arriba ni abajo del renglón; bajándolo hay
+	// pantalla de sobra. Sin teclado no hace nada, así que en la compu no cambia.
+	function toggleOpen() {
+		if (!open && virtualKeyboardOpen() && document.activeElement instanceof HTMLElement) {
+			document.activeElement.blur();
+		}
+		open = !open;
+	}
 
 	$effect(() => {
 		if (!open) return;
@@ -50,6 +61,14 @@
 	}
 </script>
 
+{#if open}
+	<!-- Sólo en celular, donde el menú es una hoja modal. Va fuera del contenedor
+	     del menú a propósito: cerrar mira si el toque cayó fuera de `rootEl`, y un
+	     velo adentro no cerraría nada. Además evita que ese toque le caiga al
+	     texto de atrás y mueva el cursor. -->
+	<div aria-hidden="true" class="fixed inset-0 z-20 bg-black/40 md:hidden"></div>
+{/if}
+
 <div bind:this={rootEl} class="relative">
 	<button
 		type="button"
@@ -58,7 +77,7 @@
 		aria-expanded={open}
 		use:tooltip={'Más acciones'}
 		onmousedown={(event) => event.preventDefault()}
-		onclick={() => (open = !open)}
+		onclick={toggleOpen}
 		class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none {open
 			? 'text-foreground'
 			: ''} {pulseMenu ? 'cn-pulse' : ''}"
@@ -67,23 +86,29 @@
 	</button>
 
 	{#if open}
-		<!-- Se abre hacia abajo salvo que no entre y arriba sí haya lugar; el piso
-		     y el techo son los del visualViewport, no los de la ventana, así que
-		     con el teclado en pantalla no se va de la vista por ningún lado (ver
-		     flipIntoView). Antes se daba vuelta con sólo no entrar abajo, y en el
-		     primer renglón terminaba fuera de la pantalla. -->
+		<!-- ponytail: los avisos flotantes (Toaster, bottom-center) caen sobre la
+		     hoja y tapan el último ítem, "Eliminar", mientras duran (1,8s). No borra
+		     nada por accidente —el toque le pega al aviso, no al botón—, pero no se
+		     puede elegir. Mismo choque ya anotado en SlashMenu. Si molesta en uso
+		     real, la salida es mover los avisos arriba en celular, no subir el z de
+		     la hoja: eso taparía avisos que sí importan.
+		     Dos disposiciones, un solo componente (mismo criterio que SlashMenu).
+		     Escritorio: cuelga del renglón, y se da vuelta si no entra abajo pero
+		     sí arriba — lo decide flipIntoView midiendo el visualViewport, no la
+		     ventana. Celular (max-md): hoja fija al pie, de borde a borde; ahí
+		     flipIntoView se apaga sola porque un elemento fijo no tiene ancla. -->
 		<div
 			use:flipIntoView
 			role="menu"
 			aria-label="Acciones del bloque"
-			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md"
+			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:z-30 max-md:mt-0 max-md:max-h-none max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
 		>
 			<button
 				type="button"
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onAddNote, false)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<StickyNote size={15} aria-hidden="true" />
 				<span class="flex-1">Agregar comentario</span>
@@ -94,7 +119,7 @@
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onMoveUp)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<ArrowUp size={15} aria-hidden="true" />
 				<span class="flex-1">Mover arriba</span>
@@ -104,7 +129,7 @@
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onMoveDown)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<ArrowDown size={15} aria-hidden="true" />
 				<span class="flex-1">Mover abajo</span>
@@ -114,7 +139,7 @@
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onSaveSnippet)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<BookmarkPlus size={15} aria-hidden="true" />
 				<span class="flex-1">Guardar como snippet</span>
@@ -124,7 +149,7 @@
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onTag, false)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<Tag size={15} aria-hidden="true" />
 				<span class="flex-1">Etiquetar</span>
@@ -135,7 +160,7 @@
 				role="menuitem"
 				onmousedown={(event) => event.preventDefault()}
 				onclick={() => run(onDelete, false)}
-				class="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none"
+				class="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 			>
 				<Trash2 size={15} aria-hidden="true" />
 				<span class="flex-1">Eliminar</span>

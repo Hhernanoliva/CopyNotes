@@ -193,6 +193,49 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await expect(page.getByText('quedo yo')).toBeVisible();
 });
 
+// Con el teclado en pantalla no entraban 280px de menú ni arriba ni abajo del
+// renglón. En celular deja de colgar del renglón: sube desde el borde de abajo,
+// de lado a lado, como ya hace el menú "/".
+test('el menú de acciones es una hoja apoyada al pie', async ({ page }) => {
+	await openApp(page);
+
+	const row = page.locator('main [data-block-id]').first();
+	await row.locator('.block-editable').first().click();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+
+	const menu = page.getByRole('menu', { name: 'Acciones del bloque' });
+	await expect(menu).toBeVisible();
+
+	const pantalla = page.viewportSize();
+	const caja = await menu.boundingBox();
+	expect(caja.x).toBe(0);
+	expect(caja.width).toBe(pantalla.width);
+	// Pegada al borde de abajo. Se re-mide hasta que se asienta: la hoja entra
+	// con la animación de .cn-pop (4px de desplazamiento), y medirla apenas
+	// aparece devuelve la posición de un fotograma intermedio.
+	await expect
+		.poll(async () => {
+			const b = await menu.boundingBox();
+			return b.y + b.height;
+		})
+		.toBeGreaterThanOrEqual(pantalla.height - 1);
+});
+
+test('cada acción de la hoja llega al área táctil de 44px', async ({ page }) => {
+	await openApp(page);
+
+	const row = page.locator('main [data-block-id]').first();
+	await row.locator('.block-editable').first().click();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+
+	const items = page.getByRole('menu', { name: 'Acciones del bloque' }).getByRole('menuitem');
+	await expect(items).toHaveCount(6);
+	for (const item of await items.all()) {
+		const caja = await item.boundingBox();
+		expect(caja.height).toBeGreaterThanOrEqual(44);
+	}
+});
+
 // En celular el menú "/" es una barra al pie y los avisos flotantes también
 // viven abajo al centro, así que un aviso puede tapar la barra mientras dura
 // (1,8s). Se ocultan para medir la barra sola; el choque real está anotado en
