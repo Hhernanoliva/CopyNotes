@@ -13,3 +13,5 @@ la funcionalidad**, no al publicar.
 - Los agentes se pueden conectar desde Claude Code, OpenCode y Cursor
 - Tus notas se pueden guardar cifradas en la nube, si querés
 - La app avisa con un punto en el engranaje cuando hay una versión nueva
+- CopyNotes tiene su logo definitivo
+- El menú de los "⋯" ya no se sale de la pantalla en el celular con el teclado abierto
