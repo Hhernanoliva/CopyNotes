@@ -24,10 +24,14 @@
 	// Tocar "..." no es escribir. Con el teclado en pantalla quedan ~350px
 	// visibles y el menú no entra ni arriba ni abajo del renglón; bajándolo hay
 	// pantalla de sobra. Sin teclado no hace nada, así que en la compu no cambia.
-	function toggleOpen() {
-		if (!open && virtualKeyboardOpen() && document.activeElement instanceof HTMLElement) {
-			document.activeElement.blur();
-		}
+	//
+	// Se baja moviendo el foco A ESTE BOTÓN, no soltándolo con blur: los
+	// controles del renglón se muestran con :focus-within de la fila (BlockRow),
+	// así que un blur a secas los apagaba enteros —la hoja incluida— justo al
+	// abrirla. El botón ya vive dentro de la fila, y el teclado baja igual porque
+	// iOS sólo lo muestra para campos editables.
+	function toggleOpen(event) {
+		if (!open && virtualKeyboardOpen()) event.currentTarget.focus({ preventScroll: true });
 		open = !open;
 	}
 

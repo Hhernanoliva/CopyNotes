@@ -221,6 +221,38 @@ test('el menú de acciones es una hoja apoyada al pie', async ({ page }) => {
 		.toBeGreaterThanOrEqual(pantalla.height - 1);
 });
 
+// Los controles del renglón se muestran con :focus-within de la fila. Bajar el
+// teclado con un blur a secas sacaba el foco de la fila y apagaba los controles
+// enteros: la hoja se abría invisible y sin recibir toques. Se simula el teclado
+// achicando el visualViewport, que es lo único que la app mira para saber si hay.
+test('con el teclado en pantalla la hoja se abre y se puede tocar', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(window, 'visualViewport', {
+			configurable: true,
+			value: { offsetTop: 0, height: 350, addEventListener() {}, removeEventListener() {} }
+		});
+	});
+	await openApp(page);
+
+	const rows = page.locator('main [data-block-id]');
+	const primera = rows.first().locator('.block-editable').first();
+	await primera.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await primera.pressSequentially('me muevo');
+
+	// Sin suponer a qué posición va a parar: la fila tiene sub-renglones y
+	// "Mover abajo" se los lleva, así que lo que se afirma es que quedó más
+	// abajo que antes.
+	const posicion = async () =>
+		(await rows.allTextContents()).findIndex((texto) => texto.includes('me muevo'));
+	const antes = await posicion();
+
+	await rows.first().getByRole('button', { name: 'Más acciones' }).click();
+	await page.getByRole('menuitem', { name: 'Mover abajo' }).click();
+
+	await expect.poll(posicion).toBeGreaterThan(antes);
+});
+
 test('cada acción de la hoja llega al área táctil de 44px', async ({ page }) => {
 	await openApp(page);
 
@@ -232,7 +264,10 @@ test('cada acción de la hoja llega al área táctil de 44px', async ({ page }) 
 	await expect(items).toHaveCount(6);
 	for (const item of await items.all()) {
 		const caja = await item.boundingBox();
-		expect(caja.height).toBeGreaterThanOrEqual(44);
+		// La medida pedida son 44px. El navegador a veces devuelve 43.99997 por
+		// redondeo de subpíxeles, así que la tolerancia es de la medición, no del
+		// requisito: con un botón realmente más chico esto da 32 y falla igual.
+		expect(caja.height).toBeGreaterThanOrEqual(43.9);
 	}
 });
 
