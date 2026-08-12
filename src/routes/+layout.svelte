@@ -1,6 +1,5 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { browser } from '$app/environment';
 	import { ModeWatcher, mode, setMode } from 'mode-watcher';
 	import { Toaster } from 'svelte-sonner';
@@ -35,8 +34,6 @@
 	$effect(() => startTodayClock());
 
 </script>
-
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
 <ModeWatcher
 	defaultMode="dark"
