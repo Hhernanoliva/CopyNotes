@@ -2,7 +2,16 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-11 (Nuevo: **el menú `/` ya funciona en el celular
+Última actualización: 2026-08-12 (Nuevo: **la app de escritorio te avisa cuando
+hay una versión nueva, y no se actualiza sola**. Aparece un puntito sobre el
+engranaje ⚙️ y en **Configuración › Actualizaciones** ves qué trae la nueva y
+—plegado, y funcionando sin internet— qué trajo la que ya tenés; el botón
+Descargar abre la página y vos decidís cuándo instalar. Ojo con dos cosas al
+abrir una descarga nueva: macOS puede decir que la app está dañada (se abre con
+clic derecho → Abrir) y **te pide la contraseña del Mac una vez** — hay que tocar
+"Permitir siempre", porque si la denegás la nube deja de sincronizar en esa
+computadora. De paso se corrigió la guía, que decía que la app **se actualizaba
+sola**: nunca fue así y no va a serlo; ver el tema 19. Antes: **el menú `/` ya funciona en el celular
 sobre renglones que tienen texto**. Escribías la `/` y no pasaba nada; en un
 renglón vacío sí abría. La culpa era del corrector del teclado del teléfono, que
 confirma o corrige la palabra anterior en el mismo momento en que llega la `/`, y
@@ -40,6 +49,7 @@ dispositivo — antes se ofrecía siempre y no llevaba a ningún lado; ver el te
 16. [Configuración](guia/16-configuracion.md) — el engranaje ⚙️ y el ajuste de Tamaño de texto (A−/A+)
 17. [Agentes](guia/17-agentes.md) — hacer una nota visible para agentes, bitácora, pedir rehacer, conectar por MCP, cómo conviven con la nube (beta, escritorio)
 18. [La nube](guia/18-nube.md) — crear cuenta, sumar un aparato, dar el permiso, qué se sube y qué ve el servidor (beta)
+19. [Actualizaciones](guia/19-actualizaciones.md) — el puntito del engranaje, qué trae la versión nueva y qué trajo la tuya, y qué pasa al instalar (solo app de escritorio)
 
 ## Regla para el equipo
 

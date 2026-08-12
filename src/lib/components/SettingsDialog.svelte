@@ -4,6 +4,7 @@
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
 	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
+	import UpdateSection from '$lib/desktop/UpdateSection.svelte';
 	import { DESKTOP_DOWNLOAD_URL, DESKTOP_RELEASE_PUBLISHED } from '$lib/desktop/download';
 	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
 	import { agentData } from '$lib/bridge/signal.svelte';
@@ -878,6 +879,10 @@
 				<p role="alert" class="text-destructive text-sm">{cloudError}</p>
 			{/if}
 		</section>
+
+		{#if isTauriRuntime()}
+			<UpdateSection />
+		{/if}
 
 		<section class="flex flex-col gap-3">
 			<div class="flex flex-col gap-0.5">

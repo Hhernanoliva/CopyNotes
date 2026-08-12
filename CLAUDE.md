@@ -9,6 +9,15 @@
 
 The user-facing feature guide, in plain Spanish, lives in `docs/guia/` (one file per topic; index at `docs/guia-de-uso.md`). Every user-visible feature or behavior change must be documented **in the same commit that implements it** — edit only the topic file it touches; create a new topic file (and index entry) if none fits. Update the index's "Última actualización" date too. What the user sees and how to use it, no technical jargon. Specs describe intent for builders; the guide describes usage for people.
 
+## Changelog Rule
+
+`CHANGELOG.md` (raíz) es lo que la app de escritorio muestra en Configuración ›
+Actualizaciones, y de ahí sale el cuerpo de cada GitHub Release. Toda
+funcionalidad o cambio visible agrega su viñeta a la sección de la versión en
+curso **en el mismo commit que lo implementa** — igual que `docs/guia/`. En
+castellano, sin jerga, una viñeta por cambio. Escribirlo al publicar no sirve:
+el `latest.json` se genera durante el build y ya no se puede editar después.
+
 ## Design Tokens: Quiet Ink → shadcn-svelte
 
 The Quiet Ink token names in `specs/016-design-system.md` (`surface`, `text-muted`, `accent`, `danger`, ...) are the conceptual palette. In code, load their values into shadcn-svelte's CSS variable convention (`background`, `card`, `primary`, `muted-foreground`, `destructive`, ...), because shadcn-svelte components are pre-wired to those names. Do not rename component tokens to match spec 016; do not hard-code raw colors either way. When spec 016 has no shadcn equivalent (e.g. `text-faint`), add a custom CSS variable following the same convention.
