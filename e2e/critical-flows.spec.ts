@@ -36,6 +36,30 @@ test('arranca sin crypto.randomUUID, como en una página sin candadito', async (
 	await expect(title(page)).toHaveValue(/Bienvenido a CopyNotes/);
 });
 
+// En escritorio el menú de acciones cuelga del renglón y se da vuelta si no
+// entra abajo (flipIntoView). En celular es otra cosa —una hoja al pie—, así
+// que esta garantía vive acá, que corre a 1280x720.
+test('el menú de acciones cuelga del renglón y se da vuelta al pie', async ({ page }) => {
+	await openApp(page);
+	const rows = page.locator('main [data-block-id]');
+	const menu = page.getByRole('menu', { name: 'Acciones del bloque' });
+
+	async function abrirEn(index) {
+		const row = rows.nth(index);
+		await row.hover();
+		await row.getByRole('button', { name: 'Más acciones' }).click();
+		await expect(menu).toBeVisible();
+		return { row: await row.boundingBox(), menu: await menu.boundingBox() };
+	}
+
+	const arriba = await abrirEn(0);
+	expect(arriba.menu.y).toBeGreaterThan(arriba.row.y);
+	await page.keyboard.press('Escape');
+
+	const abajo = await abrirEn((await rows.count()) - 1);
+	expect(abajo.menu.y + abajo.menu.height).toBeLessThanOrEqual(abajo.row.y + 2);
+});
+
 test('the tag shortcut keeps # on cancel and consumes it after assigning a tag', async ({ page }) => {
 	await newNote(page);
 
