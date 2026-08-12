@@ -9,6 +9,14 @@ come back if nobody wrote down the reason.
 
 Nothing here is built.
 
+Reviewed against the actual code on 2026-08-12, before planning. Every claim the
+spec made about existing files held up; five things it did not resolve were
+found and fixed in place — the server owning the signature (§4), re-stamping
+`changeSeq` and not only `cloudSeq` when a note changes pipe (§2), the derived
+tick not counting as a change (§5), `list_shares()` (server functions), and the
+bitácora tie-break that does not exist yet (§5). Section 10 was deferred and a
+"Rollout" section added.
+
 ## En criollo (resumen para Hernán)
 
 Mandarle una nota a otra persona como quien manda un ticket: vos escribís, la
@@ -28,8 +36,11 @@ otra persona responde.
   palabras.
 - **Hace falta que el invitado tenga cuenta.** El enlace no da acceso: da derecho
   a pedirlo, y queda registrado quién entró.
-- **Gratis se comparte una nota.** Más de una es de pago. Ese tope lo cuenta el
-  servidor, no la app.
+- **Sin tope por ahora.** La idea de "una gratis, más de una es de pago" está
+  diseñada y queda guardada (sección 10), pero no entra en esta primera versión:
+  todavía no hay nada que cobrar.
+- **Quién hizo cada cosa lo decide el servidor**, no el aparato del invitado. Si
+  su app mintiera y firmara con tu nombre, el servidor le pisa la firma.
 - **Lo que NO entra**: que el invitado escriba en tus renglones, que agregue
   renglones, editar los dos a la vez, menciones `@`, avisos por mail, y compartir
   carpetas. Todo eso queda para después, y hay una sección que dice por qué.
@@ -125,6 +136,15 @@ Concretely:
   `records` rows are removed from the server, and every affected row's
   `cloudSeq` is reset so the new pipe starts from a clean base.
 - Unsharing moves it back the same way, in the opposite order.
+- **Resetting `cloudSeq` is not enough, in either direction.** `pending.ts`
+  reaches a row through `.where('changeSeq').above(mark)` — the global "uploaded
+  through" mark — *before* `changedSinceCloud` ever runs. A note coming back to
+  the encrypted pipe carries old `changeSeq` values that sit below that mark, so
+  the index range never yields them and the note silently stops syncing: exactly
+  the failure this section exists to prevent, arriving through the door above the
+  one it was watching. The move must therefore **re-stamp `changeSeq` on every
+  affected row** (an ordinary local write, which is honest: the destination pipe
+  has never seen that row). The same applies to the shared uploader's own cursor.
 - The move is sequenced so a crash in the middle leaves the note in one pipe or
   the other, never in both and never in neither. Removing from the old pipe is
   the LAST step: a note briefly present in both is a duplicate (recoverable); a
@@ -158,8 +178,8 @@ What deliberately stays home, and what breaks if it travels:
   device. `AGENT.md` already forbids producing a row the user cannot reach.
 - **`notes.agentVisible`** — the owner's decision about *their* MCP agent. If it
   travelled, the guest would switch the owner's agent access on and off.
-- **The note's place in the sidebar** (manual order, and anything like pinned or
-  archived added later) — two people pushing the same field. And
+- **`notes.sortOrder`**, the note's place in the sidebar (and anything like
+  pinned or archived added later) — two people pushing the same field. And
   `storage/row-compare.ts` deliberately does **not** exclude `order` from
   "is this the same to the user", so every sidebar reorder on one side would
   raise a conflict for a human to decide on the other. That is the silent
@@ -172,9 +192,14 @@ What deliberately stays home, and what breaks if it travels:
   cursor, and the two would push the field back and forth.
 - **Snippets, folders, settings** — not part of a note.
 
+- **`createdAt`** — not on either allow-list, so the guest's copy has none. The
+  guest's side fills it in locally when the note lands, the same way any locally
+  created row gets one. "When did this note come into existence" is not a fact
+  about the note, it is a fact about a device's copy of it.
+
 Note the distinction that matters and is easy to get backwards: **`blocks.order`
 travels** (it is the note's internal structure = content); **the note's order in
-the sidebar does not** (that is organisation).
+the sidebar (`notes.sortOrder`) does not** (that is organisation).
 
 ### 4. Two roles, and the guest's is "append only"
 
@@ -185,6 +210,16 @@ The guest never modifies an existing row. Not `blocks`, not `notes`, not even
 their own earlier comment. That is what makes collisions impossible rather than
 rare, and it is enforced **in the server function**, not in the UI. The client
 also disables editing, but that is courtesy: the boundary is the SQL.
+
+**The signature is the server's, not the payload's.** `actor` rides inside the
+row the client sends, so a member could put `actor: 'user'` in it and sign the
+owner's name to their own tick. "Who did this" is the whole feature, so it may
+not be self-declared: `push_shared_rows` **overwrites** `actor` with
+`'member:' || auth.uid()` on every row a non-owner writes, and stamps
+`author_id = auth.uid()` the same way `push_records` stamps `owner_id`
+explicitly. The screen renders the name from `author_id`. Whatever the payload
+claimed is discarded before it is stored, not validated and rejected — there is
+no legitimate case for a client choosing its own signature.
 
 This is the same permission shape the app already grants its MCP agent — see the
 whole note in "Agent notes". Reusing the shape, not the code, is what keeps the
@@ -199,9 +234,19 @@ conflict for a person to resolve. Frequent and pointless.
 
 Instead: **the guest's tick is an `activity` append** (`done` / `reopened`, which
 `lib/tasks` already writes), and `block.checked` is *derived* from the last such
-entry for that block, applied locally on each device. The bitácora is ordered by
-`seq`, and ties break by `id`, the same deterministic tie-break `sortByOrder`
-already uses.
+entry for that block, applied locally on each device.
+
+The bitácora is ordered by `seq`, and **the `id` tie-break has to be added** —
+`listActivityByBlock`'s `bySeqAsc` (`storage/activity.ts`) has none today, on
+purpose: `seq` came from one device's monotonic counter, so it could not tie.
+Two accounts are two counters, and `nextChangeSeq` reads the clock, so from now
+on it can. Add the tie-break to the shared comparator, do not remove the comment
+explaining why the old random tie-break was taken out.
+
+Clock skew between two accounts is accepted, not fixed: a guest whose clock runs
+behind lands their comment slightly earlier in the list than it happened. It is a
+display order, not a correctness property, and `server_seq` is not a substitute
+because rows written offline do not have one yet.
 
 The owner's own ticks keep writing `block.checked` directly, as today — and that
 field is on the allow-list, so it travels. The two are not rivals: `completeTask`
@@ -209,6 +254,17 @@ already writes the block **and** appends the bitácora entry, so every tick from
 either side leaves an entry, and both devices derive the same answer from the
 same ordered list. `block.checked` is then a cache of that answer, and the rule
 when they disagree is that **the bitácora wins**.
+
+**Writing that cache must not count as a change.** An ordinary `updateBlock`
+raises `changeSeq`, which queues the block for upload; the other side downloads
+it, re-derives, writes its own cache, and the two bounce the same row between
+them for ever. This is the identical trap `putFromCloud` was built for, and it
+takes its shape: the derived write goes in with the `fromCloud` flag the db.ts
+hooks consume, so the row updates on screen and the counter does not move. The
+derivation runs once where the bitácora arrives (the shared download), not at
+render time — deriving on read would mean every existing caller of
+`block.checked` (the cascade, copy, export, the MCP export, search) needs to
+learn about sharing, and that is the whole app instead of one function.
 
 ### 6. `actor` becomes an identity
 
@@ -261,18 +317,29 @@ different), and the owner loses their undo stack several times an afternoon. Wit
 it, the history survives and Ctrl+Z can never un-tick somebody else's tick and
 push that back up.
 
-### 10. One free share, counted by the server
+### 10. One free share, counted by the server — DEFERRED, not in the first version
 
-A free account may have **one** open share at a time. Updating the shared note
-does not consume another; closing a share frees the slot immediately.
+Decided with Hernán on 2026-08-12: **this does not ship with the rest.** Nothing
+is being paywalled yet, there is no billing, and the accounts that exist are his
+own, so a limit today only buys a table, a server branch and a screen that
+protect against nothing. It is the first paid-plan seam in the product and that
+seam should open when there is a plan to sell.
 
+The design stands as written, for when it comes back:
+
+- A free account may have **one** open share at a time. Updating the shared note
+  does not consume another; closing a share frees the slot immediately. Being a
+  *member* of somebody else's share consumes nothing — the limit counts shares
+  you own.
 - The count is enforced inside `open_share`, server-side. A limit the client
   counts is not a limit.
 - A minimal `profiles (id, plan)` table, written only by the server (set by hand
-  for now), answers "is this account paying". This is the first paid-plan seam in
-  the product; billing itself does not enter this spec.
+  for now), answers "is this account paying".
 - Hitting the limit is not an error dialog: it names the note currently shared
   and offers to replace it, next to the Pro option.
+
+The first version has **no limit and no `profiles` table**. Adding it later
+touches `open_share` and one dialog; nothing else in this spec depends on it.
 
 ## What does not enter
 
@@ -314,7 +381,8 @@ indicative; the shapes and the rules are not.
   **including the backwards overlap** on read: the sequence is handed out when a
   write starts, not when it commits, so two writers can make it visible out of
   order. Re-read a window, do not trust a strictly forward cursor.
-- **`profiles (id uuid primary key, plan text)`**.
+- **`profiles (id uuid primary key, plan text)`** — deferred with section 10, not
+  created in the first version.
 
 Functions, all `security definer` with **explicit owner/member filters inside**,
 because RLS no longer filters under `security definer` and that filter is then
@@ -326,9 +394,20 @@ the only defence left (the same warning `push_records` carries):
 - `remove_member(p_note_id, p_member_id)` / `leave_share(p_note_id)`.
 - `push_shared_rows(p_note_id, payload)` — same `base_seq` version control as
   `push_records`, plus the role check: **a caller who is not the owner may only
-  write `table_name = 'activity'`, and only as an insert.**
+  write `table_name = 'activity'`, and only as an insert** (the primary key
+  already answers "does this row exist"; a member's write that would update is
+  refused, not merged). It also **overwrites `actor` and stamps `author_id`** on
+  every member row, per section 4.
 - `pull_shared_rows(p_note_id, p_cursor)` — membership-checked read, returning
   rows plus the member display names.
+- **`list_shares()`** — "what am I in?", for this account: the notes I own-share
+  and the notes I am a member of, with role and title. Without it two flows in
+  this spec have no way to start. **A guest's second device** has no local copy
+  of the note at all — their own encrypted pipe is gated against it by section 2,
+  so a shared note is not in their backup and not in `records`; the only way it
+  reaches their phone is by asking the server what they belong to. Same for the
+  owner's second device, and same after restoring a backup (flow 8), where
+  `notes.share` is deliberately absent because it is not `backupSafe`.
 
 RLS keeps the shape the project already uses: `select` limited to owner or
 member, every write through a function and nowhere else.
@@ -406,8 +485,12 @@ The product promise changes shape and must be restated everywhere it appears:
 7. Sharing a note removes it from `records` on the server; unsharing removes it
    from the shared tables and puts it back. At no point does it exist in both.
 8. `pnpm rls:check` passes, including the new cases: a member writing a block, a
-   member writing another note's rows, a non-member reading anything.
-9. A free account cannot open a second share; the message names the first one.
+   member writing another note's rows, a non-member reading anything, **and a
+   member signing a row as somebody else** (`actor: 'user'` in the payload comes
+   back stored as `member:<their own uuid>`).
+9. A guest signing in on a **second device** — one that has never held this note —
+   receives it, because `list_shares()` told the app it exists. Same for the
+   owner, and same after restoring a backup.
 10. The owner's undo history survives a guest tick, and Ctrl+Z never un-ticks it.
 11. Removing a member stops their sync and the UI said beforehand that their copy
     remains.
@@ -427,15 +510,21 @@ Vitest:
 - One note, one pipe: `pending.ts` returns nothing for a shared note's rows, and
   the shared uploader returns nothing for an ordinary note's rows.
 - The move: after sharing, the note's rows carry a reset `cloudSeq`; after
-  unsharing, they are pending for the encrypted pipe again.
-- Tick derived from the bitácora, including two entries in the same millisecond
-  (deterministic by `id`).
+  unsharing, `listPendingUploads` **actually returns them** — written against a
+  device whose `syncUploadedThrough` mark is already above the note's original
+  `changeSeq`, which is the case that fails if only `cloudSeq` is reset.
+- The derived tick does not queue an upload: applying a bitácora entry to
+  `block.checked` leaves `changeSeq` untouched, so `countPendingUploads` is
+  unchanged by it.
+- Tick derived from the bitácora, including two entries from two accounts that
+  minted the **same `seq`** (deterministic by `id`, and the same order on both
+  devices).
 - Undo preserves the live `checked` and does not mark the history stale for a
   tick-only change.
 - `actor: 'member:<uuid>'` renders through the agent-style label map with the
   name substituted.
-- The share limit's client half tells the truth about *why* it is blocked (the
-  enforcement itself is SQL and is covered by `rls:check`).
+- `isRedoRequested` still finds the owner's redo request when a member's comment
+  landed after it.
 
 `scripts/rls-check.mjs`: the three new attacks in criterion 8. Run against the
 real Supabase project — a local Postgres has already passed while the real one
@@ -482,9 +571,30 @@ silently dropped.
   number is not proof of an echo, the content decides — rather than writing a
   second version of it.
 
-## Product direction — pending Hernán
+## Rollout: build now, invite outsiders later
 
-`AGENT.md` currently states, in "Product Principles":
+Decided with Hernán on 2026-08-12, and it is an ordering constraint rather than a
+design one.
+
+The guest needs an account, so this feature is the first one that hands a link to
+somebody who is not Hernán. But the vault key lives in IndexedDB, which is scoped
+**per origin**: if the app later moves to its final domain, every key stays
+behind on the old one. That is the same reason the public sign-up work (specs
+`036`/`037`) is parked waiting for him, and it applies here with a sharper edge —
+a stranded guest cannot ask their other device for the key, because they only
+ever had one.
+
+So: build and test the whole thing, including the manual two-machine gate, using
+**two accounts Hernán controls**. Handing an invite link to a real third person
+waits for the domain, alongside `036`/`037`. Nothing in the implementation
+changes; only when the first outside link is sent.
+
+## Product direction — decided
+
+**Approved and applied on 2026-08-12** (`AGENT.md`, "Product Principles"). Kept
+here as the record of what changed and why.
+
+`AGENT.md` used to state, in "Product Principles":
 
 > **Narrow scope.** Write, organize, copy, reuse, backup. NOT a Notion
 > competitor: no workspace databases, complex tables, heavy dashboards, or
@@ -495,8 +605,7 @@ workspaces, no team accounts, no permission matrix, and only one person can ever
 write the text. But it does add a second person to a product that had one, and
 that sentence is the first thing an agent reads.
 
-Proposed amendment, to be applied **before implementation starts** and only with
-Hernán's explicit approval:
+It now reads:
 
 > **Narrow scope.** Write, organize, copy, reuse, backup — and hand one note to
 > one other person so they can respond to it (spec `038`). NOT a Notion
@@ -509,7 +618,15 @@ part of the implementation commit, not of this spec.
 
 ## Estimated cost
 
-~14 days of work, tests and gates included. The bulk is not "letting a guest
-respond" (≈3 days); it is "letting another account see your note at all" — the
-membership, the second pipe, the invitation and the move between pipes. That
-part would be paid by any sharing design, including the ones dropped above.
+~12 days of work, tests and gates included, after deferring section 10. The bulk
+is not "letting a guest respond" (≈3 days); it is "letting another account see
+your note at all" — the membership, the second pipe, the invitation and the move
+between pipes. That part would be paid by any sharing design, including the ones
+dropped above.
+
+It is the largest single item this project has taken on, so the implementation
+plan splits it where it can actually be verified: the pipe and the move (the part
+that can silently break existing sync) ships and is proven before anything about
+a second person is built, and the two dangerous rules — one note one pipe, and
+the guest only appends — each get their own test before the UI that relies on
+them exists.

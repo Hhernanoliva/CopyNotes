@@ -19,7 +19,7 @@ Explain product and technical decisions to Hernan in clear Spanish, assuming he 
 - **Local-first, no account required.** Data lives on the device (Dexie/IndexedDB), autosaves, works offline, installs as PWA. Backup/export is part of trust, not an extra. An account exists now, but it is opt-in and adds a second copy — it never becomes the source of truth.
 - **Privacy.** Without sync, everything is local. With sync, notes are encrypted on the device first: the server stores ciphertext and cannot read a word, and nothing is uploaded before explicit consent. **Never claim "zero-knowledge" publicly until the independent audit in `030` phase 4.**
 - **Copying is a first-class workflow.** Block-only and block-with-children copy, clean output in other tools.
-- **Narrow scope.** Write, organize, copy, reuse, backup. NOT a Notion competitor: no workspace databases, complex tables, heavy dashboards, or enterprise collaboration.
+- **Narrow scope.** Write, organize, copy, reuse, backup — and hand one note to one other person so they can respond to it (spec `038`). NOT a Notion competitor: no workspace databases, complex tables, heavy dashboards, or enterprise collaboration. A shared note has exactly one author; a guest may tick and comment, never rewrite.
 - **No user-facing AI.** No AI chat or assistant in the product. Agents connect from **outside** through MCP (beta, desktop; specs 011/012/023/028) and only reach what the user made visible.
 - **Monetization:** free core experience; cloud sync is the intended Pro value (built, not yet paywalled), alongside advanced themes/exports/templates. Never paywall basic local note-taking.
 - **Dark-first, calm, Bear-like.** Behavior over polish, but never careless UI; everything themeable through tokens (spec 016).
