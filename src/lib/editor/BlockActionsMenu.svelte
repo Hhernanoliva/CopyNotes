@@ -65,14 +65,6 @@
 	}
 </script>
 
-{#if open}
-	<!-- Sólo en celular, donde el menú es una hoja modal. Va fuera del contenedor
-	     del menú a propósito: cerrar mira si el toque cayó fuera de `rootEl`, y un
-	     velo adentro no cerraría nada. Además evita que ese toque le caiga al
-	     texto de atrás y mueva el cursor. -->
-	<div aria-hidden="true" class="fixed inset-0 z-20 bg-black/40 md:hidden"></div>
-{/if}
-
 <div bind:this={rootEl} class="relative">
 	<button
 		type="button"
@@ -90,22 +82,16 @@
 	</button>
 
 	{#if open}
-		<!-- ponytail: los avisos flotantes (Toaster, bottom-center) caen sobre la
-		     hoja y tapan el último ítem, "Eliminar", mientras duran (1,8s). No borra
-		     nada por accidente —el toque le pega al aviso, no al botón—, pero no se
-		     puede elegir. Mismo choque ya anotado en SlashMenu. Si molesta en uso
-		     real, la salida es mover los avisos arriba en celular, no subir el z de
-		     la hoja: eso taparía avisos que sí importan.
-		     Dos disposiciones, un solo componente (mismo criterio que SlashMenu).
-		     Escritorio: cuelga del renglón, y se da vuelta si no entra abajo pero
-		     sí arriba — lo decide flipIntoView midiendo el visualViewport, no la
-		     ventana. Celular (max-md): hoja fija al pie, de borde a borde; ahí
-		     flipIntoView se apaga sola porque un elemento fijo no tiene ancla. -->
+		<!-- Cuelga del renglón en toda pantalla: así se ve de qué línea es. Se da
+		     vuelta si no entra abajo pero sí arriba — lo decide flipIntoView, que
+		     mide contra el visualViewport, no contra la ventana. En celular el
+		     lugar lo consigue el teclado bajándose al abrir (ver toggleOpen), no
+		     una disposición aparte. -->
 		<div
 			use:flipIntoView
 			role="menu"
 			aria-label="Acciones del bloque"
-			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md max-md:fixed max-md:inset-x-0 max-md:top-auto max-md:bottom-0 max-md:z-30 max-md:mt-0 max-md:max-h-none max-md:w-full max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:p-2 max-md:pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md"
 		>
 			<button
 				type="button"

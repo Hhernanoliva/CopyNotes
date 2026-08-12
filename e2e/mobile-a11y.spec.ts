@@ -193,10 +193,10 @@ test('el menú de acciones permite eliminar un bloque al tacto', async ({ page }
 	await expect(page.getByText('quedo yo')).toBeVisible();
 });
 
-// Con el teclado en pantalla no entraban 280px de menú ni arriba ni abajo del
-// renglón. En celular deja de colgar del renglón: sube desde el borde de abajo,
-// de lado a lado, como ya hace el menú "/".
-test('el menú de acciones es una hoja apoyada al pie', async ({ page }) => {
+// En celular el menú también cuelga del renglón —así se ve de qué línea es—, y
+// el lugar lo consigue bajando el teclado. Lo que se afirma acá es que queda
+// pegado a su fila y no se convierte en otra cosa.
+test('el menú de acciones queda pegado a su renglón', async ({ page }) => {
 	await openApp(page);
 
 	const row = page.locator('main [data-block-id]').first();
@@ -208,22 +208,16 @@ test('el menú de acciones es una hoja apoyada al pie', async ({ page }) => {
 
 	const pantalla = page.viewportSize();
 	const caja = await menu.boundingBox();
-	expect(caja.x).toBe(0);
-	expect(caja.width).toBe(pantalla.width);
-	// Pegada al borde de abajo. Se re-mide hasta que se asienta: la hoja entra
-	// con la animación de .cn-pop (4px de desplazamiento), y medirla apenas
-	// aparece devuelve la posición de un fotograma intermedio.
-	await expect
-		.poll(async () => {
-			const b = await menu.boundingBox();
-			return b.y + b.height;
-		})
-		.toBeGreaterThanOrEqual(pantalla.height - 1);
+	const fila = await row.boundingBox();
+	// Ni de borde a borde ni pegado al pie: es un panel angosto junto a su fila.
+	expect(caja.width).toBeLessThan(pantalla.width);
+	expect(caja.x).toBeGreaterThan(0);
+	expect(caja.y).toBeGreaterThan(fila.y);
 });
 
 // Los controles del renglón se muestran con :focus-within de la fila. Bajar el
 // teclado con un blur a secas sacaba el foco de la fila y apagaba los controles
-// enteros: la hoja se abría invisible y sin recibir toques. Se simula el teclado
+// enteros: el menú se abría invisible y sin recibir toques. Se simula el teclado
 // achicando el visualViewport, que es lo único que la app mira para saber si hay.
 test('con el teclado en pantalla la hoja se abre y se puede tocar', async ({ page }) => {
 	await page.addInitScript(() => {
@@ -253,7 +247,29 @@ test('con el teclado en pantalla la hoja se abre y se puede tocar', async ({ pag
 	await expect.poll(posicion).toBeGreaterThan(antes);
 });
 
-test('cada acción de la hoja llega al área táctil de 44px', async ({ page }) => {
+// El menú baja el teclado enfocando su propio botón, y el globito de ayuda se
+// muestra al recibir foco: quedaba flotando sobre el menú recién abierto. Un
+// foco que llega de un dedo no tiene que mostrar ayuda (eso es :focus-visible).
+test('tocar el menú no deja el globito de ayuda flotando', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(window, 'visualViewport', {
+			configurable: true,
+			value: { offsetTop: 0, height: 350, addEventListener() {}, removeEventListener() {} }
+		});
+	});
+	await openApp(page);
+
+	const row = page.locator('main [data-block-id]').first();
+	await row.locator('.block-editable').first().tap();
+	await row.getByRole('button', { name: 'Más acciones' }).tap();
+
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toBeVisible();
+	// El globito tarda 250ms en salir: hay que darle tiempo para poder negarlo.
+	await page.waitForTimeout(600);
+	await expect(page.locator('.cn-tooltip')).toHaveCount(0);
+});
+
+test('cada acción del menú llega al área táctil de 44px', async ({ page }) => {
 	await openApp(page);
 
 	const row = page.locator('main [data-block-id]').first();

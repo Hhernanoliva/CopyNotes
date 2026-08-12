@@ -44,9 +44,18 @@ export function tooltip(node, options) {
 		}
 	}
 
+	// Un foco que llega de un dedo o de un clic no pide ayuda: el que la pide es
+	// el que navega con teclado, y eso es exactamente lo que distingue
+	// :focus-visible. Sin esta puerta, el menú de acciones —que enfoca su propio
+	// botón para bajar el teclado del celular— dejaba el globito flotando encima
+	// del menú recién abierto.
+	function scheduleShowOnFocus() {
+		if (node.matches(':focus-visible')) scheduleShow();
+	}
+
 	node.addEventListener('pointerenter', scheduleShow);
 	node.addEventListener('pointerleave', hide);
-	node.addEventListener('focus', scheduleShow);
+	node.addEventListener('focus', scheduleShowOnFocus);
 	node.addEventListener('blur', hide);
 	node.addEventListener('pointerdown', hide);
 
@@ -59,7 +68,7 @@ export function tooltip(node, options) {
 			hide();
 			node.removeEventListener('pointerenter', scheduleShow);
 			node.removeEventListener('pointerleave', hide);
-			node.removeEventListener('focus', scheduleShow);
+			node.removeEventListener('focus', scheduleShowOnFocus);
 			node.removeEventListener('blur', hide);
 			node.removeEventListener('pointerdown', hide);
 		}

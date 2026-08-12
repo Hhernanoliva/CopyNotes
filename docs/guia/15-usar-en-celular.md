@@ -12,7 +12,7 @@ Varios controles chicos (la ✕ para quitar una etiqueta, los botones de la barr
 
 ## El menú de tres puntitos (⋯): todo lo del renglón
 
-En la compu muchas acciones se hacen con el teclado. En el teléfono, tocá los **tres puntitos** a la derecha del renglón: si estabas escribiendo, **el teclado se baja solo** y el menú **sube desde abajo, de lado a lado de la pantalla**, con las opciones grandes para el dedo. Se cierra tocando fuera del menú, y ahí vuelve el cursor a tu renglón. Adentro está todo junto:
+En la compu muchas acciones se hacen con el teclado. En el teléfono, tocá los **tres puntitos** a la derecha del renglón: si estabas escribiendo, **el teclado se baja solo** para hacerle lugar, y el menú se abre **pegado a ese renglón**, con las opciones grandes para el dedo. Se cierra tocando fuera, y ahí vuelve el cursor a tu renglón. Adentro está todo junto:
 
 - **Agregar comentario** — abre la sub-línea gris para escribir un comentario debajo del renglón (lo mismo que en la compu se hace con Ctrl+Enter).
 - **Mover arriba** / **Mover abajo** — cambia el renglón de lugar sin arrastrar.

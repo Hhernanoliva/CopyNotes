@@ -1,7 +1,9 @@
 # Menú de acciones ("...") en celular: hoja al pie
 
 Fecha: 2026-08-12
-Estado: aprobado, listo para plan de implementación
+Estado: **construido, con la hoja al pie descartada tras probarla** (ver
+"Revisión" al final). Lo que quedó: bajar el teclado al abrir, menú anclado al
+renglón en toda pantalla, ítems de 44px.
 
 ## Problema
 
@@ -156,3 +158,38 @@ antes de dar esto por cerrado.
 que en el teléfono el menú de los `...` sube desde abajo, que el teclado se baja
 solo al abrirlo y vuelve al cerrarlo, y que se cierra tocando fuera. La fecha de
 "Última actualización" del índice `docs/guia-de-uso.md` también.
+
+---
+
+## Revisión 2026-08-12 (después de probarlo en el iPhone)
+
+La hoja al pie se construyó, se probó en el teléfono y **se descartó**. Lo que
+la reemplaza es más chico y funciona mejor.
+
+**Por qué se cayó.** Con el teclado bajándose ya no hay problema de espacio: el
+menú entra al lado de su renglón sin acrobacias. Y anclado se lee mejor —se ve
+de qué línea es—, mientras que la hoja al pie perdía esa conexión. Dicho de
+otra forma: la hoja resolvía un problema que el bajar el teclado ya había
+resuelto. Decisión de Hernán al usarla, no en el papel.
+
+**El bug que destapó la prueba a mano.** El teclado bajaba en los renglones de
+arriba pero no en los de abajo. La pregunta "¿hay teclado?" restaba dos cosas
+que no van juntas: `window.innerHeight - (vv.offsetTop + vv.height)`. El
+`offsetTop` es cuánto se CORRIÓ la página —el navegador la corre para mostrarte
+el cursor cuando escribís abajo—, no cuánto se comió el teclado. En un renglón
+de abajo daba ~4 en vez de ~494, o sea "no hay teclado". Ahora la cuenta es
+`window.innerHeight - vv.height`. El error venía de `keyboardInset`, así que el
+arreglo también mejora los otros paneles que dependen de esa pregunta.
+
+**El otro efecto secundario, ya arreglado.** Bajar el teclado enfocando el botón
+de los `...` hacía salir el globito de ayuda, que se muestra al recibir foco:
+quedaba flotando sobre el menú abierto. `tooltip.js` ahora sólo lo muestra si el
+foco es `:focus-visible`, o sea si vino del teclado y no de un dedo. Verificado
+por los dos lados: con `tap` no sale, con foco de origen teclado sí.
+
+**Qué quedó en pie de la spec original**: bajar el teclado al abrir, decidirlo
+por el teclado real y no por el aparato, ítems de 44px, `flipIntoView`
+ignorando paneles fijos, y escritorio sin cambios.
+
+**Qué se descartó**: hoja al pie de ancho completo, velo, `safe-area-inset` y
+las dos disposiciones por CSS. El componente vuelve a tener una sola.

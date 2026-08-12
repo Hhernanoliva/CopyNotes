@@ -40,6 +40,15 @@ describe('virtualKeyboardOpen', () => {
 		expect(virtualKeyboardOpen()).toBe(true);
 	});
 
+	// Al escribir en un renglón de abajo, el navegador corre la página para que
+	// veas el cursor: offsetTop se va casi al máximo. Ese corrimiento es "cuánto
+	// se movió", no "cuánto se comió el teclado", y restarlo daba "no hay
+	// teclado" justo en los renglones de abajo. El teclado seguía ahí.
+	it('sigue habiendo teclado con la página corrida hasta abajo', () => {
+		setViewport({ offsetTop: 450, height: 350 });
+		expect(virtualKeyboardOpen()).toBe(true);
+	});
+
 	it('sin visualViewport no hay teclado', () => {
 		setViewport(null);
 		expect(virtualKeyboardOpen()).toBe(false);
