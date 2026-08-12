@@ -204,7 +204,24 @@ git commit -m "chore: una sola fuente para el número de versión de la app"
 
 ---
 
-## Tarea 2: Enchufar el chequeo (sin capacidad de instalar)
+## Tarea 2: Enchufar el chequeo (sin capacidad de instalar) ⛔ LO ÚNICO QUE FALTA
+
+> **Estado 2026-08-12: el resto del plan se construyó salteando esta tarea.** Se
+> hizo sólo el Paso 5 (`pnpm add @tauri-apps/plugin-updater`, viajó en `60db32c`),
+> que no necesita la clave. Faltan el lado Rust y el `pubkey`, y **eso está
+> bloqueado en Hernán**: Pasos 1, 2 y 3.
+>
+> **No agregar el plugin de Rust sin el `pubkey`**: `tauri_plugin_updater` lee su
+> configuración al arrancar, así que registrarlo con `plugins.updater` ausente
+> haría fallar el `setup()` y la app **no abriría** ni en `tauri dev`. O van los
+> dos juntos, o no va ninguno.
+>
+> Mientras tanto la app se comporta bien: `check()` no existe, la llamada tira,
+> el estado queda en `'sin-respuesta'` y no se muestra nada. Es el mismo camino
+> que "sin internet", que ya está diseñado y testeado.
+>
+> **El workflow de la Tarea 6 no puede publicar hasta que esto se cierre**, y
+> tiene una guardia al principio que lo dice y corta en segundos.
 
 **Archivos:**
 - Modificar: `src-tauri/Cargo.toml:20-25`, `src-tauri/src/lib.rs:48-57`, `src-tauri/capabilities/default.json`, `src-tauri/tauri.conf.json`, `package.json`
@@ -555,7 +572,7 @@ git commit -m "feat(escritorio): leer el changelog y decidir qué mostrar"
 
 ---
 
-## Tarea 4: El chequeo al arrancar y el punto en el engranaje
+## Tarea 4: El chequeo al arrancar y el punto en el engranaje ✅ HECHA (`60db32c`, 2026-08-12)
 
 **Archivos:**
 - Crear: `src/lib/desktop/update-status.svelte.ts`
@@ -568,7 +585,7 @@ git commit -m "feat(escritorio): leer el changelog y decidir qué mostrar"
 
 **Por qué el estado es compartido:** el punto vive en la barra y la sección adentro de Configuración, que se monta y desmonta al abrirse. Si cada uno consultara por su cuenta habría dos pedidos por sesión y, peor, dos respuestas que pueden no coincidir. Una consulta al arrancar, un estado, dos lectores. Mismo patrón que `sync/status.svelte.ts`.
 
-- [ ] **Paso 1: Crear el estado compartido**
+- [x] **Paso 1: Crear el estado compartido**
 
 Crear `src/lib/desktop/update-status.svelte.ts`:
 
@@ -607,7 +624,7 @@ export async function checkForUpdate() {
 }
 ```
 
-- [ ] **Paso 2: Dispararlo al arrancar**
+- [x] **Paso 2: Dispararlo al arrancar**
 
 En `src/lib/desktop/TauriLifecycle.svelte`, agregar el import junto a los otros:
 
@@ -624,7 +641,7 @@ y, dentro del `$effect` existente, como primera línea del cuerpo (antes de `let
 		checkForUpdate();
 ```
 
-- [ ] **Paso 3: Poner el punto sobre el engranaje**
+- [x] **Paso 3: Poner el punto sobre el engranaje**
 
 En `src/routes/+page.svelte`, agregar el import junto a los otros:
 
@@ -664,16 +681,24 @@ y reemplazar el botón de Configuración (líneas 679-687) por:
 
 Lo único que cambia respecto del original: `relative` en la clase, el `aria-label` y el `use:tooltip` condicionales, y el `<span>` del punto.
 
-- [ ] **Paso 4: Verificar que nada se rompió**
+- [x] **Paso 4: Verificar que nada se rompió**
 
 ```bash
 pnpm check && pnpm test
 ```
-Esperado: 0 errores, 0 warnings, suite unitaria en verde.
+Esperado: la suite unitaria en verde y **ningún error nuevo** en `pnpm check`.
+
+⚠️ **"0 errores, 0 warnings" no es alcanzable y nunca lo fue** (medido 2026-08-12,
+antes de tocar nada): `pnpm check` viene con **4 errores y 1 warning
+preexistentes** — 3 en `src/lib/storage/db.migrations.test.ts:33`, 1 en
+`src/lib/editor/DatePanel.svelte:64` (`Property 'dataset' does not exist on type
+'Element'`), y el warning en `DatePanel.svelte:34`. Se comprobó sacando los
+archivos nuevos del árbol y volviendo a correr: los mismos 4. Arreglarlos es
+trabajo aparte; no tratarlos como regresión de este plan.
 
 En el navegador el punto **nunca** aparece: `TauriLifecycle` solo se monta dentro de Tauri (`+layout.svelte:72`), así que `updateStatus.state` se queda en `'sin-respuesta'`. No hace falta ningún guard extra en el header.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/lib/desktop/update-status.svelte.ts src/lib/desktop/TauriLifecycle.svelte src/routes/+page.svelte
@@ -682,7 +707,7 @@ git commit -m "feat(escritorio): avisar en la barra cuando hay una versión nuev
 
 ---
 
-## Tarea 5: El changelog y la sección en Configuración
+## Tarea 5: El changelog y la sección en Configuración ✅ HECHA (`b815026`, 2026-08-12)
 
 **Archivos:**
 - Crear: `CHANGELOG.md`
@@ -697,7 +722,7 @@ git commit -m "feat(escritorio): avisar en la barra cuando hay una versión nuev
 
 **Sobre el botón:** se usa `openExternal` (`src/lib/platform/runtime.ts:29`), que ya resuelve el caso difícil — dentro de la app de escritorio `window.open` **no abre nada y no avisa**, así que ahí manda el pedido por el comando Rust `open_external`. Un `<a target="_blank">` moriría en silencio en la `.app`. Es el mismo camino que ya usan `BlockRow.svelte` y `sync/google-desktop.ts`.
 
-- [ ] **Paso 1: Crear el changelog**
+- [x] **Paso 1: Crear el changelog**
 
 Crear `CHANGELOG.md` en la raíz:
 
@@ -718,7 +743,7 @@ la funcionalidad**, no al publicar.
 - Tus notas se pueden guardar cifradas en la nube, si querés
 ```
 
-- [ ] **Paso 2: Crear el componente**
+- [x] **Paso 2: Crear el componente**
 
 Crear `src/lib/desktop/UpdateSection.svelte`:
 
@@ -810,7 +835,7 @@ Crear `src/lib/desktop/UpdateSection.svelte`:
 </section>
 ```
 
-- [ ] **Paso 3: Montarla en Configuración**
+- [x] **Paso 3: Montarla en Configuración**
 
 En `src/lib/components/SettingsDialog.svelte`, agregar el import junto a los otros:
 
@@ -828,7 +853,7 @@ y, justo antes del `<section>` de "Agentes" (línea ~881), agregar:
 
 `isTauriRuntime` ya está importado en ese archivo y ya se usa así en la sección de Agentes.
 
-- [ ] **Paso 4: Verificar que compila y que el changelog se embebió**
+- [x] **Paso 4: Verificar que compila y que el changelog se embebió**
 
 ```bash
 pnpm check && pnpm test && pnpm build
@@ -838,7 +863,7 @@ Esperado: `check` y `test` limpios, y el `grep` encuentra el texto adentro del b
 
 El texto del changelog también viaja en el build web (el import es estático). Son unos pocos KB de texto público; es el precio de no tener un paso de generación.
 
-- [ ] **Paso 5: Escribir la regla en CLAUDE.md**
+- [x] **Paso 5: Escribir la regla en CLAUDE.md**
 
 En `CLAUDE.md`, junto a la sección "User Guide Rule", agregar:
 
@@ -853,11 +878,11 @@ castellano, sin jerga, una viñeta por cambio. Escribirlo al publicar no sirve:
 el `latest.json` se genera durante el build y ya no se puede editar después.
 ```
 
-- [ ] **Paso 6: Documentar en la guía de usuario**
+- [x] **Paso 6: Documentar en la guía de usuario**
 
 Crear `docs/guia/actualizaciones.md`, en español simple: que en la app de escritorio aparece **un punto en el engranaje** cuando hay versión nueva; que adentro de Configuración se ve qué trae y también **qué trajo la que ya tenés**; que **nunca se actualiza sola** ni interrumpe; que Descargar abre la página para bajarla; **y que al abrir la versión nueva macOS pide la contraseña del Mac una vez, hay que tocar "Permitir siempre", y qué pasa si se deniega**. Agregar la línea al índice de `docs/guia-de-uso.md` y actualizar su "Última actualización".
 
-- [ ] **Paso 7: Commit**
+- [x] **Paso 7: Commit**
 
 ```bash
 git add CHANGELOG.md src/lib/desktop/UpdateSection.svelte src/lib/components/SettingsDialog.svelte CLAUDE.md docs/guia/actualizaciones.md docs/guia-de-uso.md
@@ -866,7 +891,7 @@ git commit -m "feat(escritorio): mostrar las novedades de la versión nueva y de
 
 ---
 
-## Tarea 6: Publicar releases con un tag
+## Tarea 6: Publicar releases con un tag ✅ HECHA (`d31966f`, 2026-08-12)
 
 **Archivos:**
 - Crear: `scripts/changelog-section.mjs`
@@ -876,7 +901,7 @@ git commit -m "feat(escritorio): mostrar las novedades de la versión nueva y de
 - Consume: `changelogSection` (Tarea 3), `CHANGELOG.md` (Tarea 5), los secretos (Tarea 2).
 - Produce: por cada tag `v*`, una GitHub Release **en borrador** con el `.dmg`, el `.app.tar.gz`, su `.sig` y el `latest.json` — este último ya con las novedades correctas adentro.
 
-- [ ] **Paso 1: Crear el extractor**
+- [x] **Paso 1: Crear el extractor**
 
 Crear `scripts/changelog-section.mjs`:
 
@@ -906,7 +931,7 @@ if (!section) {
 process.stdout.write(section);
 ```
 
-- [ ] **Paso 2: Probarlo a mano**
+- [x] **Paso 2: Probarlo a mano**
 
 ```bash
 node scripts/changelog-section.mjs 0.2.0
@@ -914,7 +939,7 @@ node scripts/changelog-section.mjs 9.9.9; echo "código de salida: $?"
 ```
 Esperado: el primero imprime las viñetas de 0.2.0; el segundo imprime el error y sale con código `1`.
 
-- [ ] **Paso 3: Crear el workflow**
+- [x] **Paso 3: Crear el workflow**
 
 Crear `.github/workflows/release.yml`:
 
@@ -1004,14 +1029,16 @@ jobs:
           args: --target universal-apple-darwin
 ```
 
-- [ ] **Paso 4: Comprobar que el YAML es válido**
+- [x] **Paso 4: Comprobar que el YAML es válido**
 
 ```bash
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml')); print('YAML OK')"
+npx --yes js-yaml .github/workflows/release.yml > /dev/null && echo "YAML OK"
 ```
-Esperado: `YAML OK`.
+Esperado: `YAML OK`. (El plan decía `python3 -c "import yaml"`, pero **este Mac no
+tiene PyYAML** y el proyecto tampoco trae un parser de YAML; `npx js-yaml` no
+instala nada permanente.)
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add scripts/changelog-section.mjs .github/workflows/release.yml
