@@ -13,6 +13,16 @@
 // de .cn-pop / .cn-toolbar usa `transform` y está transicionada. Mezclarlos
 // hacía llegar el corrimiento con retardo y pisaba el `scale()` de entrada de
 // la barra de formato.
+// ¿Hay un teclado en pantalla, de verdad? Se mide por la diferencia entre la
+// ventana y la parte visible. Margen de 100px porque en celular las barras del
+// navegador también achican el visualViewport y eso no es un teclado; uno
+// abierto se come 250px o más.
+export function virtualKeyboardOpen() {
+	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+	if (!vv) return false;
+	return window.innerHeight - (vv.offsetTop + vv.height) >= 100;
+}
+
 export function keyboardInset(node) {
 	const vv = typeof window !== 'undefined' ? window.visualViewport : null;
 	if (!vv) return {}; // sin soporte: no-op
@@ -22,9 +32,7 @@ export function keyboardInset(node) {
 		// y encadenarlos haría que el menú se escapara hacia arriba solo.
 		node.style.translate = '';
 		const keyboardTop = vv.offsetTop + vv.height; // borde superior del teclado
-		// Margen de 100px: en celular las barras del navegador también achican el
-		// visualViewport, y eso no es un teclado. Uno abierto se come 250px o más.
-		if (window.innerHeight - keyboardTop < 100) return;
+		if (!virtualKeyboardOpen()) return;
 		const box = node.getBoundingClientRect();
 		const overlap = box.bottom - keyboardTop;
 		// Subirlo, pero nunca tanto que se le vaya el techo por arriba de lo
