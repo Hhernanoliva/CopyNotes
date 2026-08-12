@@ -24,6 +24,18 @@ test('first run seeds an editable demo note', async ({ page }) => {
 	await expect(page.locator('[role="checkbox"]').first()).toBeVisible();
 });
 
+// Abriendo la app por red local (probar desde el celular contra la Mac) no hay
+// candadito, y Safari esconde crypto.randomUUID en las páginas sin él: la app
+// se caía al crear la nota de bienvenida y mostraba "No pudimos abrir tus
+// notas". Se simula escondiendo la función antes de que arranque la página.
+test('arranca sin crypto.randomUUID, como en una página sin candadito', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(crypto, 'randomUUID', { value: undefined, configurable: true });
+	});
+	await openApp(page);
+	await expect(title(page)).toHaveValue(/Bienvenido a CopyNotes/);
+});
+
 test('the tag shortcut keeps # on cancel and consumes it after assigning a tag', async ({ page }) => {
 	await newNote(page);
 
