@@ -143,7 +143,10 @@ export default defineConfig({
 						// Las acciones tocan el DOM (eventos de puntero, visualViewport).
 						'src/lib/actions/**/*.{test,spec}.{js,ts}',
 						// Migration test: v3 upgrade uses htmlToPlainText, which needs a DOM.
-						'src/lib/storage/db.migrations.test.ts'
+						'src/lib/storage/db.migrations.test.ts',
+						// Spec 038: la limpieza de lo que llega por el caño compartido pasa
+						// por `sanitizeHtml`, que necesita un `DOMParser`.
+						'src/lib/sync/shared-payload.test.ts'
 					]
 				}
 			},
@@ -160,7 +163,8 @@ export default defineConfig({
 						'src/lib/bridge/**/*.{test,spec}.{js,ts}',
 						'src/lib/actions/**/*.{test,spec}.{js,ts}',
 						// Runs under jsdom instead (see the jsdom project's include).
-						'src/lib/storage/db.migrations.test.ts'
+						'src/lib/storage/db.migrations.test.ts',
+						'src/lib/sync/shared-payload.test.ts'
 					]
 				}
 			}
