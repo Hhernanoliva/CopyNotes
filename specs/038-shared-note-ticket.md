@@ -45,6 +45,21 @@ questions were put to Hernán and decided the same day: the organisation freezes
 while shared (§3), the guest's backup skips the note while shared (Local), and
 deleting a shared note does reach the guest (§7).
 
+Reviewed a fourth time on 2026-08-13, and this round's theme is that §5 and §8
+each decided something the surrounding app cannot currently express. In order of
+cost — the backup validator refuses a bitácora line without a block, so the first
+"Listo" makes the owner's backups unrestorable (§8); the derived tick was ordered
+by two devices' clocks and the spec called that a display concern, which it is
+not (§5); the whole pre-share bitácora travelled, the owner's agent's writing
+included, and the editor paints it on the guest's screen (§3); the "unsent
+changes" line counts only the encrypted pipe, so a guest is told "Todo subido"
+while their ticks wait (§2); the member branch cannot read `notes` from inside
+`lib/tasks`'s transaction (§5); and the per-note `settings` keys need a declared
+prefix, because the registry is a closed map and three other places walk it
+(Local). Two product questions were put to Hernán and decided the same day: the
+tick is decided by arrival at the server (§5), and a shared note's bitácora
+starts blank (§3).
+
 ## En criollo (resumen para Hernán)
 
 Mandarle una nota a otra persona como quien manda un ticket: vos escribís, la
@@ -69,6 +84,16 @@ otra persona responde.
   todavía no hay nada que cobrar.
 - **Quién hizo cada cosa lo decide el servidor**, no el aparato del invitado. Si
   su app mintiera y firmara con tu nombre, el servidor le pisa la firma.
+- **Si los dos tocan la misma tarea, manda el que llegó último al servidor.** No
+  se comparan relojes: el servidor le pone número a cada cosa cuando la recibe.
+  Con los dos conectados es lo que cualquiera esperaría. Si alguien estuvo sin
+  internet se da vuelta —lo que hizo el lunes sin conexión llega el miércoles y
+  gana—, y se acomoda solo apenas cualquiera de los dos vuelva a tocar esa tarea.
+  Nunca se pierde texto por esto: es una casilla.
+- **El historial de la nota arranca en blanco al compartir.** El invitado recibe
+  el texto y las tareas —las tildadas, tildadas—, pero no la historia vieja: ni
+  lo que hizo tu agente en esa nota, ni las notas que le dejaste. La
+  conversación empieza el día que compartís. Decidido el 13/8.
 - **Las novedades llegan en hasta 30 segundos, no al instante.** El aviso en vivo
   por nota queda para más adelante: obliga a abrir un canal por cada nota
   compartida y se paga por mensaje. El reloj que ya tiene la app alcanza.
@@ -237,6 +262,16 @@ membership — and sharing a note *is* the consent for that note, asked for on t
 sharing screen at the moment of sharing. Do not reuse `ready()`; write the shared
 pipe's own gate next to it, and say why in the same place.
 
+**And the screen has to count both queues.** `DataStatus.svelte` shows
+`syncStatus.pending`, which is `countPendingUploads()`, which returns 0 before
+upload consent — by design, and correctly, for the encrypted pipe: that is the
+consent gate doing its job at the only door records leave through. A guest has
+no consent and no vault, so the line reads "Todo subido" while five ticks sit
+unsent on their machine. It is not a cosmetic gap: that line is the only witness
+the two-device gate has (`docs/`, the manual gate method), so criterion 16 cannot
+be run against a screen that lies. `syncStatus.pending` adds both queues, and the
+shared one answers without asking about consent.
+
 ### 3. Shared content, private organisation
 
 A shared note is **not "the same row in two accounts"**. It is shared content
@@ -298,6 +333,30 @@ What deliberately stays home, and what breaks if it travels:
   asymmetry is deliberate and this is where it is written down: the note's
   timestamp is what both people see ("modificada hace un rato") and it has to
   agree, a block's is bookkeeping nobody reads.
+
+**The bitácora starts blank, and that is about rows, not fields.** Every rule
+above is an allow-list of *columns*; this is the one place the question is which
+*rows* go at all. A note's history holds what the owner's MCP agent wrote on
+those tasks — its summaries, its explanations of what it could not finish — and
+`editor/agent-notes.ts` groups exactly those rows (`action: 'note'`, filtered by
+`actor !== 'user'`) and the editor paints them on the block. Shipped as first
+designed, the guest opens the note and reads the owner's agent talking to the
+owner, on the line. That is the same class of private text as `blocks.note`,
+which this spec guards with two locks and calls the most sensitive field on the
+row, so guarding one and handing over the other was an inconsistency rather than
+a decision.
+
+Decided with Hernán on 2026-08-13: **the shared uploader sends only `activity`
+rows written after the share opened.** The mark is stamped when `open_share`
+succeeds and lives with the other per-note values (Local); one filter, in the
+uploader, beside the client-side mirror of every other rule here.
+
+Two consequences worth writing down. The guest's copy of an old task arrives
+with no entries at all, which is fine and not a special case: `blocks.checked`
+is on the allow-list and travels, and §5's derivation only overrides that cache
+where entries exist — where there are none there is nothing to disagree with.
+And the owner's own screen is untouched: their rows never left their device, so
+their history is whole.
 
 Note the distinction that matters and is easy to get backwards: **`blocks.order`
 travels** (it is the note's internal structure = content); **the note's order in
@@ -411,6 +470,14 @@ Two guards, and both are built:
   member, so the tick shows on screen at once and the counter never moves. The
   door stays single; it gains one branch.
 
+**And that branch may not ask the database.** `setTaskChecked` and `traceWrite`
+run inside `db.transaction('rw', blocks, activity)`. `notes` is not in that
+scope, and a chained read wrapped in `trackPendingWrite` escapes Dexie's
+transaction zone and commits it early — the `PrematureCommitError` `createTask`
+already carries a comment about, and solves the same way. "Is this account a
+member of this note" is resolved by the caller *before* the transaction opens and
+passed in, exactly as `createTask` passes `order`.
+
 **A tick is not one append — the cascade makes it N.** `setTaskChecked` applies
 spec 003's cascade: ticking a parent ticks its todo children and mirrors up
 through its todo ancestors, writing one block change *and one bitácora line* per
@@ -425,17 +492,40 @@ entry in the same pass; applying them row by row makes the answer depend on thei
 order inside the batch. Apply the batch, then derive once over the blocks it
 touched.
 
-The bitácora is ordered by `seq`, and **the `id` tie-break has to be added** —
-`listActivityByBlock`'s `bySeqAsc` (`storage/activity.ts`) has none today, on
-purpose: `seq` came from one device's monotonic counter, so it could not tie.
-Two accounts are two counters, and `nextChangeSeq` reads the clock, so from now
-on it can. Add the tie-break to the shared comparator, do not remove the comment
-explaining why the old random tie-break was taken out.
+**Two orders, because one number cannot do both jobs.** `seq` is
+`nextChangeSeq()`, which is `max(now, last + 1)` — the clock. Across two accounts
+that is two clocks, and the paragraph above makes that ordering decide a *value*:
+a guest whose clock runs two minutes behind unticks at 10:00 and loses to an
+owner's tick from 09:59:30, on both devices, silently. An earlier draft called
+this "a display order, not a correctness property". That sentence is true of a
+comment and false of a tick, and it was being applied to both.
 
-Clock skew between two accounts is accepted, not fixed: a guest whose clock runs
-behind lands their comment slightly earlier in the list than it happened. It is a
-display order, not a correctness property, and `server_seq` is not a substitute
-because rows written offline do not have one yet.
+Decided with Hernán on 2026-08-13: **the tick is decided by the order the server
+received the entries** (`server_seq`), never by `seq`. No clock is involved and
+there is nothing to reconcile between two of them. An entry this device has not
+uploaded yet has no `server_seq` and sorts **last**, which is both correct (it
+has not arrived, so nothing can have arrived after it) and what the person
+expects — the tick they just made shows at once and does not flicker when it
+lands.
+
+What that buys and what it costs, written down so it is not rediscovered as a
+bug: with both sides online, the last one to touch the task wins, which is what
+anyone would predict. After a long offline stretch it inverts — a guest who
+unticks on Monday with no connection beats an owner who ticks on Tuesday,
+because the guest's entry reaches the server on Wednesday. It self-heals the
+moment either side touches the task again, and only a checkbox is at stake; no
+text can be lost this way.
+
+The bitácora is still **displayed** in `seq` order — what `listActivityByNote`
+already does and what the person reads — and there **the `id` tie-break has to be
+added**: `bySeqAsc` (`storage/activity.ts`) has none today, on purpose, because
+`seq` came from one device's monotonic counter and could not tie. Two accounts
+are two counters reading the clock, so from now on it can. Add the tie-break to
+that comparator; do not remove the comment explaining why the old random one was
+taken out. The derivation needs no tie-break of its own: `server_seq` is a
+Postgres sequence and cannot tie. Two clocks can still put two comments a few
+seconds out of their true order in the displayed list, and *that* is the case
+where "a display order, not a correctness property" was right all along.
 
 The owner's own ticks keep writing `block.checked` directly, as today — and that
 field is on the allow-list, so it travels. The two are not rivals: `completeTask`
@@ -474,6 +564,15 @@ The name itself is the half that does not exist: `actorLabel()` returns a bare
 `'Vos'` or `'Agente'` today, with nothing to substitute into. It gains the member
 case and reads the cached display name.
 
+`editor/agent-notes.ts` is the other half, and it is where the guest's comments
+actually get read — on the line, in the note, with no new screen to build. It
+groups `action: 'note'` rows by block under one filter, `actor !== 'user'`, which
+was written when "not the user" had exactly one meaning. A member's comment
+therefore lands in the right place for free and lands there **as the agent**: the
+owner reads "Agente: llamá al contador" and never learns Juan said it. The actor
+has to travel through that grouping and the panel has to render the name. Free
+placement, not a free feature.
+
 ### 7. Invitation by link, access by account
 
 - The owner generates an invite link with a random token and an expiry.
@@ -510,6 +609,18 @@ with no answer because nothing has to physically return:
   And it is a fifth `action` beside `created` / `done` / `reopened` / `note`, so
   it needs its word in **both** `ACTION_LABEL` maps: they are closed maps and an
   unknown action renders as its own raw name on screen.
+
+  And a third thing, the one that costs a restore. `export-import/schema.ts`
+  validates `activity.blockId` as `v.string()`, so a backup file containing one
+  note-level entry fails validation — and `validateBackup` rejects the **whole
+  file**, not the row: an error, not a warning. Past that, `dropDanglingActivity`
+  drops every entry whose `blockId` is not a known block, and a null never is, so
+  the "Listo" would vanish with a warning instead. Both have to change
+  (`v.nullable(v.string())`, and skip the block check for a note-level entry) or
+  the first "Listo" quietly makes the owner's backups unrestorable — which they
+  find out on the day they need one. An old CopyNotes cannot read such a file
+  either way, and bumping the format version does not help: it would refuse it by
+  version instead of by field. Acceptance criterion 17 covers the round trip.
 - **News counter** — each device stores, per shared note, the highest `activity`
   `seq` it has displayed. The sidebar shows the count of newer entries. Local
   and per device, never synced (it is "what *this* screen has shown").
@@ -597,7 +708,12 @@ indicative; the shapes and the rules are not.
   per-note download cursor and works exactly like the one in `records`,
   **including the backwards overlap** on read: the sequence is handed out when a
   write starts, not when it commits, so two writers can make it visible out of
-  order. Re-read a window, do not trust a strictly forward cursor.
+  order. Re-read a window, do not trust a strictly forward cursor. It carries a
+  second job since the fourth pass: it is also the order §5's tick derivation
+  sorts by. The out-of-order visibility above does not weaken that — the numbers
+  still form one fixed total order every device reads the same way, which is the
+  whole property the derivation needs. `pull_shared_rows` therefore has to
+  **return** it, not only consume it.
 - **`profiles (id uuid primary key, plan text)`** — deferred with section 10, not
   created in the first version.
 
@@ -670,6 +786,13 @@ is too long; nothing else in this spec depends on it.
   Once the share closes the mark is null, the note is an ordinary local note of
   theirs, and it backs up like any other — which is exactly what keeps §7's
   promise that their copy stays.
+
+  The one seam in that promise, named so nobody reports it as a bug: the guest
+  may copy lines out (§Objective says so on purpose), and a line they paste into
+  a snippet or another note of theirs is **their** row from that moment — it
+  backs up and it uploads through their own encrypted pipe. That is copying, not
+  sharing, and it is the same thing that happens when somebody pastes your text
+  into any other app.
 - **The shared download cursor, per note — and NOT a field of the `notes` row.**
   An earlier draft called it `notes.shareCursor` and put it on the row. `notes`
   is a synced table with a stamping hook (`storage/db.ts`): every write raises
@@ -683,6 +806,30 @@ is too long; nothing else in this spec depends on it.
   `LOCAL_ONLY_FIELDS` — a value that is not a row field cannot leak out as one.
   The news counter's "highest activity seq shown" is the same shape and goes the
   same way.
+- **Those per-note keys need a declared PREFIX, not just a name.** `setSetting`
+  takes any string, so `share:cursor:<noteId>` works the minute it is written —
+  and that is the trap, because three other places read the registry rather than
+  the table. `settings-registry.ts` is the declared list of every key and its
+  backup policy; `isBackupSafe` answers `false` for a key it does not know, which
+  is the right answer here reached by accident. `export-import/backup.ts` filters
+  the dump by it. `replaceAllTables` keeps what is *not* backup-safe across a
+  restore, which is also what these want. And `resetCloudState` (flow 9) clears
+  keys one at a time from a fixed list — a per-note key can never be on a fixed
+  list, so sign-out would leave every cursor behind. So: one declared prefix
+  covering all three per-note values (the download cursor, the news counter's
+  high-water mark, and the share's opening mark from §3), deny-by-default in the
+  backup *because* it is prefixed rather than because nobody declared it, and one
+  `forgetSharePrefixes()` that sign-out calls. Worth knowing before it surprises
+  somebody: `setSetting` writes the localStorage journal synchronously on every
+  call, so a cursor saved each pass is one small synchronous write per shared note
+  per pass.
+- **`activity.serverSeq`** — the order the server received the entry. Re-attached
+  on the way in exactly as `changeSeq` is (a column of `share_rows`, never part of
+  the payload), and the only thing §5's derivation sorts by. It joins
+  `LOCAL_ONLY_FIELDS`: it is a claim about a server, and a claim like that is
+  false the moment the row is restored anywhere else — the same reason `cloudSeq`
+  is on that list. An entry not uploaded yet simply has none, and that absence is
+  meaningful rather than missing data: §5 sorts it last.
 - **`activity.actor`** — gains the `'member:<uuid>'` form.
 - **A non-synced table for member display names**, filled by the read call.
 - **A non-synced per-note "highest activity seq shown"** for the news counter.
@@ -738,7 +885,10 @@ The product promise changes shape and must be restated everywhere it appears:
    conflict being raised on either side.
 4. The guest comments; same.
 5. Owner and guest tick and comment **at the same time, both offline**, then both
-   reconnect: everything lands, nothing is lost, no conflict is parked.
+   reconnect: everything lands, nothing is lost, no conflict is parked. If the
+   two touched the *same* task in opposite directions, the entry the server
+   received last is what both then show (criterion 19) — a checkbox settles
+   itself, and neither person is asked anything.
 6. The owner's folder, sidebar position, tags and agent visibility for that note
    are unchanged on their device and absent from the guest's.
 7. Sharing a note removes it from `records` on the server; unsharing removes it
@@ -770,6 +920,15 @@ The product promise changes shape and must be restated everywhere it appears:
 16. **Manual gate, two real accounts on two machines** — the same discipline as
     the two-device gate: a note shared, ticked, commented, "Listo", news counter
     seen, access removed. Automated tests do not close this one.
+17. A backup taken after a "Listo" **validates and restores**, the note-level
+    entry included — not rejected as a whole file, and not silently dropped.
+18. The guest's copy carries no bitácora entry from before the share opened, and
+    a task the owner had already ticked still arrives ticked.
+19. Owner and guest toggle the same task; the entry the **server received last**
+    is the state both devices show, whatever the two clocks say. An entry not
+    uploaded yet counts as the newest on the device that wrote it.
+20. A guest with no upload consent and no vault sees an honest count of what is
+    still unsent — never "Todo subido" over a queue.
 
 ## Minimum tests
 
@@ -821,6 +980,20 @@ Vitest:
   either pipe.
 - `dumpAllTables` on a member's device omits the shared note's rows, and includes
   them once `share` is null.
+- **A backup carrying a note-level entry** (`blockId: null`) validates, keeps that
+  entry, and restores it — one test through `validateBackup` and one through the
+  restore, because the two failures are different (a rejected file and a dropped
+  row) and only the first one is loud.
+- **The bitácora starts blank**: sharing a note with three older entries hands the
+  guest none of them, and a task the owner had ticked before sharing arrives
+  ticked anyway (the cache travels; the derivation has nothing to override it
+  with).
+- **The tick follows the server, not the clock**: two entries whose `seq` order is
+  the reverse of their `server_seq` order derive the state of the later
+  `server_seq`. And an entry with no `server_seq` yet sorts after every entry that
+  has one.
+- The unsent count covers both pipes: a member with no consent and no vault and
+  three unsent `activity` rows reports three, not zero.
 
 `scripts/rls-check.mjs`: the three new attacks in criterion 8, plus a fourth —
 `delete_records` handed another account's ids deletes nothing. Run against the
@@ -878,6 +1051,17 @@ silently dropped.
 - **No bookkeeping about a shared note goes on a synced row.** A stamped row that
   is written on a timer uploads on a timer, and two devices doing it push the
   same row at each other for ever. Cursors and counters go in `settings`.
+- **What decides a tick is the order the SERVER received the entries**, never
+  `seq` and never a timestamp. Both of those come from a clock, and there are two
+  clocks now. The displayed list is the opposite case and stays on `seq`. Two
+  comparators, one sentence each, and mixing them up is silent.
+- **A row is not the only thing that can be private.** The field allow-list is
+  §3's answer to "what of this row travels"; "which rows travel at all" is a
+  separate question and the bitácora is where it bit. A future table hanging off
+  a shared note has to answer both.
+- **Any screen that says "todo subido" has to know about both pipes.** A count
+  that reads one queue is a lie on the device that is using the other one, and
+  the lie is invisible precisely on the guest's machine, where nobody is looking.
 - **`changeSeq` comes from the clock**, so two accounts can mint the same number
   for the same row. The shared pipe reuses `decide()`'s contract — a matching
   number is not proof of an echo, the content decides — rather than writing a
@@ -930,13 +1114,17 @@ part of the implementation commit, not of this spec.
 
 ## Estimated cost
 
-~13 days of work, tests and gates included, after deferring section 10. The
+~14 days of work, tests and gates included, after deferring section 10. The
 second review moved money in both directions and it roughly cancels: the per-note
 realtime channel came out (−1 to −2 days, and a running cost that would have been
 billed per message), `delete_records` and the two anti-jam guards went in (+1).
 The third added ~1: the merge write, the scoped comparison and the backup filter
 are each small, but each needs its own test, and two of them are the difference
 between a working feature and silent data loss on a device nobody is watching.
+The fourth added ~1 more, and none of it is new function: the backup fix, the
+two-queue count, the server-ordered derivation, the bitácora filter and the
+prefixed settings keys are all small, but every one of them is a place where a
+decision already made had no way to be expressed in the code as it stands.
 The bulk
 is not "letting a guest respond" (≈3 days); it is "letting another account see
 your note at all" — the membership, the second pipe, the invitation and the move
