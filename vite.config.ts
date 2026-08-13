@@ -146,7 +146,8 @@ export default defineConfig({
 						'src/lib/storage/db.migrations.test.ts',
 						// Spec 038: la limpieza de lo que llega por el caño compartido pasa
 						// por `sanitizeHtml`, que necesita un `DOMParser`.
-						'src/lib/sync/shared-payload.test.ts'
+						'src/lib/sync/shared-payload.test.ts',
+						'src/lib/sync/shared-merge.test.ts'
 					]
 				}
 			},
@@ -164,7 +165,8 @@ export default defineConfig({
 						'src/lib/actions/**/*.{test,spec}.{js,ts}',
 						// Runs under jsdom instead (see the jsdom project's include).
 						'src/lib/storage/db.migrations.test.ts',
-						'src/lib/sync/shared-payload.test.ts'
+						'src/lib/sync/shared-payload.test.ts',
+						'src/lib/sync/shared-merge.test.ts'
 					]
 				}
 			}
