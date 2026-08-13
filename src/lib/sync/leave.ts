@@ -12,7 +12,7 @@
 // contents — only the bookkeeping stapled to it.
 
 import { db, SYNCED_TABLES } from '../storage/db';
-import { getSetting, setSetting } from '../storage/settings';
+import { forgetSharePrefixes, getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 import { signOut, supabase } from './supabase';
 import { forgetSentVaultBlob } from './upload';
@@ -102,4 +102,15 @@ async function resetCloudState() {
 			.toCollection()
 			.modify({ cloudSeq: undefined, fromCloud: true });
 	}
+
+	// Spec 038. Las marcas de qué nota está compartida, los cursores por nota y
+	// el cachecito de nombres son de la cuenta que se va: la próxima hereda un
+	// aparato que cree estar compartiendo notas que no son suyas.
+	//
+	// Sacar la marca es también lo que OBLIGA a que `list_shares()` corra antes
+	// de la próxima subida (ver `syncNow`): desde acá el aparato ya no sabe que
+	// la nota está compartida, y su caño cifrado la ofrecería sin dudar.
+	await db.table('notes').toCollection().modify({ share: undefined, fromCloud: true });
+	await db.table('shareMembers').clear();
+	await forgetSharePrefixes();
 }

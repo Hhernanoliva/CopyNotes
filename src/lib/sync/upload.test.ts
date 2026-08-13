@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
 import { createNote, updateNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
+import { appendActivity } from '../storage/activity';
+import { setShareRole } from '../storage/shares';
 import { grantUploadConsent, uploadedThrough } from './pending';
 import { createVault } from './vault';
 import { setSetting } from '../storage/settings';
@@ -22,6 +24,8 @@ const serverVault = vi.hoisted(() => ({ row: null }));
 // `table:id` of the records this server refuses, standing in for "somebody else
 // wrote a version you never saw".
 const rejects = vi.hoisted(() => []);
+// En qué notas compartidas dice el servidor que está este aparato (spec 038).
+const serverShares = vi.hoisted(() => []);
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
@@ -30,6 +34,23 @@ vi.mock('./supabase', () => ({
 		// Records go up through the guarded function, never a bare upsert: it is the
 		// only writer that can refuse. It answers with the rows it refused.
 		rpc: async (name, args) => {
+			// Spec 038: `syncNow` pregunta primero en qué notas compartidas está este
+			// aparato. El caño compartido tiene su propia prueba (shared.test.ts); lo
+			// que hace falta acá es que la pregunta se pueda contestar sin comerse
+			// una respuesta de la cola de arriba ni contar como subida cifrada.
+			if (name === 'list_shares') return { data: serverShares, error: null };
+			// Y que lo que se le mande NO se le acepte solo, o la cola compartida
+			// quedaría siempre vacía justo cuando se la cuenta al final.
+			if (name === 'push_shared_rows') {
+				return {
+					data: args.payload.map((row) => ({
+						rejected_table: row.table_name,
+						rejected_id: row.id
+					})),
+					error: null
+				};
+			}
+			if (name !== 'push_records') return { data: [], error: null };
 			sent.push(['records', args.payload]);
 			const reply = replies.shift();
 			if (reply?.error) return { data: null, error: reply.error };
@@ -81,6 +102,7 @@ beforeEach(async () => {
 	sent.length = 0;
 	replies.length = 0;
 	rejects.length = 0;
+	serverShares.length = 0;
 	serverVault.row = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
@@ -383,5 +405,29 @@ describe('when the other device got there first', () => {
 		expect(rowsFor('records')).toHaveLength(1);
 		const stored = await db.table('notes').get(note.id);
 		expect(stored.cloudSeq).toBe(stored.changeSeq);
+	});
+});
+
+// Spec 038. La línea "Todo subido" es el ÚNICO testigo del gate manual de dos
+// aparatos, así que no puede mentirle a un invitado: no tiene permiso de subir
+// ni bóveda, con lo cual el caño cifrado contesta cero — correctamente, es su
+// puerta — y sus tildes sin mandar quedaban invisibles.
+describe('lo que falta subir son dos colas', () => {
+	it('cuenta la compartida aunque no haya permiso de subir', async () => {
+		const note = await createNote({ title: 'ajena' });
+		await setShareRole(note.id, 'member');
+		await appendActivity({
+			blockId: 'b1',
+			noteId: note.id,
+			actor: 'user',
+			action: 'done',
+			text: ''
+		});
+		serverShares.push({ note_id: note.id, role: 'member' });
+		const { syncNow, syncStatus } = await loadUpload();
+
+		await syncNow();
+
+		expect(syncStatus.pending).toBe(1);
 	});
 });

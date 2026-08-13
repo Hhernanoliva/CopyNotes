@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
 import { createNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
+import { appendActivity } from '../storage/activity';
 import { setShareRole, getShareRole, getShareCursor } from '../storage/shares';
 import {
 	listSharedPending,
@@ -49,8 +50,9 @@ describe('qué ofrece el caño compartido', () => {
 		// subir sus notas y nunca creó una bóveda tiene que poder contestar igual.
 		const note = await createNote({ title: 'ajena' });
 		await setShareRole(note.id, 'member');
+		await appendActivity({ blockId: 'b1', noteId: note.id, actor: 'user', action: 'done', text: '' });
 
-		expect(await countSharedPending()).toBeGreaterThanOrEqual(0);
+		expect(await countSharedPending()).toBe(1);
 	});
 });
 

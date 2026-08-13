@@ -17,6 +17,7 @@ import { downloadedThrough } from './download';
 import { countConflicts, recordConflict } from './conflicts';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
+import { getShareCursor, getShareRole, setShareCursor, setShareRole } from '../storage/shares';
 
 const store = new Map();
 globalThis.localStorage = {
@@ -163,6 +164,23 @@ describe('cerrar sesión', () => {
 		for (const name of SYNCED_TABLES) {
 			expect((await db.table(name).get(`x-${name}`)).cloudSeq).toBeUndefined();
 		}
+	});
+
+	// Spec 038: lo compartido es de la cuenta que se va. Sin esto, la próxima
+	// hereda un aparato que cree estar compartiendo notas que no son suyas — y su
+	// caño cifrado saltearía esas notas para siempre.
+	it('se lleva las marcas de compartida y los cursores por nota', async () => {
+		await aConnectedDevice();
+		const note = await createNote({ title: 'compartida' });
+		await setShareRole(note.id, 'owner');
+		await setShareCursor(note.id, 42);
+		await db.table('shareMembers').put({ id: 'm1', name: 'alguien' });
+
+		await forgetCloudAccount();
+
+		expect(await getShareRole(note.id)).toBe(null);
+		expect(await getShareCursor(note.id)).toBe(0);
+		expect(await db.table('shareMembers').count()).toBe(0);
 	});
 });
 
