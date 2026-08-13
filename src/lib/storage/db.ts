@@ -157,6 +157,20 @@ db.version(10)
 		await tx.table('vault').clear();
 	});
 
+// v11 (spec 038): el cachecito de nombres de los miembros de una nota
+// compartida. NO es una tabla sincronizada y NO está en la lista del respaldo, y
+// las dos ausencias son a propósito y por motivos distintos: subirla sería subir
+// un cachecito de nombres ajenos, y meterla en el respaldo sería dejarlos en un
+// archivo en claro. Quedarse afuera de `BACKUP_TABLES` es además lo que la salva
+// de `replaceAllTables`, que vacía exactamente esa lista.
+//
+// `notes.share` y `activity.serverSeq` NO necesitan línea acá: los `stores` de
+// Dexie declaran índices, no columnas, y a ninguno de los dos se lo busca por
+// índice. Se llenan solos en la primera escritura.
+db.version(11).stores({
+	shareMembers: 'id'
+});
+
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
 // added later cannot forget it, and a change sync never sees is a change lost.
