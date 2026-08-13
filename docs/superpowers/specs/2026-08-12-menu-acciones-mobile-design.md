@@ -128,13 +128,22 @@ abajo y sí arriba (`flipIntoView`). No baja ningún teclado porque no hay.
   el del teclado es el `visualViewport`, que son los dos criterios que la app ya
   usa.
 
-## Techo conocido
+## Techo conocido (confirmado en uso, aceptado)
 
-Si el navegador no baja el teclado al quitar el foco, volvemos a la situación de
-hoy: la hoja queda detrás del teclado. Es el único punto que depende de Safari y
-no de nosotros, y no hay forma de comprobarlo con pruebas automáticas — Playwright
-no tiene teclado virtual. Por eso la prueba a mano en el iPhone es obligatoria
-antes de dar esto por cerrado.
+En el iPhone de Hernán el teclado **no siempre baja** al abrir el menú, y ahí el
+menú queda cortado por abajo. Se comprobó que el mecanismo funciona —en una
+página de prueba, enfocar un botón baja el teclado, y la detección da positivo—
+así que la causa queda en algo del propio Safari dentro de la app, sin
+identificar.
+
+**Decisión de Hernán (2026-08-13): se deja así.** Cuando pasa, el menú se
+alcanza deslizando la pantalla, que es una salida aceptable para un caso que no
+siempre ocurre. La guía lo dice con esas palabras en vez de prometer que el
+teclado siempre baja.
+
+No hay forma de comprobar esto con pruebas automáticas: Playwright no tiene
+teclado virtual. Lo que sí quedó probado es todo lo que sí se puede simular
+achicando el `visualViewport`.
 
 ## Pruebas
 

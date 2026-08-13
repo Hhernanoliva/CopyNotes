@@ -2,10 +2,11 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-12 (Nuevo: **en el celular, al abrir el menú de
-los tres puntitos ⋯ el teclado se baja solo**, así las seis opciones entran
-enteras al lado de su renglón, estés donde estés en la nota; ver el tema 15.
-Antes: **la app de escritorio te avisa cuando
+Última actualización: 2026-08-13 (Nuevo: **en el celular, el menú de los tres
+puntitos ⋯ tiene las opciones más grandes para el dedo y ya no se sale de la
+pantalla**; al abrirlo CopyNotes intenta bajar el teclado para hacerle lugar, y
+si tu teléfono no lo baja podés deslizar para llegar a las opciones de abajo;
+ver el tema 15. Antes: **la app de escritorio te avisa cuando
 hay una versión nueva, y no se actualiza sola**. Aparece un puntito sobre el
 engranaje ⚙️ y en **Configuración › Actualizaciones** ves qué trae la nueva y
 —plegado, y funcionando sin internet— qué trajo la que ya tenés; el botón
