@@ -2,7 +2,9 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-13 (Nuevo: **Enter en medio de una línea la parte
+Última actualización: 2026-08-13 (Nuevo: **el separador se puede borrar desde
+su menú de tres puntitos ⋯**, que antes no aparecía y en el celular lo dejaba
+clavado en la nota (temas 2 y 15). Antes: **Enter en medio de una línea la parte
 en dos**, y **en un título el botón de negrita se ve apagado** porque los
 títulos ya vienen en negrita (tema 4): lo que está por delante del cursor se baja al renglón nuevo, con su
 tipo y su formato; ver el tema 3. Antes: **en el celular, el menú de los tres

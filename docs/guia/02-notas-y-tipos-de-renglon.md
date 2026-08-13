@@ -18,7 +18,7 @@ Cada renglón de una nota es un bloque y tiene un tipo:
 - **Viñeta** — punto de lista, estilo Workflowy.
 - **Tarea** — casilla para tildar; al tildarla el texto queda tachado.
 - **Código** — fondo gris y letra de máquina, para pegar código o comandos sin perder líneas ni sangría.
-- **Separador** — línea horizontal para dividir secciones.
+- **Separador** — línea horizontal para dividir secciones. Para sacarlo: tocá la raya y usá **Eliminar** en el menú ⋯ de la derecha (en la computadora también sirve Backspace).
 
 ### Cómo cambiar el tipo
 

@@ -23,6 +23,8 @@ Adentro está todo junto:
 - **Guardar como snippet** y **Etiquetar** — como siempre.
 - **Eliminar** — borra el renglón (y, si tiene sub-renglones, también esos). No te deja borrar el único renglón que queda.
 
+El **separador** (la raya) también tiene su menú ⋯: tocá la raya y aparece a la derecha, con **Mover arriba**, **Mover abajo** y **Eliminar**. Antes no lo tenía, y como en una raya no se puede escribir, en el teléfono no había forma de sacarla una vez puesta. Comentario, snippet y etiqueta no salen ahí: una raya no tiene texto al que engancharlos.
+
 ## Los botones de la barra lateral se ven al tocar
 
 En la barra lateral, los botones de borrar (nota, snippet, carpeta, etiqueta) en la computadora aparecen al pasar el mouse. En el teléfono y la **tablet** se muestran **siempre**, sin necesidad de pasar el dedo ni de seleccionar primero. Antes en tablet quedaban escondidos porque la pantalla es ancha; ahora se ven en cualquier pantalla táctil.

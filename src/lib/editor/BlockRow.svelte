@@ -979,18 +979,20 @@
 				{/if}
 			</button>
 		{/if}
-		{#if block.type !== 'separator'}
-			<BlockActionsMenu
-				{pulseMenu}
-				onAddNote={openNote}
-				onMoveUp={() => onMoveUp(block)}
-				onMoveDown={() => onMoveDown(block)}
-				onDelete={() => onDelete(block)}
-				onSaveSnippet={() => onSaveSnippet(block)}
-				onTag={() => onTag(block)}
-				onDismiss={focusContent}
-			/>
-		{/if}
+		<!-- También en el separador: no es editable, así que en celular no hay
+		     Backspace y este menú es la única forma de borrarlo. Ahí quedan sólo
+		     mover y eliminar (contentActions). -->
+		<BlockActionsMenu
+			{pulseMenu}
+			contentActions={block.type !== 'separator'}
+			onAddNote={openNote}
+			onMoveUp={() => onMoveUp(block)}
+			onMoveDown={() => onMoveDown(block)}
+			onDelete={() => onDelete(block)}
+			onSaveSnippet={() => onSaveSnippet(block)}
+			onTag={() => onTag(block)}
+			onDismiss={focusContent}
+		/>
 	</div>
 
 	{#if slashOpen}
