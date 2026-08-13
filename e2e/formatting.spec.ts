@@ -1061,3 +1061,48 @@ test('la barra de formato queda pegada al texto marcado al scrollear', async ({ 
 	await page.waitForTimeout(300);
 	expect(Math.abs((await gap()) - before)).toBeLessThan(3);
 });
+
+// Enter en medio del renglón parte el texto: lo que está después del cursor se
+// va con el renglón nuevo. La prueba junta las tres garantías que se pueden
+// perder de a una — el formato (negrita), el tipo (Título 2) y dónde queda el
+// cursor — porque las tres viajan en la misma tecla.
+test('Enter en medio del renglón baja lo que sigue al cursor, con su formato y su tipo', async ({
+	page
+}) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: partir renglón');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('hola mundo', { delay: 25 });
+
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.keyboard.press('ControlOrMeta+b');
+	await expect(first.locator('strong')).toHaveText('hola mundo');
+	await page.getByRole('button', { name: 'Título 2' }).click();
+	await expect(first).toHaveClass(/block-editable--h2/);
+
+	// Cursor justo antes de "mundo".
+	await first.click();
+	await page.keyboard.press('End');
+	for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowLeft');
+	await page.keyboard.press('Enter');
+
+	const rows = page.locator('main [role="textbox"]');
+	await expect(rows.nth(0)).toHaveText('hola');
+	await expect(rows.nth(1)).toHaveText('mundo');
+	await expect(rows.nth(1)).toHaveClass(/block-editable--h2/);
+	await expect(rows.nth(1).locator('strong')).toHaveText('mundo');
+
+	// El cursor quedó donde se cortó: al principio del renglón nuevo.
+	await page.keyboard.type('X');
+	await expect(rows.nth(1)).toHaveText('Xmundo');
+
+	await page.waitForTimeout(700); // let autosave flush
+	await page.reload();
+	const restored = page.locator('main [role="textbox"]');
+	await expect(restored.nth(0)).toHaveText('hola');
+	await expect(restored.nth(1)).toHaveText('Xmundo');
+	await expect(restored.nth(1)).toHaveClass(/block-editable--h2/);
+});

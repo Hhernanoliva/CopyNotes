@@ -1092,7 +1092,13 @@
 		return type === 'bullet' || type === 'todo' ? type : 'text';
 	}
 
-	async function handleEnter(block, forcedType) {
+	// `split` (de planSplit, lo arma el renglón porque es quien sabe dónde está
+	// el cursor) parte el texto: la cabeza se queda acá y la cola baja al renglón
+	// nuevo. Sin él, Enter hace lo de siempre: un renglón nuevo vacío.
+	async function handleEnter(block, forcedType, split = null) {
+		// El renglón vacío manda: si el estado dice que no hay texto, Enter es la
+		// salida del anidado o la cancelación del tipo, aunque el navegador haya
+		// dejado un <br> suelto en la caja y el corte crea ver algo que bajar.
 		if (!forcedType && block.content === '') {
 			const action = enterOnEmptyAction(block);
 			if (action === 'outdent') {
@@ -1111,26 +1117,44 @@
 		const plan = planEnter(blocks, block.id);
 		if (!plan) return;
 		recordSnapshot();
+		if (split) {
+			// La cabeza se guarda ya (sin los 500ms del tipeo): el renglón nuevo se
+			// crea en el mismo suspiro y dos escrituras de la misma tecla no pueden
+			// quedar uno a favor y otro en contra.
+			block.content = split.head.content;
+			block.html = split.head.html;
+			await writeBlock(block.id, { content: split.head.content, html: split.head.html });
+		}
 		await applyUpdates(plan.updates);
-		const type = forcedType ?? inheritType(block.type);
+		// Partir un renglón conserva su tipo (un título partido da dos títulos, una
+		// tarea da dos tareas). Sin corte vale la herencia de siempre, donde un
+		// título entrega un texto normal.
+		const type = forcedType ?? (split ? block.type : inheritType(block.type));
 		let created;
 		if (type === 'todo') {
 			// Una tarea nueva nace por la capa: bitácora 'created', actor user.
 			({ block: created } = await createTask({
 				noteId: note.id,
 				parentBlockId: plan.parentBlockId,
-				order: plan.order
+				order: plan.order,
+				content: split?.tail.content ?? '',
+				html: split?.tail.html
 			}));
 		} else {
 			created = await createBlock({
 				noteId: note.id,
 				parentBlockId: plan.parentBlockId,
 				type,
-				order: plan.order
+				order: plan.order,
+				content: split?.tail.content ?? '',
+				html: split?.tail.html
 			});
 		}
 		blocks = [...blocks, created];
 		focusBlockId = created.id;
+		// El cursor va donde estaba el corte: al principio del renglón nuevo, no
+		// al final del texto que acaba de bajar.
+		if (split) focusCaret = 0;
 	}
 
 	// Paste of multiple lines: split into blocks. Reuse the current block for

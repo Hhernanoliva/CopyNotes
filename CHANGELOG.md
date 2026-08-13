@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Enter en medio de una línea la parte en dos: lo que está por delante del cursor se baja al renglón nuevo, con su tipo y su formato
 - Primera versión de escritorio publicada
 - Los agentes se pueden conectar desde Claude Code, OpenCode y Cursor
 - Tus notas se pueden guardar cifradas en la nube, si querés

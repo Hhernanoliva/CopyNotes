@@ -36,6 +36,7 @@
 	import { openExternal } from '$lib/platform';
 	import { planNoteExit } from './note';
 	import { intentFromBeforeInput } from './mobileInput';
+	import { planSplit } from './split';
 	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
 
 	let {
@@ -286,7 +287,7 @@
 			onSlashKey('Enter');
 			return;
 		}
-		onEnter(block);
+		onEnter(block, undefined, caretSplit());
 	}
 
 	// The gray note's own virtual-keyboard path: an Enter that lands the exit
@@ -410,10 +411,27 @@
 		return el.contains(range.startContainer) && el.contains(range.endContainer);
 	}
 
+	// Enter en medio del texto: lo que está después del cursor se va con el
+	// renglón nuevo. Se lee del DOM vivo (no de block.html) porque el guardado
+	// del tipeo tiene medio segundo de retraso y ahí el estado todavía va atrás
+	// de lo que se ve — y porque las posiciones del cursor se cuentan sobre ese
+	// mismo DOM. Devuelve null cuando el cursor está al final, en un bloque de
+	// código o en un separador: ahí Enter sigue haciendo lo de siempre.
+	function caretSplit() {
+		if (!isRich || !el) return null;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		const range = selection.getRangeAt(0);
+		if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) return null;
+		const start = plainTextOffset(el, range.startContainer, range.startOffset);
+		const end = plainTextOffset(el, range.endContainer, range.endOffset);
+		return planSplit(el.innerHTML, start, end);
+	}
+
 	function handleSurfaceKeys(event) {
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			event.preventDefault();
-			onEnter(block);
+			onEnter(block, undefined, caretSplit());
 			return true;
 		}
 		if (event.key === 'Tab') {

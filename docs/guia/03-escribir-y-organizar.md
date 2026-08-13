@@ -6,7 +6,7 @@
 
 | Tecla | Qué hace |
 |---|---|
-| **Enter** | Renglón nuevo, del mismo tipo que el actual |
+| **Enter** | Renglón nuevo. Si el cursor está en **medio** del texto, lo que queda por delante se baja al renglón nuevo (ver abajo) |
 | **Shift+Enter** | Salto de línea **dentro del mismo renglón** (sin crear otro). En bloques de código también hace salto de línea. El salto se conserva al buscar, copiar y exportar |
 | **Ctrl/Cmd+Enter** | Agrega/edita el **comentario** del renglón (ver abajo) |
 | **Tab** | Anida el renglón adentro del de arriba (necesita un renglón hermano arriba; el primero de cada nivel no se puede anidar). **Si tenés texto marcado**, Tab hace otra cosa: te mete en la barra de formato — ver el tema 4 |
@@ -62,6 +62,17 @@ Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…)
 
 - **Copiar un solo renglón:** parado en él, **Cmd/Ctrl+C** lo copia entero (con su tipo y etiquetas). Si en cambio seleccionaste un pedazo de texto adentro del renglón, Cmd/Ctrl+C copia solo ese texto, como siempre.
 - **Copiar varios:** seleccionalos (arrastrando o con Shift+↑/↓) y **Cmd/Ctrl+C**.
+
+### Enter en medio del renglón
+
+Si parás el cursor en el medio de una línea y apretás **Enter**, lo que está **por delante del cursor** se va al renglón nuevo, en vez de quedarse arriba. Es partir la línea en dos.
+
+- El renglón nuevo nace **del mismo tipo**: un título partido da dos títulos, una viñeta da dos viñetas, una tarea da dos tareas (la nueva, sin tildar).
+- El **formato viaja con el texto**: si cortás en medio de una palabra en negrita, las dos mitades quedan en negrita. Igual con colores, enlaces y tamaños.
+- El **cursor queda al principio** del renglón nuevo, justo donde cortaste, listo para seguir escribiendo.
+- Si tenías texto **marcado**, Enter lo borra y parte ahí.
+- Con el cursor **al final** del renglón, Enter hace lo de siempre: un renglón nuevo vacío.
+- **Deshacer** (Ctrl/Cmd+Z) devuelve la línea entera de una sola vez.
 
 ### Doble Enter para salir del anidado
 

@@ -38,7 +38,7 @@ This feature uses the `blocks` model heavily:
 ## User Flows
 
 - User creates a note and starts typing.
-- Pressing Enter creates a new block.
+- Pressing Enter creates a new block; with the caret mid-text it splits the row (see below).
 - Pressing Tab indents a block under the previous valid block.
 - Pressing Shift+Tab outdents a nested block.
 - User creates a todo and checks/unchecks it.
@@ -72,6 +72,32 @@ that crosses levels is a **no-op**, deliberately — indenting each root
 independently would split the group apart (the first row can be un-indentable
 while the second is not), and that is worse than nothing happening. Single-block
 Tab is unchanged and still routes through `BlockRow` → `planIndent`.
+
+## Enter Mid-Text Splits The Row (decided 2026-08-13)
+
+Enter with the caret inside the text moves everything after it to the new
+row, instead of leaving an empty one. Three rules the implementation must
+keep:
+
+- **The new row inherits the row's own type**, not `inheritType`: a split
+  heading gives two headings, a split todo gives two todos (the new one
+  unchecked). `inheritType` still governs Enter at the end of a row, where
+  a heading hands over a plain text row.
+- **Inline formatting survives on both halves.** Both are cut with
+  `removePlainTextRange` (format/sanitize.ts), which edits text nodes in
+  place and keeps the wrappers. A DOM Range is *not* usable here: when both
+  ends land in the same text node, `cloneContents` returns bare text and the
+  bold is lost — which is also a live bug in `sliceHtmlByPlainRange`
+  (drag-to-move, spec 026), left untouched here.
+- **The empty-row rule wins.** `block.content === ''` still routes to the
+  double-Enter escape below, even when the browser left a stray `<br>` in
+  the editable that would look like text worth moving.
+
+A non-collapsed selection is deleted by the same cut. The caret lands at
+offset 0 of the new row, and the whole thing is one undo step. Code blocks
+and separators are exempt (no split). Planned in `planSplit`
+(src/lib/editor/split.ts), measured in `BlockRow` (it owns the caret) and
+applied in `Editor.handleEnter`.
 
 ## Enter On Empty Blocks — Double-Enter Escape (decided 2026-07-10)
 
