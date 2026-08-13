@@ -3,17 +3,27 @@ import { commandsForSelection, selectionCoversBlock } from './safety';
 
 test('single text block: everything enabled', () => {
 	expect(commandsForSelection({ blockType: 'text', spansBlocks: false }))
-		.toEqual({ inline: true, inlineCode: true, blockType: true, link: true, color: true });
+		.toEqual({ inline: true, bold: true, inlineCode: true, blockType: true, link: true, color: true });
+});
+
+// Un título ya se dibuja en negrita, y el navegador se niega a poner una
+// adentro (medido en H1, H2 y H3: no aparece ningún <strong>). El botón
+// tiene que verse apagado en vez de ofrecer algo que no pasa nada.
+test('headings: bold off, the rest of the inline formats on', () => {
+	for (const type of ['heading1', 'heading2', 'heading3']) {
+		expect(commandsForSelection({ blockType: type, spansBlocks: false }))
+			.toEqual({ inline: true, bold: false, inlineCode: true, blockType: true, link: true, color: true });
+	}
 });
 
 test('code block: everything disabled', () => {
 	expect(commandsForSelection({ blockType: 'code', spansBlocks: false }))
-		.toEqual({ inline: false, inlineCode: false, blockType: false, link: false, color: false });
+		.toEqual({ inline: false, bold: false, inlineCode: false, blockType: false, link: false, color: false });
 });
 
 test('multi-block: everything disabled', () => {
 	expect(commandsForSelection({ blockType: 'text', spansBlocks: true }))
-		.toEqual({ inline: false, inlineCode: false, blockType: false, link: false, color: false });
+		.toEqual({ inline: false, bold: false, inlineCode: false, blockType: false, link: false, color: false });
 });
 
 test('the whole row selected covers the block', () => {

@@ -77,6 +77,8 @@ Con el texto seleccionado, tocá el botón en la barra o su atajo de teclado (el
 
 Tocar el mismo botón (o atajo) de nuevo quita ese formato puntual. Se pueden combinar varios a la vez, por ejemplo negrita y cursiva juntas.
 
+**En un título, el botón de negrita se ve apagado.** Los tres títulos ya vienen en negrita, así que no hay nada que agregarles: antes el botón se veía disponible y no pasaba nada al tocarlo. La cursiva, el subrayado, el tachado, el color y los enlaces sí funcionan adentro de un título.
+
 ### Enlaces
 
 Con texto seleccionado, tocá el botón de enlace (ícono de cadena) o el atajo **Ctrl/Cmd+K**: se abre un cuadrito para pegar o escribir la dirección.

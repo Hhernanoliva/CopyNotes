@@ -1106,3 +1106,27 @@ test('Enter en medio del renglón baja lo que sigue al cursor, con su formato y 
 	await expect(restored.nth(1)).toHaveText('Xmundo');
 	await expect(restored.nth(1)).toHaveClass(/block-editable--h2/);
 });
+
+// Un título ya se dibuja grueso y el navegador se niega a poner negrita adentro
+// (medido en H1, H2 y H3). El botón se muestra apagado en vez de ofrecer algo
+// que no pasa nada; el resto de las marcas en línea siguen disponibles.
+test('en un título el botón Negrita se ve apagado, y la cursiva sigue viva', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: peso en titulo');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('Titulo de seccion', { delay: 25 });
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Negrita', exact: true })).toBeEnabled();
+
+	await page.getByRole('button', { name: 'Título 2' }).click();
+	await expect(first).toHaveClass(/block-editable--h2/);
+
+	await first.click();
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Negrita', exact: true })).toBeDisabled();
+	await expect(page.getByRole('button', { name: 'Cursiva', exact: true })).toBeEnabled();
+});

@@ -137,6 +137,15 @@ following the token convention in `CLAUDE.md` (no raw hex in components).
 - User clicks ⋯ → `Quitar formato` or `Copiar texto seleccionado`.
 - Selection spanning multiple blocks → unsafe buttons (block type, inline code)
   are disabled; safe ones remain; no block outside the selection is modified.
+- Selection inside a heading → **Bold is disabled** (decided 2026-08-13). The
+  three heading steps already render at 700/700/600, and the browser refuses to
+  add a `<strong>` there: measured on H1, H2 and H3, `execCommand('bold')`
+  produces no markup at all, so an enabled button promised something that never
+  happened. Italic/underline/strike/code/link/color stay live. `bold` is a field
+  of its own in `commandsForSelection` for this one case. Rejected alternative:
+  repurposing the button to *remove* a heading's weight — that state has no
+  Markdown to travel in, so it would be the first format that only exists inside
+  CopyNotes.
 - User clicks a toolbar button → the text selection is preserved (mousedown
   prevents default so focus/caret stay in the block).
 - User reloads the app → all formatting is intact (persisted in local storage).
