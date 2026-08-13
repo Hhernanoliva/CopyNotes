@@ -15,6 +15,8 @@
 	import { syncStatus } from '$lib/sync/status.svelte';
 	import { updateStatus } from '$lib/desktop/update-status.svelte';
 	import { noteIdsWithConflicts } from '$lib/sync/conflicts';
+	import { sharedNoteIds } from '$lib/storage/shares';
+	import ShareDialog from '$lib/components/ShareDialog.svelte';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
@@ -71,6 +73,11 @@
 	let statusOpen = $state(false);
 	// Las notas con algo esperando decisión, para marcarlas en la lista.
 	let conflictNoteIds = $state(new Set());
+	// Las notas compartidas (spec 038), para marcarlas y para saber qué dice la
+	// pantalla de compartir cuando se abre.
+	let sharedIds = $state(new Set());
+	let shareOpen = $state(false);
+	let shareNoteId = $state(null);
 	// Note-text size multiplier (spec 027). 1 = 100%; applied via --cn-editor-scale.
 	let editorScale = $state(1);
 	let newSnippetOpen = $state(false);
@@ -105,6 +112,15 @@
 	$effect(() => {
 		void syncStatus.conflicts;
 		noteIdsWithConflicts().then((ids) => (conflictNoteIds = ids));
+	});
+
+	// Qué notas están compartidas. Se relee cuando cambia la lista de notas y
+	// cuando la sincronización aplicó algo: la marca puede llegar de otro aparato
+	// (`reconcileShares`) sin que nadie toque nada acá.
+	$effect(() => {
+		void notes.length;
+		void syncStatus.appliedVersion;
+		sharedNoteIds().then((ids) => (sharedIds = ids));
 	});
 
 	// Green is a brief reassurance, not a permanent state: it settles back to the
@@ -593,6 +609,11 @@
 		onClose={() => (sidebarOpen = false)}
 		onBackup={() => (backupOpen = true)}
 		onDeleteNote={deleteNote}
+		sharedNoteIds={sharedIds}
+		onShareNote={(id) => {
+			shareNoteId = id;
+			shareOpen = true;
+		}}
 		onNewSnippet={() => (newSnippetOpen = true)}
 		onToggleFavorite={toggleFavorite}
 		onRenameSnippet={renameSnippetFromSidebar}
@@ -629,6 +650,12 @@
 
 	<BackupDialog bind:open={backupOpen} {currentNoteId} onDataChanged={handleDataChanged} />
 	<NewSnippetDialog bind:open={newSnippetOpen} onCreated={refreshSnippets} />
+	<ShareDialog
+		bind:open={shareOpen}
+		noteId={shareNoteId}
+		noteTitle={notes.find((note) => note.id === shareNoteId)?.title ?? ''}
+		onChanged={() => sharedNoteIds().then((ids) => (sharedIds = ids))}
+	/>
 	<SearchDialog bind:open={searchOpen} initialQuery={searchSeed} onOpenNote={selectNote} />
 	<HelpDialog bind:open={helpOpen} />
 	<SettingsDialog

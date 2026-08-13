@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Ahora podés compartir una nota: te avisa antes que mientras esté compartida sale de la bóveda y deja de estar cifrada, y vuelve sola cuando cerrás la compartición
 - El separador (la raya) ahora tiene su menú ⋯ con Mover y Eliminar: en el celular no había forma de borrarlo una vez puesto
 - En un título, el botón de negrita se ve apagado: los títulos ya vienen en negrita y antes el botón no hacía nada
 - Enter en medio de una línea la parte en dos: lo que está por delante del cursor se baja al renglón nuevo, con su tipo y su formato

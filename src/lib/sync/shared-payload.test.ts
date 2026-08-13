@@ -25,6 +25,10 @@ describe('lo que viaja', () => {
 		});
 	});
 
+	// La comparación es del objeto ENTERO y no campo por campo a propósito: así
+	// un campo agregado a la fila más adelante rompe esta prueba en vez de
+	// viajar callado. `order` (la estructura de la nota) sí viaja; `collapsed`
+	// (cómo la mira quien lee), `note`, `createdBy` y `updatedAt` no.
 	it('manda la estructura interna del renglón y no cómo lo mira quien lee', () => {
 		const payload = toSharedPayload('blocks', {
 			id: 'b1',
@@ -43,11 +47,18 @@ describe('lo que viaja', () => {
 			updatedAt: '2026-08-13T00:00:00.000Z'
 		});
 
-		expect(payload.order).toBe(2);
-		expect(payload.collapsed).toBeUndefined();
-		expect(payload.note).toBeUndefined();
-		expect(payload.createdBy).toBeUndefined();
-		expect(payload.updatedAt).toBeUndefined();
+		expect(payload).toEqual({
+			id: 'b1',
+			noteId: 'n1',
+			parentBlockId: null,
+			order: 2,
+			type: 'todo',
+			content: 'Llamar',
+			html: '<strong>Llamar</strong>',
+			checked: false,
+			dueDate: '2026-08-20',
+			deletedAt: null
+		});
 	});
 });
 

@@ -2,7 +2,9 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-13 (Nuevo: **el separador se puede borrar desde
+Última actualización: 2026-08-13 (Nuevo: **compartir una nota** con otra
+persona, con el aviso de que mientras esté compartida sale de la bóveda y deja
+de estar cifrada (tema 20). Antes: **el separador se puede borrar desde
 su menú de tres puntitos ⋯**, que antes no aparecía y en el celular lo dejaba
 clavado en la nota (temas 2 y 15). Antes: **Enter en medio de una línea la parte
 en dos**, y **en un título el botón de negrita se ve apagado** porque los
@@ -59,6 +61,7 @@ dispositivo — antes se ofrecía siempre y no llevaba a ningún lado; ver el te
 17. [Agentes](guia/17-agentes.md) — hacer una nota visible para agentes, bitácora, pedir rehacer, conectar por MCP, cómo conviven con la nube (beta, escritorio)
 18. [La nube](guia/18-nube.md) — crear cuenta, sumar un aparato, dar el permiso, qué se sube y qué ve el servidor (beta)
 19. [Actualizaciones](guia/19-actualizaciones.md) — el puntito del engranaje, qué trae la versión nueva y qué trajo la tuya, y qué pasa al instalar (solo app de escritorio)
+20. [Compartir una nota](guia/20-compartir-una-nota.md) — sacar una nota de la bóveda para que otra persona la lea, qué viaja y qué se queda, cómo cerrarla
 
 ## Regla para el equipo
 
