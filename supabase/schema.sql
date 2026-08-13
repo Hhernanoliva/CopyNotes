@@ -220,6 +220,12 @@ begin
 	delete from public.records where owner_id = auth.uid();
 	delete from public.pairings where owner_id = auth.uid();
 	delete from public.vaults where owner_id = auth.uid();
+	-- Spec 038: vaciar la cuenta cierra también lo compartido. Las que soy dueño
+	-- se van enteras (la cascada de `shares` se lleva filas, miembros e
+	-- invitaciones); de las ajenas me borro yo como miembro, o el aparato que
+	-- acaba de borrar todo se volvería a bajar la nota de otro.
+	delete from public.shares where owner_id = auth.uid();
+	delete from public.share_members where member_id = auth.uid();
 end;
 $$;
 
@@ -316,6 +322,327 @@ create table if not exists public.pairings (
 );
 
 -- ---------------------------------------------------------------------------
+-- Compartir una nota (spec 038) — el segundo caño
+-- ---------------------------------------------------------------------------
+--
+-- `records` guarda bultos que el servidor no puede abrir. Estas tablas guardan
+-- una nota EN CLARO, porque la otra persona tiene que poder leerla y no tiene
+-- la llave de la bóveda de quien la comparte. Es una baja de privacidad
+-- deliberada, avisada en pantalla en el momento de compartir, y es el precio de
+-- la función entera (spec 038, "Privacy").
+--
+-- La regla que sostiene todo lo demás: UNA NOTA VIAJA POR UN SOLO CAÑO. Si una
+-- nota está acá, no está en `records`. El cliente lo garantiza de su lado
+-- (src/lib/sync/pending.ts) y la mudanza borra el caño viejo como último paso.
+
+create sequence if not exists public.share_server_seq;
+
+create table if not exists public.shares (
+	note_id text primary key,
+	owner_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+	created_at timestamptz not null default now()
+);
+
+create table if not exists public.share_members (
+	note_id text not null references public.shares (note_id) on delete cascade,
+	member_id uuid not null references auth.users (id) on delete cascade,
+	-- 'owner' no se guarda acá: el dueño está en `shares.owner_id`. Esta tabla
+	-- es sólo de invitados, y el rol existe para cuando haya un segundo.
+	role text not null default 'member' check (role in ('member')),
+	joined_at timestamptz not null default now(),
+	primary key (note_id, member_id)
+);
+
+create table if not exists public.share_invites (
+	token text primary key,
+	note_id text not null references public.shares (note_id) on delete cascade,
+	owner_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+	expires_at timestamptz not null
+);
+
+-- Una fila de la nota, con SÓLO los campos de la lista blanca adentro de
+-- `payload` (src/lib/sync/shared-payload.ts). `change_seq` va como columna, no
+-- adentro del payload, igual que en `records`: es el sello de versión, no
+-- contenido. `server_seq` hace dos trabajos — es el cursor de bajada Y, desde la
+-- parte B, el orden que decide un tilde — así que `pull_shared_rows` lo
+-- DEVUELVE, no sólo lo consume.
+create table if not exists public.share_rows (
+	note_id text not null references public.shares (note_id) on delete cascade,
+	table_name text not null check (table_name in ('notes', 'blocks', 'activity')),
+	id text not null,
+	change_seq bigint not null,
+	deleted boolean not null default false,
+	payload jsonb not null,
+	author_id uuid not null references auth.users (id) on delete cascade,
+	server_seq bigint not null default nextval('public.share_server_seq'),
+	updated_at timestamptz not null default now(),
+	primary key (note_id, table_name, id)
+);
+
+create or replace function public.stamp_share_row()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+	new.server_seq := nextval('public.share_server_seq');
+	new.updated_at := now();
+	return new;
+end;
+$$;
+
+drop trigger if exists stamp_share_row on public.share_rows;
+
+create trigger stamp_share_row
+before insert or update on public.share_rows
+for each row execute function public.stamp_share_row();
+
+create index if not exists share_rows_note_server_seq on public.share_rows (note_id, server_seq);
+create index if not exists share_members_member on public.share_members (member_id);
+
+-- ¿Esta cuenta puede ver esta nota? Una sola definición, usada por todas las
+-- funciones de abajo: si se escribiera cinco veces, la quinta se olvidaría.
+create or replace function public.is_share_participant(p_note_id text)
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+	select exists (select 1 from public.shares where note_id = p_note_id and owner_id = auth.uid())
+	    or exists (select 1 from public.share_members where note_id = p_note_id and member_id = auth.uid());
+$$;
+
+create or replace function public.open_share(p_note_id text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'open_share necesita una sesión iniciada';
+	end if;
+	-- `on conflict do nothing` y no un error: compartir dos veces la misma nota
+	-- —dos aparatos del mismo dueño, o un reintento después de un corte— es la
+	-- misma intención, no un problema.
+	insert into public.shares (note_id, owner_id) values (p_note_id, auth.uid())
+	on conflict (note_id) do nothing;
+	-- Salvo que la nota ya sea de OTRO. Ahí sí es un error, y ruidoso.
+	if not exists (select 1 from public.shares where note_id = p_note_id and owner_id = auth.uid()) then
+		raise exception 'esa nota ya está compartida por otra cuenta';
+	end if;
+end;
+$$;
+
+create or replace function public.close_share(p_note_id text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'close_share necesita una sesión iniciada';
+	end if;
+	-- Sólo el dueño cierra. El `delete` en cascada de `shares` se lleva las
+	-- filas, los miembros y las invitaciones; están declaradas así arriba.
+	delete from public.shares where note_id = p_note_id and owner_id = auth.uid();
+end;
+$$;
+
+-- La mitad que faltaba de la mudanza (spec 038 §2). `records` da `select` y nada
+-- más, y sus filas son bultos cerrados con el `noteId` ADENTRO del sobre, así
+-- que el servidor no puede contestar "cuáles son las filas de la nota X". El
+-- cliente sí, y por eso manda la lista.
+--
+-- Borra filas de la cuenta de quien llama y nada más. `reset_cloud()` sigue
+-- siendo la única forma de vaciar una cuenta entera.
+create or replace function public.delete_records(payload jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'delete_records necesita una sesión iniciada';
+	end if;
+	delete from public.records as target
+	using jsonb_to_recordset(payload) as fields (table_name text, id text)
+	where target.owner_id = auth.uid()
+	  and target.table_name = fields.table_name
+	  and target.id = fields.id;
+end;
+$$;
+
+-- El control de versiones es el mismo de `push_records`: cada escritura declara
+-- sobre qué versión se para. Lo que se agrega es el rol.
+create or replace function public.push_shared_rows(p_note_id text, payload jsonb)
+returns table (rejected_table text, rejected_id text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+	row_in record;
+	is_owner boolean;
+	written int;
+	stored_actor text;
+begin
+	if auth.uid() is null then
+		raise exception 'push_shared_rows necesita una sesión iniciada';
+	end if;
+	select exists (select 1 from public.shares where note_id = p_note_id and owner_id = auth.uid())
+	into is_owner;
+	if not is_owner and not public.is_share_participant(p_note_id) then
+		raise exception 'no sos parte de esa nota';
+	end if;
+
+	for row_in in
+		select *
+		from jsonb_to_recordset(payload) as fields (
+			table_name text,
+			id text,
+			change_seq bigint,
+			base_seq bigint,
+			deleted boolean,
+			payload jsonb
+		)
+	loop
+		written := 0;
+
+		-- El invitado sólo agrega bitácora, y sólo como alta. La clave primaria ya
+		-- contesta "¿esta fila existe?", así que un `update` de un invitado no se
+		-- fusiona: se rechaza. Y la firma no se le cree — se le pisa.
+		if not is_owner then
+			if row_in.table_name <> 'activity' then
+				rejected_table := row_in.table_name;
+				rejected_id := row_in.id;
+				return next;
+				continue;
+			end if;
+			stored_actor := 'member:' || auth.uid()::text;
+			insert into public.share_rows (note_id, table_name, id, change_seq, deleted, payload, author_id)
+			values (
+				p_note_id,
+				'activity',
+				row_in.id,
+				row_in.change_seq,
+				coalesce(row_in.deleted, false),
+				jsonb_set(row_in.payload, '{actor}', to_jsonb(stored_actor)),
+				auth.uid()
+			)
+			on conflict (note_id, table_name, id) do nothing;
+			get diagnostics written = row_count;
+			if written = 0 then
+				rejected_table := row_in.table_name;
+				rejected_id := row_in.id;
+				return next;
+			end if;
+			continue;
+		end if;
+
+		if row_in.base_seq is not null then
+			update public.share_rows as target
+			   set change_seq = row_in.change_seq,
+			       deleted = coalesce(row_in.deleted, false),
+			       payload = row_in.payload,
+			       author_id = auth.uid()
+			 where target.note_id = p_note_id
+			   and target.table_name = row_in.table_name
+			   and target.id = row_in.id
+			   and target.change_seq = row_in.base_seq;
+			get diagnostics written = row_count;
+		end if;
+
+		if written = 0 then
+			insert into public.share_rows (note_id, table_name, id, change_seq, deleted, payload, author_id)
+			values (
+				p_note_id,
+				row_in.table_name,
+				row_in.id,
+				row_in.change_seq,
+				coalesce(row_in.deleted, false),
+				row_in.payload,
+				auth.uid()
+			)
+			on conflict (note_id, table_name, id) do nothing;
+			get diagnostics written = row_count;
+		end if;
+
+		if written = 0 then
+			rejected_table := row_in.table_name;
+			rejected_id := row_in.id;
+			return next;
+		end if;
+	end loop;
+end;
+$$;
+
+create or replace function public.pull_shared_rows(p_note_id text, p_cursor bigint)
+returns table (
+	table_name text,
+	id text,
+	change_seq bigint,
+	deleted boolean,
+	payload jsonb,
+	author_id uuid,
+	server_seq bigint
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if not public.is_share_participant(p_note_id) then
+		raise exception 'no sos parte de esa nota';
+	end if;
+	return query
+	select r.table_name, r.id, r.change_seq, r.deleted, r.payload, r.author_id, r.server_seq
+	  from public.share_rows as r
+	 where r.note_id = p_note_id
+	   and r.server_seq > p_cursor
+	 order by r.server_seq asc
+	 limit 200;
+end;
+$$;
+
+-- "¿En qué estoy?" Sin esto, dos flujos de la spec no tienen por dónde empezar:
+-- un aparato que nunca vio la nota no la tiene en ningún lado (su caño cifrado
+-- la saltea por la regla del caño único), y después de restaurar un respaldo la
+-- marca `share` no está a propósito.
+create or replace function public.list_shares()
+returns table (note_id text, role text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'list_shares necesita una sesión iniciada';
+	end if;
+	return query
+	select s.note_id, 'owner'::text from public.shares as s where s.owner_id = auth.uid()
+	union all
+	select m.note_id, 'member'::text from public.share_members as m where m.member_id = auth.uid();
+end;
+$$;
+
+revoke all on function public.open_share(text) from public;
+revoke all on function public.close_share(text) from public;
+revoke all on function public.delete_records(jsonb) from public;
+revoke all on function public.push_shared_rows(text, jsonb) from public;
+revoke all on function public.pull_shared_rows(text, bigint) from public;
+revoke all on function public.list_shares() from public;
+grant execute on function public.open_share(text) to authenticated;
+grant execute on function public.close_share(text) to authenticated;
+grant execute on function public.delete_records(jsonb) to authenticated;
+grant execute on function public.push_shared_rows(text, jsonb) to authenticated;
+grant execute on function public.pull_shared_rows(text, bigint) to authenticated;
+grant execute on function public.list_shares() to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Row-Level Security — the lock
 -- ---------------------------------------------------------------------------
 --
@@ -392,6 +719,34 @@ create policy drop_own_pairing on public.pairings
 for delete
 to authenticated
 using (owner_id = auth.uid());
+
+-- Lo compartido (spec 038). Mismo criterio que arriba: leer sí, escribir NUNCA
+-- en directo. Toda escritura entra por una función, como en `records`. Sin
+-- política de insert/update/delete, no hay ninguna.
+
+alter table public.shares enable row level security;
+alter table public.share_members enable row level security;
+alter table public.share_invites enable row level security;
+alter table public.share_rows enable row level security;
+
+drop policy if exists read_own_shares on public.shares;
+drop policy if exists read_share_members on public.share_members;
+drop policy if exists read_share_rows on public.share_rows;
+
+create policy read_own_shares on public.shares
+	for select to authenticated
+	using (owner_id = auth.uid() or public.is_share_participant(note_id));
+
+create policy read_share_members on public.share_members
+	for select to authenticated
+	using (public.is_share_participant(note_id));
+
+create policy read_share_rows on public.share_rows
+	for select to authenticated
+	using (public.is_share_participant(note_id));
+
+-- Las invitaciones no se leen por tabla: se canjean por función con el token.
+-- Sin política de lectura, listarlas devuelve vacío para todo el mundo.
 
 -- ---------------------------------------------------------------------------
 -- The live channel (spec 030 phase 3)
