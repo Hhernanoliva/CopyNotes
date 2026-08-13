@@ -60,6 +60,29 @@ prefix, because the registry is a closed map and three other places walk it
 tick is decided by arrival at the server (§5), and a shared note's bitácora
 starts blank (§3).
 
+Reviewed a fifth time on 2026-08-13, and this round has a theme of its own:
+**the spec describes almost everything from the owner's device, and the guest's
+device is a second implementation of the app.** Five of the eight findings are on
+the guest's side, and that side has no witness — the owner watches their own note
+every day, the guest is a person who is not Hernán and who will not report a bug,
+they will simply stop answering the ticket. In order of cost — the guest has to
+write the `notes` row (§3 gives them their own organisation) and that row can
+leave through neither pipe, which is §5's jam on a different row and triggered by
+an ordinary sidebar drag (§3c); the shared pipe is a new untrusted-input boundary
+and nothing sanitizes an arriving row, while `blocks.html` is an innerHTML sink
+(§3b); `reset_cloud()` knows nothing about shares, so "empezar de nuevo" leaves a
+note published on the server and back in the encrypted pipe (server functions,
+flow 9); `list_shares()` has to run *before* the encrypted upload of a session,
+which is the opposite of the order `upload.ts` argues for, and the window is
+wider than the fourth pass thought (§2); a note arrives with no `sortOrder`,
+`folderId` or `agentVisible` and lands at the bottom of the sidebar for ever
+(§3); a third place renders `actor` and it is outside `src/` (§6); criterion 15
+promised a papelera the product does not have (§7); and the whole spec adds two
+row fields and a table without ever naming a Dexie version (Local). None of the
+eight is new function. Criterion 16 now names the guest's organisation actions
+explicitly, because with the rollout as it stands the only guest until the domain
+lands is Hernán's own second account.
+
 ## En criollo (resumen para Hernán)
 
 Mandarle una nota a otra persona como quien manda un ticket: vos escribís, la
@@ -104,7 +127,10 @@ otra persona responde.
   la sincronización que ya anda bien.
 - **Si borrás la nota, se le borra también al invitado.** Quitarle el acceso NO
   le saca la copia; borrar la nota sí. Son dos botones distintos y la pantalla
-  tiene que decir cuál hace cuál.
+  tiene que decir cuál hace cuál. Y "se le borra" es literal: CopyNotes no tiene
+  papelera, así que la nota le desaparece de la lista sin aviso y sin vuelta
+  atrás. Si eso se siente brusco, lo que falta es una papelera para todo el
+  producto, no una excepción para compartir.
 - **La nota compartida no entra en el respaldo del invitado** mientras esté
   compartida: la nota es tuya y su app la vuelve a bajar del servidor. Cuando
   cerrás la compartición, la copia le queda y desde ahí sí es una nota suya como
@@ -247,6 +273,24 @@ Concretely:
   closes the window, and its reconciliation must **delete the stray `records`
   rows** rather than assume there are none. Acceptance criterion 7 is worded to
   say exactly that, instead of promising something two devices cannot guarantee.
+- **And that window is wider than an edit, so `list_shares()` runs BEFORE the
+  encrypted upload of a session.** The point above says "an edit made on B before
+  it next calls `list_shares()`", which reads as a rare race. It is not:
+  `notes.share` is *absent* on a restored device (it is not backup-safe, see
+  Local), on a device that has never seen the share (criterion 9), and after any
+  sign-out — and `resetCloudState` (`sync/leave.ts`) clears `cloudSeq` on every
+  row of every synced table, which makes `changedSinceCloud` true for all of
+  them. On those devices the whole note is pending **with nobody editing
+  anything**, and the first upload after consent returns sends it up `records`.
+  So the reconciliation is an ordering constraint on `syncNow`, not a background
+  job: it runs before `uploadBatch`, at least once per session. `sync/upload.ts`
+  documents the opposite order in a comment ("Upload first, so my own records
+  come back as an echo"); that reasoning is about the encrypted pipe and stays
+  true — this is a step in front of it, and the comment has to say so or the next
+  reader will move it back. Note also that `syncNow`'s whole upload half lives
+  inside `if (gate)`, `lastUploadAt` and `nudgePeers()` included: whatever the
+  shared pipe needs at upload time is lifted OUT of that block, never added
+  inside it.
 
 This rule applies on the guest's device too, mirrored: a shared note on the
 guest's machine is an ordinary local row that their own vault would happily
@@ -328,7 +372,19 @@ What deliberately stays home, and what breaks if it travels:
 - **`createdAt`** — not on either allow-list, so the guest's copy has none. The
   guest's side fills it in locally when the note lands, the same way any locally
   created row gets one. "When did this note come into existence" is not a fact
-  about the note, it is a fact about a device's copy of it. **`blocks.updatedAt`**
+  about the note, it is a fact about a device's copy of it. **And it is not the
+  only one**: `createNote` (`storage/notes.ts`) mints four fields no arrival can
+  carry — `createdAt`, `sortOrder`, `folderId` and `agentVisible` — and creation
+  is the only place in the app that mints them. A note arriving through the
+  shared pipe never goes through it. `sortOrder` is the one that shows: a row
+  without it sorts **last** (`organize/plans.ts`, `sortBySidebarOrder`) and stays
+  last for ever, because `normalizeSidebarOrder` only runs after a backup
+  restore, never after a download. So the shared download's *insert* case (there
+  is no local row to merge onto) fills all four with exactly what `createNote`
+  would have given them: `topSortOrder('note')`, `folderId: null`,
+  `agentVisible: false`, `createdAt: now()`. This is the insert case only — an
+  arrival onto an existing row must not touch them (§3b, criterion 13).
+  **`blocks.updatedAt`**
   is off the list for the same reason, while `notes.updatedAt` is on it — that
   asymmetry is deliberate and this is where it is written down: the note's
   timestamp is what both people see ("modificada hace un rato") and it has to
@@ -407,6 +463,58 @@ in place of them:
 
 The rule to carry: before reusing anything from `sync/` on the shared pipe, ask
 what it does with a field that is simply absent.
+
+**And the merge write cleans before it merges, because this is a new trust
+boundary.** `format/sanitize.ts` carries a written contract naming every write
+boundary that must pass through it: "editing, internal paste, backup import,
+snippet insertion via format/ingest.ts". The cloud download is deliberately
+absent from that list, and it was right to be: in the encrypted pipe the payload
+was written by one of *your own* devices, with *your own* key, and was already
+sanitized on the way in there. A shared payload is markup written by **another
+account's client**, and `blocks.html` is on the allow-list and is an innerHTML
+sink (`editor/BlockRow.svelte`, and the warning already written in
+`blocks/selection.ts`). The rule this project applies to a backup file —
+"un archivo es sospechoso lo escriba quien lo escriba" (`export-import/schema.ts`)
+— applies here word for word, and being invited by somebody is not a reason to
+run their markup. `blocks.type` and `blocks.dueDate` ride along for the same
+treatment: the gate normalizes both (an unknown type falls back to `text`, an
+impossible date to null), and both reach the editor and the Agenda unchecked
+otherwise. So the merge write is `{ ...localRow, ...clean(allowListedFields) }`,
+where `clean` is the existing gate applied to the projection — the same shape as
+`sanitizeBackupData`, not a second copy of the allow-list. The guest's own
+writes need no such pass: `activity.text` is plain text and is rendered escaped.
+
+### 3c. The guest's `notes` row is written locally and can leave through no pipe
+
+§3 hands each side its own private organisation, which means **the guest writes
+the `notes` row**: they file the note in a folder of theirs, they move it in
+their sidebar, and §4 says out loud that they may switch their own agent's
+visibility on. All three go through `updateNote` / `applySidebarUpdates`, and
+`db.ts`'s stamping hook raises `changeSeq` on every one of them.
+
+That row cannot go anywhere. The encrypted pipe skips it (§2, mirrored on the
+guest's device) and the shared pipe refuses it by role (§4: a member may write
+`activity` and nothing else). It is pending for ever — and if the shared
+uploader's cursor has the shape `pending.ts`'s does, one unsendable row **drags
+that cursor back on every pass**, which stops the guest's ticks and comments from
+reaching the owner at all. The symptom is not an error on screen: it is a person
+who answered the ticket and whose answers never arrived. Their own notes are
+unaffected; those travel by their own encrypted pipe, which never sees this row.
+
+This is §5's jam, on a different row, reached by dragging something in a sidebar.
+It takes §5's fix, and the same one twice: **on a note where this account is a
+member, an organisation write goes in with the `fromCloud` flag** — the value
+lands, the screen updates, the counter does not move. Two seams rather than one,
+because organisation is written from two places: `updateNote` (folder, agent
+visibility) and `applySidebarUpdates` (`storage/organize.ts`), which writes many
+rows inside one transaction and is handed updates that do not say which note they
+belong to. As in §5, "is this account a member" is resolved by the caller before
+the transaction opens and passed in.
+
+The owner has no equivalent problem and it is worth saying why, so nobody
+"fixes" both sides: the owner's `notes` row does travel — its allow-listed half
+does — so a folder change on their side merely re-sends a payload identical to
+the last one. Wasteful, harmless, and it keeps their cursor moving.
 
 ### 4. Two roles, and the guest's is "append only"
 
@@ -573,6 +681,18 @@ owner reads "Agente: llamá al contador" and never learns Juan said it. The acto
 has to travel through that grouping and the panel has to render the name. Free
 placement, not a free feature.
 
+**There is a third place, and it is outside `src/`.** `mcp/lib/tools.js` renders
+a task's history for the agent with the same two-way split
+(`entry.actor === 'user' ? 'usuario' : 'agente'`), so a member's comment reaches
+the owner's agent labelled as the agent's own earlier note — the one place where
+something *acts* on the label instead of displaying it, and an LLM reading its
+own name on somebody else's instruction is a worse outcome than a wrong word on a
+screen. It sits in the `mcp/` workspace, which is why two passes over `src/`
+missed it. Beside it, `bridge/export.ts` ships whole `activity` rows into
+`export.json`, so the agent receives a bare `member:<uuid>`: the display-name
+cache is a Dexie table the MCP server cannot read, so the **name has to be
+resolved on the way into the export**, not looked up by the reader.
+
 ### 7. Invitation by link, access by account
 
 - The owner generates an invite link with a random token and an expiry.
@@ -585,7 +705,13 @@ placement, not a free feature.
   other person's device**, and the UI says so in those words before confirming.
 - **Deleting the note is a different act, and that one does reach them.**
   `deletedAt` is on the allow-list of all three tables, so a soft delete travels
-  like any other version and the note lands in the guest's trash. Decided with
+  like any other version and the note **disappears from the guest's list**. Not
+  "lands in their papelera": CopyNotes has no papelera. `softDeleteNote` hides
+  the row and there is no screen anywhere that lists or restores hidden ones, so
+  for the guest the note vanishes with no notice and no way back. That is the
+  honest description of what ships, it is what the two sentences on screen have
+  to be written against, and if it is ever felt to be too abrupt the answer is a
+  papelera for the whole product, not a special case for sharing. Decided with
   Hernán on 2026-08-12: it is what "I deleted it" is expected to mean, and it
   costs nothing — leaving it out would mean taking `notes.deletedAt` off the
   allow-list while `blocks.deletedAt` stays on it (deleting a line inside the
@@ -729,6 +855,19 @@ the only defence left (the same warning `push_records` carries):
   filter is explicit inside, like everywhere else here. It deletes rows of the
   caller's own account and can do nothing else — `reset_cloud()` stays the only
   way to empty an account.
+- **`reset_cloud()` — existing, and it has to learn about shares.** It is the
+  other door out (spec 035, "empezar de nuevo la nube"), it deletes `records`,
+  `pairings` and `vaults` for the caller, and it goes through the same
+  `resetCloudState` as signing out — which flow 9 makes clear the `share` marks.
+  Left as it is, the result is the loudest possible breach of §2: the server
+  still holds the note in `share_rows` with its members attached, the device no
+  longer believes it is shared, and the note goes back up the encrypted pipe.
+  One note, two pipes, permanently. So `reset_cloud()` also deletes the caller's
+  `shares`, `share_rows`, `share_members` and `share_invites` — closing every
+  share they own, which is what "empezar de nuevo" means. Their *memberships* in
+  other people's notes are deleted too (the row in `share_members` where they are
+  the member): the account is being emptied, and a membership left behind would
+  re-download somebody else's note onto a device that just erased everything.
 - `create_share_invite(p_note_id)` / `accept_share_invite(p_token)`.
 - `remove_member(p_note_id, p_member_id)` / `leave_share(p_note_id)`.
 - `push_shared_rows(p_note_id, payload)` — same `base_seq` version control as
@@ -833,6 +972,18 @@ is too long; nothing else in this spec depends on it.
 - **`activity.actor`** — gains the `'member:<uuid>'` form.
 - **A non-synced table for member display names**, filled by the read call.
 - **A non-synced per-note "highest activity seq shown"** for the news counter.
+- **All of that is a Dexie version, and the spec had not named one.** Two row
+  fields (`notes.share`, `activity.serverSeq`) need no schema line — Dexie's
+  `stores()` strings declare indexes, not columns — but the display-name table
+  does: `db.version(11).stores({ ... })`, with its comment, like every version
+  before it (`storage/db.ts`), and `db.migrations.test.ts` is the guard that
+  notices when a version arrives without one. Three lists must then NOT be
+  touched, and the reason is different in each: `SYNCED_TABLES` (it would upload
+  a cache of other people's names), `BACKUP_TABLES` (it would put them in a
+  plaintext file, and `replaceAllTables` clears exactly that list — staying off
+  it is also what makes the cache survive a restore, which is what we want), and
+  the server's own `check (table_name in (...))` on `records`, which is tied to
+  `SYNCED_TABLES` by a comment and would start refusing writes if the two drift.
 
 ## User flows
 
@@ -857,7 +1008,16 @@ is too long; nothing else in this spec depends on it.
    server, because a merge may have given the note a new id.
 9. **Sign out.** `sync/leave.ts` must also drop membership state, the per-note
    cursors and the `share` marks, exactly as it already drops the key, the
-   consent and both cursors — or the next account inherits them.
+   consent and both cursors — or the next account inherits them. **Clearing the
+   marks is what makes step 4 of §2 mandatory**: from that moment the device no
+   longer knows the note is shared, so `list_shares()` has to run before the next
+   upload or the note goes up the encrypted pipe on its own.
+10. **Empezar de nuevo la nube.** `resetCloud()` runs the same local cleanup
+    through a different door, and its server half is `reset_cloud()`, which must
+    close the caller's shares and drop their memberships (see the server
+    functions). Sign-out leaves the server untouched; this one empties it, and
+    the two must not be treated as the same flow because the local half is
+    identical.
 
 ## Privacy
 
@@ -915,11 +1075,19 @@ The product promise changes shape and must be restated everywhere it appears:
     same.
 14. A backup taken on the **guest's** device does not contain the shared note
     while the share is open, and does contain it once the share has closed.
-15. The owner deletes a shared note: it reaches the guest's trash. The owner
-    removes the guest's access instead: the guest's copy stays.
+15. The owner deletes a shared note: it disappears from the guest's list (there
+    is no papelera to land in — §7). The owner removes the guest's access
+    instead: the guest's copy stays.
 16. **Manual gate, two real accounts on two machines** — the same discipline as
     the two-device gate: a note shared, ticked, commented, "Listo", news counter
-    seen, access removed. Automated tests do not close this one.
+    seen, access removed. Automated tests do not close this one. **And it is run
+    from the guest's side as well as the owner's**, because until the domain
+    lands (Rollout) the only guest is Hernán's second account and nobody else
+    will ever report what breaks there: on the guest's machine, file the shared
+    note into a folder of theirs, drag it in their sidebar, switch their agent's
+    visibility on, then confirm that a tick made afterwards still reaches the
+    owner and that "sin subir" returns to zero. That sequence is §3c, and it is
+    invisible from the owner's screen.
 17. A backup taken after a "Listo" **validates and restores**, the note-level
     entry included — not rejected as a whole file, and not silently dropped.
 18. The guest's copy carries no bitácora entry from before the share opened, and
@@ -929,6 +1097,28 @@ The product promise changes shape and must be restated everywhere it appears:
     uploaded yet counts as the newest on the device that wrote it.
 20. A guest with no upload consent and no vault sees an honest count of what is
     still unsent — never "Todo subido" over a queue.
+21. The guest files the shared note in a folder, moves it in their sidebar and
+    switches their agent's visibility on. Each one shows on their screen, none
+    of them travels, **and the unsent count returns to zero** — the note's row
+    never becomes a permanently pending upload, and the shared pipe keeps
+    handing up their ticks afterwards (§3c).
+22. A block arriving through the shared pipe with markup outside the inline
+    allow-list, an unknown `type` and an impossible `dueDate` lands cleaned:
+    the text survives, the markup does not reach the DOM, the type falls back and
+    the date is dropped (§3b).
+23. `reset_cloud()` closes the caller's shares and drops their memberships, and
+    the note is afterwards in the encrypted pipe **and nowhere else** — not still
+    published in `share_rows` while the device syncs it as a private note.
+24. A device whose `share` marks are absent — freshly restored from a backup, or
+    just re-consented after a sign-out — does not upload the shared note to
+    `records` on its first pass. `list_shares()` runs before the upload, not
+    after it (§2).
+25. A note arriving through the shared pipe for the first time gets a sidebar
+    position, no folder, its agent visibility off and a local `createdAt` — it
+    does not sit at the bottom of the list for ever (§3).
+26. A member's comment reaches the owner's **agent** attributed to that member by
+    name — through `get_task_history` and through `export.json`, not only on
+    screen (§6).
 
 ## Minimum tests
 
@@ -994,11 +1184,34 @@ Vitest:
   has one.
 - The unsent count covers both pipes: a member with no consent and no vault and
   three unsent `activity` rows reports three, not zero.
+- **The member's organisation writes do not queue (§3c)**: on a note this account
+  is a member of, a folder change, a sidebar move and an agent-visibility switch
+  each land on the row and leave `changeSeq` untouched, so `countPendingUploads`
+  is unchanged by all three — and a tick made afterwards is still offered by the
+  shared uploader. Two tests, one per write seam (`updateNote` and
+  `applySidebarUpdates`), because they are two different call shapes and only one
+  of them knows which note it is writing.
+- **An arriving shared row is cleaned (§3b)**: a payload whose `html` carries a
+  tag outside the inline allow-list, whose `type` is unknown and whose `dueDate`
+  is impossible lands with the text intact, the markup unwrapped, the type fallen
+  back and the date null. Written as deny-by-default, like the allow-list test.
+- **The arrival defaults (§3)**: a note arriving with no local row gets a
+  `sortOrder`, `folderId: null`, `agentVisible: false` and a `createdAt`; the
+  same payload arriving onto an existing row changes none of the four.
+- **`list_shares()` before the upload (§2)**: a device holding the note's rows
+  with no `share` mark and a cleared `cloudSeq` — the shape `resetCloudState`
+  and a backup restore both leave behind — hands `records` nothing on its first
+  pass.
+
+In the `mcp/` workspace (its own vitest project): `get_task_history` renders a
+member's entry with that member's name, not "agente".
 
 `scripts/rls-check.mjs`: the three new attacks in criterion 8, plus a fourth —
-`delete_records` handed another account's ids deletes nothing. Run against the
-real Supabase project — a local Postgres has already passed while the real one
-refused (spec 030).
+`delete_records` handed another account's ids deletes nothing — and a fifth:
+`reset_cloud()` closes the caller's own shares and leaves another account's
+`shares`, `share_rows` and `share_members` standing. Run against the real
+Supabase project — a local Postgres has already passed while the real one refused
+(spec 030).
 
 Playwright: two browser contexts, two accounts. Share, accept, tick, comment,
 see it on the other side, remove access. Wait for a post-boot signal before
@@ -1066,6 +1279,25 @@ silently dropped.
   for the same row. The shared pipe reuses `decide()`'s contract — a matching
   number is not proof of an echo, the content decides — rather than writing a
   second version of it.
+- **A row a member writes and no pipe accepts is a stalled cursor, not a stalled
+  row.** §5 caught it for `blocks`, §3c for `notes`. The general rule: before
+  giving the guest any new local write, ask which pipe carries that row — and if
+  the answer is neither, it goes in with `fromCloud`. This is the guest-side
+  version of "no bookkeeping on a synced row" and it has bitten twice.
+- **The shared pipe is untrusted input.** Everything arriving through it was
+  produced by another account's client. `format/sanitize.ts` carries the list of
+  write boundaries that must pass its gate, and this is a new one — add it to
+  that comment, do not leave the knowledge here. The encrypted pipe is not a
+  precedent: its payloads were written by your own devices.
+- **The guest's device has no witness.** The owner watches their own note; the
+  guest is somebody who will stop answering rather than report a bug. Anything
+  that fails only on their machine fails silently by construction, which is why
+  criterion 16 is run from both sides and why §3c, §3b and §3's arrival defaults
+  each got their own test rather than riding on the two-account e2e.
+- **`reset_cloud()` and signing out share their local half and not their remote
+  one.** The local cleanup is the same function; only one of the two also empties
+  the server. A share closed on the device and left open upstairs is the worst
+  version of "one note, two pipes", because nothing on either screen shows it.
 
 ## Rollout: build now, invite outsiders later
 
@@ -1114,7 +1346,7 @@ part of the implementation commit, not of this spec.
 
 ## Estimated cost
 
-~14 days of work, tests and gates included, after deferring section 10. The
+~15 days of work, tests and gates included, after deferring section 10. The
 second review moved money in both directions and it roughly cancels: the per-note
 realtime channel came out (−1 to −2 days, and a running cost that would have been
 billed per message), `delete_records` and the two anti-jam guards went in (+1).
@@ -1125,6 +1357,14 @@ The fourth added ~1 more, and none of it is new function: the backup fix, the
 two-queue count, the server-ordered derivation, the bitácora filter and the
 prefixed settings keys are all small, but every one of them is a place where a
 decision already made had no way to be expressed in the code as it stands.
+The fifth added ~1 and is also all existing function, but it moved *where* the
+work is: five of its eight items are on the guest's device, which had been
+costed as "the same app, downloading instead of uploading" and is not. The two
+write seams of §3c, the cleaning pass of §3b, the arrival defaults, the ordering
+constraint on `syncNow` and `reset_cloud()` are each an hour or two of code and
+a test — the day goes to the fact that none of them can be seen from the owner's
+screen, so each one needs its own check rather than riding on the two-account
+end-to-end test.
 The bulk
 is not "letting a guest respond" (≈3 days); it is "letting another account see
 your note at all" — the membership, the second pipe, the invitation and the move
