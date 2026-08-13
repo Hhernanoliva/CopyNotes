@@ -509,3 +509,26 @@ test.fixme('el panel de fecha no queda tapado por el teclado', async ({ page }) 
 		})
 		.toEqual({ seVaArriba: 0, seVaAbajo: 0 });
 });
+
+// Un separador no es editable: en celular no hay teclado que apretar Backspace,
+// así que el menú "..." es la ÚNICA forma de borrarlo. Estaba escondido para
+// este tipo de renglón — resto de cuando esa condición tapaba sólo el botón de
+// snippet, antes de que las acciones se juntaran en el menú.
+test('un separador se puede borrar desde el menú "..."', async ({ page }) => {
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+
+	// El separador de la nota demo: ya está puesto, que es justo el caso que no
+	// tenía salida.
+	const sep = page.getByRole('separator', { name: 'Separador' });
+	await expect(sep).toHaveCount(1);
+	await sep.tap();
+
+	const row = page.locator('main [data-block-id]').filter({ has: sep });
+	await row.getByRole('button', { name: 'Más acciones' }).tap();
+	// Nada de comentario/snippet/etiqueta: un separador no tiene texto.
+	await expect(page.getByRole('menuitem')).toHaveCount(3);
+	await page.getByRole('menuitem', { name: 'Eliminar' }).tap();
+
+	await expect(sep).toHaveCount(0);
+});

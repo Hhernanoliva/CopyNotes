@@ -16,7 +16,19 @@
 	// buttons (editor UX pass). Each item shows its typed quick key when it has
 	// one. onDismiss returns focus to the block when the menu closes without
 	// handing focus to another surface (Escape, click-away, snippet).
-	let { onAddNote, onMoveUp, onMoveDown, onDelete, onSaveSnippet, onTag, onDismiss, pulseMenu = false } = $props();
+	// contentActions=false para renglones sin texto (el separador): quedan sólo
+	// mover y eliminar. Comentario, snippet y etiqueta no tienen a qué agarrarse.
+	let {
+		onAddNote,
+		onMoveUp,
+		onMoveDown,
+		onDelete,
+		onSaveSnippet,
+		onTag,
+		onDismiss,
+		pulseMenu = false,
+		contentActions = true
+	} = $props();
 
 	let open = $state(false);
 	let rootEl = $state();
@@ -93,17 +105,19 @@
 			aria-label="Acciones del bloque"
 			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md"
 		>
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onAddNote, false)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<StickyNote size={15} aria-hidden="true" />
-				<span class="flex-1">Agregar comentario</span>
-				<kbd class="text-faint border-border rounded border px-1 text-xs">Ctrl+↵</kbd>
-			</button>
+			{#if contentActions}
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onAddNote, false)}
+					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				>
+					<StickyNote size={15} aria-hidden="true" />
+					<span class="flex-1">Agregar comentario</span>
+					<kbd class="text-faint border-border rounded border px-1 text-xs">Ctrl+↵</kbd>
+				</button>
+			{/if}
 			<button
 				type="button"
 				role="menuitem"
@@ -124,27 +138,29 @@
 				<ArrowDown size={15} aria-hidden="true" />
 				<span class="flex-1">Mover abajo</span>
 			</button>
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onSaveSnippet)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<BookmarkPlus size={15} aria-hidden="true" />
-				<span class="flex-1">Guardar como snippet</span>
-			</button>
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onTag, false)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<Tag size={15} aria-hidden="true" />
-				<span class="flex-1">Etiquetar</span>
-				<kbd class="text-faint border-border rounded border px-1 text-xs">#</kbd>
-			</button>
+			{#if contentActions}
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onSaveSnippet)}
+					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				>
+					<BookmarkPlus size={15} aria-hidden="true" />
+					<span class="flex-1">Guardar como snippet</span>
+				</button>
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onTag, false)}
+					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				>
+					<Tag size={15} aria-hidden="true" />
+					<span class="flex-1">Etiquetar</span>
+					<kbd class="text-faint border-border rounded border px-1 text-xs">#</kbd>
+				</button>
+			{/if}
 			<button
 				type="button"
 				role="menuitem"
