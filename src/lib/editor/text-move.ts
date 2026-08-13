@@ -4,22 +4,23 @@
 // drag controller measures the DOM; this file only rewrites html, mirroring the
 // br-aware counting of removePlainTextRange in format/sanitize.ts.
 
-import { sanitizeHtml, removePlainTextRange } from '$lib/format';
+import { sanitizeHtml, htmlToPlainText, removePlainTextRange } from '$lib/format';
 import { rangeAtPlainOffset } from './selection-offsets';
 
 // The html of the plain-text range [start, end), formatting preserved.
+//
+// Se saca borrando las dos puntas, no copiando el medio: `cloneContents` de un
+// Range sólo clona los envoltorios cuando las puntas caen en nodos distintos,
+// así que un tramo tomado de adentro de una misma palabra en negrita volvía
+// pelado (y el arrastre movía el texto sin su formato). `removePlainTextRange`
+// edita los textos en su lugar y deja los envoltorios donde estaban.
 export function sliceHtmlByPlainRange(html, start, end) {
 	if (!html || end <= start) return '';
-	const holder = document.createElement('div');
-	holder.innerHTML = sanitizeHtml(html);
-	const from = rangeAtPlainOffset(holder, start);
-	const to = rangeAtPlainOffset(holder, end);
-	const range = document.createRange();
-	range.setStart(from.startContainer, from.startOffset);
-	range.setEnd(to.startContainer, to.startOffset);
-	const tmp = document.createElement('div');
-	tmp.appendChild(range.cloneContents());
-	return sanitizeHtml(tmp.innerHTML);
+	const source = sanitizeHtml(html);
+	const total = htmlToPlainText(source).length;
+	// El orden importa: primero la cola, que no mueve las posiciones de antes.
+	const withoutTail = removePlainTextRange(source, end, total);
+	return sanitizeHtml(removePlainTextRange(withoutTail, 0, start));
 }
 
 // Insert a fragment of html at a plain-text offset, formatting preserved.

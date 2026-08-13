@@ -10,6 +10,15 @@ describe('sliceHtmlByPlainRange', () => {
 		// plain text "a bold c"; extract "bold" (offsets 2..6)
 		expect(sliceHtmlByPlainRange('a <strong>bold</strong> c', 2, 6)).toBe('<strong>bold</strong>');
 	});
+
+	// Las dos puntas adentro del MISMO texto formateado: el envoltorio tiene que
+	// venir igual. Cortando con un Range del navegador no venía —`cloneContents`
+	// sólo clona los ancestros cuando las puntas caen en nodos distintos—, así
+	// que arrastrar un pedazo de una palabra en negrita la traía pelada.
+	it('preserves formatting when both ends fall inside the same run', () => {
+		expect(sliceHtmlByPlainRange('<em>hola mundo</em>', 5, 10)).toBe('<em>mundo</em>');
+		expect(sliceHtmlByPlainRange('<strong>abcdef</strong>', 2, 4)).toBe('<strong>cd</strong>');
+	});
 });
 
 describe('insertHtmlAtPlainOffset', () => {

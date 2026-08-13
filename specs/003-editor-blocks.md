@@ -87,8 +87,8 @@ keep:
   `removePlainTextRange` (format/sanitize.ts), which edits text nodes in
   place and keeps the wrappers. A DOM Range is *not* usable here: when both
   ends land in the same text node, `cloneContents` returns bare text and the
-  bold is lost — which is also a live bug in `sliceHtmlByPlainRange`
-  (drag-to-move, spec 026), left untouched here.
+  bold is lost. `sliceHtmlByPlainRange` (drag-to-move, spec 026) had exactly
+  that bug and was cut over to the same removal-based slice.
 - **The empty-row rule wins.** `block.content === ''` still routes to the
   double-Enter escape below, even when the browser left a stray `<br>` in
   the editable that would look like text worth moving.
