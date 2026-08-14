@@ -62,6 +62,55 @@ describe('lo que viaja', () => {
 	});
 });
 
+// Encontrado en el gate manual del 2026-08-14: se borró una nota compartida de
+// verdad y su título y sus 45 renglones quedaron legibles en el servidor.
+describe('una lápida no se lleva el texto puesto', () => {
+	it('de una nota borrada sube el nombre y nada de lo que decía', () => {
+		const payload = toSharedPayload('notes', {
+			id: 'n1',
+			title: 'Plantillas de mail de la empresa',
+			updatedAt: '2026-08-14T00:00:00.000Z',
+			deletedAt: '2026-08-14T00:00:00.000Z'
+		});
+
+		expect(payload).toEqual({
+			id: 'n1',
+			updatedAt: '2026-08-14T00:00:00.000Z',
+			deletedAt: '2026-08-14T00:00:00.000Z'
+		});
+		expect(JSON.stringify(payload)).not.toContain('Plantillas');
+	});
+
+	it('de un renglón borrado no sube ni el texto ni el marcado', () => {
+		const payload = toSharedPayload('blocks', {
+			id: 'b1',
+			noteId: 'n1',
+			content: 'la clave del wifi es 1234',
+			html: '<strong>la clave del wifi es 1234</strong>',
+			type: 'todo',
+			checked: true,
+			deletedAt: '2026-08-14T00:00:00.000Z'
+		});
+
+		expect(payload).toEqual({
+			id: 'b1',
+			noteId: 'n1',
+			deletedAt: '2026-08-14T00:00:00.000Z'
+		});
+	});
+
+	it('y una lápida que llega no le cambia el tipo al renglón de quien la recibe', () => {
+		const clean = cleanSharedPayload('blocks', {
+			id: 'b1',
+			noteId: 'n1',
+			deletedAt: '2026-08-14T00:00:00.000Z'
+		});
+
+		expect(clean.type).toBeUndefined();
+		expect(clean.dueDate).toBeUndefined();
+	});
+});
+
 describe('lo que llega se limpia, lo escribió quien lo escribió', () => {
 	it('desarma el marcado que no está en la lista blanca y deja el texto', () => {
 		const clean = cleanSharedPayload('blocks', {

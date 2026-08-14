@@ -20,6 +20,10 @@ un ajuste escondido en Configuración.
 **Cuando cerrás la compartición, la nota vuelve a la bóveda** y se cifra otra vez
 como todas las demás.
 
+Y si en vez de cerrarla **borrás** la nota o alguno de sus renglones, lo que se
+borró **se lleva su texto del servidor**: viaja el aviso de que ya no está, no lo
+que decía.
+
 ## Cómo se ve que una nota está compartida
 
 En la lista, una nota compartida lleva el ícono de compartir **siempre visible**
