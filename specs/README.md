@@ -44,6 +44,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 36. `036-public-google-signup.md`
 37. `037-newsletter-consent-privacy.md`
 38. `038-shared-note-ticket.md`
+39. `039-restore-vs-cloud.md`
 
 ## Required Sections For Specs
 
