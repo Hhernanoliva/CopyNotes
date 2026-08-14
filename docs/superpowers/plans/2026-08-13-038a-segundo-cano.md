@@ -1940,12 +1940,12 @@ resuelta**, porque restaurar es justamente lo que hace.
   edición posterior en B llegue a A (eso prueba el resello de la tarea 7).
 - **7.** El botón rojo con una nota compartida.
 
-### BUG ABIERTO, encontrado al final y sin arreglar
+### Quinto bug, encontrado al final — ARREGLADO (2026-08-14)
 
 **Al compartir una nota en B, en A no aparece la marca de compartida.**
 
-Causa probable, sin verificar: en `+page.svelte` la lista de compartidas se
-recalcula con
+Causa confirmada leyendo el código y reproducida en un test rojo: en
+`+page.svelte` la lista de compartidas se recalcula con
 
 ```js
 void notes.length;
@@ -1954,13 +1954,17 @@ void syncStatus.appliedVersion;
 
 y `reconcileShares()` —que es quien pone la marca cuando el otro aparato
 compartió— no mueve ninguno de los dos: no cambia la cantidad de notas, y
-`pullSharedNote` sólo cuenta filas que cambiaron, no marcas. Es **la misma
-familia** que el bug 2 de arriba, un nivel más arriba: la marca entra a la base y
-la pantalla no se entera.
+`pullSharedNote` no cuenta marcas. Las filas que sí llegan por el caño son
+idénticas a las que este aparato ya tiene (la nota se compartió, no se editó), así
+que `sameInAllowList` las saltea y la cuenta da 0. Es **la misma familia** que el
+bug 2 de arriba, un nivel más arriba: la marca entra a la base y la pantalla no se
+entera.
 
-Forma probable del arreglo, en la misma línea que `413e7fe`: que
-`reconcileShares` informe si cambió alguna marca y que ese número se sume al que
-`syncNow` usa para tocar la campanita. **Verificar antes de escribir código.**
+Arreglado en la misma línea que `413e7fe`: `reconcileShares` ahora devuelve
+`{ shares, changed }` y `syncShared` arranca su cuenta en `changed`, así que una
+marca nueva —o una que se fue porque la compartición se cerró en otro lado— toca
+`appliedVersion` igual que una edición. De paso deja de reescribir cada 30
+segundos las marcas que ya estaban iguales.
 
 ### Estado del servidor al cerrar
 

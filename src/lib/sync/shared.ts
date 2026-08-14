@@ -131,19 +131,34 @@ export async function pullSharedNote(client, noteId) {
 // `resetCloudState` deja `cloudSeq` vacío en TODAS las filas, así que en esos
 // aparatos la nota entera está pendiente sin que nadie la edite. Si la subida
 // cifrada corre primero, la nota se va por el caño equivocado y queda en los dos.
+// Devuelve además cuántas marcas CAMBIARON, por el mismo motivo que
+// `pullSharedNote` cuenta filas y no llegadas: es lo único que puede despertar a
+// la pantalla cuando el otro aparato compartió la nota. Sin ese número la marca
+// entra a la base y la lista no la muestra hasta recargar.
 export async function reconcileShares(client) {
 	const { data, error } = await client.rpc('list_shares');
 	if (error) throw new Error(error.message);
 	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
 	const { owner, member } = await sharedNoteIdsByRole();
-	for (const [noteId, role] of fromServer) await setShareRole(noteId, role);
+	const local = new Map([
+		...[...owner].map((noteId) => [noteId, 'owner']),
+		...[...member].map((noteId) => [noteId, 'member'])
+	]);
+	let changed = 0;
+	for (const [noteId, role] of fromServer) {
+		if (local.get(noteId) === role) continue;
+		await setShareRole(noteId, role);
+		changed++;
+	}
 	// Una nota que este aparato cree compartida y el servidor no: la compartición
 	// se cerró en otro lado. Se le saca la marca y vuelve al caño cifrado, que es
 	// lo que hace la otra mitad de la mudanza.
-	for (const noteId of [...owner, ...member]) {
-		if (!fromServer.has(noteId)) await setShareRole(noteId, null);
+	for (const noteId of local.keys()) {
+		if (fromServer.has(noteId)) continue;
+		await setShareRole(noteId, null);
+		changed++;
 	}
-	return fromServer;
+	return { shares: fromServer, changed };
 }
 
 // Devuelve cuántas filas cambiaron acá, para que `syncNow` pueda avisarle a la
@@ -151,8 +166,8 @@ export async function reconcileShares(client) {
 // base y no lo ve nadie hasta recargar: `appliedVersion` —la única campanita que
 // dice "llegó algo, refrescá"— la tocaba SÓLO el caño cifrado.
 export async function syncShared(client) {
-	const shares = await reconcileShares(client);
-	let applied = 0;
+	const { shares, changed } = await reconcileShares(client);
+	let applied = changed;
 	for (const [noteId, role] of shares) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);

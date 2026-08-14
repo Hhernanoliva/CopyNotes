@@ -10,7 +10,8 @@ import {
 	countSharedPending,
 	pullSharedNote,
 	pushSharedNote,
-	reconcileShares
+	reconcileShares,
+	syncShared
 } from './shared';
 
 beforeEach(async () => {
@@ -194,5 +195,47 @@ describe('en qué estoy', () => {
 
 		expect(await getShareRole(cerrada.id)).toBe(null);
 		expect(await getShareRole(nueva.id)).toBe('member');
+	});
+
+	it('cuenta las marcas que cambiaron, y no las que ya estaban', async () => {
+		const nueva = await createNote({ title: 'me la compartieron' });
+		const vieja = await createNote({ title: 'ya la tenía marcada' });
+		await setShareRole(vieja.id, 'owner');
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [
+					{ note_id: nueva.id, role: 'member' },
+					{ note_id: vieja.id, role: 'owner' }
+				],
+				error: null
+			})
+		};
+
+		expect((await reconcileShares(client)).changed).toBe(1);
+	});
+});
+
+// Encontrado en el gate manual del 2026-08-14: al compartir una nota en el otro
+// aparato, acá la marca entraba a la base y la lista no la mostraba hasta
+// recargar. Es la misma familia que el bug de la bajada, un nivel más arriba: la
+// marca la pone `reconcileShares`, y su cambio no llegaba a `appliedVersion`.
+describe('el lazo entero', () => {
+	const clientWith = (shares) => ({
+		rpc: vi.fn(async (name) =>
+			name === 'list_shares' ? { data: shares, error: null } : { data: [], error: null }
+		)
+	});
+
+	it('una marca nueva despierta a la pantalla aunque no cambie ninguna fila', async () => {
+		const nota = await createNote({ title: 'me la compartieron' });
+
+		expect(await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]))).toBe(1);
+	});
+
+	it('una pasada sin novedades no despierta a nadie', async () => {
+		const nota = await createNote({ title: 'ya compartida' });
+		await setShareRole(nota.id, 'member');
+
+		expect(await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]))).toBe(0);
 	});
 });
