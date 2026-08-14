@@ -1884,3 +1884,103 @@ Append the result to this file, dated, the way the other plans in `docs/superpow
 - **Deliberately in part B, not missing:** §3c (the guest writes the `notes` row), §4 (roles as a lived thing), §5 (the derived tick), §6 (identity and the three actor renderers), §7 (invitations), §8 ("Listo", the news counter, the backup validator), §9 (undo), the member-side backup filter, criteria 1-5, 8-12, 14-21 and 26.
 - **`sameInAllowList` is written in Task 5 and not called until part B.** It is written here because it belongs beside the merge it is the twin of, and because the test that proves an absent `folderId` is not a disagreement is the cheapest place to lock that decision down. Do not delete it as unused.
 - **Type consistency:** `getShareRole` returns `'owner' | 'member' | null` everywhere; `setShareRole(noteId, null)` clears; `listSharedPending(noteId, role)` takes the role as its second argument in every caller; `mergeFromShared(table, payload, changeSeq)` in that order.
+
+---
+
+## Resultado del gate manual — 2026-08-14 (PARCIAL, sin terminar)
+
+Corrido con **A = la .app empaquetada** y **B = el navegador en
+`localhost:5173`**, misma cuenta. Son dos aparatos distintos para la nube y se
+apagan los dos con un solo Wi-Fi (ver el método del gate en la memoria del
+proyecto).
+
+El SQL de la tarea 1 **está aplicado** en el proyecto real y `pnpm rls:check` da
+**15/15**, incluidas las tres nuevas de compartir.
+
+### Pasos 1 a 4: PASADOS
+
+- **1.** Los dos aparatos en la misma cuenta, "Todo subido", la nota de prueba
+  llegó sola a B.
+- **2.** Al compartir: una compartición, dos filas en claro, **ningún campo
+  privado viajó** (sin `folderId`, `sortOrder`, `agentVisible`, `note`,
+  `collapsed`, `createdBy`), y la nota **salió de `records`**. El título se lee en
+  claro en el servidor, que es exactamente lo que la pantalla avisa.
+- **3. (criterio 13) PASADO.** En B la nota siguió existiendo, **siguió dentro de
+  su carpeta**, y le apareció la marca de compartida. Es el que falla en silencio
+  si la fusión se hubiera escrito como un `put`.
+- **4.** El texto viaja en los dos sentidos y **no se estacionó ningún
+  conflicto**.
+
+### Cuatro bugs reales encontrados, los cuatro arreglados
+
+1. **`fcc34b2` — la lápida se llevaba el texto puesto.** Al borrar una nota
+   compartida, su título y sus 45 renglones quedaban LEGIBLES en el servidor para
+   siempre. Encontrado con una nota real de Hernán; las filas se borraron a mano
+   ese mismo día.
+2. **`413e7fe` — lo que llegaba no despertaba la pantalla.** La edición del otro
+   aparato aterrizaba en la base y la nota abierta se quedaba vieja hasta
+   recargar: `appliedVersion` la movía sólo el caño cifrado.
+3. **`7e6fa5c` — la marca de compartida viajaba en el respaldo.** La spec lo pide
+   con todas las letras (`LOCAL_ONLY_FIELDS`) y este plan se lo salteó.
+4. Un **falso positivo** que conviene no volver a cazar: "lo de B no aparece en
+   A" con el cursor DENTRO de ese renglón es la regla del renglón protegido
+   haciendo su trabajo, no un bug. Sacando el cursor aparece todo.
+
+### Paso 5: NO CORRIDO
+
+Se cortó porque la prueba destapó un problema mayor y ajeno a esta spec:
+restaurar un respaldo con la nube encendida deja **un conflicto por fila** y el
+respaldo queda inerte. Medido, y escrito como **spec `039-restore-vs-cloud.md`**.
+El paso 5 de este gate **no se puede correr de forma limpia hasta que 039 esté
+resuelta**, porque restaurar es justamente lo que hace.
+
+### Pasos 6 y 7: PENDIENTES
+
+- **6.** Cerrar la compartición y ver la nota volver al caño cifrado, y que una
+  edición posterior en B llegue a A (eso prueba el resello de la tarea 7).
+- **7.** El botón rojo con una nota compartida.
+
+### BUG ABIERTO, encontrado al final y sin arreglar
+
+**Al compartir una nota en B, en A no aparece la marca de compartida.**
+
+Causa probable, sin verificar: en `+page.svelte` la lista de compartidas se
+recalcula con
+
+```js
+void notes.length;
+void syncStatus.appliedVersion;
+```
+
+y `reconcileShares()` —que es quien pone la marca cuando el otro aparato
+compartió— no mueve ninguno de los dos: no cambia la cantidad de notas, y
+`pullSharedNote` sólo cuenta filas que cambiaron, no marcas. Es **la misma
+familia** que el bug 2 de arriba, un nivel más arriba: la marca entra a la base y
+la pantalla no se entera.
+
+Forma probable del arreglo, en la misma línea que `413e7fe`: que
+`reconcileShares` informe si cambió alguna marca y que ese número se sume al que
+`syncNow` usa para tocar la campanita. **Verificar antes de escribir código.**
+
+### Estado del servidor al cerrar
+
+Queda **una compartición abierta** (`4a7d4705`, la nota de prueba) con sus 4
+filas, todas como lápidas y con la carga vacía — o sea, el arreglo 1 funcionando.
+La cuenta tiene 44 notas, todas marcadas como borradas: son todas de prueba, y
+Hernán confirmó que no hay nada que recuperar por relevancia. Su respaldo de
+`~/Downloads/copynotes-backup-2026-08-14-1221.json` tiene las 47 notas enteras
+por si algún día hace falta.
+
+### Cómo se retoma
+
+```bash
+# A: la .app empaquetada (4 comandos, ver la memoria del proyecto)
+pnpm --dir mcp run build:flat && pnpm tauri build --bundles app && pnpm --dir mcp install
+open src-tauri/target/release/bundle/macos/CopyNotes.app
+
+# B: el navegador
+pnpm dev            # y abrir http://localhost:5173
+```
+
+El llavero pide la contraseña del Mac en cada compilación nueva: **Permitir
+siempre**, y nunca borrar ese ítem.
