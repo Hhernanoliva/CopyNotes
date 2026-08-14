@@ -203,7 +203,14 @@ function dropDanglingActivity(data, existing) {
 // with no `changeSeq` — invisible to the index the uploader reads, and therefore
 // never synced, silently and for ever. `changeSeq`/`cloudSeq` are the same class
 // of lie: a claim about this device made by another one.
-export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud'];
+//
+// `share` (spec 038) joins them, and it is the same class of lie one level up: a
+// restored file must not claim a note is shared. If it does, `sync/pending.ts`
+// skips that note's rows for ever and the note stops syncing in silence — while
+// the truth is one `list_shares()` away on the next pass. This is the shape the
+// agent kill switch already got wrong once, in the other direction: a restore
+// un-paused agents nobody had un-paused.
+export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud', 'share'];
 
 const ID_TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'activity'];
 

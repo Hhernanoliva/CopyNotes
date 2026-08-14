@@ -460,6 +460,18 @@ describe('validateBackup', () => {
 			expect(note.title).toBe(makeNote().title);
 		});
 
+		// Spec 038: la marca de compartida es una afirmación sobre el servidor, y
+		// un archivo no puede hacerla. Si un respaldo restaurado dice "esta nota
+		// está compartida", `sync/pending.ts` saltea sus filas para siempre y la
+		// nota deja de sincronizar en silencio — mientras la verdad está a un
+		// `list_shares()` de distancia en la pasada siguiente.
+		it('no deja que un archivo declare una nota como compartida', () => {
+			const backup = makeBackup({ notes: [makeNote({ share: 'owner' })] });
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.notes[0].share).toBeUndefined();
+		});
+
 		// `storage/organize.ts` hands a note created at the top of the sidebar
 		// `lowest - 1`, so a negative position is what this app's OWN backups are
 		// full of. Dropping it here rewrote the row, and a rewritten row no longer
