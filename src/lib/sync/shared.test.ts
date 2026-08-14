@@ -105,6 +105,70 @@ describe('la bajada por nota', () => {
 		expect(await getShareCursor(note.id)).toBe(7);
 	});
 
+	// Encontrado en el gate manual del 2026-08-14: la edición del otro aparato
+	// llegaba a la base y la pantalla no se enteraba. `appliedVersion` —la única
+	// campanita que dice "refrescá"— la tocaba sólo el caño cifrado, y este
+	// número es lo que ahora la toca.
+	it('cuenta las filas que CAMBIARON algo, no las que vinieron', async () => {
+		const note = await createNote({ title: 'vieja' });
+		await setShareRole(note.id, 'owner');
+		const stored = await db.table('notes').get(note.id);
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [
+					// La misma que ya está acá: es lo que devuelve la ventana de
+					// relectura en cada pasada, incluidas las filas propias.
+					{
+						table_name: 'notes',
+						id: note.id,
+						change_seq: stored.changeSeq,
+						deleted: false,
+						payload: { id: note.id, title: 'vieja', deletedAt: null },
+						author_id: 'u1',
+						server_seq: 5
+					},
+					{
+						table_name: 'notes',
+						id: note.id,
+						change_seq: stored.changeSeq + 1,
+						deleted: false,
+						payload: { id: note.id, title: 'nueva', deletedAt: null },
+						author_id: 'u1',
+						server_seq: 6
+					}
+				],
+				error: null
+			})
+		};
+
+		expect(await pullSharedNote(client, note.id)).toBe(1);
+	});
+
+	it('una pasada de puro eco no despierta a nadie', async () => {
+		const note = await createNote({ title: 'igual' });
+		await setShareRole(note.id, 'owner');
+		const stored = await db.table('notes').get(note.id);
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [
+					{
+						table_name: 'notes',
+						id: note.id,
+						change_seq: stored.changeSeq,
+						deleted: false,
+						payload: { id: note.id, title: 'igual', deletedAt: null },
+						author_id: 'u1',
+						server_seq: 9
+					}
+				],
+				error: null
+			})
+		};
+
+		expect(await pullSharedNote(client, note.id)).toBe(0);
+		expect(await getShareCursor(note.id)).toBe(9);
+	});
+
 	it('una pasada que sólo movió el cursor no encola ninguna subida', async () => {
 		const note = await createNote({ title: 'una' });
 		await setShareRole(note.id, 'owner');

@@ -26,6 +26,8 @@ const serverVault = vi.hoisted(() => ({ row: null }));
 const rejects = vi.hoisted(() => []);
 // En qué notas compartidas dice el servidor que está este aparato (spec 038).
 const serverShares = vi.hoisted(() => []);
+// Lo que el caño compartido tiene para bajar.
+const sharedRows = vi.hoisted(() => []);
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
@@ -39,6 +41,7 @@ vi.mock('./supabase', () => ({
 			// que hace falta acá es que la pregunta se pueda contestar sin comerse
 			// una respuesta de la cola de arriba ni contar como subida cifrada.
 			if (name === 'list_shares') return { data: serverShares, error: null };
+			if (name === 'pull_shared_rows') return { data: sharedRows, error: null };
 			// Y que lo que se le mande NO se le acepte solo, o la cola compartida
 			// quedaría siempre vacía justo cuando se la cuenta al final.
 			if (name === 'push_shared_rows') {
@@ -103,6 +106,7 @@ beforeEach(async () => {
 	replies.length = 0;
 	rejects.length = 0;
 	serverShares.length = 0;
+	sharedRows.length = 0;
 	serverVault.row = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
@@ -429,5 +433,32 @@ describe('lo que falta subir son dos colas', () => {
 		await syncNow();
 
 		expect(syncStatus.pending).toBe(1);
+	});
+
+	// El bug que encontró el gate manual del 2026-08-14: la edición del otro
+	// aparato aterrizaba en la base y la pantalla no se enteraba, porque
+	// `appliedVersion` —lo único que `CloudLifecycle` mira para decir "refrescá"—
+	// lo movía sólo el caño cifrado. Las dos mitades estaban probadas por
+	// separado; lo que faltaba era el cable entre ellas.
+	it('avisa a la pantalla cuando algo llegó por el caño compartido', async () => {
+		const note = await createNote({ title: 'vieja' });
+		await setShareRole(note.id, 'owner');
+		serverShares.push({ note_id: note.id, role: 'owner' });
+		sharedRows.push({
+			table_name: 'notes',
+			id: note.id,
+			change_seq: 9_999_999_999_999,
+			deleted: false,
+			payload: { id: note.id, title: 'la escribió el otro aparato', deletedAt: null },
+			author_id: 'u1',
+			server_seq: 3
+		});
+		const { syncNow, syncStatus } = await loadUpload();
+		const antes = syncStatus.appliedVersion;
+
+		await syncNow();
+
+		expect((await db.table('notes').get(note.id)).title).toBe('la escribió el otro aparato');
+		expect(syncStatus.appliedVersion).toBe(antes + 1);
 	});
 });

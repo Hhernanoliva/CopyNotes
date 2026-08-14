@@ -21,7 +21,7 @@ import {
 	setShareRole
 } from '../storage/shares';
 import { toSharedPayload } from './shared-payload';
-import { mergeFromShared } from './shared-merge';
+import { mergeFromShared, sameInAllowList } from './shared-merge';
 
 const BATCH = 200;
 // El servidor reparte `server_seq` al EMPEZAR la escritura, no al confirmarla,
@@ -98,6 +98,11 @@ export async function pushSharedNote(client, noteId, role) {
 	return accepted;
 }
 
+// Devuelve cuántas filas CAMBIARON algo acá, no cuántas vinieron. La diferencia
+// no es cosmética: es lo que decide si hay que despertar a la pantalla, y la
+// ventana de relectura de arriba vuelve a traer en CADA pasada filas que este
+// aparato ya tiene —las suyas propias, sin ir más lejos—. Contándolas a todas,
+// la nota abierta se refrescaría cada 30 segundos para nada.
 export async function pullSharedNote(client, noteId) {
 	const cursor = await getShareCursor(noteId);
 	const { data, error } = await client.rpc('pull_shared_rows', {
@@ -106,11 +111,15 @@ export async function pullSharedNote(client, noteId) {
 	});
 	if (error) throw new Error(error.message);
 	if (!data?.length) return 0;
+	let applied = 0;
 	for (const row of data) {
+		const local = await db.table(row.table_name).get(row.id);
+		if (sameInAllowList(row.table_name, local, row.payload)) continue;
 		await mergeFromShared(row.table_name, row.payload, row.change_seq);
+		applied++;
 	}
 	await setShareCursor(noteId, data[data.length - 1].server_seq);
-	return data.length;
+	return applied;
 }
 
 // "¿En qué estoy?" — y la respuesta manda sobre la marca local, no al revés.
@@ -137,10 +146,16 @@ export async function reconcileShares(client) {
 	return fromServer;
 }
 
+// Devuelve cuántas filas cambiaron acá, para que `syncNow` pueda avisarle a la
+// pantalla. Sin ese número, lo que llega por el caño compartido aterriza en la
+// base y no lo ve nadie hasta recargar: `appliedVersion` —la única campanita que
+// dice "llegó algo, refrescá"— la tocaba SÓLO el caño cifrado.
 export async function syncShared(client) {
 	const shares = await reconcileShares(client);
+	let applied = 0;
 	for (const [noteId, role] of shares) {
 		await pushSharedNote(client, noteId, role);
-		await pullSharedNote(client, noteId);
+		applied += await pullSharedNote(client, noteId);
 	}
+	return applied;
 }

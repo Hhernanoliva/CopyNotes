@@ -255,7 +255,11 @@ export async function syncNow() {
 		// `sync/shared.ts`). Un invitado sin permiso de subir y sin bóveda tiene
 		// que sincronizar su ticket igual.
 		const sharedClient = await sharedReady();
-		if (sharedClient) await syncShared(sharedClient);
+		// Y si algo cambió acá, la pantalla tiene que enterarse por la MISMA
+		// campanita que usa el caño cifrado. Sin esta línea la nota compartida se
+		// actualizaba en la base y se quedaba vieja en pantalla hasta recargar
+		// (encontrado en el gate manual, 2026-08-14).
+		if (sharedClient && (await syncShared(sharedClient))) syncStatus.appliedVersion++;
 
 		const gate = await ready();
 		if (gate) {
