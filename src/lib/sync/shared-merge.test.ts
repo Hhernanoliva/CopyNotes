@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../storage/db';
 import { createNote } from '../storage/notes';
 import { setShareRole, getShareRole } from '../storage/shares';
+import { dumpAllTables } from '../storage/backup';
+import { buildBackup, validateBackup } from '../export-import';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
 
 beforeEach(async () => {
@@ -55,6 +57,62 @@ describe('una fila que llega se fusiona, no se pisa', () => {
 		const stored = await db.table('notes').get(note.id);
 		expect(stored.sortOrder).toBe(7);
 		expect(stored.folderId).toBe('f1');
+	});
+
+	// Encontrado en el gate manual (2026-08-15) con el archivo real de Hernán:
+	// "data.blocks.718.collapsed: Invalid key: Expected "collapsed" but received
+	// undefined". Un renglón que llegó por el caño compartido a un aparato que no lo
+	// tenía quedaba sin los campos que sólo inventa `createBlock`, y el respaldo que
+	// ESE aparato exporta deja de pasar su propia validación: el respaldo entero,
+	// por un renglón. `birthFields` cubría sólo `notes`.
+	it('un renglón que llega nuevo queda completo, y el respaldo del aparato sigue siendo válido', async () => {
+		const note = await createNote({ title: 'compartida' });
+		await mergeFromShared(
+			'blocks',
+			{
+				id: 'b-del-otro',
+				noteId: note.id,
+				parentBlockId: null,
+				order: 1,
+				type: 'text',
+				content: 'lo escribió el otro',
+				html: 'lo escribió el otro',
+				checked: false,
+				deletedAt: null
+			},
+			10
+		);
+
+		const stored = await db.table('blocks').get('b-del-otro');
+		expect(stored.collapsed).toBe(false);
+		expect(stored.checked).toBe(false);
+		expect(typeof stored.createdAt).toBe('string');
+		expect(typeof stored.updatedAt).toBe('string');
+
+		const backup = buildBackup(await dumpAllTables(), {
+			appVersion: '0.2.0',
+			exportedAt: new Date().toISOString()
+		});
+		expect(validateBackup(backup).ok).toBe(true);
+	});
+
+	// La misma falla por la otra puerta: una lápida viaja con TRES campos, así que
+	// una fila que llega ya borrada sin haber existido nunca acá llega más pelada
+	// todavía. También tiene que dejar un respaldo válido.
+	it('una fila que llega ya borrada tampoco arruina el respaldo', async () => {
+		await mergeFromShared('notes', { id: 'n-muerta', updatedAt: new Date().toISOString(), deletedAt: new Date().toISOString() }, 20);
+		await mergeFromShared('blocks', { id: 'b-muerto', noteId: 'n-muerta', deletedAt: new Date().toISOString() }, 21);
+		await mergeFromShared(
+			'activity',
+			{ id: 'a-muerta', noteId: 'n-muerta', blockId: 'b-muerto', deletedAt: new Date().toISOString() },
+			22
+		);
+
+		const backup = buildBackup(await dumpAllTables(), {
+			appVersion: '0.2.0',
+			exportedAt: new Date().toISOString()
+		});
+		expect(validateBackup(backup).ok).toBe(true);
 	});
 
 	it('limpia el marcado de lo que llega', async () => {

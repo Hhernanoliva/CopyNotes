@@ -16,21 +16,40 @@
 import { db } from '../storage/db';
 import { now } from '../storage/ids';
 import { topSortOrder } from '../storage/organize';
+import { missingShapeFields } from '../storage/shape';
 import { SHARED_FIELDS, cleanSharedPayload } from './shared-payload';
 
-// Los cuatro campos que sólo se crean. `createNote` es el único lugar de la app
-// que los inventa, y una nota que llega por acá no pasa por ahí: sin esto la
-// nota queda SIN `sortOrder`, y una fila sin posición se ordena última y se
-// queda última para siempre (`normalizeSidebarOrder` sólo corre al restaurar un
-// respaldo, nunca al bajar de la nube).
+// Los campos que sólo se crean, para una fila que este aparato no tenía.
+//
+// `createNote`, `createBlock` y `appendActivity` son los únicos lugares de la app
+// que los inventan, y una fila que llega por acá no pasa por ninguno. Dos cosas
+// se rompen sin esto, y las dos se vieron de verdad:
+//
+//   * Sin `sortOrder`, una nota se ordena última y se queda última para siempre
+//     (`normalizeSidebarOrder` sólo corre al restaurar un respaldo, nunca al
+//     bajar de la nube).
+//   * Sin `collapsed`, el RESPALDO que este aparato exporta deja de pasar su
+//     propia validación —"data.blocks.718.collapsed: Expected collapsed but
+//     received undefined"— y el archivo entero no se puede importar por un
+//     renglón. Encontrado en el gate manual del 2026-08-15 con el archivo real.
+//
+// Por eso la lista es "todo lo que la forma local exige y el caño puede no
+// traer", y no sólo lo que se notaba a simple vista: una LÁPIDA viaja con tres
+// campos (ver `IDENTITY_FIELDS`), así que una fila que llega ya borrada, sin
+// haber existido nunca acá, llega más pelada todavía.
+//
+// Van SIEMPRE debajo de lo que vino: si el campo viajó, manda el que viajó.
+//
+// La lista de campos vive en `storage/shape.ts`, no acá: la comparte con la
+// migración v12, que repara las filas escritas incompletas antes de este arreglo.
+// Dos copias se separarían, y el lado que se olvide es el que escribe la fila
+// rota.
 async function birthFields(table) {
-	if (table !== 'notes') return {};
-	return {
-		sortOrder: await topSortOrder('note'),
-		folderId: null,
-		agentVisible: false,
-		createdAt: now()
-	};
+	const fields = missingShapeFields(table, {}, now());
+	if (table !== 'notes') return fields;
+	// `sortOrder` no es un valor fijo, es una posición: se calcula contra lo que ya
+	// hay, así que no puede vivir en una tabla de constantes.
+	return { ...fields, sortOrder: await topSortOrder('note') };
 }
 
 export async function mergeFromShared(table, payload, changeSeq) {
