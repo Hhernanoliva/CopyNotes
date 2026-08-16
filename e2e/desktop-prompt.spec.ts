@@ -29,3 +29,14 @@ test('settings explains the desktop app without offering a dead link', async ({ 
 	).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Descargar la app de escritorio' })).toHaveCount(0);
 });
+
+// La versión de CopyNotes, en Configuración. En escritorio ya estaba dentro de
+// "Actualizaciones"; en la web y en el celular no había forma de saber qué versión
+// tenés, y es el primer dato que hace falta para reportar un problema.
+test('settings shows which version of CopyNotes this is', async ({ page }) => {
+	await openApp(page);
+	await page.getByRole('button', { name: /configuraci/i }).click();
+	// El número sale del package.json, así que la prueba mira la forma, no el valor:
+	// clavarlo acá obligaría a editar el test en cada release.
+	await expect(page.getByText(/^CopyNotes \d+\.\d+\.\d+$/)).toBeVisible();
+});

@@ -4,6 +4,10 @@
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
 	import { redoTask } from '$lib/tasks';
 	import { isTauriRuntime } from '$lib/platform';
+	// Del `package.json` y no escrita a mano, por el mismo motivo que en
+	// `BackupDialog`: ya pasó que el número escrito a mano dijera una versión que
+	// nunca existió. Vite inlinea sólo este export, no el manifiesto entero.
+	import { version as APP_VERSION } from '../../../package.json';
 	import UpdateSection from '$lib/desktop/UpdateSection.svelte';
 	import { DESKTOP_DOWNLOAD_URL, DESKTOP_RELEASE_PUBLISHED } from '$lib/desktop/download';
 	import { getMailboxPath, getServerPath, getAgentStatus } from '$lib/bridge/tauri';
@@ -1123,6 +1127,14 @@
 				</p>
 			{/if}
 		</section>
+
+		<!-- La versión, en chico y siempre en el mismo lugar. En escritorio
+		     "Actualizaciones" ya dice cuál tenés instalada, pero eso es sólo ahí: en la
+		     web y en el celular no había forma de saberlo, y es el primer dato que hace
+		     falta para reportar un problema. -->
+		<p class="text-muted-foreground border-border border-t pt-3 text-center text-xs">
+			CopyNotes {APP_VERSION}
+		</p>
 	</div>
 </dialog>
 

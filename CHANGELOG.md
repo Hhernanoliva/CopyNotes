@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Configuración muestra al final, en chico, qué versión de CopyNotes estás usando. Antes sólo se veía en la app de escritorio, dentro de Actualizaciones
 - Importar un respaldo ya no te duplica los renglones que tienen una comilla adentro: la app los reescribía de una forma equivalente al revisarlos y después los veía como distintos. Medido con un respaldo real: 326 renglones de 1450
 - Importar un respaldo viejo ya no te duplica las notas: antes, un renglón guardado por una versión anterior de la app se contaba como distinto del actual aunque no hubiera cambiado nada, y se quedaba con las dos copias. Medido con un respaldo real: pasó de 1154 renglones duplicados a 11, y esos 11 sí habían cambiado
 - Los respaldos bajados con versiones anteriores de CopyNotes se importan siempre: si al archivo le falta algún dato interno, se completa al entrar en vez de rechazar el respaldo entero por un renglón

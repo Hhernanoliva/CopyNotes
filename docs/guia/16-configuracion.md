@@ -4,6 +4,16 @@ Arriba a la derecha, junto a Ayuda y al sol/luna, hay un botón de
 **engranaje ⚙️**. Al tocarlo se abre la ventana **Configuración**, donde vas
 a ir encontrando los ajustes de CopyNotes.
 
+## Qué versión tenés
+
+Al final de la ventana, en chico, dice **CopyNotes** y el número de versión (por
+ejemplo `CopyNotes 0.2.0`). Está en todas las versiones de la app —web, celular y
+escritorio— y siempre en el mismo lugar. Es el primer dato que conviene tener a mano
+si algo no funciona y querés contarlo.
+
+En la app de escritorio, además, la sección **Actualizaciones** te dice si esa versión
+es la última (ver el tema 19).
+
 ## Tamaño de texto
 
 Sirve para leer y escribir más cómodo. Cambia **solo el texto de tus notas**
