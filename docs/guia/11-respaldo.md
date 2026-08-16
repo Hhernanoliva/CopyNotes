@@ -37,7 +37,7 @@ Cuando una nota **sí** cambió en los dos lados, se conservan las dos versiones
 
 Un archivo cuyos renglones cuelguen de un renglón de otra nota, o que formen un círculo (uno hijo del otro y viceversa), se rechaza antes de tocar nada. No es un capricho: esos renglones existirían en tus datos pero no se dibujarían en ninguna pantalla, así que entrarían y desaparecerían sin decir nada.
 
-Si tocás **Elegir archivo de respaldo…** y elegís el JSON, el resumen aparece siempre. Antes, en la web, podía no pasar absolutamente nada: la app daba por cancelada tu elección si el archivo tardaba una fracción de segundo en llegar desde la ventana del Finder. En la app de escritorio no ocurría, y por eso tardó en aparecer.
+Si tocás **Elegir archivo de respaldo…** y elegís el JSON, el resumen aparece siempre, **tarde lo que tarde el archivo**. Antes, en la web, podía no pasar absolutamente nada: la app daba por cancelada tu elección si el archivo no llegaba enseguida. En el iPhone era peor, porque el sistema tiene que copiar el archivo desde Archivos o iCloud antes de entregarlo y eso puede llevar varios segundos. Ahora la elección se cancela **sólo si vos cancelás**. En la app de escritorio nunca ocurrió, y por eso tardó en salir a la luz.
 
 Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo permanece abierta y bloqueada. Se cierra recién cuando las notas restauradas ya están listas para usar.
 

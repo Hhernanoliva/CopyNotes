@@ -13,7 +13,7 @@
 //
 // Corre bajo jsdom: necesita `document` y eventos.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openTextFile } from './files';
 
 function fileInput() {
@@ -28,6 +28,10 @@ function pick(input, name = 'respaldo.json', content = '{"format":"copynotes.bac
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+afterEach(() => {
+	vi.useRealTimers();
+});
 
 describe('elegir un archivo', () => {
 	it('el archivo llega y se devuelve', async () => {
@@ -55,5 +59,29 @@ describe('elegir un archivo', () => {
 		fileInput().dispatchEvent(new Event('cancel'));
 
 		expect(await promise).toEqual({ status: 'cancelled' });
+	});
+});
+
+// El iPhone, reportado el 2026-08-16 con el arreglo de arriba YA puesto: elegía el
+// archivo y seguía sin pasar nada. Misma forma de fallar, causa más lenta — iOS tiene
+// que COPIAR el archivo desde Archivos/iCloud antes de entregarlo, y eso puede tardar
+// segundos. Agrandar la espera es correr la misma adivinanza más lejos.
+//
+// La regla que queda: el foco NO decide nada. Cancelar lo dice el navegador con su
+// evento `cancel`; el reloj es sólo una red para que la promesa no quede colgada para
+// siempre, y es larguísimo a propósito.
+describe('un archivo que tarda en llegar', () => {
+	it('sigue llegando aunque pasen segundos desde que la ventana recuperó el foco', async () => {
+		vi.useFakeTimers();
+		const promise = openTextFile({ accept: '.json' });
+		const input = fileInput();
+
+		window.dispatchEvent(new Event('focus'));
+		// Mucho más que cualquier espera razonable: iOS copiando un archivo de iCloud.
+		await vi.advanceTimersByTimeAsync(20_000);
+		pick(input);
+
+		vi.useRealTimers();
+		expect(await promise).toMatchObject({ status: 'opened', fileName: 'respaldo.json' });
 	});
 });

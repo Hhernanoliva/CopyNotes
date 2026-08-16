@@ -16,6 +16,11 @@ export async function saveTextFile({ fileName, content, mimeType }) {
 	return { status: 'saved', fileName };
 }
 
+// Cinco minutos: más de lo que tarda cualquier diálogo del sistema, y suficiente
+// para que un archivo grande de iCloud termine de copiarse. No es un plazo de espera,
+// es un seguro contra una promesa que quede colgada.
+const NEVER_HANG_MS = 5 * 60 * 1000;
+
 function chooseFile(accept) {
 	return new Promise((resolve) => {
 		const input = document.createElement('input');
@@ -29,44 +34,41 @@ function chooseFile(accept) {
 		input.style.opacity = '0';
 		input.style.pointerEvents = 'none';
 		let settled = false;
-		let focusTimer = null;
+		let safetyTimer = null;
 		const finish = (file) => {
 			if (settled) return;
 			settled = true;
-			if (focusTimer !== null) clearTimeout(focusTimer);
-			window.removeEventListener('focus', handleWindowFocus);
+			if (safetyTimer !== null) clearTimeout(safetyTimer);
 			input.remove();
 			resolve(file ?? null);
 		};
-		const handleWindowFocus = () => {
-			// Older Safari has no input `cancel` event. Let a possible `change`
-			// arrive first, then treat an empty selection as cancellation.
-			//
-			// Esta espera era de 100 ms y se comía el respaldo. Cuando el diálogo del
-			// sistema se cierra, la ventana recupera el foco ANTES de que llegue el
-			// aviso del archivo elegido; si ese aviso tardaba un poco más que la espera,
-			// esto resolvía "canceló" y el archivo se tiraba **en silencio** — ni
-			// resumen ni error, que es la peor forma de fallar. Reportado en la web el
-			// 2026-08-16 (sitio publicado, localhost y iPhone, los tres igual).
-			//
-			// Ningún test lo veía: Playwright pone el archivo con `setFiles`, sin
-			// diálogo nativo, así que la ventana nunca pierde el foco y este camino no
-			// se ejecuta. En la app de escritorio tampoco se notaba.
-			//
-			// Un segundo y medio no se percibe: lo único que demora es la conclusión de
-			// que cancelaste, y cancelar no hace nada de todos modos. Elegir un archivo
-			// sigue siendo instantáneo, porque lo resuelve `change`.
-			//
-			// ponytail: sigue siendo una espera y no un hecho — un `change` que llegue
-			// después de la espera se pierde igual. El día que se pueda dar por muerto
-			// al Safari sin evento `cancel`, esta rama entera se borra.
-			focusTimer = setTimeout(() => {
-				if (!input.files?.length) finish(null);
-			}, 1500);
-		};
+		// Cancelar lo dice el navegador y NADIE más.
+		//
+		// Acá había una adivinanza: cuando la ventana recuperaba el foco —o sea, cuando
+		// el diálogo del sistema se cerraba— se esperaba un rato y, si el archivo no
+		// había llegado, se daba por cancelado. Pero el foco vuelve ANTES de que llegue
+		// el archivo, así que la adivinanza le corría una carrera al sistema operativo
+		// y la perdía. Perder ahí es tirar el archivo **en silencio**: ni resumen ni
+		// error, que es la peor forma de fallar.
+		//
+		// Con 100 ms fallaba en Chrome. Con 1500 ms Chrome andaba y el iPhone seguía
+		// fallando, porque iOS tiene que COPIAR el archivo desde Archivos/iCloud antes
+		// de entregarlo y eso tarda segundos. Cualquier número es el número equivocado:
+		// no hay plazo que se pueda saber de antemano. Los dos casos están en
+		// `files.test.js`.
+		//
+		// Ningún test automático lo vio, y no era mala suerte: Playwright entrega el
+		// archivo con `setFiles`, sin diálogo nativo, así que la ventana nunca pierde el
+		// foco y este camino no se ejecutaba. En la .app de escritorio tampoco pasaba
+		// (otro motor, otro orden de eventos). Sólo falla con un diálogo de verdad.
+		//
+		// El reloj que queda NO decide nada: es una red para que la promesa no quede
+		// colgada para siempre en un navegador viejo sin evento `cancel` (Safari < 16.4).
+		// Es larguísimo a propósito, y su único efecto posible es resolver "canceló"
+		// cuando ya no hay nadie mirando — cancelar no hace nada de todos modos.
 		input.addEventListener('change', () => finish(input.files?.[0]), { once: true });
 		input.addEventListener('cancel', () => finish(null), { once: true });
-		window.addEventListener('focus', handleWindowFocus, { once: true });
+		safetyTimer = setTimeout(() => finish(input.files?.[0]), NEVER_HANG_MS);
 		document.body.append(input);
 		input.click();
 	});
