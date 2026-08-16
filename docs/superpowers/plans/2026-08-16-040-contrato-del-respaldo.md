@@ -44,7 +44,7 @@ A row that reaches the file without `deletedAt` is rejected by the validator, ex
 - Modify: `src/lib/storage/shape.ts`
 - Test: `src/lib/storage/shape.test.ts` (create if absent), `src/lib/storage/db.migrations.test.ts`
 
-- [ ] **Step 1: Write the failing test** — append to `src/lib/storage/shape.test.ts` (create the file with this content if it does not exist):
+- [x] **Step 1: Write the failing test** — append to `src/lib/storage/shape.test.ts` (create the file with this content if it does not exist):
 
 ```javascript
 import { describe, expect, it } from 'vitest';
@@ -64,12 +64,12 @@ describe('la marca de borrado también se completa', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail**
+- [x] **Step 2: Run it and watch it fail**
 
 Run: `pnpm vitest run src/lib/storage/shape.test.ts`
 Expected: FAIL — `expected undefined to be null`.
 
-- [ ] **Step 3: Add the field to the one list**
+- [x] **Step 3: Add the field to the one list**
 
 In `src/lib/storage/shape.ts`, add `deletedAt: null` to `BIRTH_DEFAULTS` for the three tables, with the reason in a comment:
 
@@ -95,12 +95,12 @@ const BIRTH_DEFAULTS = {
 
 Above it, extend the file's comment with one line: `deletedAt` is required by the backup validator and the shared pipe omits any field that is `undefined` (`toSharedPayload`), so a live row whose `deletedAt` was never written arrives without it — the same failure as `collapsed`, one field over.
 
-- [ ] **Step 4: Run the test again**
+- [x] **Step 4: Run the test again**
 
 Run: `pnpm vitest run src/lib/storage/shape.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Prove the migration heals it too**
+- [x] **Step 5: Prove the migration heals it too**
 
 Add to the v12 test in `src/lib/storage/db.migrations.test.ts` (the `it('v12: completa la forma…')` block), inside the existing assertions:
 
@@ -110,7 +110,7 @@ Add to the v12 test in `src/lib/storage/db.migrations.test.ts` (the `it('v12: co
 
 The legacy seed in that test already writes a block with no `deletedAt`, so no seed change is needed. Run: `pnpm vitest run src/lib/storage/db.migrations.test.ts` → PASS (v12's body already loops over `missingShapeFields`, so extending the list is all that was required).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/storage/shape.ts src/lib/storage/shape.test.ts src/lib/storage/db.migrations.test.ts
@@ -131,7 +131,7 @@ The two measurements at the top of the spec, turned around. This is the task tha
 - Consumes: `missingShapeFields(table, row, timestamp)` from Task 1 (`src/lib/storage/shape.ts`) — returns only the absent fields, `{}` for a complete row.
 - Produces: `validateBackup(raw, existingIds?)` unchanged in signature; its `warnings` array may now contain the completion notice.
 
-- [ ] **Step 1: Write the failing tests** — append to `src/lib/export-import/schema.test.ts`:
+- [x] **Step 1: Write the failing tests** — append to `src/lib/export-import/schema.test.ts`:
 
 ```javascript
 // El bug del gate manual del 2026-08-15: un respaldo que la app misma bajó no se
@@ -211,12 +211,12 @@ describe('un archivo de una versión anterior entra igual', () => {
 
 Add `import { planMerge } from './merge';` to the top of the file if it is not already imported.
 
-- [ ] **Step 2: Run them and watch them fail**
+- [x] **Step 2: Run them and watch them fail**
 
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts`
 Expected: FAIL — the first with `expected false to be true` and the error `data.blocks.0.collapsed: Invalid key: Expected "collapsed" but received undefined`; the third with `expected 1 to be 0`.
 
-- [ ] **Step 3: Fill before validating**
+- [x] **Step 3: Fill before validating**
 
 In `src/lib/export-import/schema.ts`, import the one list and add the fill. It runs **before** `v.safeParse`, on a shallow copy — `BackupDialog` calls `validateBackup` twice on the same parsed object, and a validator must not edit its caller's data:
 
@@ -280,17 +280,17 @@ and add the warning next to the other two, after `stripLocalOnlyFields(backup.da
 
 (Decision 1 of the spec: the warning does **not** list the field names.)
 
-- [ ] **Step 4: Run the tests again**
+- [x] **Step 4: Run the tests again**
 
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts src/lib/export-import/merge.test.ts src/lib/storage/backup.test.ts`
 Expected: PASS, and no previously passing test broken.
 
-- [ ] **Step 5: Full suite + check**
+- [x] **Step 5: Full suite + check**
 
 Run: `pnpm test` then `pnpm check`
 Expected: green; `pnpm check` at exactly its 4 pre-existing errors.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/lib/export-import/schema.ts src/lib/export-import/schema.test.ts
@@ -306,7 +306,7 @@ Rule 3's mechanism. A backup built out of nothing but ids, references and the sh
 **Files:**
 - Test: `src/lib/export-import/schema.test.ts`
 
-- [ ] **Step 1: Write the guard**
+- [x] **Step 1: Write the guard**
 
 ```javascript
 // EL GUARDIÁN de la regla 3 (spec 040): un campo nuevo en la forma local es
@@ -344,12 +344,12 @@ it('un respaldo armado con lo mínimo indispensable valida', () => {
 
 Add `import { missingShapeFields } from '../storage/shape';` to the test file.
 
-- [ ] **Step 2: Run it — it must PASS**
+- [x] **Step 2: Run it — it must PASS**
 
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts`
 Expected: PASS (Task 2 made this true).
 
-- [ ] **Step 3: Prove the guard actually guards**
+- [x] **Step 3: Prove the guard actually guards**
 
 Temporarily add a required field to `blockSchema` in `src/lib/export-import/schema.ts`:
 
@@ -360,7 +360,7 @@ Temporarily add a required field to `blockSchema` in `src/lib/export-import/sche
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts`
 Expected: FAIL, naming `guardCanary`. **Then delete that line.** A guard whose red has never been seen is decoration.
 
-- [ ] **Step 4: Re-run and commit**
+- [x] **Step 4: Re-run and commit**
 
 ```bash
 pnpm vitest run src/lib/export-import/schema.test.ts
@@ -378,7 +378,7 @@ Rule 4's mechanism, and the one that protects the third pipe. **Measured 2026-08
 - Modify: `src/lib/export-import/schema.ts` (declare the list next to `LOCAL_ONLY_FIELDS`)
 - Test: `src/lib/storage/backup.test.ts` (a real dump needs `fake-indexeddb` → jsdom project; confirm the file is already in `vite.config.ts`'s jsdom include list, and add it if not)
 
-- [ ] **Step 1: Declare the list** in `src/lib/export-import/schema.ts`, right below `LOCAL_ONLY_FIELDS`:
+- [x] **Step 1: Declare the list** in `src/lib/export-import/schema.ts`, right below `LOCAL_ONLY_FIELDS`:
 
 ```javascript
 // Las claves que un respaldo PUEDE llevar, por tabla. Lista blanca, y por el
@@ -411,7 +411,7 @@ export const EXPORTED_FIELDS = {
 };
 ```
 
-- [ ] **Step 2: Write the guard** in `src/lib/storage/backup.test.ts`:
+- [x] **Step 2: Write the guard** in `src/lib/storage/backup.test.ts`:
 
 ```javascript
 // EL GUARDIÁN del caño número tres (spec 040 regla 4).
@@ -443,19 +443,19 @@ it('un volcado no lleva ninguna clave que no esté declarada', async () => {
 
 Imports the test file needs: `createFolder`, `createNote`, `createBlock`, `createSnippet`, `createTag`, `assignTag`, `appendActivity`, `setTheme`, `setShareRole`, `dumpAllTables`, and `EXPORTED_FIELDS` from `../export-import/schema`. Note the exact signatures — `createFolder(kind, name)` and `assignTag(tagId, targetType, targetId)` take positional arguments, the rest take an object.
 
-- [ ] **Step 3: Run it — it must PASS**
+- [x] **Step 3: Run it — it must PASS**
 
 Run: `pnpm vitest run src/lib/storage/backup.test.ts`
 Expected: PASS. If a key is reported as stray, **do not add it to the list reflexively** — first decide whether it should be in the file at all. That decision is the point of the test.
 
-- [ ] **Step 4: Prove the guard guards, in the way that matters**
+- [x] **Step 4: Prove the guard guards, in the way that matters**
 
 Temporarily remove `'share'` from `LOCAL_ONLY_FIELDS` in `src/lib/export-import/schema.ts` — i.e. reproduce the exact bug pipe 2 shipped.
 
 Run: `pnpm vitest run src/lib/storage/backup.test.ts`
 Expected: FAIL — `claves no declaradas en notes: [ 'share' ]`. **Then restore the line.**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 pnpm check
@@ -476,7 +476,7 @@ Rule 6, minus every gram of hosting machinery: one field, one refusal, one writt
 **Interfaces:**
 - Produces: `buildBackup(tables, meta)` writes `complete: true`. `validateBackup` output carries `backup.complete`, defaulting to `true` when the field is absent.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `src/lib/export-import/backup.test.ts`:
 
@@ -507,12 +507,12 @@ it('y uno que se declara incompleto lo dice', () => {
 
 `validFile()` is the existing helper in that test file that returns a minimal valid backup — reuse it; if it is named differently, use whatever the file already uses for a valid backup object.
 
-- [ ] **Step 2: Run and watch them fail**
+- [x] **Step 2: Run and watch them fail**
 
 Run: `pnpm vitest run src/lib/export-import/backup.test.ts src/lib/export-import/schema.test.ts`
 Expected: FAIL — `expected undefined to be true`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/lib/export-import/backup.ts`, inside the returned object (after `exportedBy`):
 
@@ -532,12 +532,12 @@ In `src/lib/export-import/schema.ts`, in `backupSchema`, next to `counts`:
 	complete: v.optional(v.boolean(), true),
 ```
 
-- [ ] **Step 4: Run them again**
+- [x] **Step 4: Run them again**
 
 Run: `pnpm vitest run src/lib/export-import/backup.test.ts src/lib/export-import/schema.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Wire the refusal into the dialog**
+- [x] **Step 5: Wire the refusal into the dialog**
 
 In `src/lib/components/BackupDialog.svelte`, in `chooseBackupFile`, the `replaceData` line becomes:
 
@@ -573,7 +573,7 @@ And in the `reviewing` step's summary box, next to the existing `{#if !review.re
 
 (keep the existing wording in the `else if` branch, and its closing `{/if}`.)
 
-- [ ] **Step 6: Run the suite and commit**
+- [x] **Step 6: Run the suite and commit**
 
 ```bash
 pnpm test && pnpm check
@@ -591,7 +591,7 @@ Rule 7's first two halves: a Spanish sentence instead of a field path, and the a
 - Modify: `src/lib/export-import/schema.ts`, `src/lib/components/BackupDialog.svelte`
 - Test: `src/lib/export-import/schema.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```javascript
 // Lo que Hernán vio el 2026-08-15 fue "data.blocks.718.collapsed: Invalid key:
@@ -610,12 +610,12 @@ it('un archivo roto se explica en castellano y dice cuántos problemas tiene', (
 });
 ```
 
-- [ ] **Step 2: Run and watch it fail**
+- [x] **Step 2: Run and watch it fail**
 
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts`
 Expected: FAIL — `expected 'data.blocks.0.type: …' to contain 'no se puede leer'`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/lib/export-import/schema.ts`, replace the early return for a failed parse:
 
@@ -640,12 +640,12 @@ In `src/lib/export-import/schema.ts`, replace the early return for a failed pars
 
 Add `details: []` to the other returns of `validateBackup` so the shape is stable for every caller.
 
-- [ ] **Step 4: Run it again**
+- [x] **Step 4: Run it again**
 
 Run: `pnpm vitest run src/lib/export-import/schema.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: The export self-check**
+- [x] **Step 5: The export self-check**
 
 In `src/lib/components/BackupDialog.svelte`, in `exportAllJson`, after `buildBackup` and **before** `saveTextFile`:
 
@@ -676,7 +676,7 @@ and extend the message branch at the end:
 
 The `JSON.parse(JSON.stringify(...))` is deliberate: `validateBackup` normalizes organization fields in place on its own copy, and the object being written to the file must not be touched by the check.
 
-- [ ] **Step 6: Add the unit test for the self-check path**
+- [x] **Step 6: Add the unit test for the self-check path**
 
 In `src/lib/export-import/schema.test.ts`:
 
@@ -690,7 +690,7 @@ it('lo que la app acaba de armar pasa su propia revisión', () => {
 });
 ```
 
-- [ ] **Step 7: Run the suite and commit**
+- [x] **Step 7: Run the suite and commit**
 
 ```bash
 pnpm test && pnpm check
@@ -708,7 +708,7 @@ Rule 5 and rule 7's third half. Nothing here is optional: the guide and the chan
 - Modify: `src/lib/components/BackupDialog.svelte`, `AGENT.md`, `docs/guia/11-respaldo.md`, `docs/guia-de-uso.md`, `CHANGELOG.md`
 - Test: `e2e/backup.spec.ts` (or whichever e2e file already opens the Respaldo dialog — find it with `grep -rl "Respaldo" e2e/`)
 
-- [ ] **Step 1: The line next to the download button**
+- [x] **Step 1: The line next to the download button**
 
 Decision 2 of the spec: it goes **next to the download button**, because the risk is created at download time. In the `idle` step's "Exportar" section, under the JSON button:
 
@@ -720,7 +720,7 @@ Decision 2 of the spec: it goes **next to the download button**, because the ris
 					</p>
 ```
 
-- [ ] **Step 2: The e2e assertion**
+- [x] **Step 2: The e2e assertion**
 
 In the e2e file that opens the dialog:
 
@@ -731,7 +731,7 @@ In the e2e file that opens the dialog:
 Run: `pnpm test:e2e <that file>`
 Expected: PASS.
 
-- [ ] **Step 3: The checklist in AGENT.md**
+- [x] **Step 3: The checklist in AGENT.md**
 
 Add a section near the sync/backup rules. Copy the table from spec 040's "Why it happens" verbatim — five rows, each naming what breaks if forgotten — under a heading that a new pipe's author cannot walk past:
 
@@ -753,13 +753,13 @@ el respaldo mínimo de `schema.test.ts` (un campo obligatorio nuevo rompe el tes
 Las otras tres son prosa: leelas.
 ```
 
-- [ ] **Step 4: The guide**
+- [x] **Step 4: The guide**
 
 In `docs/guia/11-respaldo.md`, add to the "Exportar" section, in plain Spanish with no jargon: the file is readable with any text editor and has no password; it carries the deleted notes too, which is what lets a restore bring one back; anyone you send it to can read everything. And in the "Importar" section: a backup downloaded with an older version of CopyNotes is completed on the way in and imports normally, with a line saying so — it is never rejected for a missing internal field.
 
 Update `docs/guia-de-uso.md`'s "Última actualización" to 2026-08-16.
 
-- [ ] **Step 5: The changelog**
+- [x] **Step 5: The changelog**
 
 Add to the in-progress version section of `CHANGELOG.md`, one bullet per visible change, in Spanish with no jargon:
 
@@ -770,7 +770,7 @@ Add to the in-progress version section of `CHANGELOG.md`, one bullet per visible
 - La ventana de Respaldo aclara que el archivo se lee con cualquier editor de texto y que incluye las notas borradas.
 ```
 
-- [ ] **Step 6: Full verification and commit**
+- [x] **Step 6: Full verification and commit**
 
 ```bash
 pnpm test && pnpm check && pnpm test:e2e

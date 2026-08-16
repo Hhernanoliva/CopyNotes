@@ -14,6 +14,8 @@ Antes de crear cualquier archivo, CopyNotes termina de guardar lo que acabás de
 
 Si alguno de esos últimos guardados no se pudo hacer, el archivo **se baja igual** —un respaldo al que le falta un renglón sirve más que ninguno— pero el mensaje te lo dice: *"Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar"*. Antes decía "Respaldo descargado" a secas y no te enterabas. Lo mismo al exportar la nota actual.
 
+**El archivo se lee con cualquier editor de texto y no tiene contraseña.** Debajo del botón de descarga la app te lo dice antes de que lo bajes, porque conviene saberlo antes y no después: si le mandás un respaldo a alguien, esa persona puede leer todo lo que hay adentro. Y adentro también están **las notas que borraste** — es a propósito, es lo que hace que restaurar un respaldo te pueda devolver una nota borrada, pero significa que viajan con el archivo aunque en la app no se vean.
+
 - **Descargar respaldo completo (JSON)**: baja un archivo con todas tus notas, bloques y preferencias. Es el archivo que después podés importar para restaurar todo. El nombre incluye fecha y hora (ej. `copynotes-backup-2026-07-10-1630.json`).
 - **Nota actual en Markdown**: baja la nota abierta como texto con formato simple, ideal para pegar en otras apps o archivar. Los bloques de código salen con su marca de código, estén sueltos o anidados dentro de una lista. Los títulos salen con su nivel (`#`, `##`, `###`). La negrita, cursiva, tachado y enlaces salen en formato Markdown (`**negrita**`, `[enlace](dirección)`); el subrayado y los colores no existen en Markdown, así que ese texto sale normal.
 - **Nota actual en HTML**: baja la nota abierta como página con formato, con las listas, niveles y títulos de verdad, y con el formato del texto completo: negrita, cursiva, subrayado, tachado, colores y enlaces. Los saltos de línea dentro de un renglón (los que hacés con Shift+Enter) salen tal cual, también en las notas más viejas de la app: antes esos renglones viejos se aplastaban en una sola línea al exportar, aunque al copiarlos salían bien.
@@ -38,6 +40,12 @@ Un archivo cuyos renglones cuelguen de un renglón de otra nota, o que formen un
 Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo permanece abierta y bloqueada. Se cierra recién cuando las notas restauradas ya están listas para usar.
 
 Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).
+
+**Y si al archivo le falta algún dato interno, se completa al entrar en vez de rechazarse.** Antes, un solo renglón al que le faltaba una marca interna —de esas que ni se ven en la pantalla— dejaba el respaldo entero sin poder importar, con un mensaje incomprensible. Ahora el archivo entra y el resumen te avisa: *"este archivo venía de una versión anterior de CopyNotes y se completó al importarlo"*. Y completado queda igual a lo que ya tenés, así que importarlo sobre tus mismas notas sigue sin duplicar nada.
+
+Cuando un archivo está roto de verdad, el mensaje ahora es en castellano y te dice **cuántos renglones** están mal, en lugar de mostrarte el nombre técnico del primero. Nada de lo tuyo se toca.
+
+Al **bajar** un respaldo, además, CopyNotes lo revisa antes de darlo por bueno. Si le encuentra un problema, el archivo se baja igual —siempre es mejor que nada— pero te lo dice en ese momento, en vez de que te enteres el día que lo necesitás.
 
 El respaldo también incluye tus preferencias seguras y las restaura: el tema (claro/oscuro), si ya viste la bienvenida y **Ocultar completadas** de la Agenda, entre otras. Solo viajan las preferencias inofensivas; nada delicado se escribe nunca en el archivo. Cuando importás y conservás lo tuyo, una preferencia que ya tengas puesta en este equipo manda: no se pisa con la del archivo.
 

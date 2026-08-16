@@ -9,6 +9,10 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Los respaldos bajados con versiones anteriores de CopyNotes se importan siempre: si al archivo le falta algún dato interno, se completa al entrar en vez de rechazar el respaldo entero por un renglón
+- Al bajar un respaldo, CopyNotes lo revisa antes de decir que está listo: si le encuentra un problema te lo dice ahí, en vez de que te enteres el día que lo necesitás
+- Si un archivo está dañado, ahora te dice en castellano cuántos renglones están mal en lugar de mostrar un error técnico
+- La ventana de Respaldo aclara, antes de que bajes el archivo, que se lee con cualquier editor de texto y que incluye las notas que borraste
 - Restaurar un respaldo con la nube encendida ahora funciona de verdad: antes cada renglón quedaba como una pregunta sin contestar y el respaldo no servía para nada. Ahora el archivo pasa a ser la versión buena de tu cuenta, y el cartel te avisa que esto también llega a tus otros dispositivos
 - Ahora podés compartir una nota: te avisa antes que mientras esté compartida sale de la bóveda y deja de estar cifrada, y vuelve sola cuando cerrás la compartición
 - El separador (la raya) ahora tiene su menú ⋯ con Mover y Eliminar: en el celular no había forma de borrarlo una vez puesto

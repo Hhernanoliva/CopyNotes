@@ -328,6 +328,14 @@
 					<FileDown size={16} aria-hidden="true" />
 					Descargar respaldo completo (JSON)
 				</button>
+				<!-- Va acá y no en el resumen de después: el riesgo se crea al bajar el
+				     archivo, así que la frase tiene que leerse antes de la decisión, no
+				     después (spec 040, decisión 2). -->
+				<p class="text-muted-foreground text-xs">
+					El archivo se lee con cualquier editor de texto: no tiene contraseña. Lleva todas tus
+					notas, <span class="text-foreground">incluidas las que borraste</span> — por eso
+					restaurar te las puede devolver. Quien lo reciba puede leer todo.
+				</p>
 				{#if currentNoteId}
 					<div class="flex gap-2">
 						<button

@@ -500,6 +500,9 @@ test('Ctrl+F opens the search panel and pressing it again closes it', async ({ p
 test('exporting a full backup downloads a JSON file with the notes', async ({ page }) => {
 	await openApp(page);
 	await page.getByRole('button', { name: 'Respaldo' }).click();
+	// Spec 040: la persona lee que el archivo es legible ANTES de bajarlo, no después.
+	await expect(page.getByText('no tiene contraseña')).toBeVisible();
+	await expect(page.getByText('incluidas las que borraste')).toBeVisible();
 	const [download] = await Promise.all([
 		page.waitForEvent('download'),
 		page.getByRole('button', { name: /Descargar respaldo completo/ }).click()
@@ -510,6 +513,8 @@ test('exporting a full backup downloads a JSON file with the notes', async ({ pa
 	for await (const chunk of stream) chunks.push(chunk);
 	const backup = JSON.parse(Buffer.concat(chunks).toString('utf8'));
 	expect(backup.data.notes.length).toBeGreaterThan(0);
+	// El sobre declara que es una copia completa (spec 040, regla 6).
+	expect(backup.complete).toBe(true);
 });
 
 test('the theme toggle switches between dark and light', async ({ page }) => {
