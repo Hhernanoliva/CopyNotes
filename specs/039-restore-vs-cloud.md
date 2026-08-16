@@ -6,7 +6,10 @@ backup back — and the notes did not come back. Measured the same afternoon
 against the real code; the numbers in "Objective" are that measurement, not an
 estimate.
 
-Nothing here is built.
+**Construida y con el gate manual pasado el 2026-08-16** (rama
+`feat/nota-compartida`, sin subir). Las mediciones del gate están al final del
+plan: 1758 → 1758 filas, `server_seq` 36976 → 40492, la bóveda intacta, cero
+conflictos, y el segundo aparato al día sin que nadie lo tocara.
 
 ## En criollo (resumen para Hernán)
 

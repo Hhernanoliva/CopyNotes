@@ -66,7 +66,7 @@ It is verified in the manual gate, Task 5.
 - Consumes: nothing.
 - Produces: RPC `reset_records()` → `void`. Raises `'reset_records necesita una sesión iniciada'` with no session.
 
-- [ ] **Step 1: Write the function**
+- [x] **Step 1: Write the function**
 
 In `supabase/schema.sql`, immediately after `delete_records`:
 
@@ -104,7 +104,7 @@ revoke all on function public.reset_records() from public;
 grant execute on function public.reset_records() to authenticated;
 ```
 
-- [ ] **Step 2: Add the lock check**
+- [x] **Step 2: Add the lock check**
 
 In `scripts/rls-check.mjs`, after today's check 14 (`delete_records`) and its
 "Repuesta, así la prueba siguiente tiene algo que vaciar" push, and **before**
@@ -132,7 +132,7 @@ In `scripts/rls-check.mjs`, after today's check 14 (`delete_records`) and its
 Renumber the following comment (`// 15.` → `// 16.`) and change the closing line
 to `'\nCandado OK: las dieciséis pruebas pasaron.'`.
 
-- [ ] **Step 3: Apply the SQL and run the lock**
+- [x] **Step 3: Apply the SQL and run the lock**
 
 Hernán pastes the whole `supabase/schema.sql` into the Supabase SQL editor (it is
 idempotent, that is its promise). **Do not trust "ya lo pegué" — measure it**:
@@ -150,7 +150,7 @@ means the function is there.
 
 Then: `pnpm rls:check` → expected **16/16**.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add supabase/schema.sql scripts/rls-check.mjs
@@ -178,7 +178,7 @@ files needed the jsdom half because they call `sanitizeHtml`.)
   - `claimAccountAfterRestore()` → `Promise<boolean>`. `false` = this device has no cloud and nothing was touched. `true` = the account was emptied and the restored state uploaded. Throws only if `reset_records` itself failed.
   - `restoreReachesCloud()` → `Promise<boolean>`, for the confirmation text.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/lib/sync/restore.test.ts`. The fake server here is **stateful** on
 purpose — that is what makes it reproduce the bug:
@@ -335,13 +335,13 @@ describe('restaurar un respaldo con la nube encendida', () => {
 });
 ```
 
-- [ ] **Step 2: Run it and watch it fail for the right reason**
+- [x] **Step 2: Run it and watch it fail for the right reason**
 
 Run: `pnpm vitest run src/lib/sync/restore.test.ts`
 Expected: FAIL — `Cannot find module './restore'`. That is the only acceptable
 first failure; anything else means the fake server is wrong, not the code.
 
-- [ ] **Step 3: Export the existing gate**
+- [x] **Step 3: Export the existing gate**
 
 In `src/lib/sync/upload.ts`, line 70, add `export`:
 
@@ -353,7 +353,7 @@ Leave its body and its comment alone. It is the single definition of "this devic
 may upload" (configured, session, consent, vault key) and a second copy would
 drift.
 
-- [ ] **Step 4: Write `restore.ts`**
+- [x] **Step 4: Write `restore.ts`**
 
 ```javascript
 // La mitad de la nube de "Reemplazar todo" (spec 039).
@@ -401,7 +401,7 @@ export async function claimAccountAfterRestore() {
 }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `pnpm vitest run src/lib/sync/restore.test.ts`
 Expected: PASS, 4 tests.
@@ -409,13 +409,13 @@ Expected: PASS, 4 tests.
 Then the whole suite, because `ready` became public and `restore.ts` imports
 `upload.ts`: `pnpm vitest run` → expected **1101** passing (1097 + 4).
 
-- [ ] **Step 6: Prove the test discriminates**
+- [x] **Step 6: Prove the test discriminates**
 
 Comment out the `reset_records` call in `restore.ts` and re-run the file. The
 first test must fail with **25** conflicts — the exact number from the spec's
 measurement. Put the line back. A green test that cannot go red is not a test.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/sync/restore.ts src/lib/sync/restore.test.ts src/lib/sync/upload.ts
@@ -434,7 +434,7 @@ git commit -m "feat(respaldo): restaurar reclama la cuenta en vez de pelearse co
 - Consumes: `claimAccountAfterRestore()`, `restoreReachesCloud()` from `$lib/sync/restore`.
 - Produces: nothing for later tasks.
 
-- [ ] **Step 1: Read the flag when the danger step opens**
+- [x] **Step 1: Read the flag when the danger step opens**
 
 In the `<script>`, next to the other `$state`:
 
@@ -457,7 +457,7 @@ And the button that enters the step becomes:
 
 Keep every existing attribute of that button (classes, `disabled`) untouched.
 
-- [ ] **Step 2: Write the sentence**
+- [x] **Step 2: Write the sentence**
 
 In the `confirmingReplace` block, after the existing paragraph:
 
@@ -474,7 +474,7 @@ In the `confirmingReplace` block, after the existing paragraph:
 Three facts, which is what the spec asks of it: the file wins, the cloud copy is
 replaced, the other devices follow.
 
-- [ ] **Step 3: Call the claim, and be honest when it fails**
+- [x] **Step 3: Call the claim, and be honest when it fails**
 
 `applyReplaceAll` becomes:
 
@@ -518,7 +518,7 @@ replaced, the other devices follow.
 Add `claimAccountAfterRestore, restoreReachesCloud` to the imports from
 `$lib/sync/restore`.
 
-- [ ] **Step 4: Guard the no-cloud case in e2e**
+- [x] **Step 4: Guard the no-cloud case in e2e**
 
 The e2e suite runs with **no Supabase project**, so this is where "a local-only
 install is not told about a cloud it does not have" gets locked down. In
@@ -533,13 +533,13 @@ install is not told about a cloud it does not have" gets locked down. In
 Run: `pnpm test:e2e e2e/sidebar-organization.spec.ts`
 Expected: PASS.
 
-- [ ] **Step 5: See it with your own eyes**
+- [x] **Step 5: See it with your own eyes**
 
 Green tests do not see composition. Take a Playwright screenshot of the
 confirmation step into the scratchpad and `Read` it, light and dark. The two
 paragraphs plus the red button must not turn into a wall of text.
 
-- [ ] **Step 6: Write the guide and the changelog**
+- [x] **Step 6: Write the guide and the changelog**
 
 `docs/guia/11-respaldo.md`: in the "Reemplazar todo" part, say that if you have
 the cloud on, restoring also replaces the cloud copy and the other devices end up
@@ -552,7 +552,7 @@ like this one — and that this is what makes the restore actually work. Bump
 - Restaurar un respaldo con la nube encendida ahora funciona de verdad: antes cada renglón quedaba como una pregunta sin contestar y el respaldo no servía para nada. Ahora el archivo pasa a ser la versión buena de tu cuenta, y el cartel te avisa que esto también llega a tus otros dispositivos
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/lib/components/BackupDialog.svelte e2e/sidebar-organization.spec.ts docs/ CHANGELOG.md
@@ -565,7 +565,7 @@ git commit -m "feat(respaldo): el cartel dice que esto también reemplaza la nub
 
 **Files:** none.
 
-- [ ] **Step 1: Everything green**
+- [x] **Step 1: Everything green**
 
 ```bash
 pnpm vitest run          # 1101 expected
@@ -573,7 +573,7 @@ pnpm test:e2e            # los flakes preexistentes están anotados en la memori
 pnpm check               # 4 errores preexistentes, ni uno más
 ```
 
-- [ ] **Step 2: Commit anything left**
+- [x] **Step 2: Commit anything left**
 
 Nothing should be left. If something is, it belongs to the task it came from.
 
@@ -590,7 +590,7 @@ old process to the front:
 ps -eo pid,lstart,command | grep "CopyNotes.app/Contents/MacOS" | grep -v grep
 ```
 
-- [ ] **Step 1: Restore on A with the cloud on**
+- [x] **Step 1: Restore on A with the cloud on**
 
 A has notes on both devices and "Todo subido". Download a backup on A, delete a
 couple of notes, then restore that backup with "Reemplazar todo".
@@ -599,17 +599,17 @@ Expected: the notes come back, and **the conflict counter stays at zero**. Today
 it shows one per row. Measure the server too: every row of the file present in
 `records`.
 
-- [ ] **Step 2: The confirmation text**
+- [x] **Step 2: The confirmation text**
 
 It named the cloud and the other devices before you pressed it. This is the only
 place that wording gets seen with cloud on (criterion 8).
 
-- [ ] **Step 3: B converges on its own**
+- [x] **Step 3: B converges on its own**
 
 Do not touch B. Within a sync pass it shows the restored state. This is
 criterion 4 and the only end-to-end proof of it.
 
-- [ ] **Step 4: The vault survived**
+- [x] **Step 4: The vault survived**
 
 A still holds its key and B was not asked to pair again (criterion 3). If either
 was, `reset_cloud` got reused somewhere — that is the whole reason
@@ -629,6 +629,43 @@ Append the result to this file, dated, and tick the 038 gate's step 5 in its own
 plan. A gate with no written outcome gets re-run from scratch in three weeks.
 
 ---
+
+---
+
+## Resultado del gate manual — 2026-08-16
+
+Corrido en la .app empaquetada (bundle 14:26), con la nube encendida, el iPhone y
+la web de localhost cerrados de antemano — cerrarlos es **higiene de medición, no
+un requisito del producto**: con B abierto, un cambio propio sin subir levantaría
+un conflicto legítimo y no se podría distinguir del bug.
+
+**PASADO.** Criterios 1, 2, 3, 4 y 8 probados con datos reales.
+
+En vez de borrar notas y restaurar, se restauró **un respaldo del estado actual**
+(`copynotes-backup-2026-08-16-1421.json`). Prueba lo mismo y no arriesga nada: si
+algo fallaba, sus notas quedaban donde estaban. Y de paso probó el criterio 2 de la
+spec 040 a escala real — el resumen dijo *"No hay nada nuevo para agregar: ya tenés
+todo lo que trae este archivo. 1551 elementos idénticos ya existen y se omiten"*.
+
+| medición | antes | después |
+|---|---|---|
+| `records` | 1758 | **1758** |
+| `vaults` | 1 | **1** |
+| `server_seq` más alto | 36976 | **40492** |
+| conflictos estacionados | — | **0** (antes del arreglo: ~1500) |
+
+Los tres números juntos son la prueba, y ninguno alcanza solo: **1758 → 1758** dice
+que la nube se rellenó completa; **36976 → 40492** dice que cada fila es una
+escritura NUEVA, o sea que de verdad se vació y se rellenó en vez de quedar igual de
+casualidad; y `vaults` **1 → 1** dice que la llave sobrevivió — el motivo entero de
+que exista `reset_records()` en lugar de reusar `reset_cloud()`.
+
+- El cartel nombró la nube y los otros dispositivos, palabra por palabra (criterio 8).
+- El iPhone, sin que nadie lo tocara: *"aparecen las notas y nada más"*. Ningún
+  conflicto, ningún cartel (criterio 4, y la única prueba de punta a punta que
+  existe de eso).
+
+Queda el paso 5 (el de la spec 038), que ya no está bloqueado por esto.
 
 ## Self-review notes
 
