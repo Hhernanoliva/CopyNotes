@@ -442,10 +442,20 @@ export function validateBackup(raw, existingIds = undefined) {
 		existingSnippetIds: existingIds?.existingSnippetIds ?? []
 	};
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-		return { ok: false, errors: ['El archivo no es un respaldo de CopyNotes.'], warnings: [] };
+		return {
+			ok: false,
+			errors: ['El archivo no es un respaldo de CopyNotes.'],
+			details: [],
+			warnings: []
+		};
 	}
 	if (raw.format !== SUPPORTED_FORMAT) {
-		return { ok: false, errors: ['El archivo no es un respaldo de CopyNotes.'], warnings: [] };
+		return {
+			ok: false,
+			errors: ['El archivo no es un respaldo de CopyNotes.'],
+			details: [],
+			warnings: []
+		};
 	}
 	if (!SUPPORTED_VERSIONS.includes(raw.formatVersion)) {
 		return {
@@ -453,6 +463,7 @@ export function validateBackup(raw, existingIds = undefined) {
 			errors: [
 				`Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`
 			],
+			details: [],
 			warnings: []
 		};
 	}
@@ -468,7 +479,23 @@ export function validateBackup(raw, existingIds = undefined) {
 		}
 	}
 	if (!parsed.success) {
-		return { ok: false, errors: formatIssues(parsed.issues), warnings: [] };
+		// Una persona no puede hacer nada con "data.blocks.718.collapsed: Invalid key".
+		// Lo que sí puede hacer algo es saber que el archivo está dañado, cuántos
+		// renglones lo están, y que no se tocó nada de lo suyo. El detalle sigue
+		// disponible en `details` para el registro.
+		const details = formatIssues(parsed.issues);
+		const rows = new Set(details.map((line) => line.slice(0, line.lastIndexOf('.'))));
+		const count = rows.size || details.length;
+		return {
+			ok: false,
+			errors: [
+				count === 1
+					? 'Este archivo no se puede leer como respaldo: 1 renglón está dañado o incompleto. No se tocó nada de lo tuyo.'
+					: `Este archivo no se puede leer como respaldo: ${count} renglones están dañados o incompletos. No se tocó nada de lo tuyo.`
+			],
+			details,
+			warnings: []
+		};
 	}
 	const backup = parsed.output;
 	// Before any referential check: a file that contradicts itself about which
@@ -476,11 +503,11 @@ export function validateBackup(raw, existingIds = undefined) {
 	// check is keyed on.
 	const idErrors = duplicateIdErrors(backup.data);
 	if (idErrors.length > 0) {
-		return { ok: false, errors: idErrors, warnings: [] };
+		return { ok: false, errors: idErrors, details: [], warnings: [] };
 	}
 	const refErrors = referenceErrors(backup.data, existing);
 	if (refErrors.length > 0) {
-		return { ok: false, errors: refErrors, warnings: [] };
+		return { ok: false, errors: refErrors, details: [], warnings: [] };
 	}
 	// Silent, not a warning: these fields are never something the person chose to
 	// put in the file, so there is nothing for them to act on.
@@ -520,5 +547,5 @@ export function validateBackup(raw, existingIds = undefined) {
 			warnings.push(`El conteo declarado de ${table} no coincide; se recalculó.`);
 		}
 	}
-	return { ok: true, backup: { ...backup, counts }, errors: [], warnings };
+	return { ok: true, backup: { ...backup, counts }, errors: [], details: [], warnings };
 }

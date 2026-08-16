@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateBackup } from './schema';
 import { planMerge } from './merge';
+import { buildBackup } from './backup';
 import { missingShapeFields } from '../storage/shape';
 
 const iso = '2026-07-10T12:00:00.000Z';
@@ -659,5 +660,52 @@ describe('qué tan completo es el archivo (spec 040)', () => {
 
 		expect(result.ok).toBe(true);
 		expect(result.backup.complete).toBe(false);
+	});
+});
+
+// Lo que Hernán vio el 2026-08-15 fue "data.blocks.718.collapsed: Invalid key:
+// Expected "collapsed" but received undefined" en un cartelito, y era el PRIMERO de
+// vaya a saber cuántos: el diálogo muestra `errors[0]` y nada más.
+//
+// El archivo del ejemplo tiene un tipo de renglón que no existe, no un campo que
+// falta: un campo que falta ya se completa solo, y hacía falta un archivo roto de
+// verdad para probar el mensaje.
+describe('un archivo roto se explica en castellano (spec 040)', () => {
+	it('dice qué pasa y cuántos renglones están mal, no la ruta del campo', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote()],
+				blocks: [
+					makeBlock({ id: 'block_1', type: 'inventado' }),
+					makeBlock({ id: 'block_2', type: 'tampoco' })
+				]
+			})
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0]).toContain('no se puede leer');
+		expect(result.errors[0]).toContain('2 renglones');
+		expect(result.errors[0]).toContain('No se tocó nada de lo tuyo');
+		expect(result.errors[0]).not.toContain('Invalid');
+		// El detalle técnico no se pierde, sólo deja de ser lo primero que se lee.
+		expect(result.details.join(' ')).toContain('data.blocks.0.type');
+	});
+
+	it('un solo renglón roto se dice en singular', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ type: 'inventado' })] })
+		);
+
+		expect(result.errors[0]).toContain('1 renglón');
+	});
+
+	it('lo que la app acaba de armar pasa su propia revisión', () => {
+		const backup = buildBackup(
+			{ notes: [], blocks: [], snippets: [], tags: [], tagAssignments: [], settings: [] },
+			{ appVersion: '0.2.0', exportedAt: iso }
+		);
+
+		expect(validateBackup(backup).ok).toBe(true);
 	});
 });

@@ -78,13 +78,28 @@
 				exportedAt: new Date().toISOString(),
 				source: getBackupSource()
 			});
+			// La app revisa el respaldo que ella misma acaba de armar. Sin esto un archivo
+			// roto se baja en silencio y te enterás el día que lo necesitás — que es
+			// exactamente lo que pasó el 2026-08-15 (spec 040, regla 7).
+			//
+			// Se baja IGUAL: un respaldo al que le falta un renglón sirve más que ninguno,
+			// el mismo criterio que `settlePendingWrites`. Lo que cambia es que el mensaje
+			// no puede decir que está sano.
+			//
+			// Sobre una copia: `validateBackup` normaliza carpetas y posiciones en el objeto
+			// que recibe, y lo que se escribe en el archivo no lo puede tocar la revisión.
+			const selfCheck = validateBackup(JSON.parse(JSON.stringify(backup)));
 			const result = await saveTextFile({
 				fileName: backupFileName(new Date()),
 				content: JSON.stringify(backup, null, 2),
 				mimeType: 'application/json'
 			});
 			if (result.status !== 'saved') return;
-			if (allSaved) toast.success('Respaldo descargado');
+			if (!selfCheck.ok)
+				toast.warning(
+					'Respaldo descargado, pero al revisarlo le encontramos un problema. Guardalo igual y avisanos.'
+				);
+			else if (allSaved) toast.success('Respaldo descargado');
 			else
 				toast.warning(
 					'Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar.'
