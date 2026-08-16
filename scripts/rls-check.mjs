@@ -213,7 +213,126 @@ try {
 	);
 	console.log('✓ la llave de paso vencida no se lee, y se puede reemplazar');
 
-	// 12. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
+	// 12. El segundo caño (spec 038). Una nota compartida viaja EN CLARO, así que
+	//     el cifrado ya no defiende nada acá: el único candado que queda es quién
+	//     puede leer esa nota y quién puede escribirla.
+	const NOTA_DE_A = 'nota-compartida-de-A';
+	const NOTA_DE_B = 'nota-compartida-de-B';
+	const renglon = (noteId, id, texto) => ({
+		table_name: 'blocks',
+		id,
+		change_seq: 1,
+		base_seq: null,
+		deleted: false,
+		payload: { id, noteId, content: texto }
+	});
+	unwrap(await a.client.rpc('open_share', { p_note_id: NOTA_DE_A }));
+	unwrap(await b.client.rpc('open_share', { p_note_id: NOTA_DE_B }));
+	unwrap(
+		await a.client.rpc('push_shared_rows', {
+			p_note_id: NOTA_DE_A,
+			payload: [renglon(NOTA_DE_A, 'b-de-A', 'renglón de la nota de A')]
+		})
+	);
+	unwrap(
+		await b.client.rpc('push_shared_rows', {
+			p_note_id: NOTA_DE_B,
+			payload: [renglon(NOTA_DE_B, 'b-de-B', 'renglón de la nota de B')]
+		})
+	);
+
+	const bajadaAjena = await b.client.rpc('pull_shared_rows', { p_note_id: NOTA_DE_A, p_cursor: 0 });
+	assert(bajadaAjena.error, 'B se bajó una nota compartida de la que no es parte');
+	const espiadas = unwrap(await b.client.from('share_rows').select('id'));
+	assert.deepEqual(
+		espiadas.map((row) => row.id),
+		['b-de-B'],
+		'B leyó por la tabla las filas compartidas de A'
+	);
+	const subidaAjena = await b.client.rpc('push_shared_rows', {
+		p_note_id: NOTA_DE_A,
+		payload: [renglon(NOTA_DE_A, 'inyectado', 'no soy parte de esto')]
+	});
+	assert(subidaAjena.error, 'B escribió en una nota compartida de la que no es parte');
+	console.log('✓ quien no es parte de una nota compartida no la lee ni la escribe');
+
+	// 13. Ya invitado, el rol es la única defensa que queda. Un invitado agrega
+	//     bitácora y nada más, y la firma NO se le cree: si se le creyera podría
+	//     tildar en nombre del dueño, que es justo lo que la función existe para
+	//     contar. La membresía se planta con la llave de servicio porque la
+	//     invitación es de la parte B y todavía no existe.
+	unwrap(await admin.from('share_members').insert({ note_id: NOTA_DE_A, member_id: b.id }));
+	const rechazado = unwrap(
+		await b.client.rpc('push_shared_rows', {
+			p_note_id: NOTA_DE_A,
+			payload: [renglon(NOTA_DE_A, 'b-del-invitado', 'un renglón que no le toca')]
+		})
+	);
+	assert.deepEqual(
+		rechazado,
+		[{ rejected_table: 'blocks', rejected_id: 'b-del-invitado' }],
+		'un invitado pudo escribir un renglón de la nota'
+	);
+	const aceptado = unwrap(
+		await b.client.rpc('push_shared_rows', {
+			p_note_id: NOTA_DE_A,
+			payload: [
+				{
+					table_name: 'activity',
+					id: 'linea-del-invitado',
+					change_seq: 1,
+					base_seq: null,
+					deleted: false,
+					// Firma robada a propósito: el servidor la tiene que pisar.
+					payload: { id: 'linea-del-invitado', noteId: NOTA_DE_A, actor: 'user', action: 'done' }
+				}
+			]
+		})
+	);
+	assert.deepEqual(aceptado, [], 'el invitado no pudo agregar una línea de bitácora');
+	const bajada = unwrap(
+		await b.client.rpc('pull_shared_rows', { p_note_id: NOTA_DE_A, p_cursor: 0 })
+	);
+	const firmada = bajada.find((row) => row.id === 'linea-del-invitado');
+	assert.equal(firmada.payload.actor, `member:${b.id}`, 'el invitado firmó su línea como el dueño');
+	console.log('✓ el invitado sólo agrega bitácora, y la firma se la pone el servidor');
+
+	// 14. La mitad que faltaba de la mudanza. Las dos cuentas tienen una fila con
+	//     el MISMO id, así que si `delete_records` borrara por id en vez de por
+	//     dueño, esta llamada se llevaría puesta la de B.
+	unwrap(await a.client.rpc('delete_records', { payload: [{ table_name: 'notes', id: SHARED_ID }] }));
+	const sobrevivioB = unwrap(await b.client.from('records').select('blob'));
+	assert.equal(atob(sobrevivioB[0].blob), 'secreto-de-B', 'delete_records de A borró la fila de B');
+	const seFueDeA = unwrap(await a.client.from('records').select('id'));
+	assert.equal(seFueDeA.length, 0, 'delete_records no borró la fila de quien lo llamó');
+	console.log('✓ delete_records borra lo propio y no alcanza lo ajeno');
+
+	// Repuesta, así la prueba siguiente tiene algo que vaciar.
+	await push(a.client, [{ ...record('secreto-de-A-v3'), change_seq: 10, base_seq: null }]);
+
+	// 15. Restaurar un respaldo vacía `records` de quien llama y nada más. Las dos
+	//     cuentas tienen una fila con el MISMO id a propósito. Y la bóveda de A
+	//     tiene que seguir en pie: si esto borrara `vaults`, restaurar un archivo
+	//     costaría la llave, y por eso `reset_records` existe en vez de reusar
+	//     `reset_cloud`.
+	//
+	//     A no tenía bóveda hasta acá —la de arriba es de B—, y hace falta que la
+	//     tenga: el escenario es un aparato con llave que restaura un respaldo.
+	unwrap(await a.client.from('vaults').insert({ iv: 'i', check_blob: 'prueba-de-A' }));
+	unwrap(await a.client.rpc('reset_records'));
+	const vacioDeA = unwrap(await a.client.from('records').select('id'));
+	assert.equal(vacioDeA.length, 0, 'reset_records no vació lo de quien lo llamó');
+	const intactoDeB = unwrap(await b.client.from('records').select('blob'));
+	assert.equal(atob(intactoDeB[0].blob), 'secreto-de-B', 'reset_records de A borró la fila de B');
+	const bovedaDeA = unwrap(await a.client.from('vaults').select('check_blob'));
+	assert.equal(bovedaDeA.length, 1, 'reset_records se llevó la bóveda de A');
+	assert.equal(bovedaDeA[0].check_blob, 'prueba-de-A', 'reset_records pisó la bóveda de A');
+	console.log('✓ reset_records vacía lo propio, no lo ajeno, y no toca la bóveda');
+
+	// Repuesta otra vez, así `reset_cloud` tiene algo que vaciar.
+	await push(a.client, [{ ...record('secreto-de-A-v4'), change_seq: 11, base_seq: null }]);
+
+	// 16. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
 	//     de borrado que existe, así que si filtrara mal, vaciaría cuentas ajenas.
 	unwrap(await a.client.rpc('reset_cloud'));
 	const deA = unwrap(await a.client.from('records').select('id'));
@@ -222,9 +341,25 @@ try {
 	assert.equal(atob(deB[0].blob), 'secreto-de-B', 'reset_cloud de A se llevó puesto lo de B');
 	const bovedaDeB = unwrap(await b.client.from('vaults').select('check_blob'));
 	assert.equal(bovedaDeB.length, 1, 'reset_cloud de A borró la bóveda de B');
+	// Y cierra lo compartido, o la nota queda publicada acá arriba mientras el
+	// aparato deja de creerla compartida: una nota en los dos caños para siempre.
+	const compartidasDeA = unwrap(await a.client.from('shares').select('note_id'));
+	assert.deepEqual(compartidasDeA, [], 'empezar de nuevo dejó abierta una nota compartida de A');
+	const compartidasDeB = unwrap(await b.client.from('shares').select('note_id'));
+	assert.deepEqual(
+		compartidasDeB.map((row) => row.note_id),
+		[NOTA_DE_B],
+		'reset_cloud de A cerró la nota compartida de B'
+	);
+	const filasDeB = unwrap(await b.client.from('share_rows').select('id'));
+	assert.deepEqual(
+		filasDeB.map((row) => row.id),
+		['b-de-B'],
+		'reset_cloud de A se llevó las filas compartidas de B'
+	);
 	console.log('✓ empezar de nuevo vacía lo propio y no toca lo ajeno');
 
-	console.log('\nCandado OK: las doce pruebas pasaron.');
+	console.log('\nCandado OK: las dieciséis pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);

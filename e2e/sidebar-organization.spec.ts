@@ -214,6 +214,10 @@ test('backup roundtrip keeps folders and membership', async ({ page }) => {
 	]);
 	await fileChooser.setFiles(path);
 	await page.getByRole('button', { name: 'Reemplazar todo…' }).click();
+	// Sin nube configurada, el cartel no habla de la nube (spec 039): a quien usa
+	// CopyNotes en un aparato solo, esa frase le sobra y lo asusta. Esta suite corre
+	// sin proyecto Supabase, así que es el único lugar donde se puede probar.
+	await expect(page.getByText('la copia de la nube')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Sí, borrar lo actual y reemplazar' }).click();
 	await expect(page.getByText('Respaldo restaurado desde cero.')).toBeVisible();
 

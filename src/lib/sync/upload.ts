@@ -32,6 +32,7 @@ import {
 import { encryptRecord } from './records';
 import { markSentToCloud } from '../storage/db';
 import { downloadAll } from './download';
+import { countSharedPending, sharedReady, syncShared } from './shared';
 import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
 import { getVaultKey, makeVaultProof, proofOpens } from './vault';
@@ -66,7 +67,7 @@ async function currentAccount() {
 
 // All four gates in one place. Any of them missing means "not now", not an
 // error: no cloud configured, not logged in, no consent yet, no vault yet.
-async function ready() {
+export async function ready() {
 	const client = supabase();
 	if (!client) return null;
 	const { data } = await client.auth.getSession();
@@ -238,6 +239,28 @@ export async function syncNow() {
 		const account = await currentAccount();
 		if (account && !(await ensureAccountMatches(account))) return;
 
+		// Spec 038, y el orden importa: esto va ANTES de la subida cifrada.
+		//
+		// `list_shares()` es lo único que le devuelve a este aparato la marca de
+		// qué notas están compartidas, y esa marca falta sola en tres casos —
+		// después de restaurar un respaldo, en un aparato nuevo, y después de
+		// cerrar sesión. En cualquiera de los tres, la nota entera figura como
+		// pendiente sin que nadie la haya editado, así que si `uploadBatch`
+		// corriera primero la subiría al caño cifrado y la nota quedaría en los
+		// dos. El comentario de más abajo ("subir primero, así lo mío vuelve como
+		// eco") sigue siendo cierto y es sobre el caño cifrado: esto es un paso
+		// ANTES, no un cambio de ese orden.
+		//
+		// Fuera del `if (gate)` a propósito: sus puertas no son estas (ver
+		// `sync/shared.ts`). Un invitado sin permiso de subir y sin bóveda tiene
+		// que sincronizar su ticket igual.
+		const sharedClient = await sharedReady();
+		// Y si algo cambió acá, la pantalla tiene que enterarse por la MISMA
+		// campanita que usa el caño cifrado. Sin esta línea la nota compartida se
+		// actualizaba en la base y se quedaba vieja en pantalla hasta recargar
+		// (encontrado en el gate manual, 2026-08-14).
+		if (sharedClient && (await syncShared(sharedClient))) syncStatus.appliedVersion++;
+
 		const gate = await ready();
 		if (gate) {
 			await uploadVaultBlob(gate.client);
@@ -269,7 +292,12 @@ export async function syncNow() {
 		reportSyncFailure(error);
 	} finally {
 		syncStatus.uploading = false;
-		syncStatus.pending = await countPendingUploads();
+		// Las dos colas. `countPendingUploads` arranca con el permiso de subir y
+		// devuelve 0 sin él —correcto para el caño cifrado, que es su puerta— y
+		// eso deja a un invitado leyendo "Todo subido" sobre cinco tildes sin
+		// mandar. Y esa línea es el ÚNICO testigo del gate manual de dos aparatos,
+		// así que no puede mentir.
+		syncStatus.pending = (await countPendingUploads()) + (await countSharedPending());
 		// The whole standing pile, not what this run happened to find: a conflict
 		// stays open until the person decides it.
 		syncStatus.conflicts = await countConflicts();

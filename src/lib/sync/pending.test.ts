@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../storage/db';
 import { createNote, softDeleteNote, updateNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
+import { appendActivity } from '../storage/activity';
+import { assignTag, createTag } from '../storage/tags';
+import { setShareRole } from '../storage/shares';
 import {
+	countPendingUploads,
 	grantUploadConsent,
 	hasUploadConsent,
 	listPendingUploads,
@@ -101,5 +105,49 @@ describe('what is still pending', () => {
 
 		expect(tables.has('vault')).toBe(false);
 		expect(tables.has('settings')).toBe(false);
+	});
+});
+
+describe('una nota viaja por un caño solo', () => {
+	it('deja afuera las tres tablas de una nota compartida y NO la cuarta', async () => {
+		await grantUploadConsent();
+		const shared = await createNote({ title: 'compartida' });
+		const own = await createNote({ title: 'mía' });
+		await createBlock({ noteId: shared.id, content: 'de la compartida' });
+		await createBlock({ noteId: own.id, content: 'de la mía' });
+		await appendActivity({
+			blockId: 'b-x',
+			noteId: shared.id,
+			actor: 'user',
+			action: 'done',
+			text: ''
+		});
+		const tag = await createTag({ name: 'etiqueta' });
+		await assignTag(tag.id, 'note', shared.id);
+		await setShareRole(shared.id, 'owner');
+
+		const pending = await listPendingUploads();
+		const ids = new Set(pending.map((entry) => entry.row.id));
+
+		expect(ids.has(shared.id)).toBe(false);
+		expect(ids.has(own.id)).toBe(true);
+		expect(pending.some((entry) => entry.table === 'blocks' && entry.row.noteId === shared.id)).toBe(
+			false
+		);
+		expect(
+			pending.some((entry) => entry.table === 'activity' && entry.row.noteId === shared.id)
+		).toBe(false);
+		// Las etiquetas son la organización privada del dueño: viajan por el caño
+		// cifrado o el segundo aparato pierde las etiquetas de todo lo que comparta.
+		expect(pending.some((entry) => entry.table === 'tagAssignments')).toBe(true);
+	});
+
+	it('el conteo cuenta lo mismo que la lista', async () => {
+		await grantUploadConsent();
+		const shared = await createNote({ title: 'compartida' });
+		await createBlock({ noteId: shared.id, content: 'texto' });
+		await setShareRole(shared.id, 'owner');
+
+		expect(await countPendingUploads()).toBe((await listPendingUploads()).length);
 	});
 });

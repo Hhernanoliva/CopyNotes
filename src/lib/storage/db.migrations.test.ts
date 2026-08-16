@@ -139,8 +139,8 @@ describe('db migrations v1 → v5', () => {
 		});
 		await migrate();
 
-		// verno is Dexie's on-disk version number; v10 is the latest declared.
-		expect(db.verno).toBe(10);
+		// verno is Dexie's on-disk version number; v12 is the latest declared.
+		expect(db.verno).toBe(12);
 		const b1 = await db.table('blocks').get('b1');
 		expect(b1.html).toBe('texto');
 	});
@@ -190,6 +190,42 @@ describe('db migrations v1 → v7', () => {
 		// Indexed, not just present: the "changed since X" query is a range scan.
 		const changed = await db.table('notes').where('changeSeq').above(0).toArray();
 		expect(changed.map((row) => row.id).sort()).toEqual(['n1', 'n2']);
+	});
+
+	// v12 repara lo que dejó el caño compartido antes del arreglo del 2026-08-15: un
+	// renglón que llegó de otro aparato sin `collapsed` ni fechas. No se veía en la
+	// pantalla y hacía que el RESPALDO de ese aparato no pasara su propia
+	// validación, o sea que el archivo entero no se podía importar por un renglón.
+	it('v12: completa la forma de una fila que llegó incompleta, sin mandarla a subir', async () => {
+		await seedLegacyV1({
+			notes: [{ id: 'n1', title: 'una', updatedAt: '2026-01-01T00:00:00.000Z', deletedAt: null }],
+			blocks: [
+				// Así queda un renglón que llegó por el caño compartido: sin `collapsed`,
+				// sin `note`, sin `createdBy` y sin fechas.
+				{ id: 'b-pelado', noteId: 'n1', parentBlockId: null, type: 'text', content: 'del otro', order: 1, checked: false }
+			]
+		});
+		await migrate();
+
+		const stored = await db.table('blocks').get('b-pelado');
+		expect(stored.collapsed).toBe(false);
+		expect(stored.note).toBe('');
+		expect(stored.createdBy).toBe('user');
+		expect(stored.deletedAt).toBe(null);
+		expect(typeof stored.createdAt).toBe('string');
+		expect(typeof stored.updatedAt).toBe('string');
+		// El texto no se toca: reparar la forma no es reescribir la fila.
+		expect(stored.content).toBe('del otro');
+
+		// Y el sello de cambio queda donde lo dejó v7. Moverlo mandaría la base
+		// entera a la cola de subida por una reparación que nadie pidió.
+		const stamped = await db.table('blocks').get('b-pelado');
+		const afterSecondOpen = await (async () => {
+			db.close();
+			await db.open();
+			return db.table('blocks').get('b-pelado');
+		})();
+		expect(afterSecondOpen.changeSeq).toBe(stamped.changeSeq);
 	});
 
 	it('v8: exposes an empty vault table without touching the notes', async () => {

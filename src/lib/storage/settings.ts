@@ -2,7 +2,7 @@ import { db } from './db';
 import { now } from './ids';
 import { journalSetting, journaledSetting, unjournalSetting } from './journal';
 import { trackPendingWrite } from './pending-writes';
-import { KEY } from './settings-registry';
+import { KEY, isSharePrefixed } from './settings-registry';
 import { bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
 
 const settings = db.table('settings');
@@ -27,6 +27,22 @@ export function setSetting(key, value) {
 	return trackPendingWrite(async () => {
 		await settings.put({ key, value, updatedAt: now() });
 		unjournalSetting(key, value);
+	});
+}
+
+// Borra la familia entera de claves por nota de compartir (spec 038). Existe
+// porque `resetCloudState` limpia de a una clave de una lista fija, y estas no
+// pueden estar en ninguna lista fija: hay una por nota.
+//
+// ponytail: `setSetting(key, undefined)` deja la fila con el valor vacío en vez
+// de borrarla — es lo que ya hace `leave.ts` con `syncAccountId`, pasa por el
+// diario igual que cualquier otra escritura, y el techo es una fila diminuta por
+// cada nota que se haya compartido alguna vez. Si eso llegara a importar, un
+// `settings.bulkDelete(keys)` dentro del mismo `trackPendingWrite` lo cierra.
+export function forgetSharePrefixes() {
+	return trackPendingWrite(async () => {
+		const keys = (await settings.toArray()).map((row) => row.key).filter(isSharePrefixed);
+		for (const key of keys) await setSetting(key, undefined);
 	});
 }
 

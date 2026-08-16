@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
 import { createNote, updateNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
+import { appendActivity } from '../storage/activity';
+import { setShareRole } from '../storage/shares';
 import { grantUploadConsent, uploadedThrough } from './pending';
 import { createVault } from './vault';
 import { setSetting } from '../storage/settings';
@@ -22,6 +24,10 @@ const serverVault = vi.hoisted(() => ({ row: null }));
 // `table:id` of the records this server refuses, standing in for "somebody else
 // wrote a version you never saw".
 const rejects = vi.hoisted(() => []);
+// En qué notas compartidas dice el servidor que está este aparato (spec 038).
+const serverShares = vi.hoisted(() => []);
+// Lo que el caño compartido tiene para bajar.
+const sharedRows = vi.hoisted(() => []);
 
 vi.mock('./supabase', () => ({
 	cloudConfigured: () => true,
@@ -30,6 +36,24 @@ vi.mock('./supabase', () => ({
 		// Records go up through the guarded function, never a bare upsert: it is the
 		// only writer that can refuse. It answers with the rows it refused.
 		rpc: async (name, args) => {
+			// Spec 038: `syncNow` pregunta primero en qué notas compartidas está este
+			// aparato. El caño compartido tiene su propia prueba (shared.test.ts); lo
+			// que hace falta acá es que la pregunta se pueda contestar sin comerse
+			// una respuesta de la cola de arriba ni contar como subida cifrada.
+			if (name === 'list_shares') return { data: serverShares, error: null };
+			if (name === 'pull_shared_rows') return { data: sharedRows, error: null };
+			// Y que lo que se le mande NO se le acepte solo, o la cola compartida
+			// quedaría siempre vacía justo cuando se la cuenta al final.
+			if (name === 'push_shared_rows') {
+				return {
+					data: args.payload.map((row) => ({
+						rejected_table: row.table_name,
+						rejected_id: row.id
+					})),
+					error: null
+				};
+			}
+			if (name !== 'push_records') return { data: [], error: null };
 			sent.push(['records', args.payload]);
 			const reply = replies.shift();
 			if (reply?.error) return { data: null, error: reply.error };
@@ -81,6 +105,8 @@ beforeEach(async () => {
 	sent.length = 0;
 	replies.length = 0;
 	rejects.length = 0;
+	serverShares.length = 0;
+	sharedRows.length = 0;
 	serverVault.row = null;
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
@@ -383,5 +409,103 @@ describe('when the other device got there first', () => {
 		expect(rowsFor('records')).toHaveLength(1);
 		const stored = await db.table('notes').get(note.id);
 		expect(stored.cloudSeq).toBe(stored.changeSeq);
+	});
+});
+
+// Spec 038. La línea "Todo subido" es el ÚNICO testigo del gate manual de dos
+// aparatos, así que no puede mentirle a un invitado: no tiene permiso de subir
+// ni bóveda, con lo cual el caño cifrado contesta cero — correctamente, es su
+// puerta — y sus tildes sin mandar quedaban invisibles.
+describe('lo que falta subir son dos colas', () => {
+	it('cuenta la compartida aunque no haya permiso de subir', async () => {
+		const note = await createNote({ title: 'ajena' });
+		await setShareRole(note.id, 'member');
+		await appendActivity({
+			blockId: 'b1',
+			noteId: note.id,
+			actor: 'user',
+			action: 'done',
+			text: ''
+		});
+		serverShares.push({ note_id: note.id, role: 'member' });
+		const { syncNow, syncStatus } = await loadUpload();
+
+		await syncNow();
+
+		expect(syncStatus.pending).toBe(1);
+	});
+
+	// El bug que encontró el gate manual del 2026-08-14: la edición del otro
+	// aparato aterrizaba en la base y la pantalla no se enteraba, porque
+	// `appliedVersion` —lo único que `CloudLifecycle` mira para decir "refrescá"—
+	// lo movía sólo el caño cifrado. Las dos mitades estaban probadas por
+	// separado; lo que faltaba era el cable entre ellas.
+	it('avisa a la pantalla cuando algo llegó por el caño compartido', async () => {
+		const note = await createNote({ title: 'vieja' });
+		await setShareRole(note.id, 'owner');
+		serverShares.push({ note_id: note.id, role: 'owner' });
+		sharedRows.push({
+			table_name: 'notes',
+			id: note.id,
+			change_seq: 9_999_999_999_999,
+			deleted: false,
+			payload: { id: note.id, title: 'la escribió el otro aparato', deletedAt: null },
+			author_id: 'u1',
+			server_seq: 3
+		});
+		const { syncNow, syncStatus } = await loadUpload();
+		const antes = syncStatus.appliedVersion;
+
+		await syncNow();
+
+		expect((await db.table('notes').get(note.id)).title).toBe('la escribió el otro aparato');
+		expect(syncStatus.appliedVersion).toBe(antes + 1);
+	});
+});
+
+// Criterio 24 de la spec 038, el que faltaba: una nota compartida NO se sube al
+// caño cifrado después de restaurar un respaldo.
+//
+// La marca de compartida no viaja en el archivo a propósito (`LOCAL_ONLY_FIELDS`:
+// un archivo no puede afirmar que una nota está compartida). Entonces, recién
+// restaurado, este aparato tiene la nota entera como pendiente y sin marca — la
+// misma situación que un aparato nuevo o uno que acaba de cerrar sesión. Si
+// `uploadBatch` corriera antes de preguntarle al servidor qué está compartido, la
+// nota terminaría en los DOS caños, y su texto quedaría en `records` cifrado con la
+// llave de una cuenta cuando el punto entero de la spec 038 es que viaje por uno solo.
+//
+// Lo único que lo evita es el ORDEN dentro de `syncNow`, y hasta acá el orden no
+// tenía prueba: estaba sostenido por un comentario.
+describe('restaurar un respaldo no manda la nota compartida por el caño cifrado', () => {
+	it('la primera pasada no sube ni la nota ni sus renglones', async () => {
+		await grantUploadConsent();
+		await createVault();
+		const note = await createNote({ title: 'compartida' });
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'texto', order: 0 });
+		// Sin `setShareRole`: eso es exactamente lo que "Reemplazar todo" deja atrás.
+		serverShares.push({ note_id: note.id, role: 'owner' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+
+		const subido = sent.flatMap(([, payload]) => payload).map((row) => `${row.table_name}:${row.id}`);
+		expect(subido).not.toContain(`notes:${note.id}`);
+		expect(subido).not.toContain(`blocks:${block.id}`);
+	});
+
+	// La otra mitad, o la prueba de arriba pasaría con una subida que no sube nada.
+	it('y una nota que NO está compartida sí se sube en la misma pasada', async () => {
+		await grantUploadConsent();
+		await createVault();
+		const compartida = await createNote({ title: 'compartida' });
+		const propia = await createNote({ title: 'mía' });
+		serverShares.push({ note_id: compartida.id, role: 'owner' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+
+		const subido = sent.flatMap(([, payload]) => payload).map((row) => `${row.table_name}:${row.id}`);
+		expect(subido).toContain(`notes:${propia.id}`);
+		expect(subido).not.toContain(`notes:${compartida.id}`);
 	});
 });

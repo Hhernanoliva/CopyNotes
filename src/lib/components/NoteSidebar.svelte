@@ -12,6 +12,7 @@
 		Trash2,
 		FileDown,
 		Pencil,
+		Share2,
 		Tag
 	} from '@lucide/svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -26,6 +27,10 @@
 		// Notas con una versión esperando decisión (spec 030 fase 3). Marcarlas es
 		// la mitad que faltaba: el punto del header dice cuántas, esto dice dónde.
 		conflictNoteIds = new Set(),
+		// Notas que están compartidas con otra persona (spec 038). Igual que el
+		// punto de conflicto: la marca dice DÓNDE, y sale del mismo lugar que la
+		// decide, no de una copia que se pueda quedar vieja.
+		sharedNoteIds = new Set(),
 		snippets = [],
 		tags = [],
 		noteFolders = [],
@@ -38,6 +43,7 @@
 		onClose,
 		onBackup,
 		onDeleteNote,
+		onShareNote,
 		onNewSnippet,
 		onToggleFavorite,
 		onRenameSnippet,
@@ -271,6 +277,26 @@
 				class="cn-conflict-dot size-1.5 shrink-0 rounded-full"
 			></span>
 		{/if}
+		<!-- Un solo ícono hace los dos trabajos: cuando la nota está compartida se
+		     ve SIEMPRE, porque es un dato sobre su privacidad y no una acción que
+		     haya que ir a buscar; cuando no lo está aparece al pasar el mouse,
+		     como el de borrar. Dos íconos iguales pegados no decían nada más. La
+		     etiqueta cambia con el estado: el color solo nunca alcanza (spec 016). -->
+		<button
+			type="button"
+			aria-label={sharedNoteIds.has(note.id)
+				? `Nota compartida, fuera de la bóveda: ${note.title || 'sin título'}`
+				: `Compartir nota ${note.title || 'sin título'}`}
+			title={sharedNoteIds.has(note.id) ? 'Compartida — fuera de la bóveda' : 'Compartir nota'}
+			onclick={() => onShareNote?.(note.id)}
+			class="focus-visible:ring-ring cn-touch-visible flex size-9 shrink-0 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7 {sharedNoteIds.has(
+				note.id
+			)
+				? 'text-muted-foreground hover:text-foreground opacity-100'
+				: 'text-faint hover:text-foreground opacity-0'}"
+		>
+			<Share2 size={14} aria-hidden="true" />
+		</button>
 		<button
 			type="button"
 			aria-label="Borrar nota {note.title || 'sin título'}"

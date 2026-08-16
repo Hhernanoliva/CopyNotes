@@ -20,6 +20,8 @@
 	// Vite inlines just this named export, not the whole manifest.
 	import { version as APP_VERSION } from '../../../package.json';
 	import { getBackupSource, openTextFile, saveTextFile } from '$lib/platform';
+	// Spec 039: restaurar reemplaza también la copia de la nube, y el cartel lo dice.
+	import { claimAccountAfterRestore, restoreReachesCloud } from '$lib/sync/restore';
 	import {
 		applyMergePlan,
 		dumpAllTables,
@@ -37,6 +39,10 @@
 	let review = $state(null);
 	let importing = $state(false);
 	let exporting = $state(false);
+	// Si el cartel de "Reemplazar todo" va a hablar de la nube. Se lee al entrar a
+	// ese paso y no con `$derived`: es una pregunta a la base y a la sesión, no un
+	// valor que se calcule de lo que ya está en pantalla.
+	let replaceReachesCloud = $state(false);
 
 	let titleEl = $state(null);
 
@@ -72,13 +78,28 @@
 				exportedAt: new Date().toISOString(),
 				source: getBackupSource()
 			});
+			// La app revisa el respaldo que ella misma acaba de armar. Sin esto un archivo
+			// roto se baja en silencio y te enterás el día que lo necesitás — que es
+			// exactamente lo que pasó el 2026-08-15 (spec 040, regla 7).
+			//
+			// Se baja IGUAL: un respaldo al que le falta un renglón sirve más que ninguno,
+			// el mismo criterio que `settlePendingWrites`. Lo que cambia es que el mensaje
+			// no puede decir que está sano.
+			//
+			// Sobre una copia: `validateBackup` normaliza carpetas y posiciones en el objeto
+			// que recibe, y lo que se escribe en el archivo no lo puede tocar la revisión.
+			const selfCheck = validateBackup(JSON.parse(JSON.stringify(backup)));
 			const result = await saveTextFile({
 				fileName: backupFileName(new Date()),
 				content: JSON.stringify(backup, null, 2),
 				mimeType: 'application/json'
 			});
 			if (result.status !== 'saved') return;
-			if (allSaved) toast.success('Respaldo descargado');
+			if (!selfCheck.ok)
+				toast.warning(
+					'Respaldo descargado, pero al revisarlo le encontramos un problema. Guardalo igual y avisanos.'
+				);
+			else if (allSaved) toast.success('Respaldo descargado');
 			else
 				toast.warning(
 					'Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar.'
@@ -154,19 +175,36 @@
 			toast.error(result.errors[0] ?? 'El archivo no es un respaldo válido.');
 			return;
 		}
-		// Ingest gate: clean every html field once, here, so both import paths
-		// (merge and replace-all) only ever see sanitized markup. Idempotent for
-		// backups the app itself exported.
-		const backup = { ...result.backup, data: sanitizeBackupData(result.backup.data) };
-		const plan = planMerge(local, backup.data);
+		// Ingest gate: ningún html llega a la base sin pasar por la limpieza. Los dos
+		// caminos la tienen: el plan del merge acá abajo, y `replaceData` más abajo.
+		//
+		// Se compara ANTES de limpiar y se limpia lo que se va a ESCRIBIR, en ese
+		// orden. `plainTextToHtml` guarda la comilla como `&quot;` y `sanitizeHtml` la
+		// reescribe como `"`: la misma frase, dos formas, y comparar la fila limpia del
+		// archivo contra la guardada sin limpiar hacía parecer cambiado todo renglón con
+		// una comilla adentro. Medido con el archivo real de Hernán: **326 de 1450
+		// bloques**, duplicados sin que se moviera una letra (spec 040, gate 2026-08-16).
+		// La regla y el bug están escritos en `export-import/merge.sanitize.test.ts`.
+		const plan = planMerge(local, result.backup.data);
+		plan.inserts = sanitizeBackupData(plan.inserts);
 		// La validación de arriba cuenta tus notas como existentes, que es lo
 		// correcto para importar sumando. "Reemplazar todo" borra lo tuyo ANTES de
 		// escribir el archivo, así que ahí el archivo tiene que sostenerse solo:
 		// se revalida sin tus ids, o una referencia que se apoyaba en una nota tuya
 		// queda colgando después del borrado.
+		// Y un archivo que no se declara una copia COMPLETA tampoco puede reemplazar
+		// todo: el borrado se llevaría lo que el archivo no puede reponer (spec 040,
+		// regla 6). Ausente = completo, así que los archivos de siempre no cambian.
 		const standalone = validateBackup(parsed);
-		const replaceData = standalone.ok ? sanitizeBackupData(standalone.backup.data) : null;
-		review = { fileName: opened.fileName, backup, warnings: result.warnings, plan, replaceData };
+		const complete = standalone.ok && standalone.backup.complete === true;
+		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
+		review = {
+			fileName: opened.fileName,
+			warnings: result.warnings,
+			plan,
+			replaceData,
+			incomplete: standalone.ok && !complete
+		};
 		step = 'reviewing';
 	}
 
@@ -193,14 +231,31 @@
 		try {
 			const data = $state.snapshot(review.replaceData);
 			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
+		} catch {
+			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
+			importing = false;
+			return;
+		}
+		// Desde acá el aparato YA está restaurado, así que ningún mensaje puede decir
+		// "tus datos no cambiaron": sería mentira. La nube es un segundo intento
+		// posible (volver a restaurar el archivo); el restore local no.
+		let claimed = false;
+		try {
+			claimed = await claimAccountAfterRestore();
+		} catch {
+			toast.error(
+				'Tus notas se restauraron en este dispositivo, pero no se pudo reemplazar la copia de la nube. Volvé a restaurar el archivo cuando tengas conexión.'
+			);
+		}
+		try {
 			const refreshed = await finishImport();
 			if (refreshed === false) {
 				toast.error('El respaldo se restauró, pero la pantalla no pudo actualizarse. Recargá CopyNotes.');
+			} else if (claimed) {
+				toast.success('Respaldo restaurado desde cero. La nube ya tiene esta versión.');
 			} else {
 				toast.success('Respaldo restaurado desde cero.');
 			}
-		} catch {
-			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
 		} finally {
 			importing = false;
 		}
@@ -279,6 +334,14 @@
 					<FileDown size={16} aria-hidden="true" />
 					Descargar respaldo completo (JSON)
 				</button>
+				<!-- Va acá y no en el resumen de después: el riesgo se crea al bajar el
+				     archivo, así que la frase tiene que leerse antes de la decisión, no
+				     después (spec 040, decisión 2). -->
+				<p class="text-muted-foreground text-xs">
+					El archivo se lee con cualquier editor de texto: no tiene contraseña. Lleva todas tus
+					notas, <span class="text-foreground">incluidas las que borraste</span> — por eso
+					restaurar te las puede devolver. Quien lo reciba puede leer todo.
+				</p>
 				{#if currentNoteId}
 					<div class="flex gap-2">
 						<button
@@ -340,7 +403,12 @@
 				{#each review.warnings as warning (warning)}
 					<p class="text-muted-foreground mt-1">{warning}</p>
 				{/each}
-				{#if !review.replaceData}
+				{#if review.incomplete}
+					<p class="text-muted-foreground mt-1">
+						Este archivo no es una copia completa: el aparato que lo bajó no tenía todo. Se puede
+						importar sumándolo a lo tuyo, pero no reemplazar todo con él.
+					</p>
+				{:else if !review.replaceData}
 					<p class="text-muted-foreground mt-1">
 						Este archivo está incompleto: se apoya en notas que ya tenés. Se puede importar
 						sumándolo a lo tuyo, pero no reemplazar todo con él.
@@ -374,7 +442,10 @@
 					{#if review.replaceData}
 						<button
 							type="button"
-							onclick={() => (step = 'confirmingReplace')}
+							onclick={async () => {
+								replaceReachesCloud = await restoreReachesCloud();
+								step = 'confirmingReplace';
+							}}
 							disabled={importing}
 							class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 						>
@@ -392,6 +463,16 @@
 				de <span class="font-bold">{review.fileName}</span>. No se puede deshacer. Si no descargaste
 				un respaldo de lo actual, hacelo primero.
 			</p>
+			<!-- Spec 039. La persona tiene derecho a saber que esto le llega al
+			     teléfono que dejó en la mesa. Sólo cuando es cierto: en un aparato sin
+			     nube, la frase sobra y asusta. -->
+			{#if replaceReachesCloud}
+				<p class="text-muted-foreground text-sm">
+					También reemplaza <span class="text-foreground font-bold">la copia de la nube</span>: este
+					archivo pasa a ser la versión buena de tu cuenta, y tus otros dispositivos van a quedar
+					igual que este.
+				</p>
+			{/if}
 			<div class="flex flex-col gap-2">
 				<button
 					type="button"

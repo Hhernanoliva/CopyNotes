@@ -16,6 +16,7 @@
 import { db, SYNCED_TABLES } from '../storage/db';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
+import { sharedNoteIds } from '../storage/shares';
 
 export async function hasUploadConsent() {
 	return (await getSetting(KEY.syncConsent)) === true;
@@ -45,12 +46,36 @@ export async function markUploadedThrough(seq) {
 // the two stop matching, which is what makes it pending again.
 const changedSinceCloud = (row) => row.cloudSeq !== row.changeSeq;
 
+// Las tres tablas cuyas filas viajan por el caño compartido (spec 038).
+// `tagAssignments` NO está y no es un olvido: son la organización privada del
+// dueño, no viajan por el caño compartido (spec 038 §3), y si dejaran de viajar
+// por el cifrado el segundo aparato del dueño perdería las etiquetas de cada
+// nota que comparta.
+const SHARED_TABLES = new Set(['notes', 'blocks', 'activity']);
+
+// El hermano del permiso de arriba, y no su espejo: el permiso es un sí/no y
+// esto es una búsqueda. NO puede ser un `.filter()`: ese callback es síncrono y
+// no puede preguntarle nada a la base. El conjunto se lee UNA vez por llamada,
+// antes de recorrer los índices.
+function skipsSharedRows(shared) {
+	return (table, row) => {
+		if (!SHARED_TABLES.has(table)) return false;
+		return shared.has(table === 'notes' ? row.id : row.noteId);
+	};
+}
+
 export async function countPendingUploads() {
 	if (!(await hasUploadConsent())) return 0;
 	const mark = await uploadedThrough();
+	const skip = skipsSharedRows(await sharedNoteIds());
 	const counts = await Promise.all(
 		SYNCED_TABLES.map((table) =>
-			db.table(table).where('changeSeq').above(mark).filter(changedSinceCloud).count()
+			db
+				.table(table)
+				.where('changeSeq')
+				.above(mark)
+				.filter((row) => changedSinceCloud(row) && !skip(table, row))
+				.count()
 		)
 	);
 	return counts.reduce((total, count) => total + count, 0);
@@ -61,13 +86,16 @@ export async function countPendingUploads() {
 export async function listPendingUploads({ limit = 200 } = {}) {
 	if (!(await hasUploadConsent())) return [];
 	const mark = await uploadedThrough();
+	// Adentro del mismo `.filter()` y ANTES del `.limit()`: si se filtrara
+	// después, una tanda podría volver corta de filas que sí tenía que llevar.
+	const skip = skipsSharedRows(await sharedNoteIds());
 	const batches = await Promise.all(
 		SYNCED_TABLES.map(async (table) => {
 			const rows = await db
 				.table(table)
 				.where('changeSeq')
 				.above(mark)
-				.filter(changedSinceCloud)
+				.filter((row) => changedSinceCloud(row) && !skip(table, row))
 				.limit(limit)
 				.toArray();
 			return rows.map((row) => ({ table, row }));

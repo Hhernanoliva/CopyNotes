@@ -5,8 +5,10 @@ import { TEXT_SIZES } from './sizes';
 // ── CONTRACT: the inline-format allow-list ─────────────────────────────────
 // This file is the single definition of what inline HTML CopyNotes accepts.
 // Every write boundary (editing, internal paste, backup import, snippet
-// insertion via format/ingest.ts) and the render sink funnel through
-// sanitizeHtml. When adding a NEW inline format, update ALL of:
+// insertion via format/ingest.ts, and a row arriving through the SHARED pipe
+// via sync/shared-payload.ts — that markup was written by another account's
+// client) and the render sink funnel through sanitizeHtml. When adding a NEW
+// inline format, update ALL of:
 //   1. RENAME / ALLOWED below (and attribute handling in appendClean)
 //   2. TEXT_COLORS in colors.ts / TEXT_SIZES in sizes.ts if it is a new
 //      span class

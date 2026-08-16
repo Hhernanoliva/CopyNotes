@@ -45,6 +45,28 @@ export const SETTINGS = {
 	[KEY.syncAccountId]: { backupSafe: false } // Which account the key, the consent and the cursors above belong to (sync/leave.ts). Restoring it from a file would vouch for an account this device never signed into.
 };
 
+// Las claves POR NOTA de compartir (spec 038). No pueden estar en el mapa de
+// arriba —hay una por nota, y las notas no se conocen de antemano— así que lo
+// declarado es el prefijo.
+//
+// Que `isBackupSafe` ya devuelva false para una clave desconocida es la
+// respuesta correcta por accidente. Se declara igual, porque hay tres lugares
+// que leen el REGISTRO y no la tabla: el filtro del respaldo, lo que
+// `replaceAllTables` conserva, y `resetCloudState`, que borra clave por clave de
+// una lista fija — y una clave por nota no puede estar en una lista fija.
+export const SHARE_PREFIX = 'share:';
+
+// cursor  = hasta dónde bajé de esa nota (server_seq)
+// visto   = la entrada de bitácora más nueva que esta pantalla mostró (parte B)
+// desde   = el sello a partir del cual viaja la bitácora (parte B)
+export function shareKey(kind, noteId) {
+	return `${SHARE_PREFIX}${kind}:${noteId}`;
+}
+
+export function isSharePrefixed(key) {
+	return typeof key === 'string' && key.startsWith(SHARE_PREFIX);
+}
+
 export const SETTING_KEYS = Object.keys(SETTINGS);
 
 export const SAFE_SETTING_KEYS = SETTING_KEYS.filter((key) => SETTINGS[key].backupSafe);

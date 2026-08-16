@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { SETTINGS, SAFE_SETTING_KEYS, isBackupSafe } from './settings-registry';
+import {
+	SETTINGS,
+	SAFE_SETTING_KEYS,
+	isBackupSafe,
+	isSharePrefixed,
+	shareKey
+} from './settings-registry';
 
 describe('settings registry', () => {
 	it('lists every current preference', () => {
@@ -66,5 +72,14 @@ describe('settings registry', () => {
 		for (const key of SAFE_SETTING_KEYS) {
 			expect(SETTINGS[key].backupSafe).toBe(true);
 		}
+	});
+
+	// Spec 038: hay una clave por nota compartida, así que no pueden estar en el
+	// mapa de arriba. Lo declarado es el prefijo, y nada con ese prefijo se
+	// respalda: el cursor de otra nube no significa nada en otro aparato.
+	it('una clave por nota de compartir nunca es respaldable', () => {
+		expect(isBackupSafe(shareKey('cursor', 'n1'))).toBe(false);
+		expect(isSharePrefixed(shareKey('cursor', 'n1'))).toBe(true);
+		expect(isSharePrefixed('theme')).toBe(false);
 	});
 });

@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { BLOCK_TYPES } from '../format/blocktype';
+import { missingShapeFields } from '../storage/shape';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
 // Version 2 added the heading block types; version 3 added the optional block
@@ -128,6 +129,10 @@ const backupSchema = v.looseObject({
 	formatVersion: v.number(),
 	exportedAt: isoTimestamp,
 	counts: v.looseObject({}),
+	// Ausente = completo, y en ese orden importa: todos los archivos que la gente ya
+	// tiene bajados no traen el campo y todos son completos. Al revés, "Reemplazar
+	// todo" desaparecería de golpe de cada uno de ellos.
+	complete: v.optional(v.boolean(), true),
 	data: v.looseObject({
 		notes: v.array(noteSchema),
 		blocks: v.array(blockSchema),
@@ -203,7 +208,77 @@ function dropDanglingActivity(data, existing) {
 // with no `changeSeq` — invisible to the index the uploader reads, and therefore
 // never synced, silently and for ever. `changeSeq`/`cloudSeq` are the same class
 // of lie: a claim about this device made by another one.
-export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud'];
+//
+// `share` (spec 038) joins them, and it is the same class of lie one level up: a
+// restored file must not claim a note is shared. If it does, `sync/pending.ts`
+// skips that note's rows for ever and the note stops syncing in silence — while
+// the truth is one `list_shares()` away on the next pass. This is the shape the
+// agent kill switch already got wrong once, in the other direction: a restore
+// un-paused agents nobody had un-paused.
+export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud', 'share'];
+
+// Las claves que un respaldo PUEDE llevar, por tabla. Lista blanca, y por el mismo
+// motivo que `sync/shared-payload.ts`: lo que falla de una lista negra es una fuga
+// que nadie nota, lo que falla de una blanca es un test rojo.
+//
+// Es el guardián del caño número tres (spec 040, regla 4). Cada caño nuevo le agrega
+// campos a las filas —`changeSeq`, `cloudSeq`, `fromCloud`, `share`— y todos son de
+// ESTE aparato: un archivo no puede hacer afirmaciones sobre un servidor. El caño 2
+// se olvidó de `share` y el archivo se lo llevó puesto; se encontró a mano, semanas
+// después. Esta lista lo habría cazado el mismo día, y está comprobado: quitar
+// `share` de `LOCAL_ONLY_FIELDS` pone en rojo la prueba de `storage/backup.test.ts`.
+//
+// Medida el 2026-08-16 volcando una base sembrada con los repositorios de verdad, no
+// escrita a mano. Un campo nuevo se agrega acá A PROPÓSITO, o el test lo rechaza.
+export const EXPORTED_FIELDS = {
+	notes: [
+		'agentVisible',
+		'createdAt',
+		'deletedAt',
+		'folderId',
+		'id',
+		'sortOrder',
+		'title',
+		'updatedAt'
+	],
+	blocks: [
+		'checked',
+		'codeCollapsed',
+		'collapsed',
+		'content',
+		'createdAt',
+		'createdBy',
+		'deletedAt',
+		'dueDate',
+		'html',
+		'id',
+		'note',
+		'noteId',
+		'order',
+		'parentBlockId',
+		'type',
+		'updatedAt'
+	],
+	snippets: [
+		'blockSnapshot',
+		'content',
+		'createdAt',
+		'deletedAt',
+		'folderId',
+		'id',
+		'isFavorite',
+		'name',
+		'sortOrder',
+		'sourceBlockId',
+		'sourceNoteId',
+		'updatedAt'
+	],
+	tags: ['color', 'createdAt', 'deletedAt', 'id', 'name', 'sortOrder', 'updatedAt'],
+	tagAssignments: ['createdAt', 'deletedAt', 'id', 'tagId', 'targetId', 'targetType', 'updatedAt'],
+	folders: ['collapsed', 'createdAt', 'deletedAt', 'id', 'kind', 'name', 'sortOrder', 'updatedAt'],
+	activity: ['action', 'actor', 'at', 'blockId', 'deletedAt', 'id', 'noteId', 'seq', 'text'],
+	settings: ['key', 'updatedAt', 'value']
+};
 
 const ID_TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'activity'];
 
@@ -315,6 +390,48 @@ export const BACKUP_TABLES = [
 	'settings'
 ];
 
+// Un campo que falta se completa desde la ÚNICA lista de la forma local
+// (`storage/shape.ts`, la misma que usan `createBlock` y la migración v12), y el
+// archivo entra con un aviso. Nunca un error: un respaldo que la app bajó tiene que
+// poder restaurarse siempre (spec 040, regla 1).
+//
+// COMPLETAR y no relajar el esquema, y la diferencia está medida: `planMerge`
+// compara filas enteras con `identical()`, así que una fila sin `collapsed` no es
+// igual a la local que sí lo tiene y se DUPLICA — 1 agregada y 0 omitidas, con un
+// archivo idéntico a lo que el aparato ya tenía. Relajar el control deja entrar el
+// archivo y te duplica la base; completarlo lo deja entrar y encajar.
+//
+// Sobre una copia y no sobre lo que vino: `BackupDialog` valida el MISMO objeto dos
+// veces (una con tus ids, otra sin ellos) y un validador no edita los datos de quien
+// lo llama.
+//
+// Y se completa SÓLO lo que el validador reclamó, no todo lo que la forma local
+// sabe llenar. Medido: completar de más rompe lo mismo que se está arreglando —
+// `folderId` y `agentVisible` son opcionales en el archivo, y ponerlos en una fila
+// que venía sin ellos la vuelve distinta de la local, o sea que el merge la duplica.
+// Los reclamos del propio esquema son la lista exacta de "obligatorio y ausente", y
+// no hay que mantenerla a mano: la dice él.
+const SHAPED_TABLES = ['notes', 'blocks', 'activity'];
+
+function fillFromIssues(raw, issues) {
+	const timestamp = new Date().toISOString();
+	let data = null;
+	for (const issue of issues) {
+		const keys = (issue.path ?? []).map((segment) => segment.key);
+		if (keys.length !== 4 || keys[0] !== 'data') continue;
+		const [, table, index, field] = keys;
+		if (!SHAPED_TABLES.includes(table)) continue;
+		const defaults = missingShapeFields(table, {}, timestamp);
+		if (!(field in defaults)) continue;
+		const row = raw.data?.[table]?.[index];
+		if (typeof row !== 'object' || row === null || row[field] !== undefined) continue;
+		if (!data) data = { ...raw.data };
+		if (data[table] === raw.data[table]) data[table] = [...raw.data[table]];
+		data[table][index] = { ...data[table][index], [field]: defaults[field] };
+	}
+	return data === null ? null : { ...raw, data };
+}
+
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
 export function validateBackup(raw, existingIds = undefined) {
@@ -325,10 +442,20 @@ export function validateBackup(raw, existingIds = undefined) {
 		existingSnippetIds: existingIds?.existingSnippetIds ?? []
 	};
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
-		return { ok: false, errors: ['El archivo no es un respaldo de CopyNotes.'], warnings: [] };
+		return {
+			ok: false,
+			errors: ['El archivo no es un respaldo de CopyNotes.'],
+			details: [],
+			warnings: []
+		};
 	}
 	if (raw.format !== SUPPORTED_FORMAT) {
-		return { ok: false, errors: ['El archivo no es un respaldo de CopyNotes.'], warnings: [] };
+		return {
+			ok: false,
+			errors: ['El archivo no es un respaldo de CopyNotes.'],
+			details: [],
+			warnings: []
+		};
 	}
 	if (!SUPPORTED_VERSIONS.includes(raw.formatVersion)) {
 		return {
@@ -336,12 +463,39 @@ export function validateBackup(raw, existingIds = undefined) {
 			errors: [
 				`Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`
 			],
+			details: [],
 			warnings: []
 		};
 	}
-	const parsed = v.safeParse(backupSchema, raw);
+	let parsed = v.safeParse(backupSchema, raw);
+	let filled = false;
 	if (!parsed.success) {
-		return { ok: false, errors: formatIssues(parsed.issues), warnings: [] };
+		// Un solo reintento, y con lo que el propio esquema reclamó. Si sigue fallando,
+		// los reclamos que quedan son los de verdad y son los que se cuentan.
+		const completed = fillFromIssues(raw, parsed.issues);
+		if (completed !== null) {
+			parsed = v.safeParse(backupSchema, completed);
+			filled = parsed.success;
+		}
+	}
+	if (!parsed.success) {
+		// Una persona no puede hacer nada con "data.blocks.718.collapsed: Invalid key".
+		// Lo que sí puede hacer algo es saber que el archivo está dañado, cuántos
+		// renglones lo están, y que no se tocó nada de lo suyo. El detalle sigue
+		// disponible en `details` para el registro.
+		const details = formatIssues(parsed.issues);
+		const rows = new Set(details.map((line) => line.slice(0, line.lastIndexOf('.'))));
+		const count = rows.size || details.length;
+		return {
+			ok: false,
+			errors: [
+				count === 1
+					? 'Este archivo no se puede leer como respaldo: 1 renglón está dañado o incompleto. No se tocó nada de lo tuyo.'
+					: `Este archivo no se puede leer como respaldo: ${count} renglones están dañados o incompletos. No se tocó nada de lo tuyo.`
+			],
+			details,
+			warnings: []
+		};
 	}
 	const backup = parsed.output;
 	// Before any referential check: a file that contradicts itself about which
@@ -349,16 +503,23 @@ export function validateBackup(raw, existingIds = undefined) {
 	// check is keyed on.
 	const idErrors = duplicateIdErrors(backup.data);
 	if (idErrors.length > 0) {
-		return { ok: false, errors: idErrors, warnings: [] };
+		return { ok: false, errors: idErrors, details: [], warnings: [] };
 	}
 	const refErrors = referenceErrors(backup.data, existing);
 	if (refErrors.length > 0) {
-		return { ok: false, errors: refErrors, warnings: [] };
+		return { ok: false, errors: refErrors, details: [], warnings: [] };
 	}
 	// Silent, not a warning: these fields are never something the person chose to
 	// put in the file, so there is nothing for them to act on.
 	stripLocalOnlyFields(backup.data);
 	const warnings = [];
+	// Sin los nombres de los campos: no es algo sobre lo que una persona pueda hacer
+	// nada (decisión de Hernán, 2026-08-16).
+	if (filled) {
+		warnings.push(
+			'Este archivo venía de una versión anterior de CopyNotes y se completó al importarlo.'
+		);
+	}
 	if (normalizeOrganization(backup.data)) {
 		warnings.push(
 			'Se descartaron datos de orden o carpeta inválidos; esos elementos quedan en la lista general.'
@@ -386,5 +547,5 @@ export function validateBackup(raw, existingIds = undefined) {
 			warnings.push(`El conteo declarado de ${table} no coincide; se recalculó.`);
 		}
 	}
-	return { ok: true, backup: { ...backup, counts }, errors: [], warnings };
+	return { ok: true, backup: { ...backup, counts }, errors: [], details: [], warnings };
 }

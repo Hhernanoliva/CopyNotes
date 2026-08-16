@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateBackup } from './schema';
+import { planMerge } from './merge';
+import { buildBackup } from './backup';
+import { missingShapeFields } from '../storage/shape';
 
 const iso = '2026-07-10T12:00:00.000Z';
 
@@ -460,6 +463,18 @@ describe('validateBackup', () => {
 			expect(note.title).toBe(makeNote().title);
 		});
 
+		// Spec 038: la marca de compartida es una afirmación sobre el servidor, y
+		// un archivo no puede hacerla. Si un respaldo restaurado dice "esta nota
+		// está compartida", `sync/pending.ts` saltea sus filas para siempre y la
+		// nota deja de sincronizar en silencio — mientras la verdad está a un
+		// `list_shares()` de distancia en la pasada siguiente.
+		it('no deja que un archivo declare una nota como compartida', () => {
+			const backup = makeBackup({ notes: [makeNote({ share: 'owner' })] });
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.notes[0].share).toBeUndefined();
+		});
+
 		// `storage/organize.ts` hands a note created at the top of the sidebar
 		// `lowest - 1`, so a negative position is what this app's OWN backups are
 		// full of. Dropping it here rewrote the row, and a rewritten row no longer
@@ -544,5 +559,153 @@ describe('validateBackup', () => {
 			expect(result.ok).toBe(false);
 			expect(result.errors[0]).toContain('6');
 		});
+	});
+});
+
+// El bug del gate manual del 2026-08-15: un respaldo que la app MISMA había bajado
+// no se podía importar porque a un renglón le faltaba `collapsed`, y el archivo
+// entero quedaba inservible. Medido: rechazo entero, y el arreglo de la forma local
+// repara la base de datos pero no los .json que ya están en el disco de la gente.
+//
+// Se COMPLETA lo que falta, no se relaja el control, y la diferencia está medida en
+// el tercer test: sin completar, el merge duplica cada renglón.
+describe('un archivo de una versión anterior entra igual (spec 040)', () => {
+	// Un renglón como los que escribió el caño compartido antes del arreglo.
+	function bareBlock(overrides = {}) {
+		const block = makeBlock(overrides);
+		delete block.collapsed;
+		return block;
+	}
+
+	it('un renglón sin collapsed no tira el respaldo entero', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [bareBlock()] }));
+
+		expect(result.errors).toEqual([]);
+		expect(result.ok).toBe(true);
+		expect(result.backup.data.blocks[0].collapsed).toBe(false);
+		expect(result.warnings.join(' ')).toContain('versión anterior');
+	});
+
+	it('una fila sin la marca de borrado tampoco', () => {
+		const note = makeNote();
+		delete note.deletedAt;
+		const result = validateBackup(makeBackup({ notes: [note], blocks: [] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.data.notes[0].deletedAt).toBe(null);
+	});
+
+	// La razón por la que hay que COMPLETAR y no sólo dejar pasar: `planMerge`
+	// compara filas enteras, así que una fila sin `collapsed` no es igual a la local
+	// que sí lo tiene. Sin completar: 1 agregada, 0 omitidas — o sea, duplica todo.
+	it('y completado queda idéntico a la fila local, así el merge no lo duplica', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [bareBlock()] }));
+		const local = {
+			notes: result.backup.data.notes.map((row) => ({ ...row })),
+			blocks: result.backup.data.blocks.map((row) => ({ ...row })),
+			snippets: [],
+			tags: [],
+			tagAssignments: [],
+			folders: [],
+			activity: [],
+			settings: []
+		};
+
+		const plan = planMerge(local, result.backup.data, { createId: () => 'nuevo' });
+
+		expect(plan.summary.blocks.added).toBe(0);
+		expect(plan.summary.blocks.skipped).toBe(1);
+		expect(plan.summary.notes.added).toBe(0);
+	});
+
+	it('un archivo completo no dice nada de versiones anteriores', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [makeBlock()] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.warnings.join(' ')).not.toContain('versión anterior');
+	});
+
+	// EL GUARDIÁN de la regla 3: un campo nuevo en la forma local es opcional en el
+	// respaldo o tiene valor por defecto en `storage/shape.ts`. Nunca ninguno de los
+	// dos. Esto se pone rojo el día que alguien agregue un campo obligatorio, en vez
+	// de romperle los archivos a la gente meses después.
+	it('un respaldo armado con lo mínimo indispensable valida', () => {
+		const minimal = (table, identity) => ({ ...identity, ...missingShapeFields(table, {}, iso) });
+		const result = validateBackup(
+			makeBackup({
+				notes: [minimal('notes', { id: 'n1' })],
+				blocks: [minimal('blocks', { id: 'b1', noteId: 'n1' })],
+				activity: [minimal('activity', { id: 'a1', noteId: 'n1', blockId: 'b1' })]
+			})
+		);
+
+		expect(result.errors).toEqual([]);
+		expect(result.ok).toBe(true);
+	});
+});
+
+// La trampa de la regla 6: TODOS los archivos que existen hoy no tienen este campo,
+// y todos son completos (hasta que exista un alojamiento, el aparato tiene todo).
+// Leer la ausencia como "incompleto" les saca "Reemplazar todo" a todos de golpe.
+describe('qué tan completo es el archivo (spec 040)', () => {
+	it('un archivo sin el campo se considera completo', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.complete).toBe(true);
+	});
+
+	it('y uno que se declara incompleto lo dice', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()] }, { complete: false }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.complete).toBe(false);
+	});
+});
+
+// Lo que Hernán vio el 2026-08-15 fue "data.blocks.718.collapsed: Invalid key:
+// Expected "collapsed" but received undefined" en un cartelito, y era el PRIMERO de
+// vaya a saber cuántos: el diálogo muestra `errors[0]` y nada más.
+//
+// El archivo del ejemplo tiene un tipo de renglón que no existe, no un campo que
+// falta: un campo que falta ya se completa solo, y hacía falta un archivo roto de
+// verdad para probar el mensaje.
+describe('un archivo roto se explica en castellano (spec 040)', () => {
+	it('dice qué pasa y cuántos renglones están mal, no la ruta del campo', () => {
+		const result = validateBackup(
+			makeBackup({
+				notes: [makeNote()],
+				blocks: [
+					makeBlock({ id: 'block_1', type: 'inventado' }),
+					makeBlock({ id: 'block_2', type: 'tampoco' })
+				]
+			})
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.errors).toHaveLength(1);
+		expect(result.errors[0]).toContain('no se puede leer');
+		expect(result.errors[0]).toContain('2 renglones');
+		expect(result.errors[0]).toContain('No se tocó nada de lo tuyo');
+		expect(result.errors[0]).not.toContain('Invalid');
+		// El detalle técnico no se pierde, sólo deja de ser lo primero que se lee.
+		expect(result.details.join(' ')).toContain('data.blocks.0.type');
+	});
+
+	it('un solo renglón roto se dice en singular', () => {
+		const result = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [makeBlock({ type: 'inventado' })] })
+		);
+
+		expect(result.errors[0]).toContain('1 renglón');
+	});
+
+	it('lo que la app acaba de armar pasa su propia revisión', () => {
+		const backup = buildBackup(
+			{ notes: [], blocks: [], snippets: [], tags: [], tagAssignments: [], settings: [] },
+			{ appVersion: '0.2.0', exportedAt: iso }
+		);
+
+		expect(validateBackup(backup).ok).toBe(true);
 	});
 });

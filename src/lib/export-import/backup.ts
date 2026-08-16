@@ -17,6 +17,13 @@ export function buildBackup(tables, meta) {
 		app: { name: 'CopyNotes', version: appVersion },
 		exportedAt,
 		exportedBy: { source },
+		// ¿El aparato que bajó esto tenía TODO lo que hay que guardar? Hoy la respuesta
+		// es siempre sí, porque el aparato es la fuente de la verdad. Con un alojamiento
+		// en la nube deja de serlo: el archivo diría "12 notas" con 400 arriba, y
+		// "Reemplazar todo" —que desde la spec 039 también reclama la cuenta— borraría
+		// las otras 388 en todos los aparatos. Por eso el archivo lo declara desde ahora
+		// (spec 040, regla 6), aunque hoy la respuesta sea siempre la misma.
+		complete: true,
 		counts,
 		data
 	};

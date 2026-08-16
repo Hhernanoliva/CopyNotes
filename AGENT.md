@@ -117,6 +117,28 @@ Rules that keep agents safe here:
 - **A login that comes back through the address bar is only as good as its error, and the two libraries involved hide theirs in different places.** Signing in with Google (spec `034`) leaves a one-use `code` in the URL, and the first build let supabase-js pick it up with `detectSessionInUrl: true`. That pickup runs inside the client constructor, where a failure is caught, logged nowhere and swallowed: a failed sign-in put the ordinary form back on screen with **no message**, indistinguishable from a trip the person cancelled. Two real sign-ins died that way before anything could be diagnosed, so `sync/supabase.ts` keeps `detectSessionInUrl: false` and the app exchanges the code itself (`completeGoogleSignIn` → `cloudAction` → `cloudError`) — the same call the desktop half needs, so phase 2 is a caller and not a second design. Two traps ride along. **The trip has a name**: supabase-js 2.111 marks each PKCE flow with `sb_flow_id` in the URL and stores one secret per flow, reading that id off `window.location.href` *at exchange time*; cleaning the address first silently demoted the exchange to the shared slot the library itself calls legacy, so the id is read with the code and handed over explicitly. And **`spanishError` must branch on the PKCE failure before the generic `/expired|invalid/`**, because the real message is "invalid request: both auth code and code verifier should be non-empty" — which otherwise reaches the user as the sentence about the 6-digit emailed code and sends them to look in their inbox. **The other half of that afternoon was not the code at all**: `connect-src` is computed in `vite.config.ts` when the dev server *starts*, so a `pnpm dev` left running from before `PUBLIC_SUPABASE_URL` existed serves a policy with no Supabase host, and every cloud `fetch` is blocked by the browser and surfaces as a connection error. `curl -sI http://localhost:5173/ | grep -i content-security` answers it in one command; restarting the dev server fixes it; production never sees it. The asymmetry that makes it read like an app bug: **the OAuth user is created in Supabase anyway**, because that half travels by navigation — only the exchange, a `fetch`, dies.
 - **Anything crossing into another language's syntax gets exactly one escaper, and anything arriving from outside is bounded before it is read.** Copy and note-export each carried their own `escapeHtml` plus their own fallback for a row with no stored `html`, and the two had already drifted: copy turned soft breaks into `<br>`, the export dropped them, so the same legacy row came out as two lines when copied and one when exported. Both now call `plainTextToHtml`/`escapeHtml` from `format/sanitize.ts` — the same pair the editor writes through, which is what makes `block.html` safe to feed to `innerHTML` in the first place. The generators' *shapes* stay separate on purpose (copy emits a loose subtree, the export builds a whole document); what was duplicated was the escaping, which is the part that can diverge without anyone seeing it. The same rule reaches past HTML: the Claude Code command in `bridge/mcp-config.js` is single-quoted with the POSIX `'\''` escape, because inside double quotes a home folder named with a `$(` in it executes when the person pastes the line (the other three clients build JSON or base64 and never touch a shell), and `platform/files.js` checks `file.size` against a 64 MB ceiling **before** reading, so a wrong pick cannot freeze the tab before anything can say what happened — surfaced as a `too-large` status rather than an exception, because the caller's existing `catch` said "this is not a backup", which sends the person looking in the wrong place.
 
+## Un caño de sincronización nuevo le debe cinco cosas al respaldo
+
+Cada caño (la nube cifrada de la spec 030, el compartido de la 038, y lo que venga
+después) le agrega campos a las filas y estado a las preferencias. El respaldo tiene
+**cinco listas** que hay que tocar, y olvidarse de una no rompe nada hasta que
+alguien necesita su respaldo. El caño 1 acertó las cuatro que existían entonces; el
+caño 2 acertó tres de cinco, y **los dos errores los encontró una persona probando a
+mano, semanas después de shippear**. Acordarse no es un mecanismo (spec 040).
+
+| lista | si se la olvida |
+|---|---|
+| `LOCAL_ONLY_FIELDS` (`export-import/schema.ts`) | el archivo hace afirmaciones sobre un servidor en nombre de otro aparato. **El caño 2 se olvidó de `share`.** |
+| `BACKUP_TABLES` (mismo archivo) | una tabla de este aparato se filtra a un archivo en claro, o una tabla con datos del usuario se borra en silencio en cada restauración |
+| `SETTINGS[clave].backupSafe` (`storage/settings-registry.ts`) | restaurar un archivo le regala a un aparato permisos, cursores o una cuenta que nunca tuvo |
+| `resetCloudState()` (`sync/leave.ts`) | "Empezar de nuevo la nube" deja atrás el estado del caño anterior |
+| `BIRTH_DEFAULTS` (`storage/shape.ts`) | el caño escribe filas incompletas y **el respaldo que ese aparato exporta no se puede importar**. El caño 2 también se olvidó de esta. |
+
+Dos están mecanizadas y hay que dejarlas hacer su trabajo: `EXPORTED_FIELDS` (una
+clave no declarada rompe `storage/backup.test.ts`) y el respaldo mínimo de
+`export-import/schema.test.ts` (un campo obligatorio nuevo rompe la prueba). Las
+otras tres son prosa: leelas.
+
 ## Quality Bar
 
 A feature is not done until: the app runs without errors; risky logic has Vitest tests; critical flows have a Playwright check (convention: NO component-test layer — pure Vitest + Playwright only, spec 013); relevant docs/specs updated (user guide per `docs/guia/` rule in CLAUDE.md); nothing unrelated broke; data-loss risk was considered. Extra care in high-risk areas: persistence, import/export/backup restore, nested hierarchy, reordering, copy formatting, tags/search.
@@ -160,6 +182,7 @@ Three rules about reading the suite, all learned by getting them wrong. **A test
 | Text size on the selection: H1/H2/H3 without splitting the row | `032` |
 | The formatting toolbar without a mouse: shortcuts + arrow navigation | `033` |
 | Sign in with Google: web (phase 1), desktop loopback (phase 2) | `034` |
+| Restoring a backup when the cloud is on (measured: 1 conflict per row) | `039` |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 

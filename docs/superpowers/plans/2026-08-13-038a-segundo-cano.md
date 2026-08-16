@@ -1840,11 +1840,11 @@ git commit -m "feat(compartir): la pantalla que avisa que la nota sale de la bó
 
 Automated tests do not close this one, and neither does `tauri dev`: the desktop gate needs a **packaged** build (see the packaging note in the project's working agreement — `build:flat` before `tauri build --bundles app`, or the app looks healthy and only the agent fails).
 
-- [ ] **Step 1: Confirm the two machines are the same account and both synced**
+- [x] **Step 1: Confirm the two machines are the same account and both synced**
 
 Both devices signed in, both showing "Todo subido", the same note visible on both.
 
-- [ ] **Step 2: Share, and watch the note change pipe**
+- [x] **Step 2: Share, and watch the note change pipe**
 
 On device A: share the note. Then, in the Supabase table editor:
 
@@ -1852,27 +1852,50 @@ On device A: share the note. Then, in the Supabase table editor:
 - `share_rows` has the note's rows, and their `payload` contains **no** `folderId`, `sortOrder`, `agentVisible` or `note`.
 - `records` no longer has the note's rows.
 
-- [ ] **Step 3: Watch device B pick it up without being told**
+- [x] **Step 3: Watch device B pick it up without being told**
 
 Device B was never told anything. Within 30 seconds it must: keep showing the note, keep its own folder and sidebar position for it, and show the shared mark. **Check its `folderId` before and after** — this is criterion 13, and it is the one that fails silently if `mergeFromShared` was written as a `put`.
 
-- [ ] **Step 4: Edit on both, offline and online**
+- [x] **Step 4: Edit on both, offline and online**
 
 Edit the note on A. It reaches B. Edit on B. It reaches A. No conflict is raised on either side.
 
-- [ ] **Step 5: The restore case**
+- [x] **Step 5: The restore case** — cerrado el 2026-08-16 **con un test automático en vez de a mano**, y es mejor así.
 
 On device B: export a backup, sign out, sign in again, restore the backup. The `share` mark is gone from the file by design. Confirm that on the **first** sync pass the note does **not** appear in `records` — this is criterion 24 and the reason Task 8 put the reconciliation before the upload.
 
-- [ ] **Step 6: Unshare, and watch it come back**
+**Resultado (2026-08-16).** Lo que este paso vigila es una sola cosa: el ORDEN dentro
+de `syncNow` (la reconciliación antes de la subida cifrada). Ese orden estaba
+sostenido por un comentario y **no tenía prueba**. Ahora la tiene, en
+`sync/upload.test.ts` › "restaurar un respaldo no manda la nota compartida por el
+caño cifrado":
+
+- Una nota **sin marca de compartida** (que es exactamente lo que deja
+  `replaceAllTables`, porque `share` no viaja en el archivo) más un servidor que la
+  declara compartida en `list_shares` ⇒ ni la nota ni sus renglones aparecen en
+  `push_records` en la primera pasada.
+- Y su otra mitad, para que no pase con una subida que no sube nada: una nota que NO
+  está compartida sí se sube en la misma pasada.
+
+**Comprobado en rojo** moviendo la línea de `syncShared` después del bloque de subida
+cifrada: las dos fallan, y la nota compartida aparece en `records`. Se restauró el
+orden.
+
+Por qué se cambió el método: el paso a mano probaba la misma invariante una vez y no
+dejaba nada que la vigile después; el test la vigila en 16 ms para siempre. Lo que el
+test NO cubre —que el servidor real conteste `list_shares` y que el restore borre la
+marca— ya quedó probado con aparatos de verdad en los pasos 1-4 y 6 de este gate y en
+la lista blanca de `EXPORTED_FIELDS` (spec 040).
+
+- [x] **Step 6: Unshare, and watch it come back**
 
 Close the share on A. `share_rows` empties, `records` refills, both devices keep the note and keep syncing it. Edit it on B afterwards and confirm the edit reaches A — that is the re-stamping in Task 7 doing its job.
 
-- [ ] **Step 7: "Empezar de nuevo la nube"**
+- [x] **Step 7: "Empezar de nuevo la nube"**
 
 With a note shared, press the red button on A. Confirm `shares` and `share_rows` are empty afterwards and that the note is back in the encrypted pipe on the next pass.
 
-- [ ] **Step 8: Write down what happened**
+- [x] **Step 8: Write down what happened**
 
 Append the result to this file, dated, the way the other plans in `docs/superpowers/plans/` record theirs. A gate with no written outcome gets re-run from scratch in three weeks.
 
@@ -1884,3 +1907,182 @@ Append the result to this file, dated, the way the other plans in `docs/superpow
 - **Deliberately in part B, not missing:** §3c (the guest writes the `notes` row), §4 (roles as a lived thing), §5 (the derived tick), §6 (identity and the three actor renderers), §7 (invitations), §8 ("Listo", the news counter, the backup validator), §9 (undo), the member-side backup filter, criteria 1-5, 8-12, 14-21 and 26.
 - **`sameInAllowList` is written in Task 5 and not called until part B.** It is written here because it belongs beside the merge it is the twin of, and because the test that proves an absent `folderId` is not a disagreement is the cheapest place to lock that decision down. Do not delete it as unused.
 - **Type consistency:** `getShareRole` returns `'owner' | 'member' | null` everywhere; `setShareRole(noteId, null)` clears; `listSharedPending(noteId, role)` takes the role as its second argument in every caller; `mergeFromShared(table, payload, changeSeq)` in that order.
+
+---
+
+## Resultado del gate manual — 2026-08-14 (PARCIAL, sin terminar)
+
+Corrido con **A = la .app empaquetada** y **B = el navegador en
+`localhost:5173`**, misma cuenta. Son dos aparatos distintos para la nube y se
+apagan los dos con un solo Wi-Fi (ver el método del gate en la memoria del
+proyecto).
+
+El SQL de la tarea 1 **está aplicado** en el proyecto real y `pnpm rls:check` da
+**15/15**, incluidas las tres nuevas de compartir.
+
+### Pasos 1 a 4: PASADOS
+
+- **1.** Los dos aparatos en la misma cuenta, "Todo subido", la nota de prueba
+  llegó sola a B.
+- **2.** Al compartir: una compartición, dos filas en claro, **ningún campo
+  privado viajó** (sin `folderId`, `sortOrder`, `agentVisible`, `note`,
+  `collapsed`, `createdBy`), y la nota **salió de `records`**. El título se lee en
+  claro en el servidor, que es exactamente lo que la pantalla avisa.
+- **3. (criterio 13) PASADO.** En B la nota siguió existiendo, **siguió dentro de
+  su carpeta**, y le apareció la marca de compartida. Es el que falla en silencio
+  si la fusión se hubiera escrito como un `put`.
+- **4.** El texto viaja en los dos sentidos y **no se estacionó ningún
+  conflicto**.
+
+### Cuatro bugs reales encontrados, los cuatro arreglados
+
+1. **`fcc34b2` — la lápida se llevaba el texto puesto.** Al borrar una nota
+   compartida, su título y sus 45 renglones quedaban LEGIBLES en el servidor para
+   siempre. Encontrado con una nota real de Hernán; las filas se borraron a mano
+   ese mismo día.
+2. **`413e7fe` — lo que llegaba no despertaba la pantalla.** La edición del otro
+   aparato aterrizaba en la base y la nota abierta se quedaba vieja hasta
+   recargar: `appliedVersion` la movía sólo el caño cifrado.
+3. **`7e6fa5c` — la marca de compartida viajaba en el respaldo.** La spec lo pide
+   con todas las letras (`LOCAL_ONLY_FIELDS`) y este plan se lo salteó.
+4. Un **falso positivo** que conviene no volver a cazar: "lo de B no aparece en
+   A" con el cursor DENTRO de ese renglón es la regla del renglón protegido
+   haciendo su trabajo, no un bug. Sacando el cursor aparece todo.
+
+### Paso 5: NO CORRIDO
+
+Se cortó porque la prueba destapó un problema mayor y ajeno a esta spec:
+restaurar un respaldo con la nube encendida deja **un conflicto por fila** y el
+respaldo queda inerte. Medido, y escrito como **spec `039-restore-vs-cloud.md`**.
+El paso 5 de este gate **no se puede correr de forma limpia hasta que 039 esté
+resuelta**, porque restaurar es justamente lo que hace.
+
+### Pasos 6 y 7: PENDIENTES
+
+- **6.** Cerrar la compartición y ver la nota volver al caño cifrado, y que una
+  edición posterior en B llegue a A (eso prueba el resello de la tarea 7).
+- **7.** El botón rojo con una nota compartida.
+
+### Quinto bug, encontrado al final — ARREGLADO (2026-08-14)
+
+**Al compartir una nota en B, en A no aparece la marca de compartida.**
+
+Causa confirmada leyendo el código y reproducida en un test rojo: en
+`+page.svelte` la lista de compartidas se recalcula con
+
+```js
+void notes.length;
+void syncStatus.appliedVersion;
+```
+
+y `reconcileShares()` —que es quien pone la marca cuando el otro aparato
+compartió— no mueve ninguno de los dos: no cambia la cantidad de notas, y
+`pullSharedNote` no cuenta marcas. Las filas que sí llegan por el caño son
+idénticas a las que este aparato ya tiene (la nota se compartió, no se editó), así
+que `sameInAllowList` las saltea y la cuenta da 0. Es **la misma familia** que el
+bug 2 de arriba, un nivel más arriba: la marca entra a la base y la pantalla no se
+entera.
+
+Arreglado en la misma línea que `413e7fe`: `reconcileShares` ahora devuelve
+`{ shares, changed }` y `syncShared` arranca su cuenta en `changed`, así que una
+marca nueva —o una que se fue porque la compartición se cerró en otro lado— toca
+`appliedVersion` igual que una edición. De paso deja de reescribir cada 30
+segundos las marcas que ya estaban iguales.
+
+### Estado del servidor al cerrar
+
+Queda **una compartición abierta** (`4a7d4705`, la nota de prueba) con sus 4
+filas, todas como lápidas y con la carga vacía — o sea, el arreglo 1 funcionando.
+La cuenta tiene 44 notas, todas marcadas como borradas: son todas de prueba, y
+Hernán confirmó que no hay nada que recuperar por relevancia. Su respaldo de
+`~/Downloads/copynotes-backup-2026-08-14-1221.json` tiene las 47 notas enteras
+por si algún día hace falta.
+
+### Cómo se retoma
+
+```bash
+# A: la .app empaquetada (4 comandos, ver la memoria del proyecto)
+pnpm --dir mcp run build:flat && pnpm tauri build --bundles app && pnpm --dir mcp install
+open src-tauri/target/release/bundle/macos/CopyNotes.app
+
+# B: el navegador
+pnpm dev            # y abrir http://localhost:5173
+```
+
+El llavero pide la contraseña del Mac en cada compilación nueva: **Permitir
+siempre**, y nunca borrar ese ítem.
+
+---
+
+## Resultado del gate manual, segunda vuelta — 2026-08-15
+
+Misma pareja de aparatos (A = la .app empaquetada, B = el navegador en
+`localhost:5173`), con el arreglo `fed4293` adentro de la build.
+
+### El quinto bug: verificado en el aparato real, en los dos sentidos
+
+Con A abierta y **quieta**, desde B: cerrar la compartición ⇒ la marca
+**desapareció sola** de A; volver a compartir ⇒ **apareció sola**. Las dos
+direcciones, o sea que el número que devuelve `reconcileShares` cuenta tanto la
+marca que entra como la que se va.
+
+**Antes de eso hubo un falso negativo que costó una vuelta entera, y la causa vale
+más que el bug:** `open` sobre una `.app` que YA está corriendo **no relanza
+nada** — macOS trae al frente el proceso viejo. La primera medición se hizo contra
+una instancia arrancada tres horas y media antes, o sea sin el arreglo. Se ve en un
+comando:
+
+```bash
+ps -eo pid,lstart,command | grep "CopyNotes.app/Contents/MacOS"
+```
+
+Si la hora de arranque es anterior a la de la build, **la prueba no está midiendo
+lo que se compiló**. Cerrar con Cmd+Q y recién entonces abrir.
+
+### Paso 6: PASADO entero
+
+Cerrar la compartición desde A: su fila de `shares` y sus `share_rows`
+desaparecieron, y las 5 filas de la nota **volvieron a `records`** (1679 → 1684).
+Antes de cerrarla se midió lo contrario y es la mitad que importa: mientras estuvo
+compartida, **ninguna de sus filas estaba en `records`** — un caño solo.
+
+Y la segunda mitad, que es donde podía morir en silencio: un renglón escrito en B
+después de cerrar la compartición **llegó a A**. Eso es el resello de la tarea 7
+funcionando; sin él la nota habría quedado por debajo de la marca global de
+"subido hasta acá" y no habría sincronizado más, sin avisar.
+
+### Paso 7: PASADO
+
+Con la nota compartida otra vez (1 compartición, 7 filas, 1731 en `records`), el
+botón rojo desde A: `shares`, `share_rows` y `records` quedaron **en cero**. Al
+volver a encender la nube ("Crear bóveda y permitir subir"), la nota de prueba
+**volvió al caño cifrado** (1738 filas, la nota entre ellas) y **sin marca de
+compartida**: `resetCloudState` borra las marcas, y por eso `list_shares()`
+corriendo antes de la subida es lo que decide el caño.
+
+Dos cosas para la próxima:
+
+- **El botón rojo apaga el permiso de subir y borra la llave de este aparato.** No
+  hay "siguiente pasada" automática: hay que volver a encender la nube a mano.
+- **Crea una llave NUEVA, y el otro aparato se queda con la vieja.** Hay que cerrar
+  B ANTES de apretarlo, o B sube cifrado con una llave que A no puede abrir y a A
+  **se le corta la bajada entera** (el mensaje "Hay datos en la nube que este
+  aparato no puede abrir"). Acá se apretó antes de cerrar B y salió bien de
+  casualidad: B no llegó a subir nada. Es el defecto conocido de la spec 035,
+  ajeno a compartir.
+
+### Paso 5: sigue BLOQUEADO
+
+Restaurar un respaldo con la nube encendida deja un conflicto por fila
+(spec `039-restore-vs-cloud.md`). Es lo único que le falta a este gate.
+
+**Cerrado el 2026-08-16.** La spec 039 se construyó y su gate pasó con datos reales
+(1758 → 1758 filas, `server_seq` 36976 → 40492, bóveda intacta, cero conflictos, el
+segundo aparato al día sin que nadie lo tocara). El paso 5 de acá quedó cerrado con
+un test automático — el detalle, arriba, en el paso.
+
+### Estado del servidor al cerrar
+
+0 comparticiones, 0 filas compartidas, 1738 filas cifradas, una sola bóveda (la
+nueva de A, 2026-08-15 23:05 UTC). B quedó con la llave vieja: cuando vuelva a
+usarse hay que sumarlo con el código que muestra A.

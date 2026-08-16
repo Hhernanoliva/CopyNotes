@@ -2,6 +2,8 @@ import Dexie from 'dexie';
 import { htmlToPlainText, plainTextToHtml } from '$lib/format';
 import { nextChangeSeq } from './change-seq';
 import { announceLocalWrite } from './tab-channel';
+import { missingShapeFields } from './shape';
+import { now } from './ids';
 
 // Schema strings only declare indexes; records can hold more fields.
 // Soft-deleted rows stay in the tables and are filtered out by the repositories.
@@ -156,6 +158,46 @@ db.version(10)
 	.upgrade(async (tx) => {
 		await tx.table('vault').clear();
 	});
+
+// v11 (spec 038): el cachecito de nombres de los miembros de una nota
+// compartida. NO es una tabla sincronizada y NO está en la lista del respaldo, y
+// las dos ausencias son a propósito y por motivos distintos: subirla sería subir
+// un cachecito de nombres ajenos, y meterla en el respaldo sería dejarlos en un
+// archivo en claro. Quedarse afuera de `BACKUP_TABLES` es además lo que la salva
+// de `replaceAllTables`, que vacía exactamente esa lista.
+//
+// `notes.share` y `activity.serverSeq` NO necesitan línea acá: los `stores` de
+// Dexie declaran índices, no columnas, y a ninguno de los dos se lo busca por
+// índice. Se llenan solos en la primera escritura.
+db.version(11).stores({
+	shareMembers: 'id'
+});
+
+// v12 (spec 038, arreglo): reparar las filas que llegaron por el caño compartido
+// incompletas.
+//
+// `mergeFromShared` llenaba los campos que sólo se inventan al crear sólo para
+// `notes`, así que un renglón que llegó de otro aparato quedó sin `collapsed`,
+// sin `note` y sin fechas. No se ve en la pantalla y revienta en el peor momento:
+// el respaldo que este aparato exporta deja de pasar su propia validación
+// —"data.blocks.718.collapsed"— y el archivo entero se vuelve inimportable por un
+// renglón. Encontrado en el gate manual del 2026-08-15.
+//
+// El `changeSeq` NO se toca a propósito: reparar la forma de una fila no es
+// editarla, y tocarlo mandaría la base entera a la cola de subida. Por eso
+// tampoco se pasa por `putFromCloud` ni por `update`: se escribe con `modify`
+// dentro de la migración, que no pasa por los ganchos.
+db.version(12).upgrade(async (tx) => {
+	const timestamp = now();
+	for (const name of ['notes', 'blocks', 'activity']) {
+		await tx
+			.table(name)
+			.toCollection()
+			.modify((row) => {
+				Object.assign(row, missingShapeFields(name, row, timestamp));
+			});
+	}
+});
 
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
