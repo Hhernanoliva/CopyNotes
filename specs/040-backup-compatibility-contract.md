@@ -286,15 +286,18 @@ Server: nothing. This spec does not touch the cloud.
 - **Manual, one step**: import the real file that failed on 2026-08-15. It is the
   only test that proves the point of the whole spec.
 
-## Open decisions
+## Decisions taken
 
-1. **Does the warning list the fields it filled?** Recommendation: no — "este
-   archivo venía de una versión anterior de CopyNotes y se completó" is all a
-   person can act on. The field names belong in the console, if anywhere.
-2. **Where exactly does the "el archivo se lee con el Bloc de notas" line go?**
-   Next to the download button (always visible, before the decision) or in the
-   summary after choosing a file (later, but read more carefully). Recommendation:
-   next to the download button, since the risk is created at download time.
+Both settled by Hernán on 2026-08-16, so no task in the plan has to stop and ask:
+
+1. **The warning does not list the fields it filled.** "Este archivo venía de una
+   versión anterior de CopyNotes y se completó" is all a person can act on; the
+   field names go to the console, if anywhere.
+2. **The "el archivo se lee con el Bloc de notas" line goes next to the download
+   button**, not in the post-choice summary: the risk is created at download time,
+   so the sentence has to be readable before the decision, not after it.
+3. **The trash keeps travelling in the file** (same day). Rule 7's line has to name
+   it for exactly that reason.
 
 ## Agent notes
 
