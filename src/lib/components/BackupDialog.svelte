@@ -170,9 +170,20 @@
 		// escribir el archivo, así que ahí el archivo tiene que sostenerse solo:
 		// se revalida sin tus ids, o una referencia que se apoyaba en una nota tuya
 		// queda colgando después del borrado.
+		// Y un archivo que no se declara una copia COMPLETA tampoco puede reemplazar
+		// todo: el borrado se llevaría lo que el archivo no puede reponer (spec 040,
+		// regla 6). Ausente = completo, así que los archivos de siempre no cambian.
 		const standalone = validateBackup(parsed);
-		const replaceData = standalone.ok ? sanitizeBackupData(standalone.backup.data) : null;
-		review = { fileName: opened.fileName, backup, warnings: result.warnings, plan, replaceData };
+		const complete = standalone.ok && standalone.backup.complete === true;
+		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
+		review = {
+			fileName: opened.fileName,
+			backup,
+			warnings: result.warnings,
+			plan,
+			replaceData,
+			incomplete: standalone.ok && !complete
+		};
 		step = 'reviewing';
 	}
 
@@ -363,7 +374,12 @@
 				{#each review.warnings as warning (warning)}
 					<p class="text-muted-foreground mt-1">{warning}</p>
 				{/each}
-				{#if !review.replaceData}
+				{#if review.incomplete}
+					<p class="text-muted-foreground mt-1">
+						Este archivo no es una copia completa: el aparato que lo bajó no tenía todo. Se puede
+						importar sumándolo a lo tuyo, pero no reemplazar todo con él.
+					</p>
+				{:else if !review.replaceData}
 					<p class="text-muted-foreground mt-1">
 						Este archivo está incompleto: se apoya en notas que ya tenés. Se puede importar
 						sumándolo a lo tuyo, pero no reemplazar todo con él.

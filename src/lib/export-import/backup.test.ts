@@ -119,3 +119,17 @@ describe('backupFileName', () => {
 		expect(backupFileName(date)).toBe('copynotes-backup-2026-01-05-0907.json');
 	});
 });
+
+// Spec 040 regla 6. Hoy la respuesta es siempre sí: el aparato es la fuente de la
+// verdad, así que "todo lo que hay acá" y "todo" son la misma frase. Un alojamiento
+// en la nube rompería justo esa premisa.
+describe('el sobre dice si es una copia completa', () => {
+	it('un respaldo que armó la app se declara completo', () => {
+		const backup = buildBackup(
+			{ notes: [], blocks: [], snippets: [], tags: [], tagAssignments: [], settings: [] },
+			{ appVersion: '0.2.0', exportedAt: iso }
+		);
+		expect(backup.complete).toBe(true);
+		expect(validateBackup(backup).ok).toBe(true);
+	});
+});

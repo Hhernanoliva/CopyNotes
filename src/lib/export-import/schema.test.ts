@@ -642,3 +642,22 @@ describe('un archivo de una versión anterior entra igual (spec 040)', () => {
 		expect(result.ok).toBe(true);
 	});
 });
+
+// La trampa de la regla 6: TODOS los archivos que existen hoy no tienen este campo,
+// y todos son completos (hasta que exista un alojamiento, el aparato tiene todo).
+// Leer la ausencia como "incompleto" les saca "Reemplazar todo" a todos de golpe.
+describe('qué tan completo es el archivo (spec 040)', () => {
+	it('un archivo sin el campo se considera completo', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.complete).toBe(true);
+	});
+
+	it('y uno que se declara incompleto lo dice', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()] }, { complete: false }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.complete).toBe(false);
+	});
+});

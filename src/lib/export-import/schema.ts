@@ -129,6 +129,10 @@ const backupSchema = v.looseObject({
 	formatVersion: v.number(),
 	exportedAt: isoTimestamp,
 	counts: v.looseObject({}),
+	// Ausente = completo, y en ese orden importa: todos los archivos que la gente ya
+	// tiene bajados no traen el campo y todos son completos. Al revés, "Reemplazar
+	// todo" desaparecería de golpe de cada uno de ellos.
+	complete: v.optional(v.boolean(), true),
 	data: v.looseObject({
 		notes: v.array(noteSchema),
 		blocks: v.array(blockSchema),
