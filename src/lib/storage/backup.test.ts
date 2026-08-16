@@ -4,13 +4,16 @@ import { db } from './db';
 import { createNote, softDeleteNote } from './notes';
 import { createBlock } from './blocks';
 import { createTag, assignTag, listTagsFor } from './tags';
+import { createSnippet } from './snippets';
+import { createFolder } from './folders';
+import { setShareRole } from './shares';
 import { appendActivity, listActivityByBlock } from './activity';
 import { setSetting, getSetting } from './settings';
 import { KEY } from './settings-registry';
 import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 import { trackPendingWrite } from './pending-writes';
 import { buildBackup } from '../export-import/backup';
-import { validateBackup } from '../export-import/schema';
+import { validateBackup, EXPORTED_FIELDS } from '../export-import/schema';
 import { planMerge } from '../export-import/merge';
 
 beforeEach(async () => {
@@ -314,5 +317,60 @@ describe('backup roundtrip', () => {
 		expect(second.summary.conflicts).toBe(0);
 		expect(await db.table('notes').count()).toBe(1);
 		expect(await db.table('blocks').count()).toBe(1);
+	});
+});
+
+// EL GUARDIÁN del caño número tres (spec 040, regla 4).
+//
+// Cada caño de sincronización le agrega campos a las filas, y todos son de este
+// aparato: un archivo no puede hacer afirmaciones sobre un servidor. El caño 2
+// (compartir) se olvidó de sacar `share` y el archivo se lo llevó puesto; lo
+// encontró una persona a mano, semanas después. Esto lo caza en tres segundos.
+//
+// La siembra tiene que TOCAR TODOS LOS CAÑOS, o el guardián es ciego: por eso está
+// `setShareRole` acá, y por eso cada `create*` deja su sello de cambio. Un caño nuevo
+// agrega su siembra en esta lista.
+// Las dos ayudantes reciben las filas por parámetro y no se las indexa al volcado:
+// `Object.entries` las entrega como `unknown` y `svelte-check` no deja leerles ni el
+// largo. Un parámetro sin tipo es `any` y acepta un `unknown`, así que la cuenta
+// queda en cuatro errores preexistentes y no en siete.
+function keysOf(rows) {
+	return [...new Set(rows.flatMap((row) => Object.keys(row)))].sort();
+}
+
+function countOf(rows) {
+	return rows.length;
+}
+
+describe('lo que un respaldo puede llevar', () => {
+	it('un volcado no lleva ninguna clave que no esté declarada', async () => {
+		await createFolder('note', 'Carpeta');
+		const note = await createNote({ title: 'N' });
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'x', order: 0 });
+		await createSnippet({
+			name: 'S',
+			content: 'x',
+			sourceNoteId: note.id,
+			sourceBlockId: block.id
+		});
+		const tag = await createTag({ name: 't' });
+		await assignTag(tag.id, 'note', note.id);
+		await appendActivity({ blockId: block.id, noteId: note.id, actor: 'user', action: 'created' });
+		await setSetting(KEY.theme, 'dark');
+		// Caño 1 (nube cifrada): `changeSeq` y `cloudSeq` los pone el gancho de escritura.
+		// Caño 2 (compartir): la marca de por qué caño viaja la nota.
+		await setShareRole(note.id, 'owner');
+
+		const dump = await dumpAllTables();
+
+		for (const [table, rows] of Object.entries(dump)) {
+			expect(
+				countOf(rows),
+				`la siembra de ${table} quedó vacía y el guardián no mira nada`
+			).toBeGreaterThan(0);
+			const declared = new Set(EXPORTED_FIELDS[table]);
+			const strays = keysOf(rows).filter((key) => !declared.has(key));
+			expect(strays, `claves no declaradas en ${table}`).toEqual([]);
+		}
 	});
 });

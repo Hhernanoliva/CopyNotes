@@ -213,6 +213,69 @@ function dropDanglingActivity(data, existing) {
 // un-paused agents nobody had un-paused.
 export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud', 'share'];
 
+// Las claves que un respaldo PUEDE llevar, por tabla. Lista blanca, y por el mismo
+// motivo que `sync/shared-payload.ts`: lo que falla de una lista negra es una fuga
+// que nadie nota, lo que falla de una blanca es un test rojo.
+//
+// Es el guardián del caño número tres (spec 040, regla 4). Cada caño nuevo le agrega
+// campos a las filas —`changeSeq`, `cloudSeq`, `fromCloud`, `share`— y todos son de
+// ESTE aparato: un archivo no puede hacer afirmaciones sobre un servidor. El caño 2
+// se olvidó de `share` y el archivo se lo llevó puesto; se encontró a mano, semanas
+// después. Esta lista lo habría cazado el mismo día, y está comprobado: quitar
+// `share` de `LOCAL_ONLY_FIELDS` pone en rojo la prueba de `storage/backup.test.ts`.
+//
+// Medida el 2026-08-16 volcando una base sembrada con los repositorios de verdad, no
+// escrita a mano. Un campo nuevo se agrega acá A PROPÓSITO, o el test lo rechaza.
+export const EXPORTED_FIELDS = {
+	notes: [
+		'agentVisible',
+		'createdAt',
+		'deletedAt',
+		'folderId',
+		'id',
+		'sortOrder',
+		'title',
+		'updatedAt'
+	],
+	blocks: [
+		'checked',
+		'codeCollapsed',
+		'collapsed',
+		'content',
+		'createdAt',
+		'createdBy',
+		'deletedAt',
+		'dueDate',
+		'html',
+		'id',
+		'note',
+		'noteId',
+		'order',
+		'parentBlockId',
+		'type',
+		'updatedAt'
+	],
+	snippets: [
+		'blockSnapshot',
+		'content',
+		'createdAt',
+		'deletedAt',
+		'folderId',
+		'id',
+		'isFavorite',
+		'name',
+		'sortOrder',
+		'sourceBlockId',
+		'sourceNoteId',
+		'updatedAt'
+	],
+	tags: ['color', 'createdAt', 'deletedAt', 'id', 'name', 'sortOrder', 'updatedAt'],
+	tagAssignments: ['createdAt', 'deletedAt', 'id', 'tagId', 'targetId', 'targetType', 'updatedAt'],
+	folders: ['collapsed', 'createdAt', 'deletedAt', 'id', 'kind', 'name', 'sortOrder', 'updatedAt'],
+	activity: ['action', 'actor', 'at', 'blockId', 'deletedAt', 'id', 'noteId', 'seq', 'text'],
+	settings: ['key', 'updatedAt', 'value']
+};
+
 const ID_TABLES = ['notes', 'blocks', 'snippets', 'tags', 'tagAssignments', 'folders', 'activity'];
 
 function stripLocalOnlyFields(data) {
