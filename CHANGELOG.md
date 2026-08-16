@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- La web ahora te avisa cuando hay una versión nueva, con un botón **Actualizar** que la pone en uso en un segundo (tus notas no se tocan). Antes se actualizaba "sola en la próxima visita" y sin avisar: si dejabas la pestaña abierta o el celular la mantenía dormida, seguías usando la versión vieja sin saberlo — y los arreglos que publicábamos no te llegaban
 - Arreglado: en la web, elegir un archivo de respaldo para importar no hacía nada — ni en la computadora ni en el iPhone. La app daba por cancelada la elección si el archivo tardaba en llegar, y se quedaba callada; en el iPhone tardaba más porque el sistema tiene que copiar el archivo primero. Ahora sólo se cancela si vos cancelás, sin importar cuánto tarde
 - Configuración muestra al final, en chico, qué versión de CopyNotes estás usando. Antes sólo se veía en la app de escritorio, dentro de Actualizaciones
 - Importar un respaldo ya no te duplica los renglones que tienen una comilla adentro: la app los reescribía de una forma equivalente al revisarlos y después los veía como distintos. Medido con un respaldo real: 326 renglones de 1450
