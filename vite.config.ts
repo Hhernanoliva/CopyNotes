@@ -150,7 +150,9 @@ export default defineConfig({
 						'src/lib/sync/shared-merge.test.ts',
 						// Spec 040: el orden entre limpiar el marcado y comparar las filas.
 						// `sanitizeHtml` necesita un `DOMParser`.
-						'src/lib/export-import/merge.sanitize.test.ts'
+						'src/lib/export-import/merge.sanitize.test.ts',
+						// El selector de archivos: `document`, eventos y `File`.
+						'src/lib/platform/files.test.js'
 					]
 				}
 			},
@@ -170,7 +172,8 @@ export default defineConfig({
 						'src/lib/storage/db.migrations.test.ts',
 						'src/lib/sync/shared-payload.test.ts',
 						'src/lib/sync/shared-merge.test.ts',
-						'src/lib/export-import/merge.sanitize.test.ts'
+						'src/lib/export-import/merge.sanitize.test.ts',
+						'src/lib/platform/files.test.js'
 					]
 				}
 			}

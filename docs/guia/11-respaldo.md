@@ -37,6 +37,8 @@ Cuando una nota **sí** cambió en los dos lados, se conservan las dos versiones
 
 Un archivo cuyos renglones cuelguen de un renglón de otra nota, o que formen un círculo (uno hijo del otro y viceversa), se rechaza antes de tocar nada. No es un capricho: esos renglones existirían en tus datos pero no se dibujarían en ninguna pantalla, así que entrarían y desaparecerían sin decir nada.
 
+Si tocás **Elegir archivo de respaldo…** y elegís el JSON, el resumen aparece siempre. Antes, en la web, podía no pasar absolutamente nada: la app daba por cancelada tu elección si el archivo tardaba una fracción de segundo en llegar desde la ventana del Finder. En la app de escritorio no ocurría, y por eso tardó en aparecer.
+
 Mientras CopyNotes está importando o reemplazando datos, la ventana de respaldo permanece abierta y bloqueada. Se cierra recién cuando las notas restauradas ya están listas para usar.
 
 Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los respaldos descargados con versiones anteriores de CopyNotes se importan igual, sin hacer nada especial. Al revés no: un respaldo nuevo no se puede importar en una versión vieja de la app (te avisa con un mensaje claro).

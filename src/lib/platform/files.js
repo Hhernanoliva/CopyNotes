@@ -41,9 +41,28 @@ function chooseFile(accept) {
 		const handleWindowFocus = () => {
 			// Older Safari has no input `cancel` event. Let a possible `change`
 			// arrive first, then treat an empty selection as cancellation.
+			//
+			// Esta espera era de 100 ms y se comía el respaldo. Cuando el diálogo del
+			// sistema se cierra, la ventana recupera el foco ANTES de que llegue el
+			// aviso del archivo elegido; si ese aviso tardaba un poco más que la espera,
+			// esto resolvía "canceló" y el archivo se tiraba **en silencio** — ni
+			// resumen ni error, que es la peor forma de fallar. Reportado en la web el
+			// 2026-08-16 (sitio publicado, localhost y iPhone, los tres igual).
+			//
+			// Ningún test lo veía: Playwright pone el archivo con `setFiles`, sin
+			// diálogo nativo, así que la ventana nunca pierde el foco y este camino no
+			// se ejecuta. En la app de escritorio tampoco se notaba.
+			//
+			// Un segundo y medio no se percibe: lo único que demora es la conclusión de
+			// que cancelaste, y cancelar no hace nada de todos modos. Elegir un archivo
+			// sigue siendo instantáneo, porque lo resuelve `change`.
+			//
+			// ponytail: sigue siendo una espera y no un hecho — un `change` que llegue
+			// después de la espera se pierde igual. El día que se pueda dar por muerto
+			// al Safari sin evento `cancel`, esta rama entera se borra.
 			focusTimer = setTimeout(() => {
 				if (!input.files?.length) finish(null);
-			}, 100);
+			}, 1500);
 		};
 		input.addEventListener('change', () => finish(input.files?.[0]), { once: true });
 		input.addEventListener('cancel', () => finish(null), { once: true });

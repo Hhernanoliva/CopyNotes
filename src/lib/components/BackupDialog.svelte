@@ -165,28 +165,45 @@
 			toast.error('No se pudieron guardar tus últimos cambios. No se importó nada.');
 			return;
 		}
-		const result = validateBackup(parsed, {
-			existingNoteIds: local.notes.map((row) => row.id),
-			existingBlockIds: local.blocks.map((row) => row.id),
-			existingTagIds: local.tags.map((row) => row.id),
-			existingSnippetIds: local.snippets.map((row) => row.id)
-		});
+		// Revisar y planificar, con red: nada de acá escribe en la base, pero si algo
+		// revienta —un archivo raro que sortea la validación, un caño nuevo que rompe el
+		// plan— sin este `try` la excepción se va al vacío y la pantalla no dice NADA.
+		// Fallar en silencio es la peor forma de fallar, y en este mismo camino ya pasó
+		// una vez por otro motivo (el selector de archivos, `platform/files.js`).
+		let result;
+		let plan;
+		let standalone;
+		try {
+			result = validateBackup(parsed, {
+				existingNoteIds: local.notes.map((row) => row.id),
+				existingBlockIds: local.blocks.map((row) => row.id),
+				existingTagIds: local.tags.map((row) => row.id),
+				existingSnippetIds: local.snippets.map((row) => row.id)
+			});
+			if (result.ok) {
+				// Ingest gate: ningún html llega a la base sin pasar por la limpieza. Los
+				// dos caminos la tienen: el plan del merge, y `replaceData` más abajo.
+				//
+				// Se compara ANTES de limpiar y se limpia lo que se va a ESCRIBIR, en ese
+				// orden. `plainTextToHtml` guarda la comilla como `&quot;` y `sanitizeHtml`
+				// la reescribe como `"`: la misma frase, dos formas, y comparar la fila
+				// limpia del archivo contra la guardada sin limpiar hacía parecer cambiado
+				// todo renglón con una comilla adentro. Medido con el archivo real de
+				// Hernán: **326 de 1450 bloques**, duplicados sin que se moviera una letra
+				// (spec 040, gate 2026-08-16). La regla y el bug están escritos en
+				// `export-import/merge.sanitize.test.ts`.
+				plan = planMerge(local, result.backup.data);
+				plan.inserts = sanitizeBackupData(plan.inserts);
+				standalone = validateBackup(parsed);
+			}
+		} catch {
+			toast.error('No se pudo revisar ese archivo. No se importó nada y tus notas siguen igual.');
+			return;
+		}
 		if (!result.ok) {
 			toast.error(result.errors[0] ?? 'El archivo no es un respaldo válido.');
 			return;
 		}
-		// Ingest gate: ningún html llega a la base sin pasar por la limpieza. Los dos
-		// caminos la tienen: el plan del merge acá abajo, y `replaceData` más abajo.
-		//
-		// Se compara ANTES de limpiar y se limpia lo que se va a ESCRIBIR, en ese
-		// orden. `plainTextToHtml` guarda la comilla como `&quot;` y `sanitizeHtml` la
-		// reescribe como `"`: la misma frase, dos formas, y comparar la fila limpia del
-		// archivo contra la guardada sin limpiar hacía parecer cambiado todo renglón con
-		// una comilla adentro. Medido con el archivo real de Hernán: **326 de 1450
-		// bloques**, duplicados sin que se moviera una letra (spec 040, gate 2026-08-16).
-		// La regla y el bug están escritos en `export-import/merge.sanitize.test.ts`.
-		const plan = planMerge(local, result.backup.data);
-		plan.inserts = sanitizeBackupData(plan.inserts);
 		// La validación de arriba cuenta tus notas como existentes, que es lo
 		// correcto para importar sumando. "Reemplazar todo" borra lo tuyo ANTES de
 		// escribir el archivo, así que ahí el archivo tiene que sostenerse solo:
@@ -195,7 +212,6 @@
 		// Y un archivo que no se declara una copia COMPLETA tampoco puede reemplazar
 		// todo: el borrado se llevaría lo que el archivo no puede reponer (spec 040,
 		// regla 6). Ausente = completo, así que los archivos de siempre no cambian.
-		const standalone = validateBackup(parsed);
 		const complete = standalone.ok && standalone.backup.complete === true;
 		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
 		review = {
