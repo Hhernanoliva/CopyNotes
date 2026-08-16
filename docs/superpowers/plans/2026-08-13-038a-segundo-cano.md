@@ -1860,9 +1860,32 @@ Device B was never told anything. Within 30 seconds it must: keep showing the no
 
 Edit the note on A. It reaches B. Edit on B. It reaches A. No conflict is raised on either side.
 
-- [ ] **Step 5: The restore case**
+- [x] **Step 5: The restore case** — cerrado el 2026-08-16 **con un test automático en vez de a mano**, y es mejor así.
 
 On device B: export a backup, sign out, sign in again, restore the backup. The `share` mark is gone from the file by design. Confirm that on the **first** sync pass the note does **not** appear in `records` — this is criterion 24 and the reason Task 8 put the reconciliation before the upload.
+
+**Resultado (2026-08-16).** Lo que este paso vigila es una sola cosa: el ORDEN dentro
+de `syncNow` (la reconciliación antes de la subida cifrada). Ese orden estaba
+sostenido por un comentario y **no tenía prueba**. Ahora la tiene, en
+`sync/upload.test.ts` › "restaurar un respaldo no manda la nota compartida por el
+caño cifrado":
+
+- Una nota **sin marca de compartida** (que es exactamente lo que deja
+  `replaceAllTables`, porque `share` no viaja en el archivo) más un servidor que la
+  declara compartida en `list_shares` ⇒ ni la nota ni sus renglones aparecen en
+  `push_records` en la primera pasada.
+- Y su otra mitad, para que no pase con una subida que no sube nada: una nota que NO
+  está compartida sí se sube en la misma pasada.
+
+**Comprobado en rojo** moviendo la línea de `syncShared` después del bloque de subida
+cifrada: las dos fallan, y la nota compartida aparece en `records`. Se restauró el
+orden.
+
+Por qué se cambió el método: el paso a mano probaba la misma invariante una vez y no
+dejaba nada que la vigile después; el test la vigila en 16 ms para siempre. Lo que el
+test NO cubre —que el servidor real conteste `list_shares` y que el restore borre la
+marca— ya quedó probado con aparatos de verdad en los pasos 1-4 y 6 de este gate y en
+la lista blanca de `EXPORTED_FIELDS` (spec 040).
 
 - [x] **Step 6: Unshare, and watch it come back**
 
@@ -2052,6 +2075,11 @@ Dos cosas para la próxima:
 
 Restaurar un respaldo con la nube encendida deja un conflicto por fila
 (spec `039-restore-vs-cloud.md`). Es lo único que le falta a este gate.
+
+**Cerrado el 2026-08-16.** La spec 039 se construyó y su gate pasó con datos reales
+(1758 → 1758 filas, `server_seq` 36976 → 40492, bóveda intacta, cero conflictos, el
+segundo aparato al día sin que nadie lo tocara). El paso 5 de acá quedó cerrado con
+un test automático — el detalle, arriba, en el paso.
 
 ### Estado del servidor al cerrar
 

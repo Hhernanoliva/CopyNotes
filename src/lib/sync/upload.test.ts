@@ -462,3 +462,50 @@ describe('lo que falta subir son dos colas', () => {
 		expect(syncStatus.appliedVersion).toBe(antes + 1);
 	});
 });
+
+// Criterio 24 de la spec 038, el que faltaba: una nota compartida NO se sube al
+// caño cifrado después de restaurar un respaldo.
+//
+// La marca de compartida no viaja en el archivo a propósito (`LOCAL_ONLY_FIELDS`:
+// un archivo no puede afirmar que una nota está compartida). Entonces, recién
+// restaurado, este aparato tiene la nota entera como pendiente y sin marca — la
+// misma situación que un aparato nuevo o uno que acaba de cerrar sesión. Si
+// `uploadBatch` corriera antes de preguntarle al servidor qué está compartido, la
+// nota terminaría en los DOS caños, y su texto quedaría en `records` cifrado con la
+// llave de una cuenta cuando el punto entero de la spec 038 es que viaje por uno solo.
+//
+// Lo único que lo evita es el ORDEN dentro de `syncNow`, y hasta acá el orden no
+// tenía prueba: estaba sostenido por un comentario.
+describe('restaurar un respaldo no manda la nota compartida por el caño cifrado', () => {
+	it('la primera pasada no sube ni la nota ni sus renglones', async () => {
+		await grantUploadConsent();
+		await createVault();
+		const note = await createNote({ title: 'compartida' });
+		const block = await createBlock({ noteId: note.id, type: 'text', content: 'texto', order: 0 });
+		// Sin `setShareRole`: eso es exactamente lo que "Reemplazar todo" deja atrás.
+		serverShares.push({ note_id: note.id, role: 'owner' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+
+		const subido = sent.flatMap(([, payload]) => payload).map((row) => `${row.table_name}:${row.id}`);
+		expect(subido).not.toContain(`notes:${note.id}`);
+		expect(subido).not.toContain(`blocks:${block.id}`);
+	});
+
+	// La otra mitad, o la prueba de arriba pasaría con una subida que no sube nada.
+	it('y una nota que NO está compartida sí se sube en la misma pasada', async () => {
+		await grantUploadConsent();
+		await createVault();
+		const compartida = await createNote({ title: 'compartida' });
+		const propia = await createNote({ title: 'mía' });
+		serverShares.push({ note_id: compartida.id, role: 'owner' });
+		const { syncNow } = await loadUpload();
+
+		await syncNow();
+
+		const subido = sent.flatMap(([, payload]) => payload).map((row) => `${row.table_name}:${row.id}`);
+		expect(subido).toContain(`notes:${propia.id}`);
+		expect(subido).not.toContain(`notes:${compartida.id}`);
+	});
+});
