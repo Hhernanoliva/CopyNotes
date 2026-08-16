@@ -21,8 +21,13 @@
 // Una copia de esta lista en cada lado se separaría, y el que se olvide es el que
 // escribe la fila rota.
 
+// `deletedAt` está en las tres por el mismo motivo que `collapsed`, un campo más
+// allá: el validador del respaldo lo exige, y `toSharedPayload` se saltea
+// cualquier campo que valga `undefined`, así que una fila viva a la que nunca se le
+// escribió la marca llega sin ella. Ausente significa viva, y eso es lo que dice
+// `null`.
 const BIRTH_DEFAULTS = {
-	notes: { title: '', folderId: null, agentVisible: false },
+	notes: { title: '', folderId: null, agentVisible: false, deletedAt: null },
 	blocks: {
 		parentBlockId: null,
 		type: 'text',
@@ -33,12 +38,13 @@ const BIRTH_DEFAULTS = {
 		codeCollapsed: false,
 		note: '',
 		dueDate: null,
-		createdBy: 'user'
+		createdBy: 'user',
+		deletedAt: null
 	},
 	// De una línea de bitácora que llega ya borrada no se sabe quién la escribió ni
 	// qué decía, y la forma local pide las dos como texto. Queda como una línea
 	// vacía y borrada, que es exactamente lo que es.
-	activity: { actor: 'user', action: '', text: '' }
+	activity: { actor: 'user', action: '', text: '', deletedAt: null }
 };
 
 // Los que llevan una fecha, y por eso no pueden vivir en la tabla de arriba.

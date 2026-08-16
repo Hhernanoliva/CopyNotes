@@ -211,6 +211,7 @@ describe('db migrations v1 → v7', () => {
 		expect(stored.collapsed).toBe(false);
 		expect(stored.note).toBe('');
 		expect(stored.createdBy).toBe('user');
+		expect(stored.deletedAt).toBe(null);
 		expect(typeof stored.createdAt).toBe('string');
 		expect(typeof stored.updatedAt).toBe('string');
 		// El texto no se toca: reparar la forma no es reescribir la fila.
