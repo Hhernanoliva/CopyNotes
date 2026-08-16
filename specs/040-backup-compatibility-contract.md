@@ -9,7 +9,9 @@ changes?*, *what happens when a third sync pipe arrives (paid hosting)?*, and
 Every number below was measured against the current code on 2026-08-16, not
 estimated.
 
-Nothing here is built.
+**Construida entera el 2026-08-16** (rama `feat/nota-compartida`, sin subir). El
+resultado del gate manual está al final del plan, y el hallazgo que destapó está en
+la regla 2.
 
 ## En criollo (resumen para Hernán)
 
@@ -99,6 +101,27 @@ without `collapsed` is not equal to the local row that has it. Measured: 1 added
 So the fill happens **before** `v.safeParse`, and the schema stays strict. Both
 paths get it for free — merge and replace-all — because both read the validator's
 output.
+
+**And it goes one level deeper than the spec first said.** Found running this
+spec's own manual gate on 2026-08-16, with Hernán's real file: the file was
+accepted (rule 1 worked) and the merge still reported **1154 conflicts and 1147
+duplicated rows**, without a single letter of a note having changed.
+
+The required fields were only half the problem. The app gained *optional* fields
+over time too, so an old row has **no** `dueDate` while today's row has it at
+`null`, and `identical()` compares whole records. Measured on the two real files:
+`createdBy` absent-vs-`'user'` on 1127 blocks, `dueDate` absent-vs-`null` on 1020,
+`codeCollapsed` on 190, `note` on 59, `agentVisible` on 18 notes.
+
+So the comparison itself has to ask the right question: **a field absent on one
+side, against its birth value on the other, is not a disagreement.** Anything else
+still is — a real `dueDate` against `null` keeps both versions, and a missing
+`createdAt` is not forgiven, because there is no birth value to stand in for a date.
+Same idea as `sameToTheUser` in the cloud and `sameInAllowList` in the shared pipe;
+this is the third time the project needs it.
+
+Re-measured with the same two files after the fix: **1154 → 11 conflicts**, and the
+11 are rows Hernán genuinely edited between the two exports.
 
 ### 3. A new field is never required, and never bumps the format version
 
@@ -251,6 +274,10 @@ Server: nothing. This spec does not touch the cloud.
    whole).
 2. Re-importing that same file over the same data adds **0** rows and skips them
    all (today, if let through unfilled: 1 added per row).
+2b. A field absent on one side, against its birth value on the other, is not a
+   conflict — measured with the real file: 1154 conflicts before, 11 after, and the
+   11 are real edits. A real value against a different real value still keeps both
+   versions, and a missing timestamp is still a conflict.
 3. That same file can be used with *Reemplazar todo*.
 4. A file whose rows lack `deletedAt` imports the same way.
 5. A backup built from nothing but ids, references and `missingShapeFields`

@@ -339,3 +339,62 @@ describe('planMerge', () => {
 		});
 	});
 });
+
+// Encontrado en el gate manual del 2026-08-16, con el archivo real de Hernán:
+// importar su respaldo del 15 daba **1154 conflictos** y duplicaba 1147 renglones.
+// La causa no es lo que falta en el archivo, es el comparador: la app fue ganando
+// campos con el tiempo, así que un renglón viejo NO TIENE `dueDate` y el mismo
+// renglón de hoy lo tiene en `null`. Para la persona son la misma fila; para
+// `identical()` eran dos.
+//
+// Es la misma idea que `sameToTheUser` en la nube y `sameInAllowList` en el caño
+// compartido: se compara lo que se ve, no la forma interna.
+describe('un campo ausente contra su valor por defecto no es un desacuerdo', () => {
+	it('no duplica un renglón viejo al que le falta dueDate ni createdBy', () => {
+		// La fila local de hoy los tiene en su valor de nacimiento.
+		const local = {
+			...emptyTables(),
+			notes: [note('n1')],
+			blocks: [block('b1', 'n1', { dueDate: null, createdBy: 'user', note: '', codeCollapsed: false })]
+		};
+		// La del archivo viejo no los tiene.
+		const incoming = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1')] };
+
+		const plan = planMerge(local, incoming, { createId: () => 'nuevo' });
+
+		expect(plan.summary.blocks.added).toBe(0);
+		expect(plan.summary.blocks.skipped).toBe(1);
+		expect(plan.summary.conflicts).toBe(0);
+	});
+
+	it('ni una nota vieja sin agentVisible', () => {
+		const local = { ...emptyTables(), notes: [note('n1', { agentVisible: false, folderId: null })] };
+		const incoming = { ...emptyTables(), notes: [note('n1')] };
+
+		const plan = planMerge(local, incoming, { createId: () => 'nuevo' });
+
+		expect(plan.summary.notes.added).toBe(0);
+		expect(plan.summary.conflicts).toBe(0);
+	});
+
+	// Y lo que SÍ es un desacuerdo sigue siéndolo: un valor distinto del de nacimiento
+	// no se perdona, y una fecha que falta de un lado tampoco se inventa.
+	it('un valor de verdad distinto sigue conservando las dos versiones', () => {
+		const local = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1', { dueDate: '2026-09-01' })] };
+		const incoming = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1', { dueDate: null })] };
+
+		const plan = planMerge(local, incoming, { createId: () => 'nuevo' });
+
+		expect(plan.summary.conflicts).toBe(1);
+	});
+
+	it('y una fecha de creación que falta de un lado no se da por igual', () => {
+		const local = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1')] };
+		const incoming = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1')] };
+		delete incoming.blocks[0].createdAt;
+
+		const plan = planMerge(local, incoming, { createId: () => 'nuevo' });
+
+		expect(plan.summary.conflicts).toBe(1);
+	});
+});

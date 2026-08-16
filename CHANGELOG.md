@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Importar un respaldo viejo ya no te duplica las notas: antes, un renglón guardado por una versión anterior de la app se contaba como distinto del actual aunque no hubiera cambiado nada, y se quedaba con las dos copias. Medido con un respaldo real: pasó de 1154 renglones duplicados a 11, y esos 11 sí habían cambiado
 - Los respaldos bajados con versiones anteriores de CopyNotes se importan siempre: si al archivo le falta algún dato interno, se completa al entrar en vez de rechazar el respaldo entero por un renglón
 - Al bajar un respaldo, CopyNotes lo revisa antes de decir que está listo: si le encuentra un problema te lo dice ahí, en vez de que te enteres el día que lo necesitás
 - Si un archivo está dañado, ahora te dice en castellano cuántos renglones están mal en lugar de mostrar un error técnico

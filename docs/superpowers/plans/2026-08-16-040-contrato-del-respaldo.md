@@ -790,6 +790,38 @@ Runs in the same sitting as the pending 039/038 gate, on the packaged app, so on
 - [ ] Export a fresh backup and re-import it over the same notes. Expected: nothing added, everything skipped, no duplicates.
 - [ ] Then continue with 039's gate and 038's step 5, already written in their own plans.
 
+## Resultado del gate manual — 2026-08-16
+
+Corrido en la .app empaquetada (bundle 14:02), con la reparación v12 ya aplicada al
+abrir.
+
+**Pasado, y destapó un bug real que estaba escondido detrás del primero.**
+
+- El archivo que falló el 15 (`copynotes-backup-2026-08-15-2253.json`) **entra**:
+  "es un respaldo válido de CopyNotes" + la línea "este archivo venía de una versión
+  anterior de CopyNotes y se completó al importarlo". Antes: cartel rojo con
+  `data.blocks.718.collapsed`. Criterio 1 probado con datos reales.
+- *Reemplazar todo…* aparece (criterio 7: `complete` ausente = completo).
+- **Pero el resumen decía "1164 elementos cambiaron en los dos lados"**, cuando la
+  predicción era 3. No era ruido: reproducido en el código real con dos de sus
+  archivos, **1154 conflictos y 1147 bloques duplicados**.
+- Causa medida, y NO era el relleno (que es dirigido por los reclamos del validador
+  y no toca campos opcionales): la app fue ganando campos opcionales con el tiempo,
+  así que una fila vieja no tiene `dueDate` y la de hoy la tiene en `null`.
+  `identical()` comparaba filas enteras. Diferencias medidas entre los dos archivos:
+  `createdBy` 1127, `dueDate` 1020, `codeCollapsed` 190, `note` 59, `agentVisible`
+  18.
+- Arreglado en `identical()` (ver spec 040, "Filling, not relaxing"): un campo
+  ausente contra su valor de nacimiento no es un desacuerdo; cualquier otra
+  diferencia sí, y una fecha que falta tampoco se perdona. **Re-medido con los mismos
+  dos archivos: 1154 → 11**, y los 11 son renglones que Hernán editó de verdad entre
+  un respaldo y el otro.
+- Unit 1122 verdes, `pnpm check` en sus 4 errores preexistentes.
+
+Lo que **no** se hizo a propósito: no se importó el archivo sobre sus notas reales.
+La validación corre antes de escribir, así que ver el resumen y cancelar prueba lo
+mismo sin tocarle la base.
+
 ## Self-review notes
 
 - **Spec coverage:** rule 1 → Task 2; rule 2 → Task 2 (the third test is the measurement); rule 3 → Task 3; rule 4 → Task 4; rule 5 → Task 7 step 3; rule 6 → Task 5; rule 7 → Task 6 + Task 7. `deletedAt` from "Model of data affected" → Task 1. The v13 question is answered in Global Constraints by measurement, so no task carries it.
