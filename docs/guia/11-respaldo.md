@@ -45,6 +45,8 @@ Los respaldos guardan también los títulos (Título 1, 2 y 3) de tus notas. Los
 
 **Y un respaldo viejo ya no te duplica las notas al importarlo.** La app fue ganando cosas con el tiempo (fechas en los renglones, notas al pie, la marca de quién escribió cada cosa). Un renglón guardado antes de que eso existiera no las tiene, y el mismo renglón de hoy sí — vacías, pero las tiene. CopyNotes los contaba como dos renglones distintos y se quedaba con las dos copias, aunque no hubieras cambiado una letra. Ahora entiende que son el mismo. Con un respaldo de verdad la diferencia fue de 1154 renglones duplicados a 11, y esos 11 sí habían cambiado de verdad. Lo que **sí** cambió en los dos lados se sigue conservando por duplicado, como antes.
 
+Lo mismo pasaba con los renglones que tienen una **comilla** adentro: la app, al revisar el archivo, reescribía la comilla de una forma equivalente —se ve exactamente igual en pantalla— y después comparaba esa versión reescrita contra la tuya, así que le parecían distintas. En un respaldo real eran 326 renglones de 1450. Ahora primero compara y después limpia, que es el orden que corresponde: lo que entra a tus notas sigue pasando por el filtro de seguridad igual que antes.
+
 Cuando un archivo está roto de verdad, el mensaje ahora es en castellano y te dice **cuántos renglones** están mal, en lugar de mostrarte el nombre técnico del primero. Nada de lo tuyo se toca.
 
 Al **bajar** un respaldo, además, CopyNotes lo revisa antes de darlo por bueno. Si le encuentra un problema, el archivo se baja igual —siempre es mejor que nada— pero te lo dice en ese momento, en vez de que te enteres el día que lo necesitás.

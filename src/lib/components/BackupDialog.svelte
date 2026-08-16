@@ -175,11 +175,18 @@
 			toast.error(result.errors[0] ?? 'El archivo no es un respaldo válido.');
 			return;
 		}
-		// Ingest gate: clean every html field once, here, so both import paths
-		// (merge and replace-all) only ever see sanitized markup. Idempotent for
-		// backups the app itself exported.
-		const backup = { ...result.backup, data: sanitizeBackupData(result.backup.data) };
-		const plan = planMerge(local, backup.data);
+		// Ingest gate: ningún html llega a la base sin pasar por la limpieza. Los dos
+		// caminos la tienen: el plan del merge acá abajo, y `replaceData` más abajo.
+		//
+		// Se compara ANTES de limpiar y se limpia lo que se va a ESCRIBIR, en ese
+		// orden. `plainTextToHtml` guarda la comilla como `&quot;` y `sanitizeHtml` la
+		// reescribe como `"`: la misma frase, dos formas, y comparar la fila limpia del
+		// archivo contra la guardada sin limpiar hacía parecer cambiado todo renglón con
+		// una comilla adentro. Medido con el archivo real de Hernán: **326 de 1450
+		// bloques**, duplicados sin que se moviera una letra (spec 040, gate 2026-08-16).
+		// La regla y el bug están escritos en `export-import/merge.sanitize.test.ts`.
+		const plan = planMerge(local, result.backup.data);
+		plan.inserts = sanitizeBackupData(plan.inserts);
 		// La validación de arriba cuenta tus notas como existentes, que es lo
 		// correcto para importar sumando. "Reemplazar todo" borra lo tuyo ANTES de
 		// escribir el archivo, así que ahí el archivo tiene que sostenerse solo:
@@ -193,7 +200,6 @@
 		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
 		review = {
 			fileName: opened.fileName,
-			backup,
 			warnings: result.warnings,
 			plan,
 			replaceData,

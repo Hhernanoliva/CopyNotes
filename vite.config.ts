@@ -147,7 +147,10 @@ export default defineConfig({
 						// Spec 038: la limpieza de lo que llega por el caño compartido pasa
 						// por `sanitizeHtml`, que necesita un `DOMParser`.
 						'src/lib/sync/shared-payload.test.ts',
-						'src/lib/sync/shared-merge.test.ts'
+						'src/lib/sync/shared-merge.test.ts',
+						// Spec 040: el orden entre limpiar el marcado y comparar las filas.
+						// `sanitizeHtml` necesita un `DOMParser`.
+						'src/lib/export-import/merge.sanitize.test.ts'
 					]
 				}
 			},
@@ -166,7 +169,8 @@ export default defineConfig({
 						// Runs under jsdom instead (see the jsdom project's include).
 						'src/lib/storage/db.migrations.test.ts',
 						'src/lib/sync/shared-payload.test.ts',
-						'src/lib/sync/shared-merge.test.ts'
+						'src/lib/sync/shared-merge.test.ts',
+						'src/lib/export-import/merge.sanitize.test.ts'
 					]
 				}
 			}
