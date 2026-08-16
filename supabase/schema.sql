@@ -476,6 +476,31 @@ begin
 end;
 $$;
 
+-- Vaciar la copia cifrada de la cuenta, y NADA más (spec 039).
+--
+-- Su única llamadora es restaurar un respaldo con "Reemplazar todo": ahí el
+-- archivo es la verdad, y sin vaciar primero, cada fila declara `base_seq: null`
+-- contra una fila que existe, `push_records` la rechaza —con razón— y queda un
+-- conflicto POR FILA. Medido: 25 filas, 25 conflictos, 0 subidas.
+--
+-- Y NO se reusa `reset_cloud()`: esa además borra `vaults` y `pairings`, así que
+-- restaurar un archivo costaría la llave de la bóveda y volver a emparejar todos
+-- los aparatos. Restaurar no es "empezar de nuevo la nube", y las dos tienen que
+-- seguir siendo separables.
+create or replace function public.reset_records()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'reset_records necesita una sesión iniciada';
+	end if;
+	delete from public.records where owner_id = auth.uid();
+end;
+$$;
+
 -- El control de versiones es el mismo de `push_records`: cada escritura declara
 -- sobre qué versión se para. Lo que se agrega es el rol.
 create or replace function public.push_shared_rows(p_note_id text, payload jsonb)
@@ -632,12 +657,14 @@ $$;
 revoke all on function public.open_share(text) from public;
 revoke all on function public.close_share(text) from public;
 revoke all on function public.delete_records(jsonb) from public;
+revoke all on function public.reset_records() from public;
 revoke all on function public.push_shared_rows(text, jsonb) from public;
 revoke all on function public.pull_shared_rows(text, bigint) from public;
 revoke all on function public.list_shares() from public;
 grant execute on function public.open_share(text) to authenticated;
 grant execute on function public.close_share(text) to authenticated;
 grant execute on function public.delete_records(jsonb) to authenticated;
+grant execute on function public.reset_records() to authenticated;
 grant execute on function public.push_shared_rows(text, jsonb) to authenticated;
 grant execute on function public.pull_shared_rows(text, bigint) to authenticated;
 grant execute on function public.list_shares() to authenticated;

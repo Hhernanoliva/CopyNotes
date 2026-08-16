@@ -310,7 +310,29 @@ try {
 	// Repuesta, así la prueba siguiente tiene algo que vaciar.
 	await push(a.client, [{ ...record('secreto-de-A-v3'), change_seq: 10, base_seq: null }]);
 
-	// 15. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
+	// 15. Restaurar un respaldo vacía `records` de quien llama y nada más. Las dos
+	//     cuentas tienen una fila con el MISMO id a propósito. Y la bóveda de A
+	//     tiene que seguir en pie: si esto borrara `vaults`, restaurar un archivo
+	//     costaría la llave, y por eso `reset_records` existe en vez de reusar
+	//     `reset_cloud`.
+	//
+	//     A no tenía bóveda hasta acá —la de arriba es de B—, y hace falta que la
+	//     tenga: el escenario es un aparato con llave que restaura un respaldo.
+	unwrap(await a.client.from('vaults').insert({ iv: 'i', check_blob: 'prueba-de-A' }));
+	unwrap(await a.client.rpc('reset_records'));
+	const vacioDeA = unwrap(await a.client.from('records').select('id'));
+	assert.equal(vacioDeA.length, 0, 'reset_records no vació lo de quien lo llamó');
+	const intactoDeB = unwrap(await b.client.from('records').select('blob'));
+	assert.equal(atob(intactoDeB[0].blob), 'secreto-de-B', 'reset_records de A borró la fila de B');
+	const bovedaDeA = unwrap(await a.client.from('vaults').select('check_blob'));
+	assert.equal(bovedaDeA.length, 1, 'reset_records se llevó la bóveda de A');
+	assert.equal(bovedaDeA[0].check_blob, 'prueba-de-A', 'reset_records pisó la bóveda de A');
+	console.log('✓ reset_records vacía lo propio, no lo ajeno, y no toca la bóveda');
+
+	// Repuesta otra vez, así `reset_cloud` tiene algo que vaciar.
+	await push(a.client, [{ ...record('secreto-de-A-v4'), change_seq: 11, base_seq: null }]);
+
+	// 16. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
 	//     de borrado que existe, así que si filtrara mal, vaciaría cuentas ajenas.
 	unwrap(await a.client.rpc('reset_cloud'));
 	const deA = unwrap(await a.client.from('records').select('id'));
@@ -337,7 +359,7 @@ try {
 	);
 	console.log('✓ empezar de nuevo vacía lo propio y no toca lo ajeno');
 
-	console.log('\nCandado OK: las quince pruebas pasaron.');
+	console.log('\nCandado OK: las dieciséis pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);
