@@ -5,6 +5,7 @@
 
 import * as v from 'valibot';
 import { BLOCK_TYPES } from '../format/blocktype';
+import { missingShapeFields } from '../storage/shape';
 
 export const SUPPORTED_FORMAT = 'copynotes.backup';
 // Version 2 added the heading block types; version 3 added the optional block
@@ -322,6 +323,48 @@ export const BACKUP_TABLES = [
 	'settings'
 ];
 
+// Un campo que falta se completa desde la ÚNICA lista de la forma local
+// (`storage/shape.ts`, la misma que usan `createBlock` y la migración v12), y el
+// archivo entra con un aviso. Nunca un error: un respaldo que la app bajó tiene que
+// poder restaurarse siempre (spec 040, regla 1).
+//
+// COMPLETAR y no relajar el esquema, y la diferencia está medida: `planMerge`
+// compara filas enteras con `identical()`, así que una fila sin `collapsed` no es
+// igual a la local que sí lo tiene y se DUPLICA — 1 agregada y 0 omitidas, con un
+// archivo idéntico a lo que el aparato ya tenía. Relajar el control deja entrar el
+// archivo y te duplica la base; completarlo lo deja entrar y encajar.
+//
+// Sobre una copia y no sobre lo que vino: `BackupDialog` valida el MISMO objeto dos
+// veces (una con tus ids, otra sin ellos) y un validador no edita los datos de quien
+// lo llama.
+//
+// Y se completa SÓLO lo que el validador reclamó, no todo lo que la forma local
+// sabe llenar. Medido: completar de más rompe lo mismo que se está arreglando —
+// `folderId` y `agentVisible` son opcionales en el archivo, y ponerlos en una fila
+// que venía sin ellos la vuelve distinta de la local, o sea que el merge la duplica.
+// Los reclamos del propio esquema son la lista exacta de "obligatorio y ausente", y
+// no hay que mantenerla a mano: la dice él.
+const SHAPED_TABLES = ['notes', 'blocks', 'activity'];
+
+function fillFromIssues(raw, issues) {
+	const timestamp = new Date().toISOString();
+	let data = null;
+	for (const issue of issues) {
+		const keys = (issue.path ?? []).map((segment) => segment.key);
+		if (keys.length !== 4 || keys[0] !== 'data') continue;
+		const [, table, index, field] = keys;
+		if (!SHAPED_TABLES.includes(table)) continue;
+		const defaults = missingShapeFields(table, {}, timestamp);
+		if (!(field in defaults)) continue;
+		const row = raw.data?.[table]?.[index];
+		if (typeof row !== 'object' || row === null || row[field] !== undefined) continue;
+		if (!data) data = { ...raw.data };
+		if (data[table] === raw.data[table]) data[table] = [...raw.data[table]];
+		data[table][index] = { ...data[table][index], [field]: defaults[field] };
+	}
+	return data === null ? null : { ...raw, data };
+}
+
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
 export function validateBackup(raw, existingIds = undefined) {
@@ -346,7 +389,17 @@ export function validateBackup(raw, existingIds = undefined) {
 			warnings: []
 		};
 	}
-	const parsed = v.safeParse(backupSchema, raw);
+	let parsed = v.safeParse(backupSchema, raw);
+	let filled = false;
+	if (!parsed.success) {
+		// Un solo reintento, y con lo que el propio esquema reclamó. Si sigue fallando,
+		// los reclamos que quedan son los de verdad y son los que se cuentan.
+		const completed = fillFromIssues(raw, parsed.issues);
+		if (completed !== null) {
+			parsed = v.safeParse(backupSchema, completed);
+			filled = parsed.success;
+		}
+	}
 	if (!parsed.success) {
 		return { ok: false, errors: formatIssues(parsed.issues), warnings: [] };
 	}
@@ -366,6 +419,13 @@ export function validateBackup(raw, existingIds = undefined) {
 	// put in the file, so there is nothing for them to act on.
 	stripLocalOnlyFields(backup.data);
 	const warnings = [];
+	// Sin los nombres de los campos: no es algo sobre lo que una persona pueda hacer
+	// nada (decisión de Hernán, 2026-08-16).
+	if (filled) {
+		warnings.push(
+			'Este archivo venía de una versión anterior de CopyNotes y se completó al importarlo.'
+		);
+	}
 	if (normalizeOrganization(backup.data)) {
 		warnings.push(
 			'Se descartaron datos de orden o carpeta inválidos; esos elementos quedan en la lista general.'

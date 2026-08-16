@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateBackup } from './schema';
+import { planMerge } from './merge';
+import { missingShapeFields } from '../storage/shape';
 
 const iso = '2026-07-10T12:00:00.000Z';
 
@@ -556,5 +558,87 @@ describe('validateBackup', () => {
 			expect(result.ok).toBe(false);
 			expect(result.errors[0]).toContain('6');
 		});
+	});
+});
+
+// El bug del gate manual del 2026-08-15: un respaldo que la app MISMA había bajado
+// no se podía importar porque a un renglón le faltaba `collapsed`, y el archivo
+// entero quedaba inservible. Medido: rechazo entero, y el arreglo de la forma local
+// repara la base de datos pero no los .json que ya están en el disco de la gente.
+//
+// Se COMPLETA lo que falta, no se relaja el control, y la diferencia está medida en
+// el tercer test: sin completar, el merge duplica cada renglón.
+describe('un archivo de una versión anterior entra igual (spec 040)', () => {
+	// Un renglón como los que escribió el caño compartido antes del arreglo.
+	function bareBlock(overrides = {}) {
+		const block = makeBlock(overrides);
+		delete block.collapsed;
+		return block;
+	}
+
+	it('un renglón sin collapsed no tira el respaldo entero', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [bareBlock()] }));
+
+		expect(result.errors).toEqual([]);
+		expect(result.ok).toBe(true);
+		expect(result.backup.data.blocks[0].collapsed).toBe(false);
+		expect(result.warnings.join(' ')).toContain('versión anterior');
+	});
+
+	it('una fila sin la marca de borrado tampoco', () => {
+		const note = makeNote();
+		delete note.deletedAt;
+		const result = validateBackup(makeBackup({ notes: [note], blocks: [] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.backup.data.notes[0].deletedAt).toBe(null);
+	});
+
+	// La razón por la que hay que COMPLETAR y no sólo dejar pasar: `planMerge`
+	// compara filas enteras, así que una fila sin `collapsed` no es igual a la local
+	// que sí lo tiene. Sin completar: 1 agregada, 0 omitidas — o sea, duplica todo.
+	it('y completado queda idéntico a la fila local, así el merge no lo duplica', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [bareBlock()] }));
+		const local = {
+			notes: result.backup.data.notes.map((row) => ({ ...row })),
+			blocks: result.backup.data.blocks.map((row) => ({ ...row })),
+			snippets: [],
+			tags: [],
+			tagAssignments: [],
+			folders: [],
+			activity: [],
+			settings: []
+		};
+
+		const plan = planMerge(local, result.backup.data, { createId: () => 'nuevo' });
+
+		expect(plan.summary.blocks.added).toBe(0);
+		expect(plan.summary.blocks.skipped).toBe(1);
+		expect(plan.summary.notes.added).toBe(0);
+	});
+
+	it('un archivo completo no dice nada de versiones anteriores', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [makeBlock()] }));
+
+		expect(result.ok).toBe(true);
+		expect(result.warnings.join(' ')).not.toContain('versión anterior');
+	});
+
+	// EL GUARDIÁN de la regla 3: un campo nuevo en la forma local es opcional en el
+	// respaldo o tiene valor por defecto en `storage/shape.ts`. Nunca ninguno de los
+	// dos. Esto se pone rojo el día que alguien agregue un campo obligatorio, en vez
+	// de romperle los archivos a la gente meses después.
+	it('un respaldo armado con lo mínimo indispensable valida', () => {
+		const minimal = (table, identity) => ({ ...identity, ...missingShapeFields(table, {}, iso) });
+		const result = validateBackup(
+			makeBackup({
+				notes: [minimal('notes', { id: 'n1' })],
+				blocks: [minimal('blocks', { id: 'b1', noteId: 'n1' })],
+				activity: [minimal('activity', { id: 'a1', noteId: 'n1', blockId: 'b1' })]
+			})
+		);
+
+		expect(result.errors).toEqual([]);
+		expect(result.ok).toBe(true);
 	});
 });
