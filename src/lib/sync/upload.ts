@@ -67,7 +67,7 @@ async function currentAccount() {
 
 // All four gates in one place. Any of them missing means "not now", not an
 // error: no cloud configured, not logged in, no consent yet, no vault yet.
-async function ready() {
+export async function ready() {
 	const client = supabase();
 	if (!client) return null;
 	const { data } = await client.auth.getSession();
