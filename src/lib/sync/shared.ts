@@ -140,10 +140,9 @@ export async function reconcileShares(client) {
 	if (error) throw new Error(error.message);
 	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
 	const { owner, member } = await sharedNoteIdsByRole();
-	const local = new Map([
-		...[...owner].map((noteId) => [noteId, 'owner']),
-		...[...member].map((noteId) => [noteId, 'member'])
-	]);
+	const local = new Map();
+	for (const noteId of owner) local.set(noteId, 'owner');
+	for (const noteId of member) local.set(noteId, 'member');
 	let changed = 0;
 	for (const [noteId, role] of fromServer) {
 		if (local.get(noteId) === role) continue;

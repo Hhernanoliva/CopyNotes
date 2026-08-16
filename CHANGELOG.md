@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- Restaurar un respaldo con la nube encendida ahora funciona de verdad: antes cada renglón quedaba como una pregunta sin contestar y el respaldo no servía para nada. Ahora el archivo pasa a ser la versión buena de tu cuenta, y el cartel te avisa que esto también llega a tus otros dispositivos
 - Ahora podés compartir una nota: te avisa antes que mientras esté compartida sale de la bóveda y deja de estar cifrada, y vuelve sola cuando cerrás la compartición
 - El separador (la raya) ahora tiene su menú ⋯ con Mover y Eliminar: en el celular no había forma de borrarlo una vez puesto
 - En un título, el botón de negrita se ve apagado: los títulos ya vienen en negrita y antes el botón no hacía nada

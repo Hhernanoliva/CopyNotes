@@ -20,6 +20,8 @@
 	// Vite inlines just this named export, not the whole manifest.
 	import { version as APP_VERSION } from '../../../package.json';
 	import { getBackupSource, openTextFile, saveTextFile } from '$lib/platform';
+	// Spec 039: restaurar reemplaza también la copia de la nube, y el cartel lo dice.
+	import { claimAccountAfterRestore, restoreReachesCloud } from '$lib/sync/restore';
 	import {
 		applyMergePlan,
 		dumpAllTables,
@@ -37,6 +39,10 @@
 	let review = $state(null);
 	let importing = $state(false);
 	let exporting = $state(false);
+	// Si el cartel de "Reemplazar todo" va a hablar de la nube. Se lee al entrar a
+	// ese paso y no con `$derived`: es una pregunta a la base y a la sesión, no un
+	// valor que se calcule de lo que ya está en pantalla.
+	let replaceReachesCloud = $state(false);
 
 	let titleEl = $state(null);
 
@@ -193,14 +199,31 @@
 		try {
 			const data = $state.snapshot(review.replaceData);
 			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
+		} catch {
+			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
+			importing = false;
+			return;
+		}
+		// Desde acá el aparato YA está restaurado, así que ningún mensaje puede decir
+		// "tus datos no cambiaron": sería mentira. La nube es un segundo intento
+		// posible (volver a restaurar el archivo); el restore local no.
+		let claimed = false;
+		try {
+			claimed = await claimAccountAfterRestore();
+		} catch {
+			toast.error(
+				'Tus notas se restauraron en este dispositivo, pero no se pudo reemplazar la copia de la nube. Volvé a restaurar el archivo cuando tengas conexión.'
+			);
+		}
+		try {
 			const refreshed = await finishImport();
 			if (refreshed === false) {
 				toast.error('El respaldo se restauró, pero la pantalla no pudo actualizarse. Recargá CopyNotes.');
+			} else if (claimed) {
+				toast.success('Respaldo restaurado desde cero. La nube ya tiene esta versión.');
 			} else {
 				toast.success('Respaldo restaurado desde cero.');
 			}
-		} catch {
-			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
 		} finally {
 			importing = false;
 		}
@@ -374,7 +397,10 @@
 					{#if review.replaceData}
 						<button
 							type="button"
-							onclick={() => (step = 'confirmingReplace')}
+							onclick={async () => {
+								replaceReachesCloud = await restoreReachesCloud();
+								step = 'confirmingReplace';
+							}}
 							disabled={importing}
 							class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
 						>
@@ -392,6 +418,16 @@
 				de <span class="font-bold">{review.fileName}</span>. No se puede deshacer. Si no descargaste
 				un respaldo de lo actual, hacelo primero.
 			</p>
+			<!-- Spec 039. La persona tiene derecho a saber que esto le llega al
+			     teléfono que dejó en la mesa. Sólo cuando es cierto: en un aparato sin
+			     nube, la frase sobra y asusta. -->
+			{#if replaceReachesCloud}
+				<p class="text-muted-foreground text-sm">
+					También reemplaza <span class="text-foreground font-bold">la copia de la nube</span>: este
+					archivo pasa a ser la versión buena de tu cuenta, y tus otros dispositivos van a quedar
+					igual que este.
+				</p>
+			{/if}
 			<div class="flex flex-col gap-2">
 				<button
 					type="button"

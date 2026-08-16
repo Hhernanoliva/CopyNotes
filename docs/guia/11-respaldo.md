@@ -49,6 +49,12 @@ En la misma ventana existe **Reemplazar todo…**: borra lo actual y deja solo l
 
 El botón solo aparece si el archivo **se sostiene solo**. Un respaldo completo bajado desde CopyNotes siempre se sostiene. Uno recortado a mano puede apoyarse en notas que hoy tenés en el equipo: sirve para sumarlo a lo tuyo, pero no para reemplazar todo, porque el borrado se lleva justo aquello en lo que se apoyaba. En ese caso el resumen te lo dice y queda solo **Importar y conservar lo mío**.
 
+**Si tenés la nube encendida, reemplaza también la copia de la nube.** El cartel te lo dice antes de que aprietes: el archivo pasa a ser la versión buena de tu cuenta, y tus otros dispositivos van a quedar igual que este —sin que toques nada en ellos— en la próxima sincronización. Es lo que hace que restaurar sirva: antes la nube y el archivo se peleaban, cada renglón quedaba como una pregunta sin contestar (con un respaldo de verdad, más de mil), y el respaldo entraba pero no servía para nada.
+
+Si CopyNotes no tiene nube, o no iniciaste sesión, ese párrafo no aparece y restaurar es asunto de este dispositivo solo, como siempre.
+
+Lo que **sí** te sigue perteneciendo después de restaurar es **la llave de tu bóveda**: restaurar un respaldo no te la saca ni te obliga a volver a vincular tus dispositivos. Eso solo pasa con "Empezar de nuevo la nube", que es otro botón y avisa aparte.
+
 Lo que **no** se toca son los interruptores de ese dispositivo: si tenías **los agentes en pausa**, siguen en pausa después de restaurar; lo mismo con el permiso de subir a la nube. Esas decisiones no viajan dentro del archivo (por eso restaurarlo no puede prenderlas ni apagarlas) y antes se perdían al reemplazar todo, así que los agentes volvían a andar sin que vos los hubieras despausado. Las decisiones de nube que estuvieran esperando —"me quedo con esta versión"— sí se descartan: hablan de renglones que después de reemplazar todo pueden no existir.
 
 ---

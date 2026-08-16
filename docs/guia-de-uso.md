@@ -2,7 +2,10 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-13 (Nuevo: **compartir una nota** con otra
+Última actualización: 2026-08-15 (Nuevo: **restaurar un respaldo con la nube
+encendida ahora funciona de verdad** — el archivo pasa a ser la versión buena de
+tu cuenta y el cartel te avisa que esto también llega a tus otros dispositivos
+(tema 11). Antes: **compartir una nota** con otra
 persona, con el aviso de que mientras esté compartida sale de la bóveda y deja
 de estar cifrada (tema 20). Antes: **el separador se puede borrar desde
 su menú de tres puntitos ⋯**, que antes no aparecía y en el celular lo dejaba
