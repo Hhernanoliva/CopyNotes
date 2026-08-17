@@ -61,3 +61,67 @@ test('la invitación no reaparece en la visita siguiente', async ({ page }) => {
 
 	await expect(page.getByRole('heading', { name: 'Te compartieron una nota' })).toHaveCount(0);
 });
+
+// El candado: una nota que te comparten se lee, no se escribe.
+//
+// La marca se planta en IndexedDB directo y no importando módulos de la app:
+// contra la build de preview no existen las rutas `/src`. El diálogo y el editor
+// releen al montarse, así que alcanza con recargar.
+async function marcarComoAjena(page) {
+	await page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const abrir = indexedDB.open('copynotes');
+				abrir.onerror = () => reject(abrir.error);
+				abrir.onsuccess = () => {
+					const tx = abrir.result.transaction('notes', 'readwrite');
+					const store = tx.objectStore('notes');
+					store.getAll().onsuccess = (evento) => {
+						const nota = evento.target.result[0];
+						store.put({ ...nota, share: 'member' });
+					};
+					tx.oncomplete = () => resolve(null);
+					tx.onerror = () => reject(tx.error);
+				};
+			})
+	);
+	await page.reload();
+	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
+}
+
+test('una nota que te comparten no se puede escribir', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+
+	await expect(page.locator('main [data-block-surface]').first()).toHaveAttribute(
+		'contenteditable',
+		'false'
+	);
+});
+
+// El teclado es una puerta de varias. El menú del renglón las tiene casi todas
+// juntas —mover, borrar, etiquetar, guardar como fragmento— y en celular es la
+// única forma de llegar a ellas.
+// El control de la primera mitad NO es decorativo: la primera versión de esta
+// prueba buscaba "Acciones del bloque", que es el nombre del menú ABIERTO y no
+// del botón que lo abre, así que daba verde con el candado puesto y sin poner.
+// Comprobar primero que en una nota propia el botón SÍ está es lo que impide que
+// vuelva a pasar.
+test('en una nota que te comparten no está el menú del renglón', async ({ page }) => {
+	await openApp(page);
+	const menu = page.getByRole('button', { name: 'Más acciones' });
+	expect(await menu.count()).toBeGreaterThan(0);
+
+	await marcarComoAjena(page);
+
+	await expect(menu).toHaveCount(0);
+});
+
+// Y la casilla de una tarea, que escribe el renglón sin pasar por el teclado.
+test('en una nota que te comparten la casilla no se puede tocar', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+
+	const casilla = page.getByRole('checkbox').first();
+	await expect(casilla).toBeDisabled();
+});

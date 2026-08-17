@@ -41,6 +41,11 @@
 
 	let {
 		block,
+		// Una nota que te comparte otra persona se lee, no se escribe (spec 038 §4).
+		// El límite de verdad lo pone el servidor, que rechaza por rol cualquier
+		// renglón que mande alguien que no es el dueño; esto es la cortesía de no
+		// dejar intentarlo, para que nadie escriba algo que no va a llegar nunca.
+		readOnly = false,
 		depth = 0,
 		hasChildren = false,
 		agentNotes = [],
@@ -687,7 +692,7 @@
 			>
 				<Plus size={14} aria-hidden="true" />
 			</button>
-		{:else}
+		{:else if !readOnly}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				aria-hidden="true"
@@ -735,8 +740,9 @@
 			role="checkbox"
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
+			disabled={readOnly}
 			onclick={() => onToggleChecked(block)}
-			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>
 			<span
 				aria-hidden="true"
@@ -782,7 +788,7 @@
 				<div
 					bind:this={el}
 					id={block.type === 'code' ? `code-content-${block.id}` : undefined}
-					contenteditable={isRich ? 'true' : 'plaintext-only'}
+					contenteditable={readOnly ? 'false' : isRich ? 'true' : 'plaintext-only'}
 					role="textbox"
 					tabindex="0"
 					data-block-surface
@@ -838,7 +844,7 @@
 			{#if noteVisible}
 				<div
 					bind:this={noteEl}
-					contenteditable="plaintext-only"
+					contenteditable={readOnly ? 'false' : 'plaintext-only'}
 					role="textbox"
 					tabindex="0"
 					aria-multiline="true"
@@ -1002,18 +1008,23 @@
 		{/if}
 		<!-- También en el separador: no es editable, así que en celular no hay
 		     Backspace y este menú es la única forma de borrarlo. Ahí quedan sólo
-		     mover y eliminar (contentActions). -->
-		<BlockActionsMenu
-			{pulseMenu}
-			contentActions={block.type !== 'separator'}
-			onAddNote={openNote}
-			onMoveUp={() => onMoveUp(block)}
-			onMoveDown={() => onMoveDown(block)}
-			onDelete={() => onDelete(block)}
-			onSaveSnippet={() => onSaveSnippet(block)}
-			onTag={() => onTag(block)}
-			onDismiss={focusContent}
-		/>
+		     mover y eliminar (contentActions).
+		     En una nota que te comparten no va: TODOS sus ítems escriben, y en
+		     celular es la única forma de llegar a varios de ellos. Copiar sigue
+		     estando en sus botones propios, que no escriben nada. -->
+		{#if !readOnly}
+			<BlockActionsMenu
+				{pulseMenu}
+				contentActions={block.type !== 'separator'}
+				onAddNote={openNote}
+				onMoveUp={() => onMoveUp(block)}
+				onMoveDown={() => onMoveDown(block)}
+				onDelete={() => onDelete(block)}
+				onSaveSnippet={() => onSaveSnippet(block)}
+				onTag={() => onTag(block)}
+				onDismiss={focusContent}
+			/>
+		{/if}
 	</div>
 
 	{#if slashOpen}
