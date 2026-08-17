@@ -1812,3 +1812,64 @@ rompe compartir: recién abierta, antes de generar el link, tampoco hay nadie.
 La forma sin adivinanzas es que el servidor ANOTE que la compartición se quedó
 sin nadie —una columna, puesta sólo por una salida real— y que el dueño la
 cierre bien en su pasada siguiente. **Necesita SQL nuevo.**
+
+---
+
+## El cierre automático (2026-08-17, después del gate): CONSTRUIDO Y VERIFICADO
+
+Pedido por Hernán mirando el resultado del gate: la nota quedaba compartida
+—fuera de la bóveda, sin cifrar— con nadie del otro lado, y el estado era
+invisible (la sección "Quiénes la están viendo" desaparece entera con cero
+miembros).
+
+**`cb5e51b`.** SQL aplicado por Hernán y medido: **`pnpm rls:check` 21/21**,
+con la prueba nueva "el último que se va deja la marca, y el que entra la
+levanta". **Comprobado además a mano con las dos cuentas**: B se salió, el ícono
+de A se apagó solo dentro de los 30 segundos, y editar esa nota en A después
+dejó el estado en "Todo subido" — que es lo único que prueba que volvió al caño
+cifrado y no quedó sin ninguno.
+
+Las tres decisiones, y por qué:
+
+- **El servidor MARCA (`shares.emptied`), no cierra.** Cerrar incluye resellar
+  las filas para que entren al caño cifrado, y eso sólo lo puede hacer el
+  aparato del dueño. Un `delete from shares` a secas dejaría la nota sin ningún
+  caño, sincronizando en silencio con nadie.
+- **No se deduce de "cero miembros".** Recién compartida, antes de generar el
+  link, tampoco hay nadie: esa regla rompería compartir. La marca la pone una
+  salida real, y `accept_share_invite` la levanta.
+- **Va sólo en `leave_share`, no en `remove_member`.** Cuando el dueño saca a
+  alguien está mirando esa pantalla, con el botón de cerrar al lado.
+
+**Trampa de Postgres:** `list_shares` ganó una columna y Postgres **se niega** a
+cambiarle el tipo de retorno a una función que ya existe. Sin el
+`drop function if exists` que ahora lleva adelante, el `schema.sql` entero se
+cae con "cannot change return type of existing function".
+
+## Y la trampa que costó dos rondas del gate: `pnpm test:e2e` rompía la app
+
+**`2ca185a`.** El build de e2e corre con las variables de la nube vacías a
+propósito (`playwright.config.ts`), y de paso reescribía
+`.svelte-kit/generated/server/internal.js` — **de donde el `vite dev` que esté
+corriendo lee la CSP**. El servidor lo recargaba en caliente, sin reiniciarse y
+sin decir nada, y a partir de ahí el navegador bloqueaba cada llamada a
+Supabase. La app lo contaba como `TypeError: Failed to fetch`: **indistinguible
+de quedarse sin internet**, y apuntando al lado equivocado.
+
+O sea: **correr la suite entre dos pruebas a mano dejaba la app rota en
+silencio**, que es exactamente lo que se hace durante un gate. Pasó dos veces el
+mismo día; la segunda estuvo a punto de anotarse como un bug del producto.
+
+Arreglado con un `svelte-kit sync` después del build, y el `unset` que hace que
+ese sync lea el `.env` de verdad. **Descartado con medición:** darle al build de
+e2e su propio `kit.outDir` — el plugin de PWA busca el precache en `.svelte-kit`
+y la prueba de "sin conexión" pasaba a fallar 3 de 3.
+
+**Cómo se detecta en 5 segundos**, antes de perder media hora:
+
+```bash
+curl -sI http://localhost:5173/ | grep -io "connect-src[^;]*"
+```
+
+Tiene que aparecer el host de Supabase, `https://` y `wss://`. Si no está, el
+servidor está envenenado: reiniciarlo.
