@@ -139,27 +139,33 @@ export async function pullSharedNote(client, noteId) {
 export async function reconcileShares(client) {
 	const { data, error } = await client.rpc('list_shares');
 	if (error) throw new Error(error.message);
-	// El valor es un OBJETO y no el rol pelado, desde que `list_shares` devuelve
-	// también el nombre del otro. Un objeto y no un arreglo a propósito: recorrer
-	// un Map entrega `[clave, valor]`, así que un valor-arreglo obliga a
-	// desestructurar dos niveles y ese paréntesis de más es justo el que se olvida
-	// en el segundo llamador — y ahí el rol deja de ser 'member', el candado de
-	// `listSharedPending` se abre y el caño ofrece las tres tablas de una nota
-	// ajena. Hay una prueba que lo vigila en `shared.test.ts`.
-	const fromServer = new Map(
-		(data ?? []).map((row) => [row.note_id, { role: row.role, label: row.counterpart_label }])
-	);
+	// El nombre del dueño se guarda ACÁ, leyendo `data` directo, y el Map sigue
+	// valiendo el rol pelado como antes.
+	//
+	// La primera versión metía las dos cosas adentro del Map, y estaba de más: le
+	// cambiaba la forma al valor que después desarman DOS lugares, y el segundo
+	// —el recorrido de `syncShared`— se rompe en silencio si se queda viejo (el rol
+	// deja de valer 'member', el candado de `listSharedPending` se abre y el caño
+	// ofrece las tres tablas de una nota ajena). Un bucle aparte no toca esa forma
+	// y no hay nada que se pueda olvidar. La prueba que vigila ese candado queda
+	// igual en `shared.test.ts`, que el riesgo se evitó pero no dejó de existir.
+	//
+	// Un nombre nulo NO se guarda: una compartición abierta antes de que los
+	// nombres existieran devuelve nulo para siempre, y escribirlo borraría el
+	// bueno. Se guarda aunque el rol no haya cambiado, porque el dueño puede
+	// corregir cómo firma y eso llega por acá sin mover ninguna marca.
+	for (const row of data ?? []) {
+		if (row.counterpart_label) {
+			await rememberShareName(`owner:${row.note_id}`, row.counterpart_label);
+		}
+	}
+	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
 	const { owner, member } = await sharedNoteIdsByRole();
 	const local = new Map();
 	for (const noteId of owner) local.set(noteId, 'owner');
 	for (const noteId of member) local.set(noteId, 'member');
 	let changed = 0;
-	for (const [noteId, { role, label }] of fromServer) {
-		// El nombre se guarda aunque el rol no haya cambiado: el dueño puede
-		// corregir cómo firma, y eso llega por acá sin mover ninguna marca. Un nulo
-		// NO se guarda: una compartición abierta antes de que los nombres existieran
-		// devuelve nulo para siempre, y escribirlo borraría el bueno.
-		if (label) await rememberShareName(`owner:${noteId}`, label);
+	for (const [noteId, role] of fromServer) {
 		if (local.get(noteId) === role) continue;
 		await setShareRole(noteId, role);
 		changed++;
@@ -182,7 +188,7 @@ export async function reconcileShares(client) {
 export async function syncShared(client) {
 	const { shares, changed } = await reconcileShares(client);
 	let applied = changed;
-	for (const [noteId, { role }] of shares) {
+	for (const [noteId, role] of shares) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);
 	}
