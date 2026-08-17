@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planSplit } from './split';
+import { planJoin, planSplit } from './split';
 
 describe('planSplit', () => {
 	it('moves what is after the caret to the new row, formatting included', () => {
@@ -56,5 +56,34 @@ describe('planSplit', () => {
 			head: { html: 'hola', content: 'hola' },
 			tail: { html: 'mundo', content: 'mundo' }
 		});
+	});
+});
+
+describe('planJoin', () => {
+	// El inverso de planSplit: dos renglones vuelven a ser uno. El cursor va a
+	// la costura — donde termina el texto de arriba — que es exactamente donde
+	// estaba el corte que se está deshaciendo.
+	it('glues the two rows keeping both formats, caret at the seam', () => {
+		expect(planJoin('hola ', '<strong>mundo</strong>')).toEqual({
+			html: 'hola <strong>mundo</strong>',
+			content: 'hola mundo',
+			caret: 5
+		});
+	});
+
+	it('counts a soft line break as one character for the caret', () => {
+		expect(planJoin('uno<br>dos', 'tres')).toEqual({
+			html: 'uno<br>dostres',
+			content: 'uno\ndostres',
+			caret: 7
+		});
+	});
+
+	it('leaves the caret at the start when the row above is empty', () => {
+		expect(planJoin('', 'mundo')).toEqual({ html: 'mundo', content: 'mundo', caret: 0 });
+	});
+
+	it('keeps the row above untouched when the one coming up is empty', () => {
+		expect(planJoin('hola', '')).toEqual({ html: 'hola', content: 'hola', caret: 4 });
 	});
 });

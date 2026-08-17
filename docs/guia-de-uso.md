@@ -2,7 +2,8 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-16 (Nuevo: **la web te avisa cuando hay una versión
+Última actualización: 2026-08-16 (Nuevo: **Backspace al principio de un renglón
+lo une con el de arriba** (tema 3). Antes: **la web te avisa cuando hay una versión
 nueva**, con un botón Actualizar (temas 1 y 19). Antes: **un respaldo bajado con una versión
 anterior de CopyNotes siempre se puede importar** — si al archivo le falta un dato
 interno se completa al entrar, la app revisa el respaldo cuando lo bajás, y te

@@ -31,3 +31,15 @@ export function planSplit(html, start, end) {
 		tail: { html: tailHtml, content: htmlToPlainText(tailHtml) }
 	};
 }
+
+// El inverso: Backspace al principio de un renglón con texto lo vuelve a pegar
+// al de arriba. Pegar los dos html alcanza — `sanitizeHtml` ya normalizó cada
+// mitad, y dos envoltorios iguales que quedan pegados (`<b>a</b><b>b</b>`) se
+// ven exactamente igual que uno solo. El cursor va a la costura, medida en
+// caracteres del texto de arriba, que es donde estaba el corte que se deshace.
+export function planJoin(headHtml, tailHtml) {
+	const head = sanitizeHtml(headHtml ?? '');
+	const tail = sanitizeHtml(tailHtml ?? '');
+	const html = head + tail;
+	return { html, content: htmlToPlainText(html), caret: htmlToPlainText(head).length };
+}

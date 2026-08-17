@@ -62,6 +62,7 @@
 		onNoteInput,
 		onEnter,
 		onBackspaceEmpty,
+		onJoinPrevious,
 		onIndent,
 		onOutdent,
 		onMoveUp,
@@ -394,6 +395,13 @@
 		if (event.key === 'Backspace' && (block.type === 'separator' || el.textContent === '')) {
 			event.preventDefault();
 			onBackspaceEmpty(block);
+			return;
+		}
+		if (event.key === 'Backspace' && caretAtStart()) {
+			// El html sale del DOM vivo (no de block.html) por la misma razón que el
+			// corte: el guardado del tipeo tiene retraso y el estado va atrás.
+			event.preventDefault();
+			onJoinPrevious(block, el.innerHTML);
 		}
 	}
 
@@ -426,6 +434,19 @@
 		const start = plainTextOffset(el, range.startContainer, range.startOffset);
 		const end = plainTextOffset(el, range.endContainer, range.endOffset);
 		return planSplit(el.innerHTML, start, end);
+	}
+
+	// Backspace con el cursor pegado al principio y algo escrito adelante: no hay
+	// nada que borrar en este renglón, así que la tecla significa "unir con el de
+	// arriba" — el inverso exacto del Enter que lo partió. Se mide sobre el DOM
+	// vivo, igual que el corte.
+	function caretAtStart() {
+		if (!isRich || !el) return false;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return false;
+		const range = selection.getRangeAt(0);
+		if (!el.contains(range.startContainer)) return false;
+		return plainTextOffset(el, range.startContainer, range.startOffset) === 0;
 	}
 
 	function handleSurfaceKeys(event) {

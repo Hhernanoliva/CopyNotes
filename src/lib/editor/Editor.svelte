@@ -52,6 +52,7 @@
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
 		planEnter,
+		planJoinWithPrevious,
 		planPromoteChildren,
 		previousVisibleId
 	} from '$lib/blocks/enter';
@@ -65,6 +66,7 @@
 	import { caretColumnX, placeCaretAtColumn, edgeForDirection, caretPointFromViewport } from './caret';
 	import { looksLikeCodePaste, parsePastedLines } from './paste';
 	import { createHistory, diffBlocks } from './history';
+	import { planJoin } from './split';
 	import BlockRow from './BlockRow.svelte';
 	import { createDragReorder } from './dragReorder.svelte.js';
 	import { createTextDrag } from './textDrag.svelte.js';
@@ -1317,6 +1319,34 @@
 		if (prevId) focusBlockId = prevId;
 	}
 
+	// Backspace al principio de un renglón con texto: deshace el corte de Enter.
+	// El texto sube al de arriba —que manda: su tipo, su nivel y su nota se
+	// quedan— y este renglón se va. `html` llega del DOM vivo del renglón; el de
+	// arriba se lee del estado, que el tipeo actualiza al instante (sólo el
+	// guardado tiene retraso).
+	async function handleJoinPrevious(block, html) {
+		const plan = planJoinWithPrevious(blocks, block.id);
+		if (!plan) return;
+		const previous = blocks.find((row) => row.id === plan.intoId);
+		if (!previous) return;
+		const join = planJoin(
+			previous.html ?? plainTextToHtml(previous.content ?? ''),
+			html ?? block.html ?? plainTextToHtml(block.content ?? '')
+		);
+		recordSnapshot();
+		previous.content = join.content;
+		previous.html = join.html;
+		// Sin retraso, y por la puerta única: así se cancela el guardado pendiente
+		// del tipeo del renglón de arriba, que medio segundo después escribiría el
+		// texto de ANTES de unir.
+		await writeBlock(previous.id, { content: join.content, html: join.html });
+		await softDeleteBlock(block.id);
+		blocks = blocks.filter((row) => row.id !== block.id);
+		focusBlockId = previous.id;
+		// El cursor va a la costura: donde terminaba el texto de arriba.
+		focusCaret = join.caret;
+	}
+
 	// Borrar desde el menú de la línea: elimina el bloque y su subárbol. A
 	// diferencia de Backspace, borra aunque tenga contenido o hijos; lo único
 	// que se protege es dejar el editor sin bloques.
@@ -2233,6 +2263,7 @@
 					onNoteInput={handleNoteInput}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
+					onJoinPrevious={handleJoinPrevious}
 					onIndent={handleIndent}
 					onOutdent={handleOutdent}
 					onMoveUp={handleMoveUp}

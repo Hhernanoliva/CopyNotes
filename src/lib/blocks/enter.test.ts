@@ -5,6 +5,7 @@ import {
 	canDeleteOnBackspace,
 	enterOnEmptyAction,
 	planEnter,
+	planJoinWithPrevious,
 	planPromoteChildren,
 	previousVisibleId
 } from './enter';
@@ -196,5 +197,54 @@ describe('previousVisibleId', () => {
 	it('returns null for the first visible block', () => {
 		const blocks = [block('a', null, 0)];
 		expect(previousVisibleId(blocks, 'a')).toBe(null);
+	});
+});
+
+describe('planJoinWithPrevious', () => {
+	// Backspace al principio de un renglón CON texto: el inverso de partir con
+	// Enter. Manda el de arriba (su tipo se queda), y hay cuatro casos donde
+	// unir perdería algo, así que ahí no se une y Backspace no hace nada.
+	const row = (id, extra = {}) => ({ id, parentBlockId: null, order: 0, type: 'text', ...extra });
+
+	it('joins into the row right above', () => {
+		const blocks = [row('a', { order: 0 }), row('b', { order: 1 })];
+		expect(planJoinWithPrevious(blocks, 'b')).toEqual({ intoId: 'a' });
+	});
+
+	it('joins a first child into its parent, which is the row above on screen', () => {
+		const blocks = [row('a', { order: 0 }), row('a1', { parentBlockId: 'a' })];
+		expect(planJoinWithPrevious(blocks, 'a1')).toEqual({ intoId: 'a' });
+	});
+
+	it('returns null on the first row: there is nothing above to join into', () => {
+		expect(planJoinWithPrevious([row('a')], 'a')).toBe(null);
+	});
+
+	it('refuses when the row has sub-items: they would lose their parent', () => {
+		const blocks = [row('a', { order: 0 }), row('b', { order: 1 }), row('b1', { parentBlockId: 'b' })];
+		expect(planJoinWithPrevious(blocks, 'b')).toBe(null);
+	});
+
+	it('refuses when the row above is collapsed: the text would land on hidden sub-items', () => {
+		const blocks = [
+			row('a', { order: 0, collapsed: true }),
+			row('a1', { parentBlockId: 'a' }),
+			row('b', { order: 1 })
+		];
+		expect(planJoinWithPrevious(blocks, 'b')).toBe(null);
+	});
+
+	it('refuses around separators and code blocks, on either side', () => {
+		const separator = [row('a', { order: 0, type: 'separator' }), row('b', { order: 1 })];
+		expect(planJoinWithPrevious(separator, 'b')).toBe(null);
+		const code = [row('a', { order: 0, type: 'code' }), row('b', { order: 1 })];
+		expect(planJoinWithPrevious(code, 'b')).toBe(null);
+		const fromCode = [row('a', { order: 0 }), row('b', { order: 1, type: 'code' })];
+		expect(planJoinWithPrevious(fromCode, 'b')).toBe(null);
+	});
+
+	it('refuses when the row carries a gray note, which would be lost', () => {
+		const blocks = [row('a', { order: 0 }), row('b', { order: 1, note: 'recordar esto' })];
+		expect(planJoinWithPrevious(blocks, 'b')).toBe(null);
 	});
 });

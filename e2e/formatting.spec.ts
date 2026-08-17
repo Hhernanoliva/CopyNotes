@@ -1107,6 +1107,75 @@ test('Enter en medio del renglón baja lo que sigue al cursor, con su formato y 
 	await expect(restored.nth(1)).toHaveClass(/block-editable--h2/);
 });
 
+// Y el camino de vuelta: Backspace pegado al principio de un renglón con texto
+// deshace ese corte. Es la misma tecla que en un renglón vacío lo borra, así
+// que la prueba mira que el texto suba entero, con su formato, que quede UN
+// solo renglón y que el cursor caiga en la costura (no al final).
+test('Backspace al principio del renglón lo vuelve a unir con el de arriba', async ({ page }) => {
+	await newNote(page);
+	await title(page).fill('Formato E2E: unir renglon');
+
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('hola mundo', { delay: 25 });
+
+	await selectAllInBlock(page, first);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.keyboard.press('ControlOrMeta+b');
+	await expect(first.locator('strong')).toHaveText('hola mundo');
+
+	// Partir justo antes de "mundo", como en la prueba de arriba.
+	await first.click();
+	await page.keyboard.press('End');
+	for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowLeft');
+	await page.keyboard.press('Enter');
+	const rows = page.locator('main [role="textbox"]');
+	await expect(rows).toHaveCount(2);
+	await expect(rows.nth(1)).toHaveText('mundo');
+
+	// El cursor quedó al principio del renglón nuevo: Backspace ahí lo une.
+	await page.keyboard.press('Backspace');
+	await expect(rows).toHaveCount(1);
+	await expect(rows.nth(0)).toHaveText('hola mundo');
+	// La negrita cubre todo el renglón otra vez. Se mide sumando los tramos en
+	// negrita y no contándolos: unir deja `<strong>hola </strong><strong>mundo</strong>`,
+	// que se ve igual que uno solo, y esta prueba no tiene por qué casarse con
+	// una de las dos formas.
+	await expect
+		.poll(() =>
+			rows
+				.nth(0)
+				.evaluate((el) =>
+					Array.from(el.querySelectorAll('strong'))
+						.map((mark) => mark.textContent)
+						.join('')
+				)
+		)
+		.toBe('hola mundo');
+
+	// El cursor está en la costura, entre "hola " y "mundo".
+	await page.keyboard.type('X');
+	await expect(rows.nth(0)).toHaveText('hola Xmundo');
+
+	// Deshacer: primero la X, después la unión — los dos renglones vuelven.
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(rows.nth(0)).toHaveText('hola mundo');
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(rows).toHaveCount(2);
+	await expect(rows.nth(1)).toHaveText('mundo');
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	await expect(rows).toHaveCount(1);
+	await expect(rows.nth(0)).toHaveText('hola mundo');
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	await expect(rows.nth(0)).toHaveText('hola Xmundo');
+
+	await page.waitForTimeout(700); // let autosave flush
+	await page.reload();
+	const restored = page.locator('main [role="textbox"]');
+	await expect(restored).toHaveCount(1);
+	await expect(restored.nth(0)).toHaveText('hola Xmundo');
+});
+
 // Un título ya se dibuja grueso y el navegador se niega a poner negrita adentro
 // (medido en H1, H2 y H3). El botón se muestra apagado en vez de ofrecer algo
 // que no pasa nada; el resto de las marcas en línea siguen disponibles.

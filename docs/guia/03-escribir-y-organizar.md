@@ -13,6 +13,7 @@
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar. Los renglones vacíos también se cruzan, en los dos sentidos |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo. Al llegar al borde de su padre, **sale del padre** y sigue al nivel de arriba; el límite real es el principio o el final de la nota. Funciona igual con varios renglones seleccionados |
+| **Backspace** al principio del renglón | Lo une con el de arriba (ver abajo) |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 
 > **Negrita, cursiva, títulos, enlaces y colores:** todo el detalle está en la sección "Dar formato al texto" más abajo. Como resumen rápido: los atajos **Ctrl/Cmd+B/I/U/Shift+S/K** y los de título **Ctrl/Cmd+Alt+1/2/3** (y **+0** para texto normal) funcionan aunque no se vea ninguna barra flotante en pantalla. Y si la barra está a la vista, **Ctrl/Cmd+Alt+F** te mete adentro para caminarla con las flechas, sin mouse.
@@ -73,6 +74,16 @@ Si parás el cursor en el medio de una línea y apretás **Enter**, lo que está
 - Si tenías texto **marcado**, Enter lo borra y parte ahí.
 - Con el cursor **al final** del renglón, Enter hace lo de siempre: un renglón nuevo vacío.
 - **Deshacer** (Ctrl/Cmd+Z) devuelve la línea entera de una sola vez.
+
+### Unir dos renglones (Backspace al principio)
+
+Es el camino de vuelta de lo anterior. Con el cursor **pegado al principio** de un renglón que tiene texto, **Backspace** sube ese texto al renglón de arriba y los deja hechos uno solo.
+
+- Manda el **de arriba**: el renglón unido conserva el tipo de arriba (si arriba había un título y abajo una viñeta, queda un título).
+- El **formato viaja**: negrita, color, enlaces y tamaños llegan intactos.
+- El **cursor queda en la costura**, entre lo que era el final de arriba y lo que subió, así que podés seguir escribiendo ahí mismo.
+- **Deshacer** (Ctrl/Cmd+Z) los vuelve a separar.
+- No se unen (y Backspace no hace nada) en cuatro casos, para no perder nada: cuando el renglón tiene **sub-ítems**, cuando tiene un **comentario**, cuando arriba o abajo hay un **separador o un bloque de código**, y cuando el renglón de arriba está **colapsado** (el texto aterrizaría sobre cosas que no ves).
 
 ### Doble Enter para salir del anidado
 

@@ -90,3 +90,26 @@ export function previousVisibleId(blocks, id) {
 	if (index <= 0) return null;
 	return visible[index - 1].block.id;
 }
+
+// Backspace al principio de un renglón CON texto: deshace el corte de Enter.
+// El texto sube al renglón de arriba —el de arriba manda, su tipo se queda— y
+// este renglón desaparece. Devuelve null cuando unir perdería algo, y ahí
+// Backspace no hace nada: sub-ítems que se quedarían sin padre, la nota gris
+// del renglón que se va, un separador o un bloque de código de cualquiera de
+// los dos lados (su texto no se mezcla con el de al lado), y el renglón de
+// arriba colapsado, donde el texto aterrizaría sobre hijos que no se ven.
+export function planJoinWithPrevious(blocks, id) {
+	const target = blocks.find((block) => block.id === id);
+	if (!target) return null;
+	if (!joinable(target) || target.note) return null;
+	if (siblingsOf(blocks, id).length > 0) return null;
+	const prevId = previousVisibleId(blocks, id);
+	const previous = prevId ? blocks.find((block) => block.id === prevId) : null;
+	if (!previous || !joinable(previous)) return null;
+	if (previous.collapsed && siblingsOf(blocks, prevId).length > 0) return null;
+	return { intoId: prevId };
+}
+
+function joinable(block) {
+	return block.type !== 'separator' && block.type !== 'code';
+}
