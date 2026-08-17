@@ -6,7 +6,8 @@
 	// nota: sin cuenta no hay nada que aceptar.
 	import { toast } from 'svelte-sonner';
 	import { acceptInvite } from '$lib/sync/invites';
-	import { sharedReady, syncShared } from '$lib/sync/shared';
+	import { syncShared } from '$lib/sync/shared';
+	import { supabase } from '$lib/sync/supabase';
 
 	let { token, onDone } = $props();
 
@@ -16,8 +17,25 @@
 	let client = $state(undefined);
 	let working = $state(false);
 
+	// Hay que SEGUIR la sesión, no leerla una vez. Quien abre el link sin cuenta
+	// entra desde esta misma página, sin recargarla: una lectura de montaje deja
+	// la tarjeta clavada en "entrá a tu cuenta" para siempre, y el botón de
+	// aceptar no aparece nunca. Es la misma razón por la que `CloudLifecycle`
+	// sigue la sesión en vez de leerla, y acá pesa más — la invitación es
+	// justamente lo que la persona vino a hacer.
+	//
+	// `onAuthStateChange` emite también la sesión inicial, así que cubre los dos
+	// casos con una sola suscripción (encontrado en el gate de B1, 2026-08-17).
 	$effect(() => {
-		sharedReady().then((valor) => (client = valor));
+		const cliente = supabase();
+		if (!cliente) {
+			client = null;
+			return;
+		}
+		const { data } = cliente.auth.onAuthStateChange((_evento, session) => {
+			client = session ? cliente : null;
+		});
+		return () => data.subscription.unsubscribe();
 	});
 
 	async function aceptar() {
