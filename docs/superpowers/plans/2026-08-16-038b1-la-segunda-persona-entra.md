@@ -10,16 +10,17 @@
 
 ---
 
-## ESTADO al 2026-08-17 — construido todo lo que no depende de Hernán
+## ESTADO al 2026-08-17 — TODO construido; falta sólo el gate manual
 
-Rama `feat/compartir-invitacion`, **sin pushear**. Unit **1188** verdes, e2e
+Rama `feat/compartir-invitacion`, **sin pushear**. **SQL aplicado y
+`pnpm rls:check` 20/20** contra el proyecto real. Unit **1188** verdes, e2e
 **179** verdes (+ el flake conocido del separador: medido **1/10 en esta rama
 contra 3/10 en la base**, o sea preexistente y no empeorado), `pnpm check` en sus
 4 errores de siempre.
 
 | Tarea | Estado |
 |---|---|
-| 1. Las cuatro funciones SQL | **Código escrito** (`c65b9a3`). Falta que Hernán lo aplique (Paso 8) y correr `pnpm rls:check` (Paso 10) |
+| 1. Las cuatro funciones SQL | **HECHA** (`c65b9a3`). Hernán aplicó el SQL el 2026-08-17; medido con `fetch` pelado (las 5 funciones contestan "necesita una sesión iniciada", ninguna 404) y **`pnpm rls:check` da 20/20** contra el proyecto real |
 | 2. El cachecito de nombres | **HECHA** (`1e8fb2f`) |
 | 3. Las llamadas al servidor | **HECHA** (`e0fce0d`) |
 | 4. La pantalla de compartir | **HECHA** (`e7a1d61`) |
