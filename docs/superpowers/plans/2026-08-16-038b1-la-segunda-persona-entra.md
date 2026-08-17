@@ -1703,3 +1703,112 @@ No es alcance de este plan; está acá para que no se pierda.
 - **B2:** el tilde derivado de la bitácora (§5), los comentarios, `actor` como identidad en las tres pantallas **y en `mcp/lib/tools.js` + `bridge/export.ts`** (§6), y los dos candados anti-atasco (§5 y §3c).
 - **B3:** "Listo" (§8 — su mitad del respaldo ya está hecha en `3e42b5e`), el contador de novedades (§8), que deshacer no destilde (§9), y la consulta de moderación.
 - **Una medición para B2, hecha al escribir este plan y que ahorra trabajo:** el atasco que §3c describe —"una fila que no se puede mandar arrastra el cursor para atrás en cada pasada"— **no existe con la forma que quedó construida**. `pushSharedNote` marca fila por fila con `markSentToCloud` y no lleva un cursor del tipo de `uploadedThrough`, y `listSharedPending` ya filtra por rol. Antes de construir el arreglo de §3c hay que **medir si el problema pasa**, porque el arreglo se escribió contra una forma del código que no es la que hay. La marca `fromCloud` en las escrituras del invitado sigue teniendo sentido por otro motivo (no son cambios locales), pero eso es una línea, no la tarea que la spec presupuesta.
+
+---
+
+## El resultado del gate (2026-08-17): LOS 12 PASOS PASADOS
+
+Corrido por Hernán con dos cuentas reales contra el servidor real. **A = ventana
+normal del navegador en `localhost:5173`** (su app de siempre, con sus notas),
+**B = ventana de incógnito** con una cuenta nueva. Dos cosas que la preparación
+del plan daba por necesarias y NO lo eran, y que ahorran una hora la próxima:
+
+- **No hace falta empaquetar la `.app`.** Nada de B1 depende del runtime
+  empaquetado. Dos ventanas del navegador son dos aparatos distintos de verdad
+  (otro IndexedDB) y alcanzan.
+- **No hace falta una segunda cuenta de Google.** `disable_signup:false` +
+  `mailer_autoconfirm:true` ⇒ crear una cuenta con mail y contraseña es
+  instantáneo. Sirve un alias propio (`pulimumi+prueba@gmail.com`).
+- El link sale con el origen donde se genera, así que generado en
+  `localhost:5173` se abre en B sin tocar nada.
+
+**Nueve bugs reales, todos arreglados y con prueba.** El gate encontró más que
+las siete tareas de construcción juntas, y ninguno era visible leyendo el
+código de a un archivo por vez:
+
+1. **`fabe1b8` — la invitación no se enteraba de que entraste.** `InviteAccept`
+   leía la sesión UNA vez, al montarse, y entrar pasa en esa misma página sin
+   recargarla: la tarjeta quedaba clavada en "entrá a tu cuenta" para siempre y
+   el botón de aceptar no aparecía nunca. `CloudLifecycle` tenía la lección
+   escrita en un comentario, para el websocket, y esta pantalla no la aplicó.
+   Ahora sigue la sesión con `onAuthStateChange`.
+2. **`c14c3d3` — el candado de sólo lectura tenía cuatro puertas abiertas.**
+   `contenteditable="false"` frena el tecleo y nada más. Quedaban: **pegar**
+   (el evento llega igual a un elemento no editable, y de ahí salen tres
+   caminos que crean renglones), **la barra de formato** (aparecía al marcar
+   texto, con todos los botones inertes — peor que no tenerla), **el chip de
+   fecha y la cruz de las etiquetas**, y —el que nadie había pensado— **el
+   título de la nota, que es un `<input>` aparte al que `readOnly` nunca
+   llegaba: el invitado podía renombrar la nota ajena**. Paso 6 de la tarea 6
+   decía "buscar las otras puertas" y se había hecho a medias.
+3. **`e7bfb03` — `shareNameOr` existía sin un solo llamador.** El nombre del
+   dueño se venía guardando desde `list_shares` y no lo mostraba ninguna
+   pantalla, así que la mitad B del paso 6 del gate no podía pasar.
+4. **`a3dad78` — aceptar no mostraba la nota hasta recargar.** La campanita
+   (`appliedVersion`) la tocaba `syncNow`, el único llamador de `syncShared`
+   cuando se escribió. El segundo llamador —`InviteAccept`— se la olvidó, y no
+   se arreglaba solo: la pasada siguiente ya no cambiaba nada, así que no había
+   nada que avisar. La campanita se mudó ADENTRO de `syncShared`.
+5. **`9e21cf9` — "No se pudo: TypeError: Failed to fetch"** en pantalla, en
+   inglés. Los mensajes del servidor ya vienen en castellano (los escribe cada
+   `raise exception`); el único que había que traducir es el del navegador, y
+   va en `unwrap`, la puerta única de las seis llamadas.
+6. **`9658f25` — el número de "sin subir" son dos colas y Configuración veía
+   una.** `countPendingUploads` da 0 sin permiso de subir, así que la cola de un
+   invitado es ENTERA la mitad que faltaba: la pantalla le decía siempre cero.
+   **Sin este arreglo el paso 11 daba verde sin probar nada.**
+7. **`43f2c3a` — salirse de una nota tardaba 30 segundos en notarse.**
+   `leaveShare` sólo avisaba al servidor; el panel se dibuja leyendo la marca
+   LOCAL, que limpiaba `reconcileShares` en la pasada siguiente. Mientras tanto
+   seguía ofreciendo "Salirme de esta nota" a alguien que ya se había ido, y
+   cada clic repetía la llamada. Ahora la marca se borra apenas el servidor
+   acepta —y sólo si acepta—, y el botón dice "Saliendo…".
+8. **`c2c8cb1` — el ícono de compartida no se distinguía del de compartir.**
+   Los dos terminaban en `text-foreground` al pasar el mouse, o sea el mismo
+   dibujo del mismo color justo en el único momento en que se los compara.
+9. **`b1bb8d3` (antes del paso 1) — un aparato sin la llave no podía cerrar
+   sesión.** Ver `copynotes-locked-out-no-signout`.
+
+**El falso positivo que casi entra:** la prueba e2e de "no aparece la barra de
+formato" **pasaba con el candado puesto Y sin poner**. `toHaveCount(0)` no
+espera, y la barra tarda 300ms a propósito. Lleva su espera y el porqué escrito
+al lado. Es la segunda vez en esta rama que una prueba de ausencia miente.
+
+**La media hora que se perdió, y cómo no perderla de nuevo:** B empezó a decir
+"Sin conexión con la nube" y a fallar con `Failed to fetch`. No era la red ni
+Supabase (A andaba, y un `fetch` pelado desde node contestaba en 481ms): **el
+servidor de `vite dev` estaba emitiendo una CSP sin el host de Supabase**
+(`connect-src 'self' ipc: http://ipc.localhost`). Se arregla reiniciándolo.
+Descartados con medición: el build no la cambia, y el sandbox tampoco (un vite
+arrancado adentro del sandbox lee `.env` bien). Por qué arrancó con la variable
+vacía quedó sin explicar — el log no tiene ningún reinicio.
+**Regla: antes de un gate de nube, verificar la CSP con un comando**, no
+descubrirla veinte minutos después disfrazada de "no hay internet":
+
+```bash
+curl -sI http://localhost:5173/ | grep -io "connect-src[^;]*"
+```
+
+**Lo que el producto hizo BIEN bajo esa falla, y conviene no romper:** con el
+servidor prohibiéndole hablar, B no perdió nada, no mintió y no se rompió —
+dijo "Sin conexión con la nube. Se reintenta solo.", en gris y no en rojo, y
+guardó el detalle técnico en el `title`. Eso es exactamente lo que ese diseño
+prometía, y fue lo que permitió diagnosticarlo.
+
+**Números al cerrar:** unit **1195**, e2e **183** (el flake del separador es
+preexistente: el mismo código da 8/10 en una corrida y otra cosa en la
+siguiente — una rotura falla 10/10), `pnpm check` con sus **4 errores
+preexistentes**, `pnpm rls:check` **20/20**.
+
+**Decidido por Hernán mirando el resultado, y todavía SIN construir:** cuando
+se va el último invitado, la nota **se cierra sola** y vuelve a la bóveda. Hoy
+queda compartida —fuera de la bóveda, sin cifrar— sin nadie del otro lado, y la
+sección "Quiénes la están viendo" desaparece entera, así que el estado es
+invisible. **No se puede hacer en el servidor solo:** cerrar incluye RESELLAR
+las filas para que entren al caño cifrado, y eso lo hace el aparato del dueño
+(`share-move.ts`); un `close_share` a secas dejaría la nota sin caño,
+sincronizando en silencio con nadie. Y "cerrar cuando no hay nadie" a secas
+rompe compartir: recién abierta, antes de generar el link, tampoco hay nadie.
+La forma sin adivinanzas es que el servidor ANOTE que la compartición se quedó
+sin nadie —una columna, puesta sólo por una salida real— y que el dueño la
+cierre bien en su pasada siguiente. **Necesita SQL nuevo.**
