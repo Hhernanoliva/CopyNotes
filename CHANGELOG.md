@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
+- En computadora, la lista de notas se puede ensanchar arrastrando su borde derecho, para cuando los nombres largos quedan cortados. El ancho queda guardado; doble clic en el borde la devuelve al ancho normal, y si la tirás bien para adentro se esconde (el botón de panel la trae de vuelta, con el ancho que le habías dado)
 - La web ahora te avisa cuando hay una versión nueva, con un botón **Actualizar** que la pone en uso en un segundo (tus notas no se tocan). Antes se actualizaba "sola en la próxima visita" y sin avisar: si dejabas la pestaña abierta o el celular la mantenía dormida, seguías usando la versión vieja sin saberlo — y los arreglos que publicábamos no te llegaban
 - Arreglado: en la web, elegir un archivo de respaldo para importar no hacía nada — ni en la computadora ni en el iPhone. La app daba por cancelada la elección si el archivo tardaba en llegar, y se quedaba callada; en el iPhone tardaba más porque el sistema tiene que copiar el archivo primero. Ahora sólo se cancela si vos cancelás, sin importar cuánto tarde
 - Configuración muestra al final, en chico, qué versión de CopyNotes estás usando. Antes sólo se veía en la app de escritorio, dentro de Actualizaciones

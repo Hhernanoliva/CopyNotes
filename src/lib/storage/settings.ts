@@ -98,6 +98,14 @@ export function setEditorTextScale(value) {
 	return setSetting(KEY.editorTextScale, value);
 }
 
+export function getSidebarWidth() {
+	return getSetting(KEY.sidebarWidth);
+}
+
+export function setSidebarWidth(value) {
+	return setSetting(KEY.sidebarWidth, value);
+}
+
 // The master agent switch. Paused = the ingest gate rejects every request AND
 // the export the agent reads goes out empty, whatever each note's agentVisible
 // says — one place to cut, without having to walk note by note. Default false

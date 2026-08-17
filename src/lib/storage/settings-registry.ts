@@ -20,6 +20,7 @@ export const KEY = {
 	demoNoteCreated: 'demoNoteCreated',
 	agendaHideCompleted: 'agendaHideCompleted',
 	editorTextScale: 'editorTextScale',
+	sidebarWidth: 'sidebarWidth',
 	connectedAgent: 'connectedAgent',
 	agentsPaused: 'agentsPaused',
 	processedChanges: 'processedChanges',
@@ -36,6 +37,7 @@ export const SETTINGS = {
 	[KEY.demoNoteCreated]: { backupSafe: true },
 	[KEY.agendaHideCompleted]: { backupSafe: true },
 	[KEY.editorTextScale]: { backupSafe: true },
+	[KEY.sidebarWidth]: { backupSafe: true },
 	[KEY.connectedAgent]: { backupSafe: false }, // Local MCP connection identity — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.agentsPaused]: { backupSafe: false }, // The master agent kill switch. NOT backup-safe on purpose: import only writes safe keys, so restoring a file can never un-pause a device the user paused.
 	[KEY.processedChanges]: { backupSafe: false }, // Local agent-change dedupe ledger — device-only, never leaves in a backup (cloud is spec 029).

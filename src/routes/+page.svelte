@@ -5,6 +5,7 @@
 	import { toast } from 'svelte-sonner';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import { coerceScale } from '$lib/settings/text-scale';
+	import { coerceWidth, DEFAULT_WIDTH } from '$lib/settings/sidebar-width';
 	import NoteSidebar from '$lib/components/NoteSidebar.svelte';
 	import BackupDialog from '$lib/components/BackupDialog.svelte';
 	import NewSnippetDialog from '$lib/components/NewSnippetDialog.svelte';
@@ -29,6 +30,7 @@
 		findOrCreateTag,
 		getDemoNoteCreated,
 		getEditorTextScale,
+		getSidebarWidth,
 		getLastOpenedNoteId,
 		listFolders,
 		listNotes,
@@ -40,6 +42,7 @@
 		setDemoNoteCreated,
 		setHasCompletedOnboarding,
 		setEditorTextScale,
+		setSidebarWidth,
 		setLastOpenedNoteId,
 		setTheme,
 		settlePendingWrites,
@@ -60,6 +63,7 @@
 	let notes = $state([]);
 	let currentNoteId = $state(null);
 	let sidebarOpen = $state(false);
+	let sidebarWidth = $state(DEFAULT_WIDTH);
 	let sidebarView = $state('notes');
 	let loading = $state(true);
 	let loadError = $state(false);
@@ -154,13 +158,15 @@
 				// Drop a copy buffer that outlived its window, so old note text does
 				// not sit in localStorage forever (spec 030 phase 0).
 				purgeStaleCopy();
-				let [rows, lastId, snippetRows, savedScale] = await Promise.all([
+				let [rows, lastId, snippetRows, savedScale, savedWidth] = await Promise.all([
 					listNotes(),
 					getLastOpenedNoteId(),
 					listSnippets(),
-					getEditorTextScale()
+					getEditorTextScale(),
+					getSidebarWidth()
 				]);
 				if (!cancelled) editorScale = coerceScale(savedScale);
+				if (!cancelled) sidebarWidth = coerceWidth(savedWidth);
 				if (cancelled) return;
 
 				// First run: seed an editable demo note so the user learns by using it.
@@ -602,6 +608,11 @@
 		{snippetFolders}
 		{currentNoteId}
 		open={sidebarOpen && !loadError}
+		width={sidebarWidth}
+		onResize={(px) => {
+			sidebarWidth = px;
+			setSidebarWidth(px);
+		}}
 		bind:view={sidebarView}
 		onSelect={selectNote}
 		{conflictNoteIds}

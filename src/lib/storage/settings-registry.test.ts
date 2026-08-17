@@ -17,6 +17,7 @@ describe('settings registry', () => {
 				'demoNoteCreated',
 				'agendaHideCompleted',
 				'editorTextScale',
+				'sidebarWidth',
 				'connectedAgent',
 				'agentsPaused',
 				'processedChanges',
@@ -36,7 +37,8 @@ describe('settings registry', () => {
 				'lastOpenedNoteId',
 				'demoNoteCreated',
 				'agendaHideCompleted',
-				'editorTextScale'
+				'editorTextScale',
+				'sidebarWidth'
 			].sort()
 		);
 	});

@@ -21,6 +21,13 @@
 	import { sidebarDragList } from './dnd';
 	import { buildSidebarTree } from '$lib/organize';
 	import { MOTION, motionDuration } from '$lib/motion';
+	import {
+		DEFAULT_WIDTH,
+		MIN_WIDTH,
+		MAX_WIDTH,
+		coerceWidth,
+		resizeIntent
+	} from '$lib/settings/sidebar-width';
 
 	let {
 		notes,
@@ -59,6 +66,11 @@
 		onDeleteFolder,
 		onOpenBlock,
 		onDataChanged,
+		// Ancho en escritorio. Vive en la página, no acá: `{#if open}` desmonta la
+		// barra al esconderla, y un ancho guardado adentro se perdería con ella.
+		// Sin default: `coerceWidth` ya cae en DEFAULT_WIDTH si no llega nada.
+		width,
+		onResize = () => {},
 		agendaVersion = 0
 	} = $props();
 
@@ -127,6 +139,49 @@
 	let editingFolderValue = $state('');
 
 	let asideEl = $state();
+
+	// Distancia CRUDA del puntero al borde izquierdo de la barra mientras se
+	// arrastra; null cuando no se está arrastrando. Cruda a propósito: el ancho
+	// se frena en el mínimo, y lo que decide el cierre es cuánto se pasó de ahí.
+	let dragRaw = $state(null);
+	const intent = $derived(dragRaw === null ? null : resizeIntent(dragRaw));
+	const shownWidth = $derived(intent ? intent.width : coerceWidth(width));
+	const willClose = $derived(intent ? intent.willClose : false);
+
+	function startResize(event) {
+		if (isMobile() || event.button !== 0) return;
+		// Corta la selección de texto que el navegador arrancaría al arrastrar.
+		event.preventDefault();
+		dragRaw = shownWidth;
+		event.currentTarget.setPointerCapture(event.pointerId);
+	}
+
+	function moveResize(event) {
+		if (dragRaw === null || !asideEl) return;
+		dragRaw = event.clientX - asideEl.getBoundingClientRect().left;
+	}
+
+	// Al soltar. Se cierra recién acá, no al cruzar el mínimo: si la barra
+	// desapareciera en pleno arrastre, el borde se iría de abajo del puntero.
+	// Cerrando NO se guarda el ancho, así que al volver a abrirla reaparece con
+	// el último ancho bueno y nunca en el mínimo.
+	function endResize(event) {
+		if (dragRaw === null) return;
+		const final = resizeIntent(dragRaw);
+		dragRaw = null;
+		event.currentTarget.releasePointerCapture?.(event.pointerId);
+		if (final.willClose) onClose();
+		else onResize(final.width);
+	}
+
+	// Teclado: el borde es un separador enfocable, así que las flechas mueven el
+	// ancho de a un paso. No cierra la barra — para eso está su botón.
+	function resizeKeys(event) {
+		const step = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0;
+		if (step === 0) return;
+		event.preventDefault();
+		onResize(coerceWidth(shownWidth + step));
+	}
 
 	function isMobile() {
 		return !window.matchMedia('(min-width: 768px)').matches;
@@ -445,8 +500,40 @@
 		bind:this={asideEl}
 		onkeydown={trapTab}
 		transition:fly={drawerFly()}
-		class="bg-sidebar border-border fixed inset-y-0 left-0 z-40 flex w-[85%] max-w-xs flex-col border-r md:static md:z-auto md:w-[270px] md:max-w-none"
+		style="--cn-sidebar-width: {shownWidth}px"
+		class="bg-sidebar border-border fixed inset-y-0 left-0 z-40 flex w-[85%] max-w-xs flex-col border-r transition-opacity duration-(--motion-fast) md:relative md:z-auto md:w-(--cn-sidebar-width) md:max-w-none {willClose
+			? 'md:opacity-50'
+			: ''}"
 	>
+		<!--
+			Borde arrastrable (sólo escritorio). El ancho sigue al puntero 1:1, sin
+			transición: suavizarlo acá se siente como demora. El aviso de cierre es
+			el atenuado de la barra entera, y ese sí usa --motion-fast (la regla
+			global de prefers-reduced-motion lo deja en cero por su cuenta).
+		-->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex — un separador enfocable es
+			 justamente el patrón ARIA de "window splitter": sin tabindex el ancho no
+			 se puede tocar sin mouse. -->
+		<div
+			role="separator"
+			aria-orientation="vertical"
+			aria-label="Ancho de la lista"
+			aria-valuenow={shownWidth}
+			aria-valuemin={MIN_WIDTH}
+			aria-valuemax={MAX_WIDTH}
+			tabindex="0"
+			title="Arrastrar para cambiar el ancho (doble clic: ancho normal)"
+			onpointerdown={startResize}
+			onpointermove={moveResize}
+			onpointerup={endResize}
+			onpointercancel={() => (dragRaw = null)}
+			ondblclick={() => onResize(DEFAULT_WIDTH)}
+			onkeydown={resizeKeys}
+			class="focus-visible:ring-ring after:bg-border/0 hover:after:bg-muted-foreground absolute inset-y-0 -right-1 z-10 hidden w-2 cursor-col-resize after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:transition-colors after:duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none md:block {dragRaw ===
+			null
+				? ''
+				: 'after:bg-ring'}"
+		></div>
 		<div class="flex h-12 shrink-0 items-center justify-between border-b px-3">
 			<div class="bg-muted flex rounded-md p-0.5" role="group" aria-label="Sección de la barra lateral">
 				{#each VIEWS as option (option.id)}

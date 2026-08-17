@@ -2,7 +2,9 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-16 (Nuevo: la **Agenda abierta se actualiza sola**
+Última actualización: 2026-08-17 (Nuevo: **la lista de notas se ensancha
+arrastrando su borde derecho** en computadora, y si la tirás bien para adentro se
+esconde (tema 1). Antes: la **Agenda abierta se actualiza sola**
 mientras escribís (tema 12). Antes: **Backspace al principio de un renglón lo une
 con el de arriba** (tema 3). Antes: **la web te avisa cuando hay una versión
 nueva**, con un botón Actualizar (temas 1 y 19). Antes: **un respaldo bajado con una versión

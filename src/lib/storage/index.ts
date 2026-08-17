@@ -68,6 +68,8 @@ export {
 	setAgendaHideCompleted,
 	getEditorTextScale,
 	setEditorTextScale,
+	getSidebarWidth,
+	setSidebarWidth,
 	getAgentsPaused,
 	setAgentsPaused
 } from './settings';
