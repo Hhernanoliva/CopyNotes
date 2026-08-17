@@ -1,11 +1,12 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
-import { createNote } from '../storage/notes';
+import { createNote, softDeleteNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { appendActivity } from '../storage/activity';
 import { setShareRole, getShareRole, getShareCursor } from '../storage/shares';
 import { getShareName, rememberShareName } from '../storage/share-names';
+import { syncStatus } from './status.svelte';
 import {
 	listSharedPending,
 	countSharedPending,
@@ -181,6 +182,54 @@ describe('la bajada por nota', () => {
 
 		expect((await db.table('notes').get(note.id)).changeSeq).toBe(before);
 	});
+
+	// Encontrado en el gate manual (2026-08-17): el invitado borra la nota de su
+	// aparato, el dueño se la vuelve a compartir, y no vuelve a aparecer nunca.
+	// Su lápida local es más nueva que todo lo que baja, y el que la comparte no
+	// tiene forma de enterarse.
+	it('una nota que el invitado borró vuelve cuando se la comparten de nuevo', async () => {
+		const note = await createNote({ title: 'la que borré' });
+		const block = await createBlock({ noteId: note.id, content: 'un renglón' });
+		await setShareRole(note.id, 'member');
+		await softDeleteNote(note.id);
+
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [
+					{
+						table_name: 'notes',
+						id: note.id,
+						change_seq: 1,
+						deleted: false,
+						payload: { id: note.id, title: 'la que borré', deletedAt: null },
+						author_id: 'u1',
+						server_seq: 40
+					},
+					{
+						table_name: 'blocks',
+						id: block.id,
+						change_seq: 1,
+						deleted: false,
+						payload: {
+							id: block.id,
+							noteId: note.id,
+							content: 'un renglón',
+							type: 'text',
+							deletedAt: null
+						},
+						author_id: 'u1',
+						server_seq: 41
+					}
+				],
+				error: null
+			})
+		};
+
+		await pullSharedNote(client, note.id);
+
+		expect((await db.table('notes').get(note.id)).deletedAt).toBe(null);
+		expect((await db.table('blocks').get(block.id)).deletedAt).toBe(null);
+	});
 });
 
 describe('en qué estoy', () => {
@@ -274,6 +323,31 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'member');
 
 		expect(await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]))).toBe(0);
+	});
+
+	// Encontrado en el gate manual (2026-08-17): aceptar una invitación traía la
+	// nota a la base y la lista no la mostraba hasta recargar. La campanita la
+	// tocaba `syncNow`, y `InviteAccept` llama a `syncShared` por su cuenta —
+	// devolver el número y confiar en que el llamador lo use ya falló una vez,
+	// así que la campanita vive ACÁ y no hay nada que un llamador nuevo pueda
+	// olvidarse.
+	it('la campanita la toca el lazo, no quien lo llama', async () => {
+		const nota = await createNote({ title: 'me la compartieron' });
+		const antes = syncStatus.appliedVersion;
+
+		await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]));
+
+		expect(syncStatus.appliedVersion).toBe(antes + 1);
+	});
+
+	it('y una pasada sin novedades no la toca', async () => {
+		const nota = await createNote({ title: 'ya compartida' });
+		await setShareRole(nota.id, 'member');
+		const antes = syncStatus.appliedVersion;
+
+		await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]));
+
+		expect(syncStatus.appliedVersion).toBe(antes);
 	});
 
 	// El candado del rol, visto desde el lazo entero y no desde `listSharedPending`.

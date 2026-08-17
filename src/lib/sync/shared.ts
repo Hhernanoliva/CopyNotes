@@ -21,6 +21,7 @@ import {
 	setShareRole
 } from '../storage/shares';
 import { rememberShareName } from '../storage/share-names';
+import { syncStatus } from './status.svelte';
 import { toSharedPayload } from './shared-payload';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
 
@@ -192,5 +193,18 @@ export async function syncShared(client) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);
 	}
+	// Y la campanita se toca ACÁ, no en el llamador.
+	//
+	// Vivía en `syncNow`, que era el único llamador cuando se escribió. Al
+	// aparecer el segundo —`InviteAccept`, que sincroniza apenas se acepta la
+	// invitación para no dejar a la persona mirando una lista vacía 30 segundos—
+	// la nota entraba a la base y la lista no la mostraba hasta recargar. La
+	// pasada siguiente tampoco la mostraba: ya no cambiaba nada, así que no había
+	// nada que avisar y la pantalla se quedaba vieja para siempre.
+	//
+	// Devolver el número y confiar en que el llamador lo use ya falló una vez.
+	// El número se sigue devolviendo porque es útil para probar, pero avisar no
+	// es más su responsabilidad (encontrado en el gate manual, 2026-08-17).
+	if (applied) syncStatus.appliedVersion++;
 	return applied;
 }
