@@ -83,9 +83,13 @@ Quien abre el link ve una tarjeta que dice **"Te compartieron una nota"**. Si no
 entró a su cuenta, se lo pide; cuando entra, la invitación **sigue esperándolo**.
 Al aceptar, la nota le aparece en su lista como una más.
 
-**Puede leerla y copiarla. No puede cambiar el texto**: ni escribir, ni borrar
-renglones, ni moverlos, ni tildar una tarea. Por ahora sólo lee — contestar el
-ticket llega en el paso siguiente.
+**Puede leerla y copiarla. No puede cambiar el texto**: ni escribir, ni pegar,
+ni cambiarle el título, ni borrar renglones, ni moverlos, ni tildar una tarea,
+ni tocarle la fecha o las etiquetas. Por ahora sólo lee — contestar el ticket
+llega en el paso siguiente.
+
+Si abre la pantalla de compartir de esa nota, ve **con qué nombre le figurás
+vos**: el que escribiste en "¿Cómo querés que te vean?".
 
 ## Ver quiénes la miran, y cortar
 

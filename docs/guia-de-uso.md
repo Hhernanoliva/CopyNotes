@@ -2,7 +2,10 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-17 (Nuevo: **Cerrar sesión ahora está siempre**,
+Última actualización: 2026-08-17 (Nuevo: **una nota que te comparten dice de
+quién es**, y no se le puede tocar nada — ni el título, ni pegar, ni la fecha ni
+las etiquetas (tema 20).
+Antes: **Cerrar sesión ahora está siempre**,
 también mientras la nube te pide el código del otro aparato o la bóveda (tema 18).
 Antes: **ya podés compartirle una nota a otra
 persona con un link**: le ponés el nombre con el que va a figurar, sin

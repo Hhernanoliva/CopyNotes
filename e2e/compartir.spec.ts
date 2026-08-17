@@ -126,6 +126,39 @@ test('en una nota que te comparten la casilla no se puede tocar', async ({ page 
 	await expect(casilla).toBeDisabled();
 });
 
+// Con quién estás del otro lado. El nombre del dueño se venía guardando desde
+// `list_shares` y no lo mostraba nadie: `shareNameOr` existía sin un solo
+// llamador. El respaldo genérico también se prueba, porque una nota compartida
+// antes de que los nombres existieran llega sin ninguno.
+test('una nota que te comparten dice de quién es', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+	await page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const abrir = indexedDB.open('copynotes');
+				abrir.onerror = () => reject(abrir.error);
+				abrir.onsuccess = () => {
+					const tx = abrir.result.transaction(['notes', 'shareMembers'], 'readwrite');
+					tx.objectStore('notes').getAll().onsuccess = (evento) => {
+						const nota = evento.target.result[0];
+						tx.objectStore('shareMembers').put({ id: `owner:${nota.id}`, name: 'Hernán' });
+					};
+					tx.oncomplete = () => resolve(null);
+					tx.onerror = () => reject(tx.error);
+				};
+			})
+	);
+
+	// La etiqueta del botón cambia con el estado a propósito (spec 016: el color
+	// solo nunca alcanza), así que una nota compartida NO se busca por "Compartir
+	// nota".
+	await page.getByRole('button', { name: /^Nota compartida/ }).first().click();
+
+	await expect(page.getByText(/te la comparte/i)).toContainText('Hernán');
+	await expect(page.getByRole('button', { name: 'Salirme de esta nota' })).toBeVisible();
+});
+
 // El título es un `<input>` aparte, no un renglón, así que no lo tapa nada de lo
 // de arriba: `readOnly` sólo bajaba hasta `BlockRow`. Sin esto el invitado podía
 // renombrar la nota del otro (encontrado en el gate manual, 2026-08-17).

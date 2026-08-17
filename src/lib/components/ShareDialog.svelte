@@ -10,6 +10,7 @@
 	import { toast } from 'svelte-sonner';
 	import { X, Share2 } from '@lucide/svelte';
 	import { getShareRole } from '$lib/storage/shares';
+	import { shareNameOr } from '$lib/storage/share-names';
 	import { getSetting, setSetting } from '$lib/storage/settings';
 	import { KEY } from '$lib/storage/settings-registry';
 	import { sharedReady } from '$lib/sync/shared';
@@ -31,6 +32,10 @@
 	let memberLabel = $state('');
 	let link = $state('');
 	let members = $state([]);
+	// Con quién estás del otro lado. El dueño firma al invitar y ese nombre llega
+	// en `list_shares`; el respaldo es genérico a propósito, porque una nota
+	// compartida antes de que los nombres existieran no tiene ninguno.
+	let ownerName = $state('otra persona');
 
 	$effect(() => {
 		if (!dialogEl) return;
@@ -49,6 +54,7 @@
 		link = '';
 		getShareRole(noteId).then((value) => (role = value));
 		getSetting(KEY.shareOwnerLabel).then((valor) => (ownerLabel = valor ?? ''));
+		shareNameOr(`owner:${noteId}`, 'otra persona').then((valor) => (ownerName = valor));
 	});
 
 	// La lista de invitados sale del servidor, y sólo la puede pedir el dueño.
@@ -271,8 +277,8 @@
 			</button>
 		{:else if role === 'member'}
 			<p class="text-sm leading-relaxed">
-				Esta nota te la comparte otra persona. Podés leerla y copiarla; el texto lo cambia
-				solamente quien la comparte.
+				Esta nota te la comparte <span class="font-bold">{ownerName}</span>. Podés leerla y
+				copiarla; el texto lo cambia solamente quien la comparte.
 			</p>
 			<button
 				type="button"
