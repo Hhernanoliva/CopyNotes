@@ -137,6 +137,13 @@ reconoce y no se vuelve a escribir.
 
 ## Cerrar sesión
 
+**Está siempre, en cualquier momento.** También si entraste a una cuenta y todavía
+no llegaste a terminar de conectarla: aunque la pantalla te esté pidiendo el
+código del otro aparato, o que crees la bóveda, o que permitas subir, el botón
+**Cerrar sesión** está ahí abajo. Es la salida para cuando te diste cuenta de que
+entraste con la cuenta equivocada. (Antes no estaba en esos casos, y quedabas sin
+una forma simple de volver atrás.)
+
 **Tus notas se quedan en el dispositivo.** Cerrar sesión desconecta la cuenta y
 CopyNotes sigue andando igual que antes de conectar la nube: sin conexión, con
 todo lo tuyo intacto.

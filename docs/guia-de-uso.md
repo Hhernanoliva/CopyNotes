@@ -2,7 +2,9 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-17 (Nuevo: **ya podés compartirle una nota a otra
+Última actualización: 2026-08-17 (Nuevo: **Cerrar sesión ahora está siempre**,
+también mientras la nube te pide el código del otro aparato o la bóveda (tema 18).
+Antes: **ya podés compartirle una nota a otra
 persona con un link**: le ponés el nombre con el que va a figurar, sin
 intercambiar mails, y ella la lee (tema 20). Antes: **la lista de notas se ensancha
 arrastrando su borde derecho** en computadora, y si la tirás bien para adentro se
