@@ -761,6 +761,15 @@
 	}
 
 	function refreshToolbar() {
+		// En una nota ajena no hay nada que ofrecer: `runFormatCommand` ya rechaza
+		// todo lo que la barra dispara, así que sin esta línea aparecía una barra
+		// entera de botones que no hacen nada al marcar texto — peor que no
+		// tenerla, porque promete algo que no va a pasar. Marcar y copiar siguen
+		// funcionando igual; lo único que se va es la barra.
+		if (readOnly) {
+			toolbar = null;
+			return;
+		}
 		// The link popover autofocuses its URL input (and any future popover
 		// content lives inside the toolbar's own DOM too). That focus change
 		// fires selectionchange with a collapsed, unrelated selection — without
@@ -2200,6 +2209,7 @@
 				value={note.title}
 				oninput={handleTitleInput}
 				onkeydown={handleTitleKeydown}
+				readonly={readOnly}
 				placeholder="Sin título"
 				aria-label="Título de la nota"
 				autocomplete="off"

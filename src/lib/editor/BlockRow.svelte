@@ -555,6 +555,15 @@
 	}
 
 	function handlePaste(event) {
+		// `contenteditable="false"` frena el tecleo y NO frena el pegado: el
+		// navegador sigue mandando el evento al elemento con foco, y de acá salen
+		// tres caminos que crean renglones (`onPasteBlocks`, `onPasteCode`,
+		// `onPasteLines`). Sin esta línea, pegar en una nota ajena le agregaba
+		// líneas que el servidor después rechaza por rol.
+		if (readOnly) {
+			event.preventDefault();
+			return;
+		}
 		const text = event.clipboardData?.getData('text/plain') ?? '';
 		if (block.type === 'code') {
 			if (text === '') return;
@@ -810,7 +819,9 @@
 					onmousedown={handleMousedown}
 					onclick={handleEditableClick}
 					onfocus={() => onActive(block)}
-					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {block.type ===
+					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {readOnly
+					? 'cursor-default'
+					: ''} {block.type ===
 					'code'
 						? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-6 ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
 						: 'text-base'} {block.type === 'todo' && block.checked
@@ -854,7 +865,9 @@
 					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}
 					onblur={handleNoteBlur}
-					class="block-editable block-editable--note text-muted-foreground -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic outline-none"
+					class="block-editable block-editable--note text-muted-foreground -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic outline-none {readOnly
+					? 'cursor-default'
+					: ''}"
 				></div>
 			{/if}
 			{#if conflict}
@@ -944,7 +957,8 @@
 		<button
 			type="button"
 			in:scale={{ start: 0.6, duration: ready ? motionDuration(MOTION.fast) : 0 }}
-			aria-label="Cambiar fecha"
+			aria-label={readOnly ? `Vence ${dueLabel}` : 'Cambiar fecha'}
+			disabled={readOnly}
 			use:tooltip={'Cambiar o quitar fecha'}
 			onmousedown={(event) => event.preventDefault()}
 			onpointerdown={(event) => event.stopPropagation()}
@@ -961,7 +975,7 @@
 					? 'pl-[2.125rem]'
 					: 'pl-6'} md:mt-0 md:w-auto md:max-w-[40%] md:basis-auto md:shrink-0 md:self-center md:pl-0"
 		>
-			<TagChips {tags} onRemove={(tag) => onUntag(block, tag)} />
+			<TagChips {tags} onRemove={readOnly ? null : (tag) => onUntag(block, tag)} />
 		</div>
 	{/if}
 

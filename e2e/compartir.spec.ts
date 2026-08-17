@@ -125,3 +125,40 @@ test('en una nota que te comparten la casilla no se puede tocar', async ({ page 
 	const casilla = page.getByRole('checkbox').first();
 	await expect(casilla).toBeDisabled();
 });
+
+// El título es un `<input>` aparte, no un renglón, así que no lo tapa nada de lo
+// de arriba: `readOnly` sólo bajaba hasta `BlockRow`. Sin esto el invitado podía
+// renombrar la nota del otro (encontrado en el gate manual, 2026-08-17).
+test('en una nota que te comparten el título no se puede cambiar', async ({ page }) => {
+	await openApp(page);
+	const titulo = page.getByRole('textbox', { name: 'Título de la nota' });
+	await expect(titulo).not.toHaveAttribute('readonly', /.*/);
+
+	await marcarComoAjena(page);
+
+	await expect(titulo).toHaveAttribute('readonly', /.*/);
+});
+
+// La barra de formato aparecía al marcar texto y sus botones no hacían nada
+// (`runFormatCommand` ya los rechazaba). Una barra que promete y no cumple es
+// peor que ninguna barra. Marcar y copiar tienen que seguir andando: lo único
+// que se va es la barra.
+test('en una nota que te comparten no aparece la barra de formato', async ({ page }) => {
+	await openApp(page);
+	const barra = page.locator('[data-copynotes-toolbar]');
+	const renglon = page.locator('main [data-block-surface]').first();
+
+	await renglon.selectText();
+	await expect(barra).toBeVisible();
+
+	await marcarComoAjena(page);
+
+	await page.locator('main [data-block-surface]').first().selectText();
+	// La espera NO es de más y no se saca: la barra tarda 300ms a propósito (para
+	// no parpadear mientras se arrastra la selección), así que un `toHaveCount(0)`
+	// pegado al `selectText` da verde con el candado puesto Y sin poner. Se midió:
+	// esta prueba pasaba sin el arreglo. Un plazo es lo correcto para probar que
+	// algo NO aparece cuando se sabe cuánto tarda en aparecer.
+	await page.waitForTimeout(700);
+	await expect(barra).toHaveCount(0);
+});
