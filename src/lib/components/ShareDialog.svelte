@@ -286,7 +286,10 @@
 				disabled={working}
 				class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border px-4 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 			>
-				Salirme de esta nota
+				<!-- Con su propia palabra mientras viaja, como el botón del dueño: sin
+				     ella el botón se apaga y nada más, y apagado no se distingue de
+				     "no pasó nada". -->
+				{working ? 'Saliendo…' : 'Salirme de esta nota'}
 			</button>
 		{:else if role === null}
 			<p class="text-sm leading-relaxed">

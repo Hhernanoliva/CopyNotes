@@ -1,6 +1,8 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '../storage/db';
+import { createNote } from '../storage/notes';
+import { getShareRole, setShareRole } from '../storage/shares';
 import { getShareName } from '../storage/share-names';
 import {
 	acceptInvite,
@@ -143,5 +145,32 @@ describe('las invitaciones', () => {
 			name: 'leave_share',
 			args: { p_note_id: 'note_1' }
 		});
+	});
+
+	// Encontrado en el paso 9 del gate manual (2026-08-17): al salirse, la
+	// pantalla seguía ofreciendo "Salirme de esta nota" y se podía apretar una y
+	// otra vez, porque el panel se dibuja leyendo la marca LOCAL y esa la limpiaba
+	// recién `reconcileShares`, hasta 30 segundos después.
+	it('salirse borra la marca acá, sin esperar la pasada siguiente', async () => {
+		const nota = await createNote({ title: 'ajena' });
+		await setShareRole(nota.id, 'member');
+
+		await leaveShare(fakeClient(), nota.id);
+
+		expect(await getShareRole(nota.id)).toBe(null);
+	});
+
+	// Y si el servidor dice que no, la marca NO se toca: seguís adentro de la
+	// nota, y una pantalla que diga lo contrario es peor que el error.
+	it('un servidor que rechaza deja la marca como estaba', async () => {
+		const nota = await createNote({ title: 'ajena' });
+		await setShareRole(nota.id, 'member');
+		const client = fakeClient({
+			leave_share: () => ({ data: null, error: { message: 'no sos parte de esta nota' } })
+		});
+
+		await expect(leaveShare(client, nota.id)).rejects.toThrow();
+
+		expect(await getShareRole(nota.id)).toBe('member');
 	});
 });

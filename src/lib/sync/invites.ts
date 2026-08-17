@@ -7,6 +7,7 @@
 // poder mostrarse en pantalla.
 
 import { rememberShareName } from '../storage/share-names';
+import { setShareRole } from '../storage/shares';
 
 // Dónde vive la web. Un link de invitación tiene que abrirse en la máquina de
 // otra persona, así que no puede salir del `origin` de la app de escritorio (un
@@ -75,4 +76,20 @@ export async function removeMember(client, noteId, memberId) {
 
 export async function leaveShare(client, noteId) {
 	unwrap(await client.rpc('leave_share', { p_note_id: noteId }));
+	// Y la marca local se borra ACÁ, no en la pasada siguiente.
+	//
+	// `reconcileShares` termina limpiándola sola —la nota deja de venir en
+	// `list_shares`— pero eso puede tardar treinta segundos, y mientras tanto la
+	// pantalla se dibuja leyendo esta marca: seguía ofreciendo "Salirme de esta
+	// nota", ya sin ser parte, y cada clic mandaba otra vez la misma llamada.
+	// Encontrado en el paso 9 del gate manual (2026-08-17).
+	//
+	// Después del `unwrap` a propósito: si el servidor rechaza, seguís adentro de
+	// la nota y la pantalla tiene que decir eso. La marca sigue el estado real,
+	// nunca la intención.
+	//
+	// No lleva el resello de `unshareNote`: esta nota no es tuya, y volver a
+	// sellar sus filas las mandaría a tu bóveda. Se hace lo mismo que hace
+	// `reconcileShares` al encontrarla de menos, que es una sola cosa.
+	await setShareRole(noteId, null);
 }
