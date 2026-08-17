@@ -336,7 +336,17 @@
 		     ve SIEMPRE, porque es un dato sobre su privacidad y no una acción que
 		     haya que ir a buscar; cuando no lo está aparece al pasar el mouse,
 		     como el de borrar. Dos íconos iguales pegados no decían nada más. La
-		     etiqueta cambia con el estado: el color solo nunca alcanza (spec 016). -->
+		     etiqueta cambia con el estado: el color solo nunca alcanza (spec 016).
+
+		     Y el color TIENE que aguantar el hover. Los dos estados terminaban en
+		     `text-foreground` al pasar el mouse, así que en el único momento en que
+		     se los puede comparar —el puntero encima— eran el mismo dibujo del
+		     mismo color: la compartida sólo se distinguía por estar siempre visible,
+		     que es justo lo que el hover borra. Ahora la compartida se queda en el
+		     acento, apuntada o no. -->
+		<!-- ponytail: la diferencia visible es el color; quien no lo distinga tiene
+		     la etiqueta y el globito, que ya dicen cuál es cuál. Si hiciera falta
+		     más, el paso siguiente es un ícono distinto, no un color más fuerte. -->
 		<button
 			type="button"
 			aria-label={sharedNoteIds.has(note.id)
@@ -347,7 +357,7 @@
 			class="focus-visible:ring-ring cn-touch-visible flex size-9 shrink-0 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none md:size-7 {sharedNoteIds.has(
 				note.id
 			)
-				? 'text-muted-foreground hover:text-foreground opacity-100'
+				? 'text-primary hover:text-primary opacity-100'
 				: 'text-faint hover:text-foreground opacity-0'}"
 		>
 			<Share2 size={14} aria-hidden="true" />
