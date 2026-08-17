@@ -714,6 +714,16 @@
 							Trayendo tus notas… {downloading.applied}
 						</p>
 					{/if}
+					<!-- La salida barata, y va ANTES de la cara. Sin ella este estado tenía
+					     dos puertas y las dos malas: pedirle el código a otro aparato (que
+					     puede no existir) o el botón rojo, que borra la nube. Alguien que
+					     entró con la cuenta equivocada quedaba encerrado, con lo único
+					     destructivo de la pantalla como única salida visible. -->
+					{#if confirmingLeave}
+						{@render leaveConfirm()}
+					{:else}
+						{@render leaveButton()}
+					{/if}
 					{@render startOver()}
 				</div>
 			{:else if !vaultReady}
@@ -739,6 +749,13 @@
 					>
 						Crear bóveda y permitir subir
 					</button>
+					<!-- Entró con la cuenta equivocada: sin esto, la única forma de salir de
+					     acá era crearle una bóveda a una cuenta que no quiere usar. -->
+					{#if confirmingLeave}
+						{@render leaveConfirm()}
+					{:else}
+						{@render leaveButton()}
+					{/if}
 				</div>
 			{:else if !consentGiven}
 				<!-- The second device: it joined the vault with the recovery code, which
@@ -757,6 +774,11 @@
 					>
 						Permitir y subir
 					</button>
+					{#if confirmingLeave}
+						{@render leaveConfirm()}
+					{:else}
+						{@render leaveButton()}
+					{/if}
 				</div>
 			{:else}
 				<div class="flex flex-col gap-2">
@@ -817,44 +839,7 @@
 						</button>, en el punto de arriba a la derecha.
 					</p>
 					{#if confirmingLeave}
-						<div class="border-border flex flex-col gap-3 rounded-md border p-3">
-							<p class="text-sm font-bold">¿Cerrar sesión en este dispositivo?</p>
-							<p class="text-muted-foreground text-sm">
-								<span class="text-foreground font-bold">Tus notas se quedan acá</span> y podés
-								seguir usando CopyNotes sin conexión, como antes de conectar la nube.
-							</p>
-							<p class="text-muted-foreground text-sm">
-								Lo que se borra de este dispositivo es la llave que abre lo que está guardado en
-								la nube. Para volver a conectarlo vas a necesitar
-								<span class="text-foreground font-bold">el código que muestre otro aparato tuyo</span
-								>: si este es tu único dispositivo, lo que ya subiste deja de poder abrirse.
-							</p>
-							{#if syncStatus.pending}
-								<p class="text-destructive text-sm">
-									Ojo: {syncStatus.pending}
-									{syncStatus.pending === 1 ? 'cambio todavía no subió' : 'cambios todavía no subieron'}.
-									Quedan en este dispositivo, pero no van a llegar a los otros.
-								</p>
-							{/if}
-							<div class="flex flex-col gap-2">
-								<button
-									type="button"
-									onclick={leaveCloud}
-									disabled={cloudBusy}
-									class="bg-destructive text-destructive-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
-								>
-									Sí, cerrar sesión
-								</button>
-								<button
-									type="button"
-									onclick={() => (confirmingLeave = false)}
-									disabled={cloudBusy}
-									class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
-								>
-									Volver
-								</button>
-							</div>
-						</div>
+						{@render leaveConfirm()}
 					{:else}
 						<div class="flex items-center gap-2">
 							<button
@@ -865,14 +850,7 @@
 							>
 								Sincronizar ahora
 							</button>
-							<button
-								type="button"
-								onclick={() => (confirmingLeave = true)}
-								disabled={cloudBusy}
-								class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
-							>
-								Cerrar sesión
-							</button>
+							{@render leaveButton()}
 						</div>
 						{@render startOver()}
 					{/if}
@@ -1144,6 +1122,58 @@
 	joined one — because it is the same promise and it must not drift between
 	them.
 -->
+{#snippet leaveButton()}
+	<button
+		type="button"
+		onclick={() => (confirmingLeave = true)}
+		disabled={cloudBusy}
+		class="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-md text-sm underline underline-offset-2 transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-40"
+	>
+		Cerrar sesión
+	</button>
+{/snippet}
+
+{#snippet leaveConfirm()}
+					<div class="border-border flex flex-col gap-3 rounded-md border p-3">
+						<p class="text-sm font-bold">¿Cerrar sesión en este dispositivo?</p>
+						<p class="text-muted-foreground text-sm">
+							<span class="text-foreground font-bold">Tus notas se quedan acá</span> y podés
+							seguir usando CopyNotes sin conexión, como antes de conectar la nube.
+						</p>
+						<p class="text-muted-foreground text-sm">
+							Lo que se borra de este dispositivo es la llave que abre lo que está guardado en
+							la nube. Para volver a conectarlo vas a necesitar
+							<span class="text-foreground font-bold">el código que muestre otro aparato tuyo</span
+							>: si este es tu único dispositivo, lo que ya subiste deja de poder abrirse.
+						</p>
+						{#if syncStatus.pending}
+							<p class="text-destructive text-sm">
+								Ojo: {syncStatus.pending}
+								{syncStatus.pending === 1 ? 'cambio todavía no subió' : 'cambios todavía no subieron'}.
+								Quedan en este dispositivo, pero no van a llegar a los otros.
+							</p>
+						{/if}
+						<div class="flex flex-col gap-2">
+							<button
+								type="button"
+								onclick={leaveCloud}
+								disabled={cloudBusy}
+								class="bg-destructive text-destructive-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+							>
+								Sí, cerrar sesión
+							</button>
+							<button
+								type="button"
+								onclick={() => (confirmingLeave = false)}
+								disabled={cloudBusy}
+								class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+							>
+								Volver
+							</button>
+						</div>
+					</div>
+{/snippet}
+
 {#snippet uploadTerms()}
 	<p class="text-muted-foreground text-sm">
 		Si lo permitís, se sube <span class="text-foreground">todo</span> lo que escribís —notas,
