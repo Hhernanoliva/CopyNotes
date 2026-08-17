@@ -665,6 +665,25 @@ It gains a third form, `'member:<uuid>'`. Display names are cached locally in a
 **non-synced** Dexie table filled from the shared pipe's read call; they are not
 content and must not travel as rows.
 
+**Where the name comes from — decided with Hernán on 2026-08-16.** The plan for
+part A left this open, and the obvious answer was the account's email, which is
+what every comparable product shows. It is not what ships. **The owner writes the
+name when they create the invite** ("¿para quién es este link?" → "Juan"), and
+`accept_share_invite` copies it onto the membership row. No email is exchanged in
+either direction, which is the same promise the rest of the product makes, and it
+costs one text field on a screen that has to exist anyway. The two rejected
+options are worth recording: the email leaks an address in both directions and a
+forwarded link tells the owner who accepted it, and a self-chosen nickname lets a
+guest sign somebody else's name — the one thing §4 spends a server-side overwrite
+to prevent, given back for free at the label.
+
+**The consequence that is easy to miss: the guest needs a name for the OWNER
+too.** On the guest's device an `actor: 'user'` entry is the owner's, and
+`actorLabel()` renders that as `'Vos'` today — so without a second name the
+guest's screen would credit them with everything the owner did. It is the same
+field seen from the other side, and the implementation plan has to say where the
+owner's own label is set and what it falls back to when they never set one.
+
 `SettingsDialog.svelte` holds two `ACTION_LABEL` maps because the user and the
 agent conjugate differently in Spanish. A member conjugates like the agent
 (third person), so the existing agent map covers it with the name substituted.

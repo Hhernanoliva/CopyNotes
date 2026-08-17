@@ -39,6 +39,11 @@ comparte con vos mismo. Lo que hay es la mitad peligrosa, hecha y probada.
 el mail de la cuenta, y eso significa que cada uno le ve el mail al otro. Es una
 decisión tuya sobre privacidad, no mía, y la parte A no la necesita.
 
+**RESUELTA el 2026-08-16: el nombre lo escribe el dueño al generar el link**, y
+no se intercambia ningún mail. El razonamiento y lo que arrastra —que el invitado
+también necesita un nombre para el dueño, o su pantalla le atribuye a él todo lo
+que hizo el otro— está en la spec 038 §6.
+
 ## Global Constraints
 
 - **Spec:** `specs/038-shared-note-ticket.md`. Read it before Task 1 — at minimum §1, §2, §3, §3b, §3c and "Model of data affected".
