@@ -10,6 +10,46 @@
 
 ---
 
+## ESTADO al 2026-08-17 — construido todo lo que no depende de Hernán
+
+Rama `feat/compartir-invitacion`, **sin pushear**. Unit **1188** verdes, e2e
+**179** verdes (+ el flake conocido del separador: medido **1/10 en esta rama
+contra 3/10 en la base**, o sea preexistente y no empeorado), `pnpm check` en sus
+4 errores de siempre.
+
+| Tarea | Estado |
+|---|---|
+| 1. Las cuatro funciones SQL | **Código escrito** (`c65b9a3`). Falta que Hernán lo aplique (Paso 8) y correr `pnpm rls:check` (Paso 10) |
+| 2. El cachecito de nombres | **HECHA** (`1e8fb2f`) |
+| 3. Las llamadas al servidor | **HECHA** (`e0fce0d`) |
+| 4. La pantalla de compartir | **HECHA** (`e7a1d61`) |
+| 5. Aceptar la invitación | **HECHA** (`9ed7439`) |
+| 6. El candado de sólo lectura | **HECHA** (`7a7966d`) |
+| 7. Guía y CHANGELOG | **HECHA** (`2bc36a6`) |
+| 8. El gate manual con dos cuentas | **PENDIENTE** — es de Hernán |
+
+**Las casillas `- [ ]` de abajo quedaron sin tildar.** No son el estado: el
+estado es esta tabla. (Ver [[copynotes-stale-followup-ledger]] — en 038/039/040
+pasó lo mismo y confundió después.)
+
+**Tres cosas que cambiaron respecto de lo planeado, y por qué:**
+
+1. **`reconcileShares` NO cambia la forma del `Map`.** El plan metía el nombre
+   adentro del valor y avisaba del riesgo de que el segundo lector se quedara
+   viejo. Al escribirlo, `svelte-check` marcó tres errores por eso, y mirándolo
+   el diseño estaba de más: un bucle aparte sobre la respuesta guarda los nombres
+   sin tocar esa forma. Menos código y el riesgo desaparece en vez de quedar
+   vigilado. **La prueba que lo vigila quedó igual** — el riesgo se evitó, no dejó
+   de existir.
+2. **El rol sale de `note.share`, no de una lectura nueva.** El editor ya tiene la
+   nota cargada. El plan pedía un `$state` + un `$effect` que no hacían falta.
+3. **La prueba del menú del renglón pasó la primera vez SIN el candado** (buscaba
+   el nombre del menú abierto, no el del botón que lo abre). Ahora comprueba
+   primero que en una nota propia el botón está. Las tres pruebas del candado se
+   verificaron en rojo apagándolo.
+
+---
+
 ## Por qué la parte B viene partida en tres, para Hernán
 
 La parte A fue "el caño": la nota sale de la bóveda, vive en claro en el servidor y vuelve, probado con dos aparatos tuyos y sin nadie del otro lado. La parte B es todo lo que pasa cuando aparece una segunda persona, y son ~10 días. Partirla en tres no es una preferencia: cada pedazo tiene que poder probarse solo, y estos tres cortan donde el anterior queda **usable y seguro**.
