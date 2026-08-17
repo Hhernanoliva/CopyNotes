@@ -542,6 +542,66 @@ describe('validateBackup', () => {
 			expect(result.warnings.length).toBeGreaterThan(0);
 		});
 
+		// Spec 038 §8: "Listo" is an entry about the NOTE, with no block under it.
+		// The schema said `blockId: v.string()`, and `validateBackup` rejects the
+		// whole file rather than the row — so the first one of these would have made
+		// the owner's backups unrestorable, which they find out the day they need one.
+		it('accepts a note-level entry, the one with no block under it', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote()],
+					blocks: [makeBlock()],
+					activity: [makeActivity({ id: 'activity_listo', blockId: null, action: 'listo' })]
+				},
+				{ formatVersion: 5 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.activity.map((row) => row.id)).toEqual(['activity_listo']);
+		});
+
+		// The other half: past validation, `dropDanglingActivity` drops every entry
+		// whose block is unknown, and a null never is. Dropped with a warning is
+		// quieter than a rejection and therefore worse — the "Listo" would just be
+		// gone from the restore.
+		it('keeps a note-level entry through the dangling cleanup', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote()],
+					blocks: [makeBlock()],
+					activity: [makeActivity({ id: 'activity_listo', blockId: null, action: 'listo' })]
+				},
+				{ formatVersion: 5 }
+			);
+			const result = validateBackup(backup);
+			expect(result.backup.data.activity).toHaveLength(1);
+			expect(result.warnings).toEqual([]);
+		});
+
+		// A note-level entry still needs its note. Without this the cleanup would
+		// wave through anything with a null blockId, whatever note it claimed.
+		it('drops a note-level entry whose note is missing, with a warning', () => {
+			const backup = makeBackup(
+				{
+					notes: [makeNote()],
+					blocks: [makeBlock()],
+					activity: [
+						makeActivity({
+							id: 'activity_listo',
+							blockId: null,
+							noteId: 'ghost',
+							action: 'listo'
+						})
+					]
+				},
+				{ formatVersion: 5 }
+			);
+			const result = validateBackup(backup);
+			expect(result.ok).toBe(true);
+			expect(result.backup.data.activity).toEqual([]);
+			expect(result.warnings.length).toBeGreaterThan(0);
+		});
+
 		it('keeps an unknown action verb instead of rejecting the backup', () => {
 			const backup = makeBackup(
 				{

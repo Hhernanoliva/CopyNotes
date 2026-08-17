@@ -106,9 +106,13 @@ const tagAssignmentSchema = v.looseObject({
 // and shown as-is — losing user history is worse than showing a stray label.
 // `seq` is the device-local ordering counter; it is carried so an imported
 // history keeps its internal order.
+// `blockId` is nullable because an entry can be about the whole note rather than
+// one of its lines (spec 038 §8, "Listo"). It must stay nullable even in an app
+// that cannot yet write one: a file carrying one is rejected whole, not per row,
+// so the tolerance is only worth anything if it shipped BEFORE the feature did.
 const activitySchema = v.looseObject({
 	id: v.string(),
-	blockId: v.string(),
+	blockId: v.nullable(v.string()),
 	noteId: v.string(),
 	actor: v.string(),
 	action: v.string(),
@@ -191,8 +195,10 @@ function normalizeOrganization(data) {
 function dropDanglingActivity(data, existing) {
 	const noteIds = new Set([...data.notes.map((note) => note.id), ...existing.existingNoteIds]);
 	const blockIds = new Set([...data.blocks.map((block) => block.id), ...existing.existingBlockIds]);
+	// A null `blockId` is a note-level entry, not a dangling one: it has no block
+	// to be missing, so only its note has to exist.
 	const kept = data.activity.filter(
-		(row) => blockIds.has(row.blockId) && noteIds.has(row.noteId)
+		(row) => (row.blockId === null || blockIds.has(row.blockId)) && noteIds.has(row.noteId)
 	);
 	const dropped = data.activity.length - kept.length;
 	data.activity = kept;
