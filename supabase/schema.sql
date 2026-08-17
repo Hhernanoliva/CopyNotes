@@ -377,6 +377,23 @@ alter table public.shares add column if not exists owner_label text;
 alter table public.share_members add column if not exists display_name text;
 alter table public.share_invites add column if not exists member_label text;
 
+-- "Esta compartición se quedó sin nadie" (decidido con Hernán al cerrar el gate
+-- de B1, 2026-08-17). Una nota compartida sin invitados está fuera de la bóveda
+-- y sin cifrar para nadie, y el dueño no se entera: la sección "Quiénes la están
+-- viendo" desaparece entera con cero miembros.
+--
+-- Es una MARCA y no el cierre, porque cerrar no se puede hacer desde acá: además
+-- de borrar la compartición hay que RESELLAR las filas de la nota para que
+-- entren al caño cifrado, y eso sólo lo puede hacer el aparato del dueño
+-- (`src/lib/sync/share-move.ts`). Un `delete from shares` a secas dejaría la
+-- nota sin ningún caño, sincronizando en silencio con nadie — que es la falla
+-- que ese archivo entero existe para evitar.
+--
+-- Y no se deduce de "cero miembros": recién abierta, antes de que el dueño
+-- genere el link, tampoco hay nadie. La marca la pone una SALIDA real y nada
+-- más, así que no hay nada que adivinar.
+alter table public.shares add column if not exists emptied boolean not null default false;
+
 -- Una fila de la nota, con SÓLO los campos de la lista blanca adentro de
 -- `payload` (src/lib/sync/shared-payload.ts). `change_seq` va como columna, no
 -- adentro del payload, igual que en `records`: es el sello de versión, no
@@ -548,6 +565,10 @@ begin
 	insert into public.share_members (note_id, member_id, display_name)
 	values (invitacion.note_id, auth.uid(), invitacion.member_label)
 	on conflict (note_id, member_id) do nothing;
+	-- Entró alguien: la nota ya no está sin nadie. Sin esto, una compartición que
+	-- se vació y volvió a llenarse antes de que el dueño abriera la app se
+	-- cerraría igual, dejando afuera al que acaba de entrar.
+	update public.shares set emptied = false where note_id = invitacion.note_id;
 	return invitacion.note_id;
 end;
 $$;
@@ -590,6 +611,15 @@ begin
 	end if;
 	delete from public.share_members
 	 where note_id = p_note_id and member_id = auth.uid();
+	-- Si era el último, queda la marca para que el dueño la cierre bien en su
+	-- próxima pasada. Va SÓLO acá y no en `remove_member`: cuando el dueño saca a
+	-- alguien está mirando esa pantalla, con el botón de cerrar al lado y quizás a
+	-- punto de invitar a otra persona. Cuando el invitado se va solo, en cambio,
+	-- nadie le avisa, y la nota se queda fuera de la bóveda sin nadie del otro
+	-- lado.
+	if not exists (select 1 from public.share_members where note_id = p_note_id) then
+		update public.shares set emptied = true where note_id = p_note_id;
+	end if;
 end;
 $$;
 
@@ -789,8 +819,14 @@ $$;
 -- "cannot change return type of existing function". Por eso el `drop` antes.
 drop function if exists public.list_shares();
 
+-- El `drop` NO es opcional y no se puede reemplazar por `create or replace`:
+-- Postgres se niega a cambiarle el tipo de retorno a una función existente, y
+-- esta suma una columna. Sin el drop, correr este archivo sobre una base que ya
+-- tenía la versión de tres columnas falla con "cannot change return type of
+-- existing function" y se lleva puesto el resto del archivo.
+drop function if exists public.list_shares();
 create or replace function public.list_shares()
-returns table (note_id text, role text, counterpart_label text)
+returns table (note_id text, role text, counterpart_label text, emptied boolean)
 language plpgsql
 security definer
 set search_path = ''
@@ -800,11 +836,13 @@ begin
 		raise exception 'list_shares necesita una sesión iniciada';
 	end if;
 	return query
-	select s.note_id, 'owner'::text, null::text
+	-- `emptied` viaja SÓLO en la fila del dueño: es él quien cierra, y decirle a
+	-- un invitado cuánta gente hay del otro lado es contarle algo que no le toca.
+	select s.note_id, 'owner'::text, null::text, s.emptied
 	  from public.shares as s
 	 where s.owner_id = auth.uid()
 	union all
-	select m.note_id, 'member'::text, o.owner_label
+	select m.note_id, 'member'::text, o.owner_label, false
 	  from public.share_members as m
 	  join public.shares as o on o.note_id = m.note_id
 	 where m.member_id = auth.uid();

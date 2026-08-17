@@ -107,6 +107,16 @@ La otra persona también se puede ir sola: en su pantalla de compartir tiene
 **Salirme de esta nota**, y pasa lo mismo (deja de recibir cambios, su copia se
 queda).
 
+**Cuando se va el último, la nota vuelve sola a la bóveda.** No hay que hacer
+nada: si ya no queda nadie del otro lado, no tiene sentido que siga afuera y sin
+cifrar, así que CopyNotes la cierra por vos en cuanto abrís la app. Puede tardar
+hasta medio minuto, y necesita que la app esté abierta —el cierre lo hace tu
+dispositivo, no el servidor—.
+
+Ojo con la diferencia: eso pasa cuando **la otra persona se va**. Si sos vos
+quien le quita el acceso, la nota **sigue compartida**, porque en general estás
+por invitar a otra persona. Para cerrarla, **Dejar de compartir**.
+
 ## Todavía no
 
 Que la otra persona pueda tildar tareas y dejar comentarios, el botón **Listo**,

@@ -340,6 +340,50 @@ describe('el lazo entero', () => {
 		expect(syncStatus.appliedVersion).toBe(antes + 1);
 	});
 
+	// El cierre automático (decidido al cerrar el gate de B1, 2026-08-17). El
+	// servidor sólo MARCA que la compartición se quedó sin nadie; cerrarla de
+	// verdad —resellar las filas para el caño cifrado y recién ahí borrarla— es
+	// trabajo del aparato del dueño, y por eso pasa acá.
+	it('una compartición que se quedó sin nadie se cierra sola', async () => {
+		const nota = await createNote({ title: 'sin nadie del otro lado' });
+		await setShareRole(nota.id, 'owner');
+		const llamadas = [];
+		const client = {
+			rpc: vi.fn(async (name) => {
+				llamadas.push(name);
+				return name === 'list_shares'
+					? { data: [{ note_id: nota.id, role: 'owner', emptied: true }], error: null }
+					: { data: [], error: null };
+			})
+		};
+
+		await syncShared(client);
+
+		expect(await getShareRole(nota.id)).toBe(null);
+		expect(llamadas).toContain('close_share');
+	});
+
+	// Y no se cierra por tener cero invitados: recién compartida, antes de generar
+	// el link, tampoco hay nadie. Sin este control el arreglo rompería compartir.
+	it('una recién compartida, sin la marca, NO se cierra', async () => {
+		const nota = await createNote({ title: 'recién compartida' });
+		await setShareRole(nota.id, 'owner');
+		const llamadas = [];
+		const client = {
+			rpc: vi.fn(async (name) => {
+				llamadas.push(name);
+				return name === 'list_shares'
+					? { data: [{ note_id: nota.id, role: 'owner', emptied: false }], error: null }
+					: { data: [], error: null };
+			})
+		};
+
+		await syncShared(client);
+
+		expect(await getShareRole(nota.id)).toBe('owner');
+		expect(llamadas).not.toContain('close_share');
+	});
+
 	it('y una pasada sin novedades no la toca', async () => {
 		const nota = await createNote({ title: 'ya compartida' });
 		await setShareRole(nota.id, 'member');

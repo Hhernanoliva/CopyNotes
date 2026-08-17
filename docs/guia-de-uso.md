@@ -2,7 +2,9 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-17 (Nuevo: **una nota que te comparten dice de
+Última actualización: 2026-08-17 (Nuevo: **cuando se va el último invitado, la
+nota vuelve sola a la bóveda** (tema 20).
+Antes: **una nota que te comparten dice de
 quién es**, y no se le puede tocar nada — ni el título, ni pegar, ni la fecha ni
 las etiquetas (tema 20).
 Antes: **Cerrar sesión ahora está siempre**,

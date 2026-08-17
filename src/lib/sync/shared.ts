@@ -22,6 +22,12 @@ import {
 } from '../storage/shares';
 import { rememberShareName } from '../storage/share-names';
 import { syncStatus } from './status.svelte';
+// Import circular a propósito y sin consecuencia: `share-move.ts` importa
+// `pushSharedNote` de acá, pero las dos referencias se usan DENTRO de funciones,
+// nunca al evaluar el módulo, así que ninguna de las dos llega vacía. La
+// alternativa —cerrar desde `syncNow`— dejaba la decisión en manos del llamador,
+// que es exactamente cómo se perdió la campanita de `appliedVersion`.
+import { unshareNote } from './share-move';
 import { toSharedPayload } from './shared-payload';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
 
@@ -160,6 +166,11 @@ export async function reconcileShares(client) {
 			await rememberShareName(`owner:${row.note_id}`, row.counterpart_label);
 		}
 	}
+	// Las que el servidor marcó como "se quedó sin nadie" (spec 038 §7). Sólo
+	// vienen marcadas las del dueño, que es el único que las puede cerrar.
+	const emptied = (data ?? [])
+		.filter((row) => row.role === 'owner' && row.emptied)
+		.map((row) => row.note_id);
 	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
 	const { owner, member } = await sharedNoteIdsByRole();
 	const local = new Map();
@@ -179,7 +190,7 @@ export async function reconcileShares(client) {
 		await setShareRole(noteId, null);
 		changed++;
 	}
-	return { shares: fromServer, changed };
+	return { shares: fromServer, changed, emptied };
 }
 
 // Devuelve cuántas filas cambiaron acá, para que `syncNow` pueda avisarle a la
@@ -187,8 +198,21 @@ export async function reconcileShares(client) {
 // base y no lo ve nadie hasta recargar: `appliedVersion` —la única campanita que
 // dice "llegó algo, refrescá"— la tocaba SÓLO el caño cifrado.
 export async function syncShared(client) {
-	const { shares, changed } = await reconcileShares(client);
+	const { shares, changed, emptied } = await reconcileShares(client);
 	let applied = changed;
+	// Las que se quedaron sin nadie vuelven a la bóveda, y ANTES del recorrido:
+	// subir y bajar filas de una nota que se está yendo del caño compartido es
+	// trabajo que se tira, y peor, el resello de la mudanza las deja pendientes
+	// del caño cifrado — mandarlas por el compartido en el medio las pondría un
+	// rato en los dos.
+	//
+	// El servidor sólo pudo MARCARLAS: cerrar de verdad incluye resellar las
+	// filas, y eso únicamente lo puede hacer este aparato (ver `share-move.ts`).
+	for (const noteId of emptied) {
+		await unshareNote(client, noteId);
+		shares.delete(noteId);
+		applied++;
+	}
 	for (const [noteId, role] of shares) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);
