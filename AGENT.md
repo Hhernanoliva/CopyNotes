@@ -143,6 +143,34 @@ clave no declarada rompe `storage/backup.test.ts`) y el respaldo mínimo de
 `export-import/schema.test.ts` (un campo obligatorio nuevo rompe la prueba). Las
 otras tres son prosa: leelas.
 
+## Toda pantalla intermedia ofrece la salida barata, y antes que la cara
+
+Un flujo de varios pasos (entrar → bóveda → permiso → sincronizar) se escribe como
+una pantalla por decisión, y eso es correcto. El defecto aparece en las pantallas
+**del medio**: cada una ofrece lo que hace falta para AVANZAR y ninguna ofrece
+volver, porque volver no es parte de ninguno de los pasos y por eso no tiene dueño.
+
+Encontrado el 2026-08-17 corriendo el gate de la spec 038. Un aparato con sesión, en
+una cuenta con bóveda y sin la llave local, veía exactamente dos salidas: pedirle el
+código a otro aparato —que puede no existir— y **Empezar de nuevo la nube**, que
+vacía el servidor. Cerrar sesión existía sólo en la cuarta pantalla, la de "todo
+listo". Entrar con la cuenta equivocada dejaba encerrado, con lo único destructivo
+de la pantalla como única salida visible — y desde un aparato sin notas ese botón se
+lleva la nube entera.
+
+Las reglas que deja:
+
+- **La salida barata está en TODAS las pantallas del flujo, no sólo en la final.**
+  Si una pantalla puede alcanzarse por error, tiene que poder abandonarse sin costo.
+- **Va antes que la destructiva en el orden de la pantalla.** Si la única salida a
+  mano borra datos, la pantalla está mal aunque el botón pida escribir BORRAR.
+- **Si el mismo control hace falta en N pantallas, va en un `snippet` y no copiado.**
+  Faltaba en tres de cuatro; copiado, la próxima pantalla nueva se olvida de la
+  mitad. (`SettingsDialog.svelte`: `leaveButton()` / `leaveConfirm()`.)
+- **Ninguna prueba automática cubre este panel**: el build de e2e no tiene nube
+  configurada, así que `cloudConfigured()` da falso y la sección entera no se
+  renderiza. Lo que encuentra estos agujeros es una persona usándolo.
+
 ## Quality Bar
 
 A feature is not done until: the app runs without errors; risky logic has Vitest tests; critical flows have a Playwright check (convention: NO component-test layer — pure Vitest + Playwright only, spec 013); relevant docs/specs updated (user guide per `docs/guia/` rule in CLAUDE.md); nothing unrelated broke; data-loss risk was considered. Extra care in high-risk areas: persistence, import/export/backup restore, nested hierarchy, reordering, copy formatting, tags/search.

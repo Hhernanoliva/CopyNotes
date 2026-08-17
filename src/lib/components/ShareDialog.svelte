@@ -5,13 +5,17 @@
 	// Configuración: es una baja de privacidad real —la nota sale de la bóveda y
 	// el servidor puede leerla— y avisarla en otra pantalla es no avisarla.
 	//
-	// En la parte A todavía no hay a quién invitar, así que hay dos estados y
-	// nada más: compartida y sin compartir.
+	// La parte B1 le suma la segunda persona: el link, a quién se lo diste, y las
+	// dos formas de cortar.
 	import { toast } from 'svelte-sonner';
 	import { X, Share2 } from '@lucide/svelte';
 	import { getShareRole } from '$lib/storage/shares';
+	import { shareNameOr } from '$lib/storage/share-names';
+	import { getSetting, setSetting } from '$lib/storage/settings';
+	import { KEY } from '$lib/storage/settings-registry';
 	import { sharedReady } from '$lib/sync/shared';
 	import { shareNote, unshareNote } from '$lib/sync/share-move';
+	import { createInvite, inviteLink, leaveShare, listMembers, removeMember } from '$lib/sync/invites';
 
 	let { open = $bindable(false), noteId, noteTitle = '', onChanged } = $props();
 
@@ -21,6 +25,17 @@
 	// instante el botón de compartir, y ese instante alcanza para un clic.
 	let role = $state(undefined);
 	let working = $state(false);
+
+	// Cómo firmás. Se escribe una vez y se recuerda: va en preferencias y no en la
+	// nota porque es tuyo, no de la nota.
+	let ownerLabel = $state('');
+	let memberLabel = $state('');
+	let link = $state('');
+	let members = $state([]);
+	// Con quién estás del otro lado. El dueño firma al invitar y ese nombre llega
+	// en `list_shares`; el respaldo es genérico a propósito, porque una nota
+	// compartida antes de que los nombres existieran no tiene ninguno.
+	let ownerName = $state('otra persona');
 
 	$effect(() => {
 		if (!dialogEl) return;
@@ -36,8 +51,30 @@
 	$effect(() => {
 		if (!open || !noteId) return;
 		role = undefined;
+		link = '';
 		getShareRole(noteId).then((value) => (role = value));
+		getSetting(KEY.shareOwnerLabel).then((valor) => (ownerLabel = valor ?? ''));
+		shareNameOr(`owner:${noteId}`, 'otra persona').then((valor) => (ownerName = valor));
 	});
+
+	// La lista de invitados sale del servidor, y sólo la puede pedir el dueño.
+	$effect(() => {
+		if (!open || role !== 'owner' || !noteId) return;
+		members = [];
+		refrescarMiembros();
+	});
+
+	async function refrescarMiembros() {
+		const client = await sharedReady();
+		if (!client) return;
+		try {
+			members = await listMembers(client, noteId);
+		} catch {
+			// Que no se pueda listar no rompe la pantalla: lo importante —compartir y
+			// dejar de compartir— sigue andando sin esta lista.
+			members = [];
+		}
+	}
 
 	async function run(action, mensajeOk) {
 		working = true;
@@ -47,7 +84,7 @@
 				toast.error('Para compartir una nota tenés que entrar a tu cuenta en Configuración.');
 				return;
 			}
-			await action(client, noteId);
+			await action(client);
 			role = await getShareRole(noteId);
 			toast.success(mensajeOk);
 			onChanged?.();
@@ -60,6 +97,68 @@
 		} finally {
 			working = false;
 		}
+	}
+
+	async function invitar() {
+		working = true;
+		try {
+			const client = await sharedReady();
+			if (!client) {
+				toast.error('Para invitar tenés que entrar a tu cuenta en Configuración.');
+				return;
+			}
+			const token = await createInvite(client, noteId, memberLabel.trim(), ownerLabel.trim());
+			await setSetting(KEY.shareOwnerLabel, ownerLabel.trim());
+			link = inviteLink(token, window.location.origin);
+			memberLabel = '';
+			await refrescarMiembros();
+		} catch (error) {
+			toast.error(
+				error instanceof Error && error.message
+					? `No se pudo: ${error.message}`
+					: 'No se pudo generar el link. Probá de nuevo.'
+			);
+		} finally {
+			working = false;
+		}
+	}
+
+	async function copiarLink() {
+		try {
+			await navigator.clipboard.writeText(link);
+			toast.success('Link copiado.');
+		} catch {
+			// Sin permiso de portapapeles el link igual está a la vista y se puede
+			// seleccionar a mano. Avisar es mejor que fallar en silencio.
+			toast.error('No se pudo copiar. El link está acá arriba para copiarlo a mano.');
+		}
+	}
+
+	// El texto dice, ANTES de que pase, que la copia del otro se queda. No se puede
+	// confundir con borrar la nota, que sí le llega y le desaparece: son dos actos
+	// distintos y la spec pide que se digan por separado.
+	async function quitar(member) {
+		const nombre = member.name || 'esta persona';
+		if (
+			!confirm(
+				`¿Quitarle el acceso a ${nombre}?\n\nDeja de recibir los cambios. La copia que ya tiene en su aparato se queda ahí: esto no la puede borrar.`
+			)
+		) {
+			return;
+		}
+		await run((client) => removeMember(client, noteId, member.id), 'Le quitaste el acceso.');
+		await refrescarMiembros();
+	}
+
+	function salirme() {
+		if (
+			!confirm(
+				'¿Salirte de esta nota?\n\nDejás de recibir los cambios. La copia que tenés en este aparato se queda acá.'
+			)
+		) {
+			return;
+		}
+		run((client) => leaveShare(client, noteId), 'Te saliste de la nota.');
 	}
 </script>
 
@@ -93,18 +192,105 @@
 			<p class="text-sm leading-relaxed">
 				Esta nota está compartida. Mientras lo esté, está fuera de la bóveda y sin cifrar.
 			</p>
+			<div class="flex flex-col gap-3">
+				<label class="flex flex-col gap-1 text-sm" for="share-member-label">
+					<span class="font-bold">¿Para quién es este link?</span>
+					<span class="text-muted-foreground text-xs">
+						Con ese nombre va a figurar todo lo que haga. No se comparte ningún mail, ni el
+						tuyo ni el suyo.
+					</span>
+				</label>
+				<input
+					id="share-member-label"
+					bind:value={memberLabel}
+					placeholder="Juan"
+					class="border-border bg-background focus-visible:ring-ring min-h-(--touch-target) rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+				/>
+
+				<label class="text-sm font-bold" for="share-owner-label">¿Cómo querés que te vean?</label>
+				<input
+					id="share-owner-label"
+					bind:value={ownerLabel}
+					placeholder="Quien comparte la nota"
+					class="border-border bg-background focus-visible:ring-ring min-h-(--touch-target) rounded-md border px-3 text-sm focus-visible:ring-2 focus-visible:outline-none"
+				/>
+
+				<button
+					type="button"
+					onclick={invitar}
+					disabled={working || !memberLabel.trim()}
+					class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+				>
+					{working ? 'Generando…' : 'Generar link de invitación'}
+				</button>
+
+				{#if link}
+					<div class="flex flex-col gap-2">
+						<p class="text-muted-foreground text-xs">
+							Mandale este link. Vence en 7 días, y sólo sirve entrando con una cuenta.
+						</p>
+						<code class="bg-muted text-foreground rounded-md px-2 py-2 text-xs break-all">
+							{link}
+						</code>
+						<button
+							type="button"
+							onclick={copiarLink}
+							class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border px-4 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px"
+						>
+							Copiar link
+						</button>
+					</div>
+				{/if}
+
+				{#if members.length}
+					<div class="flex flex-col gap-2">
+						<p class="text-sm font-bold">Quiénes la están viendo</p>
+						<ul class="flex flex-col gap-1">
+							{#each members as member (member.id)}
+								<li class="flex items-center justify-between gap-2 text-sm">
+									<span>{member.name || 'Sin nombre'}</span>
+									<button
+										type="button"
+										onclick={() => quitar(member)}
+										disabled={working}
+										class="text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center rounded-md px-2 text-xs font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"
+									>
+										Quitar acceso
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+			</div>
+
+			<!-- La salida va ABAJO y separada: es el final del camino, no lo primero
+			     que se ofrece. Puesta arriba, la pantalla empezaba por deshacer lo que
+			     la persona vino a hacer. -->
 			<button
 				type="button"
-				onclick={() => run(unshareNote, 'La nota volvió a la bóveda.')}
+				onclick={() => run((client) => unshareNote(client, noteId), 'La nota volvió a la bóveda.')}
 				disabled={working}
-				class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border px-4 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+				class="border-border text-destructive hover:bg-accent focus-visible:ring-ring mt-1 flex min-h-(--touch-target) items-center justify-center rounded-md border px-4 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 			>
 				{working ? 'Cerrando…' : 'Dejar de compartir'}
 			</button>
 		{:else if role === 'member'}
 			<p class="text-sm leading-relaxed">
-				Esta nota te la comparte otra persona. Quien la comparte es quien puede cerrarla.
+				Esta nota te la comparte <span class="font-bold">{ownerName}</span>. Podés leerla y
+				copiarla; el texto lo cambia solamente quien la comparte.
 			</p>
+			<button
+				type="button"
+				onclick={salirme}
+				disabled={working}
+				class="border-border text-destructive hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md border px-4 text-sm font-bold transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+			>
+				<!-- Con su propia palabra mientras viaja, como el botón del dueño: sin
+				     ella el botón se apaga y nada más, y apagado no se distingue de
+				     "no pasó nada". -->
+				{working ? 'Saliendo…' : 'Salirme de esta nota'}
+			</button>
 		{:else if role === null}
 			<p class="text-sm leading-relaxed">
 				Mientras esté compartida, esta nota sale de la bóveda y deja de estar cifrada. El servidor
@@ -112,7 +298,7 @@
 			</p>
 			<button
 				type="button"
-				onclick={() => run(shareNote, 'La nota quedó compartida.')}
+				onclick={() => run((client) => shareNote(client, noteId), 'La nota quedó compartida.')}
 				disabled={working}
 				class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 			>

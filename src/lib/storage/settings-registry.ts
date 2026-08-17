@@ -27,7 +27,8 @@ export const KEY = {
 	syncConsent: 'syncConsent',
 	syncUploadedThrough: 'syncUploadedThrough',
 	syncDownloadedThrough: 'syncDownloadedThrough',
-	syncAccountId: 'syncAccountId'
+	syncAccountId: 'syncAccountId',
+	shareOwnerLabel: 'shareOwnerLabel'
 };
 
 export const SETTINGS = {
@@ -44,7 +45,8 @@ export const SETTINGS = {
 	[KEY.syncConsent]: { backupSafe: false }, // Consent to upload (spec 030 phase 2) — a decision per device, never restored from a file.
 	[KEY.syncUploadedThrough]: { backupSafe: false }, // How far the change counter was uploaded — meaningless on another device, and restoring it would skip records.
 	[KEY.syncDownloadedThrough]: { backupSafe: false }, // How far the server's own sequence was read (spec 030 phase 3) — restoring it on another device would skip everything before it, silently.
-	[KEY.syncAccountId]: { backupSafe: false } // Which account the key, the consent and the cursors above belong to (sync/leave.ts). Restoring it from a file would vouch for an account this device never signed into.
+	[KEY.syncAccountId]: { backupSafe: false }, // Which account the key, the consent and the cursors above belong to (sync/leave.ts). Restoring it from a file would vouch for an account this device never signed into.
+	[KEY.shareOwnerLabel]: { backupSafe: true } // Cómo firmás en las notas que compartís (spec 038 §6). Es una preferencia tuya, como el tema: se escribe una vez y viaja en el respaldo. No es un dato de nadie más — el nombre de los invitados vive en `shareMembers`, que a propósito NO es respaldable.
 };
 
 // Las claves POR NOTA de compartir (spec 038). No pueden estar en el mapa de

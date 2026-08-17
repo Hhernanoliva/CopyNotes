@@ -57,9 +57,67 @@ siempre.
 Compartir usa la nube, así que primero tenés que **entrar a tu cuenta**
 (Configuración ⚙️ › Nube). Si no entraste, la pantalla te lo dice y no hace nada.
 
+## Invitar a alguien
+
+Con la nota ya compartida, la misma pantalla te pide dos cosas:
+
+- **¿Para quién es este link?** — el nombre con el que va a figurar todo lo que
+  esa persona haga. Lo escribís vos.
+- **¿Cómo querés que te vean?** — cómo firmás vos. Se escribe una vez y CopyNotes
+  se lo acuerda para las próximas.
+
+**No se comparte ningún mail, ni el tuyo ni el suyo.** Los nombres son los que
+vos escribiste, y nada más.
+
+Tocás **Generar link de invitación** y te da un enlace para mandarle por donde
+quieras. Dos cosas que conviene saber:
+
+- **Vence a los 7 días.**
+- **El link solo no da acceso.** Quien lo abra tiene que entrar con una cuenta de
+  CopyNotes (o crearse una). Eso es lo que hace que después se pueda saber quién
+  hizo cada cosa.
+
+## Del otro lado
+
+Quien abre el link ve una tarjeta que dice **"Te compartieron una nota"**. Si no
+entró a su cuenta, se lo pide; cuando entra, la invitación **sigue esperándolo**.
+Al aceptar, la nota le aparece en su lista como una más.
+
+**Puede leerla y copiarla. No puede cambiar el texto**: ni escribir, ni pegar,
+ni cambiarle el título, ni borrar renglones, ni moverlos, ni tildar una tarea,
+ni tocarle la fecha o las etiquetas. Por ahora sólo lee — contestar el ticket
+llega en el paso siguiente.
+
+Si abre la pantalla de compartir de esa nota, ve **con qué nombre le figurás
+vos**: el que escribiste en "¿Cómo querés que te vean?".
+
+## Ver quiénes la miran, y cortar
+
+En la pantalla de compartir aparece **Quiénes la están viendo**, con el nombre de
+cada persona y un **Quitar acceso** al lado.
+
+Dos cosas distintas que no hay que confundir:
+
+- **Quitarle el acceso**: deja de recibir los cambios, pero **la copia que ya
+  tiene en su aparato se queda ahí**. No hay forma de borrársela.
+- **Borrar la nota**: eso sí le llega, y **la nota le desaparece**. Sin aviso y
+  sin vuelta atrás — en CopyNotes no hay papelera.
+
+La otra persona también se puede ir sola: en su pantalla de compartir tiene
+**Salirme de esta nota**, y pasa lo mismo (deja de recibir cambios, su copia se
+queda).
+
+**Cuando se va el último, la nota vuelve sola a la bóveda.** No hay que hacer
+nada: si ya no queda nadie del otro lado, no tiene sentido que siga afuera y sin
+cifrar, así que CopyNotes la cierra por vos en cuanto abrís la app. Puede tardar
+hasta medio minuto, y necesita que la app esté abierta —el cierre lo hace tu
+dispositivo, no el servidor—.
+
+Ojo con la diferencia: eso pasa cuando **la otra persona se va**. Si sos vos
+quien le quita el acceso, la nota **sigue compartida**, porque en general estás
+por invitar a otra persona. Para cerrarla, **Dejar de compartir**.
+
 ## Todavía no
 
-Invitar a alguien con un enlace, ver quién tildó qué, y los avisos de novedades
-llegan más adelante. Por ahora la nota se comparte y viaja entre **tus** aparatos:
-es la mitad de abajo, la que tiene que estar firme antes de que haya una segunda
-persona.
+Que la otra persona pueda tildar tareas y dejar comentarios, el botón **Listo**,
+y el contador de novedades llegan más adelante.

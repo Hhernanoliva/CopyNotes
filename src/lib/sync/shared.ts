@@ -20,6 +20,14 @@ import {
 	setShareCursor,
 	setShareRole
 } from '../storage/shares';
+import { rememberShareName } from '../storage/share-names';
+import { syncStatus } from './status.svelte';
+// Import circular a propósito y sin consecuencia: `share-move.ts` importa
+// `pushSharedNote` de acá, pero las dos referencias se usan DENTRO de funciones,
+// nunca al evaluar el módulo, así que ninguna de las dos llega vacía. La
+// alternativa —cerrar desde `syncNow`— dejaba la decisión en manos del llamador,
+// que es exactamente cómo se perdió la campanita de `appliedVersion`.
+import { unshareNote } from './share-move';
 import { toSharedPayload } from './shared-payload';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
 
@@ -138,6 +146,31 @@ export async function pullSharedNote(client, noteId) {
 export async function reconcileShares(client) {
 	const { data, error } = await client.rpc('list_shares');
 	if (error) throw new Error(error.message);
+	// El nombre del dueño se guarda ACÁ, leyendo `data` directo, y el Map sigue
+	// valiendo el rol pelado como antes.
+	//
+	// La primera versión metía las dos cosas adentro del Map, y estaba de más: le
+	// cambiaba la forma al valor que después desarman DOS lugares, y el segundo
+	// —el recorrido de `syncShared`— se rompe en silencio si se queda viejo (el rol
+	// deja de valer 'member', el candado de `listSharedPending` se abre y el caño
+	// ofrece las tres tablas de una nota ajena). Un bucle aparte no toca esa forma
+	// y no hay nada que se pueda olvidar. La prueba que vigila ese candado queda
+	// igual en `shared.test.ts`, que el riesgo se evitó pero no dejó de existir.
+	//
+	// Un nombre nulo NO se guarda: una compartición abierta antes de que los
+	// nombres existieran devuelve nulo para siempre, y escribirlo borraría el
+	// bueno. Se guarda aunque el rol no haya cambiado, porque el dueño puede
+	// corregir cómo firma y eso llega por acá sin mover ninguna marca.
+	for (const row of data ?? []) {
+		if (row.counterpart_label) {
+			await rememberShareName(`owner:${row.note_id}`, row.counterpart_label);
+		}
+	}
+	// Las que el servidor marcó como "se quedó sin nadie" (spec 038 §7). Sólo
+	// vienen marcadas las del dueño, que es el único que las puede cerrar.
+	const emptied = (data ?? [])
+		.filter((row) => row.role === 'owner' && row.emptied)
+		.map((row) => row.note_id);
 	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
 	const { owner, member } = await sharedNoteIdsByRole();
 	const local = new Map();
@@ -157,7 +190,7 @@ export async function reconcileShares(client) {
 		await setShareRole(noteId, null);
 		changed++;
 	}
-	return { shares: fromServer, changed };
+	return { shares: fromServer, changed, emptied };
 }
 
 // Devuelve cuántas filas cambiaron acá, para que `syncNow` pueda avisarle a la
@@ -165,11 +198,37 @@ export async function reconcileShares(client) {
 // base y no lo ve nadie hasta recargar: `appliedVersion` —la única campanita que
 // dice "llegó algo, refrescá"— la tocaba SÓLO el caño cifrado.
 export async function syncShared(client) {
-	const { shares, changed } = await reconcileShares(client);
+	const { shares, changed, emptied } = await reconcileShares(client);
 	let applied = changed;
+	// Las que se quedaron sin nadie vuelven a la bóveda, y ANTES del recorrido:
+	// subir y bajar filas de una nota que se está yendo del caño compartido es
+	// trabajo que se tira, y peor, el resello de la mudanza las deja pendientes
+	// del caño cifrado — mandarlas por el compartido en el medio las pondría un
+	// rato en los dos.
+	//
+	// El servidor sólo pudo MARCARLAS: cerrar de verdad incluye resellar las
+	// filas, y eso únicamente lo puede hacer este aparato (ver `share-move.ts`).
+	for (const noteId of emptied) {
+		await unshareNote(client, noteId);
+		shares.delete(noteId);
+		applied++;
+	}
 	for (const [noteId, role] of shares) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);
 	}
+	// Y la campanita se toca ACÁ, no en el llamador.
+	//
+	// Vivía en `syncNow`, que era el único llamador cuando se escribió. Al
+	// aparecer el segundo —`InviteAccept`, que sincroniza apenas se acepta la
+	// invitación para no dejar a la persona mirando una lista vacía 30 segundos—
+	// la nota entraba a la base y la lista no la mostraba hasta recargar. La
+	// pasada siguiente tampoco la mostraba: ya no cambiaba nada, así que no había
+	// nada que avisar y la pantalla se quedaba vieja para siempre.
+	//
+	// Devolver el número y confiar en que el llamador lo use ya falló una vez.
+	// El número se sigue devolviendo porque es útil para probar, pero avisar no
+	// es más su responsabilidad (encontrado en el gate manual, 2026-08-17).
+	if (applied) syncStatus.appliedVersion++;
 	return applied;
 }

@@ -106,6 +106,27 @@
 
 	let note = $state(null);
 	let blocks = $state([]);
+	// Una nota que te comparte otra persona se lee, no se escribe (spec 038 §4).
+	//
+	// Sale de `note.share`, que es el mismo campo que lee `getShareRole`: la nota
+	// ya está cargada acá, así que no hace falta ni una lectura más ni un estado
+	// propio.
+	//
+	// `note` lo escribe la carga y NO `refreshFromStorage`, así que una marca que
+	// cambia con la nota abierta no se ve hasta que el editor se re-monte. Es la
+	// dirección segura y por eso alcanza: lo que puede cambiar bajo los pies es que
+	// te QUITEN el acceso, y ahí esto se queda cerrado de más, nunca abierto de
+	// más. Que una nota pase a ser ajena mientras la tenés abierta no puede pasar:
+	// eso ocurre al aceptar una invitación, y ahí la nota todavía no existe acá.
+	//
+	// Con la nota sin cargar queda CERRADO, no abierto: la duda se resuelve del
+	// lado seguro, o una nota compartida sería editable el instante que tarda la
+	// lectura, y un instante alcanza para escribir una letra que no va a viajar.
+	//
+	// El límite de VERDAD lo pone el servidor, que rechaza por rol cualquier fila
+	// que no sea bitácora si quien la manda no es el dueño. Esto es la cortesía de
+	// no dejar intentarlo.
+	const readOnly = $derived(note === null || note.share === 'member');
 	// La voz del agente por bloque (bitácora action:'note', actor ≠ user). Se
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
@@ -740,6 +761,15 @@
 	}
 
 	function refreshToolbar() {
+		// En una nota ajena no hay nada que ofrecer: `runFormatCommand` ya rechaza
+		// todo lo que la barra dispara, así que sin esta línea aparecía una barra
+		// entera de botones que no hacen nada al marcar texto — peor que no
+		// tenerla, porque promete algo que no va a pasar. Marcar y copiar siguen
+		// funcionando igual; lo único que se va es la barra.
+		if (readOnly) {
+			toolbar = null;
+			return;
+		}
 		// The link popover autofocuses its URL input (and any future popover
 		// content lives inside the toolbar's own DOM too). That focus change
 		// fires selectionchange with a collapsed, unrelated selection — without
@@ -977,6 +1007,11 @@
 	// execCommand dispara distinto en cada motor (Chrome síncrono, WebKit tarde
 	// o nunca).
 	function runFormatCommand(blockId, name, arg, { restoreSelection = false } = {}) {
+		// La puerta única de formato, y por eso el candado de sólo lectura va acá:
+		// los atajos de teclado (Cmd+B y compañía) llegan por su propio camino y no
+		// pasan por el `contenteditable`, así que sin esta línea seguirían
+		// escribiendo en una nota ajena.
+		if (readOnly) return;
 		const block = blocks.find((b) => b.id === blockId);
 		if (!block) return;
 		if (restoreSelection) restoreSavedSelection();
@@ -2174,6 +2209,7 @@
 				value={note.title}
 				oninput={handleTitleInput}
 				onkeydown={handleTitleKeydown}
+				readonly={readOnly}
 				placeholder="Sin título"
 				aria-label="Título de la nota"
 				autocomplete="off"
@@ -2242,6 +2278,7 @@
 			{#each visible as row, index (row.block.id)}
 				<BlockRow
 					block={row.block}
+					{readOnly}
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}

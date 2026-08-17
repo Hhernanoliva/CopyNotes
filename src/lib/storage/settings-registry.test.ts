@@ -24,7 +24,8 @@ describe('settings registry', () => {
 				'syncConsent',
 				'syncUploadedThrough',
 				'syncDownloadedThrough',
-				'syncAccountId'
+				'syncAccountId',
+				'shareOwnerLabel'
 			].sort()
 		);
 	});
@@ -38,7 +39,11 @@ describe('settings registry', () => {
 				'demoNoteCreated',
 				'agendaHideCompleted',
 				'editorTextScale',
-				'sidebarWidth'
+				'sidebarWidth',
+				// Cómo firmás al compartir (spec 038 §6). Respaldable a propósito: es
+				// una preferencia tuya, como el tema. El nombre de los INVITADOS no lo
+				// es — vive en `shareMembers`, fuera de `BACKUP_TABLES`.
+				'shareOwnerLabel'
 			].sort()
 		);
 	});

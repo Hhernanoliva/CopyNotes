@@ -18,6 +18,13 @@
 	import { noteIdsWithConflicts } from '$lib/sync/conflicts';
 	import { sharedNoteIds } from '$lib/storage/shares';
 	import ShareDialog from '$lib/components/ShareDialog.svelte';
+	import InviteAccept from '$lib/components/InviteAccept.svelte';
+	import {
+		cleanInviteUrl,
+		inviteToken,
+		stashInviteToken,
+		takeStashedInvite
+	} from '$lib/sync/invite-return';
 	import BridgeLifecycle from '$lib/bridge/BridgeLifecycle.svelte';
 	import CloudLifecycle from '$lib/sync/CloudLifecycle.svelte';
 	import Editor from '$lib/editor/Editor.svelte';
@@ -97,6 +104,23 @@
 	let agendaVersion = $state(0);
 	// Block to focus once the editor (re)loads, set by the Agenda's jump-to-block.
 	let pendingFocusBlockId = $state(null);
+
+	// El token de una invitación que se está abriendo (spec 038 §7).
+	let invitacion = $state(null);
+
+	// Se lee UNA vez al arrancar. El orden importa y es el mismo que documenta
+	// `oauth-return.ts` para el `code` de Google: primero se GUARDA y recién
+	// después se limpia la barra de direcciones, porque limpiarla es justo lo que
+	// vuelve el token ilegible. Y se lee de lo guardado y no de la dirección,
+	// porque entrar con Google vuelve a la raíz sin nuestros parámetros.
+	$effect(() => {
+		const desdeLaDireccion = inviteToken(window.location.href);
+		if (desdeLaDireccion) {
+			stashInviteToken(window.localStorage, desdeLaDireccion);
+			history.replaceState(null, '', cleanInviteUrl(window.location.href));
+		}
+		invitacion = takeStashedInvite(window.localStorage);
+	});
 
 	const currentTheme = $derived(mode.current === 'light' ? 'light' : 'dark');
 
@@ -776,6 +800,9 @@
 		</header>
 
 		<main id="contenido-principal" tabindex="-1" class="flex-1 overflow-y-auto focus-visible:outline-none">
+			{#if invitacion}
+				<InviteAccept token={invitacion} onDone={() => (invitacion = null)} />
+			{/if}
 			{#if loading}
 				<div
 					class="mx-auto w-full max-w-(--editor-max-width) px-[0.9rem] py-6 md:px-6 md:py-14"

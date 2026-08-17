@@ -297,7 +297,136 @@ try {
 	assert.equal(firmada.payload.actor, `member:${b.id}`, 'el invitado firmó su línea como el dueño');
 	console.log('✓ el invitado sólo agrega bitácora, y la firma se la pone el servidor');
 
-	// 14. La mitad que faltaba de la mudanza. Las dos cuentas tienen una fila con
+	// La invitación de verdad (parte B1). Va sobre una nota TERCERA y no sobre
+	// `NOTA_DE_A`, porque ahí arriba la membresía se plantó con la llave de
+	// servicio: canjear un token sobre una membresía que ya existe es un no-op y
+	// no probaría nada.
+	const NOTA_INVITADA = 'nota-con-invitacion-de-A';
+	unwrap(await a.client.rpc('open_share', { p_note_id: NOTA_INVITADA }));
+
+	// 14. Sólo el dueño reparte. La comprobación de `create_share_invite` va
+	//     contra `shares` y no contra `is_share_participant` justamente para
+	//     dejar afuera a los invitados; sin esa diferencia, cualquier invitado
+	//     podría repartir la nota de otro a quien quisiera.
+	await assert.rejects(
+		async () =>
+			unwrap(
+				await b.client.rpc('create_share_invite', {
+					p_note_id: NOTA_INVITADA,
+					p_member_label: 'colado',
+					p_owner_label: 'colado'
+				})
+			),
+		'un invitado pudo generar un link de invitación de una nota ajena'
+	);
+	console.log('✓ sólo el dueño invita');
+
+	// 15. Un token inventado no abre nada. Es el caso que decide si el link es un
+	//     secreto o una sugerencia.
+	await assert.rejects(
+		async () => unwrap(await b.client.rpc('accept_share_invite', { p_token: 'no-existe' })),
+		'un token inventado fue aceptado'
+	);
+	console.log('✓ un token inventado no da acceso');
+
+	// 16. El canje bueno: B entra por la puerta y se lleva el nombre que le puso
+	//     A. Y `list_shares` le tiene que devolver el nombre del DUEÑO, que es lo
+	//     único que el invitado no puede averiguar de ninguna otra forma.
+	const token = unwrap(
+		await a.client.rpc('create_share_invite', {
+			p_note_id: NOTA_INVITADA,
+			p_member_label: 'Juan',
+			p_owner_label: 'Hernán'
+		})
+	);
+	assert.equal(
+		unwrap(await b.client.rpc('accept_share_invite', { p_token: token })),
+		NOTA_INVITADA,
+		'aceptar la invitación no devolvió qué nota esperar'
+	);
+	const enQueEstaB = unwrap(await b.client.rpc('list_shares'));
+	const comoInvitado = enQueEstaB.find((fila) => fila.note_id === NOTA_INVITADA);
+	assert.equal(comoInvitado.role, 'member', 'el que aceptó no quedó como invitado');
+	assert.equal(comoInvitado.counterpart_label, 'Hernán', 'el invitado no recibió el nombre del dueño');
+	const miembros = unwrap(
+		await a.client.from('share_members').select('display_name').eq('note_id', NOTA_INVITADA)
+	);
+	assert.deepEqual(
+		miembros.map((fila) => fila.display_name),
+		['Juan'],
+		'el dueño no ve el nombre que le puso al invitado'
+	);
+	console.log('✓ el canje del token deja la membresía y los dos nombres');
+
+	// 17. El invitado no echa a nadie, ni siquiera usando la puerta del dueño. La
+	//     suya es `leave_share`, que no toma a quién — un parámetro que sólo puede
+	//     valer `auth.uid()` es un agujero esperando a que alguien lo llame con
+	//     otra cosa. Y después de irse, deja de poder LEER: si esto fallara,
+	//     quitar el acceso sería decorativo.
+	await assert.rejects(
+		async () =>
+			unwrap(
+				await b.client.rpc('remove_member', { p_note_id: NOTA_INVITADA, p_member_id: a.id })
+			),
+		'un invitado pudo quitarle el acceso al dueño'
+	);
+	// Con el invitado todavía adentro, la compartición NO está marcada. Este
+	// control no es decorativo: es lo que separa "se quedó sin nadie" de "no hay
+	// nadie", y sin él la marca podría estar puesta desde el minuto cero y la
+	// prueba de abajo daría verde igual.
+	const antesDeIrse = unwrap(await a.client.rpc('list_shares')).find(
+		(fila) => fila.note_id === NOTA_INVITADA
+	);
+	assert.equal(antesDeIrse.emptied, false, 'la compartición nace marcada como vacía');
+
+	unwrap(await b.client.rpc('leave_share', { p_note_id: NOTA_INVITADA }));
+	assert.equal(
+		unwrap(await b.client.rpc('list_shares')).filter((fila) => fila.note_id === NOTA_INVITADA)
+			.length,
+		0,
+		'el invitado que se fue sigue figurando en list_shares'
+	);
+	await assert.rejects(
+		async () =>
+			unwrap(await b.client.rpc('pull_shared_rows', { p_note_id: NOTA_INVITADA, p_cursor: 0 })),
+		'el invitado que se fue todavía puede leer la nota'
+	);
+	console.log('✓ sólo el dueño quita a alguien, y el invitado se va solo');
+
+	// 18. Y al irse el último, la compartición le queda MARCADA al dueño. El
+	//     servidor no la cierra: cerrar incluye resellar las filas de la nota para
+	//     el caño cifrado, y eso sólo lo puede hacer el aparato del dueño
+	//     (`src/lib/sync/share-move.ts`). Un `delete from shares` acá dejaría la
+	//     nota sin ningún caño, sincronizando en silencio con nadie.
+	const despuesDeIrse = unwrap(await a.client.rpc('list_shares')).find(
+		(fila) => fila.note_id === NOTA_INVITADA
+	);
+	assert.equal(
+		despuesDeIrse.emptied,
+		true,
+		'el último invitado se fue y la compartición no quedó marcada'
+	);
+	//     Y la marca se levanta cuando entra alguien, o una compartición que se
+	//     vació y volvió a llenarse antes de que el dueño abriera la app se
+	//     cerraría igual, dejando afuera al que acaba de entrar.
+	const tokenDeVuelta = unwrap(
+		await a.client.rpc('create_share_invite', {
+			p_note_id: NOTA_INVITADA,
+			p_member_label: 'Juan',
+			p_owner_label: 'Hernán'
+		})
+	);
+	unwrap(await b.client.rpc('accept_share_invite', { p_token: tokenDeVuelta }));
+	const despuesDeVolver = unwrap(await a.client.rpc('list_shares')).find(
+		(fila) => fila.note_id === NOTA_INVITADA
+	);
+	assert.equal(despuesDeVolver.emptied, false, 'entró alguien y la marca de vacía no se levantó');
+	console.log('✓ el último que se va deja la marca, y el que entra la levanta');
+
+	// Se va de nuevo, así lo que sigue encuentra el mismo estado que antes.
+	unwrap(await b.client.rpc('leave_share', { p_note_id: NOTA_INVITADA }));
+
+	// 19. La mitad que faltaba de la mudanza. Las dos cuentas tienen una fila con
 	//     el MISMO id, así que si `delete_records` borrara por id en vez de por
 	//     dueño, esta llamada se llevaría puesta la de B.
 	unwrap(await a.client.rpc('delete_records', { payload: [{ table_name: 'notes', id: SHARED_ID }] }));
@@ -310,7 +439,7 @@ try {
 	// Repuesta, así la prueba siguiente tiene algo que vaciar.
 	await push(a.client, [{ ...record('secreto-de-A-v3'), change_seq: 10, base_seq: null }]);
 
-	// 15. Restaurar un respaldo vacía `records` de quien llama y nada más. Las dos
+	// 20. Restaurar un respaldo vacía `records` de quien llama y nada más. Las dos
 	//     cuentas tienen una fila con el MISMO id a propósito. Y la bóveda de A
 	//     tiene que seguir en pie: si esto borrara `vaults`, restaurar un archivo
 	//     costaría la llave, y por eso `reset_records` existe en vez de reusar
@@ -332,7 +461,7 @@ try {
 	// Repuesta otra vez, así `reset_cloud` tiene algo que vaciar.
 	await push(a.client, [{ ...record('secreto-de-A-v4'), change_seq: 11, base_seq: null }]);
 
-	// 16. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
+	// 21. Empezar de nuevo borra lo propio y nada de lo ajeno. Es la única puerta
 	//     de borrado que existe, así que si filtrara mal, vaciaría cuentas ajenas.
 	unwrap(await a.client.rpc('reset_cloud'));
 	const deA = unwrap(await a.client.from('records').select('id'));
@@ -359,7 +488,7 @@ try {
 	);
 	console.log('✓ empezar de nuevo vacía lo propio y no toca lo ajeno');
 
-	console.log('\nCandado OK: las dieciséis pruebas pasaron.');
+	console.log('\nCandado OK: las veintiuna pruebas pasaron.');
 } finally {
 	// on delete cascade takes the rows with the users.
 	await admin.auth.admin.deleteUser(a.id);

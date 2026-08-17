@@ -1,10 +1,12 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
-import { createNote } from '../storage/notes';
+import { createNote, softDeleteNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { appendActivity } from '../storage/activity';
 import { setShareRole, getShareRole, getShareCursor } from '../storage/shares';
+import { getShareName, rememberShareName } from '../storage/share-names';
+import { syncStatus } from './status.svelte';
 import {
 	listSharedPending,
 	countSharedPending,
@@ -180,6 +182,54 @@ describe('la bajada por nota', () => {
 
 		expect((await db.table('notes').get(note.id)).changeSeq).toBe(before);
 	});
+
+	// Encontrado en el gate manual (2026-08-17): el invitado borra la nota de su
+	// aparato, el dueño se la vuelve a compartir, y no vuelve a aparecer nunca.
+	// Su lápida local es más nueva que todo lo que baja, y el que la comparte no
+	// tiene forma de enterarse.
+	it('una nota que el invitado borró vuelve cuando se la comparten de nuevo', async () => {
+		const note = await createNote({ title: 'la que borré' });
+		const block = await createBlock({ noteId: note.id, content: 'un renglón' });
+		await setShareRole(note.id, 'member');
+		await softDeleteNote(note.id);
+
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [
+					{
+						table_name: 'notes',
+						id: note.id,
+						change_seq: 1,
+						deleted: false,
+						payload: { id: note.id, title: 'la que borré', deletedAt: null },
+						author_id: 'u1',
+						server_seq: 40
+					},
+					{
+						table_name: 'blocks',
+						id: block.id,
+						change_seq: 1,
+						deleted: false,
+						payload: {
+							id: block.id,
+							noteId: note.id,
+							content: 'un renglón',
+							type: 'text',
+							deletedAt: null
+						},
+						author_id: 'u1',
+						server_seq: 41
+					}
+				],
+				error: null
+			})
+		};
+
+		await pullSharedNote(client, note.id);
+
+		expect((await db.table('notes').get(note.id)).deletedAt).toBe(null);
+		expect((await db.table('blocks').get(block.id)).deletedAt).toBe(null);
+	});
 });
 
 describe('en qué estoy', () => {
@@ -213,6 +263,42 @@ describe('en qué estoy', () => {
 
 		expect((await reconcileShares(client)).changed).toBe(1);
 	});
+
+	// La tercera columna de `list_shares` (parte B1). El invitado no tiene ninguna
+	// otra forma de saber cómo se llama el dueño, así que este viaje es el único
+	// que lo trae y hay que guardarlo al pasar.
+	it('guarda el nombre del dueño que viene con la lista', async () => {
+		const nota = await createNote({ title: 'me la compartieron' });
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [{ note_id: nota.id, role: 'member', counterpart_label: 'Hernán' }],
+				error: null
+			})
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName(`owner:${nota.id}`)).toBe('Hernán');
+	});
+
+	// Y una compartición abierta por la parte A no tiene nombre. Que no reviente es
+	// la mitad; la otra es que no escriba un vacío encima de uno bueno, y esa es la
+	// que se rompe sola si alguien "simplifica" la guardia.
+	it('no pisa un nombre bueno con el nulo de una compartición vieja', async () => {
+		const nota = await createNote({ title: 'me la compartieron' });
+		await setShareRole(nota.id, 'member');
+		await rememberShareName(`owner:${nota.id}`, 'Hernán');
+		const client = {
+			rpc: vi.fn().mockResolvedValue({
+				data: [{ note_id: nota.id, role: 'member', counterpart_label: null }],
+				error: null
+			})
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName(`owner:${nota.id}`)).toBe('Hernán');
+	});
 });
 
 // Encontrado en el gate manual del 2026-08-14: al compartir una nota en el otro
@@ -237,5 +323,110 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'member');
 
 		expect(await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]))).toBe(0);
+	});
+
+	// Encontrado en el gate manual (2026-08-17): aceptar una invitación traía la
+	// nota a la base y la lista no la mostraba hasta recargar. La campanita la
+	// tocaba `syncNow`, y `InviteAccept` llama a `syncShared` por su cuenta —
+	// devolver el número y confiar en que el llamador lo use ya falló una vez,
+	// así que la campanita vive ACÁ y no hay nada que un llamador nuevo pueda
+	// olvidarse.
+	it('la campanita la toca el lazo, no quien lo llama', async () => {
+		const nota = await createNote({ title: 'me la compartieron' });
+		const antes = syncStatus.appliedVersion;
+
+		await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]));
+
+		expect(syncStatus.appliedVersion).toBe(antes + 1);
+	});
+
+	// El cierre automático (decidido al cerrar el gate de B1, 2026-08-17). El
+	// servidor sólo MARCA que la compartición se quedó sin nadie; cerrarla de
+	// verdad —resellar las filas para el caño cifrado y recién ahí borrarla— es
+	// trabajo del aparato del dueño, y por eso pasa acá.
+	it('una compartición que se quedó sin nadie se cierra sola', async () => {
+		const nota = await createNote({ title: 'sin nadie del otro lado' });
+		await setShareRole(nota.id, 'owner');
+		const llamadas = [];
+		const client = {
+			rpc: vi.fn(async (name) => {
+				llamadas.push(name);
+				return name === 'list_shares'
+					? { data: [{ note_id: nota.id, role: 'owner', emptied: true }], error: null }
+					: { data: [], error: null };
+			})
+		};
+
+		await syncShared(client);
+
+		expect(await getShareRole(nota.id)).toBe(null);
+		expect(llamadas).toContain('close_share');
+	});
+
+	// Y no se cierra por tener cero invitados: recién compartida, antes de generar
+	// el link, tampoco hay nadie. Sin este control el arreglo rompería compartir.
+	it('una recién compartida, sin la marca, NO se cierra', async () => {
+		const nota = await createNote({ title: 'recién compartida' });
+		await setShareRole(nota.id, 'owner');
+		const llamadas = [];
+		const client = {
+			rpc: vi.fn(async (name) => {
+				llamadas.push(name);
+				return name === 'list_shares'
+					? { data: [{ note_id: nota.id, role: 'owner', emptied: false }], error: null }
+					: { data: [], error: null };
+			})
+		};
+
+		await syncShared(client);
+
+		expect(await getShareRole(nota.id)).toBe('owner');
+		expect(llamadas).not.toContain('close_share');
+	});
+
+	it('y una pasada sin novedades no la toca', async () => {
+		const nota = await createNote({ title: 'ya compartida' });
+		await setShareRole(nota.id, 'member');
+		const antes = syncStatus.appliedVersion;
+
+		await syncShared(clientWith([{ note_id: nota.id, role: 'member' }]));
+
+		expect(syncStatus.appliedVersion).toBe(antes);
+	});
+
+	// El candado del rol, visto desde el lazo entero y no desde `listSharedPending`.
+	//
+	// Existe porque el rol viaja desde `list_shares` hasta `listSharedPending`
+	// cruzando un `Map`, y cualquier cambio en la FORMA de ese Map —como el que
+	// trajo el nombre del dueño— puede dejar el rol convertido en otra cosa sin
+	// que nada falle a la vista: `role === 'member'` deja de ser cierto, y el caño
+	// pasa a ofrecer las tres tablas de una nota ajena. Comprobado en rojo
+	// desarmando mal el Map.
+	it('de una nota ajena sube SÓLO bitácora, aunque el renglón esté sin subir', async () => {
+		const nota = await createNote({ title: 'ajena' });
+		await createBlock({ noteId: nota.id, content: 'un renglón que no me toca' });
+		await setShareRole(nota.id, 'member');
+		await appendActivity({
+			blockId: 'b1',
+			noteId: nota.id,
+			actor: 'user',
+			action: 'done',
+			text: ''
+		});
+		const subidas = [];
+		const client = {
+			rpc: vi.fn(async (name, args) => {
+				if (name === 'list_shares') {
+					return { data: [{ note_id: nota.id, role: 'member', counterpart_label: 'X' }], error: null };
+				}
+				if (name === 'push_shared_rows') subidas.push(...args.payload);
+				return { data: [], error: null };
+			})
+		};
+
+		await syncShared(client);
+
+		expect(subidas.length).toBeGreaterThan(0);
+		expect(subidas.every((fila) => fila.table_name === 'activity')).toBe(true);
 	});
 });

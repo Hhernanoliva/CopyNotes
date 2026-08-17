@@ -10,6 +10,47 @@
 
 ---
 
+## ESTADO al 2026-08-17 — TODO construido; falta sólo el gate manual
+
+Rama `feat/compartir-invitacion`, **sin pushear**. **SQL aplicado y
+`pnpm rls:check` 20/20** contra el proyecto real. Unit **1188** verdes, e2e
+**179** verdes (+ el flake conocido del separador: medido **1/10 en esta rama
+contra 3/10 en la base**, o sea preexistente y no empeorado), `pnpm check` en sus
+4 errores de siempre.
+
+| Tarea | Estado |
+|---|---|
+| 1. Las cuatro funciones SQL | **HECHA** (`c65b9a3`). Hernán aplicó el SQL el 2026-08-17; medido con `fetch` pelado (las 5 funciones contestan "necesita una sesión iniciada", ninguna 404) y **`pnpm rls:check` da 20/20** contra el proyecto real |
+| 2. El cachecito de nombres | **HECHA** (`1e8fb2f`) |
+| 3. Las llamadas al servidor | **HECHA** (`e0fce0d`) |
+| 4. La pantalla de compartir | **HECHA** (`e7a1d61`) |
+| 5. Aceptar la invitación | **HECHA** (`9ed7439`) |
+| 6. El candado de sólo lectura | **HECHA** (`7a7966d`) |
+| 7. Guía y CHANGELOG | **HECHA** (`2bc36a6`) |
+| 8. El gate manual con dos cuentas | **PENDIENTE** — es de Hernán |
+
+**Las casillas `- [ ]` de abajo quedaron sin tildar.** No son el estado: el
+estado es esta tabla. (Ver [[copynotes-stale-followup-ledger]] — en 038/039/040
+pasó lo mismo y confundió después.)
+
+**Tres cosas que cambiaron respecto de lo planeado, y por qué:**
+
+1. **`reconcileShares` NO cambia la forma del `Map`.** El plan metía el nombre
+   adentro del valor y avisaba del riesgo de que el segundo lector se quedara
+   viejo. Al escribirlo, `svelte-check` marcó tres errores por eso, y mirándolo
+   el diseño estaba de más: un bucle aparte sobre la respuesta guarda los nombres
+   sin tocar esa forma. Menos código y el riesgo desaparece en vez de quedar
+   vigilado. **La prueba que lo vigila quedó igual** — el riesgo se evitó, no dejó
+   de existir.
+2. **El rol sale de `note.share`, no de una lectura nueva.** El editor ya tiene la
+   nota cargada. El plan pedía un `$state` + un `$effect` que no hacían falta.
+3. **La prueba del menú del renglón pasó la primera vez SIN el candado** (buscaba
+   el nombre del menú abierto, no el del botón que lo abre). Ahora comprueba
+   primero que en una nota propia el botón está. Las tres pruebas del candado se
+   verificaron en rojo apagándolo.
+
+---
+
 ## Por qué la parte B viene partida en tres, para Hernán
 
 La parte A fue "el caño": la nota sale de la bóveda, vive en claro en el servidor y vuelve, probado con dos aparatos tuyos y sin nadie del otro lado. La parte B es todo lo que pasa cuando aparece una segunda persona, y son ~10 días. Partirla en tres no es una preferencia: cada pedazo tiene que poder probarse solo, y estos tres cortan donde el anterior queda **usable y seguro**.
@@ -1662,3 +1703,173 @@ No es alcance de este plan; está acá para que no se pierda.
 - **B2:** el tilde derivado de la bitácora (§5), los comentarios, `actor` como identidad en las tres pantallas **y en `mcp/lib/tools.js` + `bridge/export.ts`** (§6), y los dos candados anti-atasco (§5 y §3c).
 - **B3:** "Listo" (§8 — su mitad del respaldo ya está hecha en `3e42b5e`), el contador de novedades (§8), que deshacer no destilde (§9), y la consulta de moderación.
 - **Una medición para B2, hecha al escribir este plan y que ahorra trabajo:** el atasco que §3c describe —"una fila que no se puede mandar arrastra el cursor para atrás en cada pasada"— **no existe con la forma que quedó construida**. `pushSharedNote` marca fila por fila con `markSentToCloud` y no lleva un cursor del tipo de `uploadedThrough`, y `listSharedPending` ya filtra por rol. Antes de construir el arreglo de §3c hay que **medir si el problema pasa**, porque el arreglo se escribió contra una forma del código que no es la que hay. La marca `fromCloud` en las escrituras del invitado sigue teniendo sentido por otro motivo (no son cambios locales), pero eso es una línea, no la tarea que la spec presupuesta.
+
+---
+
+## El resultado del gate (2026-08-17): LOS 12 PASOS PASADOS
+
+Corrido por Hernán con dos cuentas reales contra el servidor real. **A = ventana
+normal del navegador en `localhost:5173`** (su app de siempre, con sus notas),
+**B = ventana de incógnito** con una cuenta nueva. Dos cosas que la preparación
+del plan daba por necesarias y NO lo eran, y que ahorran una hora la próxima:
+
+- **No hace falta empaquetar la `.app`.** Nada de B1 depende del runtime
+  empaquetado. Dos ventanas del navegador son dos aparatos distintos de verdad
+  (otro IndexedDB) y alcanzan.
+- **No hace falta una segunda cuenta de Google.** `disable_signup:false` +
+  `mailer_autoconfirm:true` ⇒ crear una cuenta con mail y contraseña es
+  instantáneo. Sirve un alias propio (`pulimumi+prueba@gmail.com`).
+- El link sale con el origen donde se genera, así que generado en
+  `localhost:5173` se abre en B sin tocar nada.
+
+**Nueve bugs reales, todos arreglados y con prueba.** El gate encontró más que
+las siete tareas de construcción juntas, y ninguno era visible leyendo el
+código de a un archivo por vez:
+
+1. **`fabe1b8` — la invitación no se enteraba de que entraste.** `InviteAccept`
+   leía la sesión UNA vez, al montarse, y entrar pasa en esa misma página sin
+   recargarla: la tarjeta quedaba clavada en "entrá a tu cuenta" para siempre y
+   el botón de aceptar no aparecía nunca. `CloudLifecycle` tenía la lección
+   escrita en un comentario, para el websocket, y esta pantalla no la aplicó.
+   Ahora sigue la sesión con `onAuthStateChange`.
+2. **`c14c3d3` — el candado de sólo lectura tenía cuatro puertas abiertas.**
+   `contenteditable="false"` frena el tecleo y nada más. Quedaban: **pegar**
+   (el evento llega igual a un elemento no editable, y de ahí salen tres
+   caminos que crean renglones), **la barra de formato** (aparecía al marcar
+   texto, con todos los botones inertes — peor que no tenerla), **el chip de
+   fecha y la cruz de las etiquetas**, y —el que nadie había pensado— **el
+   título de la nota, que es un `<input>` aparte al que `readOnly` nunca
+   llegaba: el invitado podía renombrar la nota ajena**. Paso 6 de la tarea 6
+   decía "buscar las otras puertas" y se había hecho a medias.
+3. **`e7bfb03` — `shareNameOr` existía sin un solo llamador.** El nombre del
+   dueño se venía guardando desde `list_shares` y no lo mostraba ninguna
+   pantalla, así que la mitad B del paso 6 del gate no podía pasar.
+4. **`a3dad78` — aceptar no mostraba la nota hasta recargar.** La campanita
+   (`appliedVersion`) la tocaba `syncNow`, el único llamador de `syncShared`
+   cuando se escribió. El segundo llamador —`InviteAccept`— se la olvidó, y no
+   se arreglaba solo: la pasada siguiente ya no cambiaba nada, así que no había
+   nada que avisar. La campanita se mudó ADENTRO de `syncShared`.
+5. **`9e21cf9` — "No se pudo: TypeError: Failed to fetch"** en pantalla, en
+   inglés. Los mensajes del servidor ya vienen en castellano (los escribe cada
+   `raise exception`); el único que había que traducir es el del navegador, y
+   va en `unwrap`, la puerta única de las seis llamadas.
+6. **`9658f25` — el número de "sin subir" son dos colas y Configuración veía
+   una.** `countPendingUploads` da 0 sin permiso de subir, así que la cola de un
+   invitado es ENTERA la mitad que faltaba: la pantalla le decía siempre cero.
+   **Sin este arreglo el paso 11 daba verde sin probar nada.**
+7. **`43f2c3a` — salirse de una nota tardaba 30 segundos en notarse.**
+   `leaveShare` sólo avisaba al servidor; el panel se dibuja leyendo la marca
+   LOCAL, que limpiaba `reconcileShares` en la pasada siguiente. Mientras tanto
+   seguía ofreciendo "Salirme de esta nota" a alguien que ya se había ido, y
+   cada clic repetía la llamada. Ahora la marca se borra apenas el servidor
+   acepta —y sólo si acepta—, y el botón dice "Saliendo…".
+8. **`c2c8cb1` — el ícono de compartida no se distinguía del de compartir.**
+   Los dos terminaban en `text-foreground` al pasar el mouse, o sea el mismo
+   dibujo del mismo color justo en el único momento en que se los compara.
+9. **`b1bb8d3` (antes del paso 1) — un aparato sin la llave no podía cerrar
+   sesión.** Ver `copynotes-locked-out-no-signout`.
+
+**El falso positivo que casi entra:** la prueba e2e de "no aparece la barra de
+formato" **pasaba con el candado puesto Y sin poner**. `toHaveCount(0)` no
+espera, y la barra tarda 300ms a propósito. Lleva su espera y el porqué escrito
+al lado. Es la segunda vez en esta rama que una prueba de ausencia miente.
+
+**La media hora que se perdió, y cómo no perderla de nuevo:** B empezó a decir
+"Sin conexión con la nube" y a fallar con `Failed to fetch`. No era la red ni
+Supabase (A andaba, y un `fetch` pelado desde node contestaba en 481ms): **el
+servidor de `vite dev` estaba emitiendo una CSP sin el host de Supabase**
+(`connect-src 'self' ipc: http://ipc.localhost`). Se arregla reiniciándolo.
+Descartados con medición: el build no la cambia, y el sandbox tampoco (un vite
+arrancado adentro del sandbox lee `.env` bien). Por qué arrancó con la variable
+vacía quedó sin explicar — el log no tiene ningún reinicio.
+**Regla: antes de un gate de nube, verificar la CSP con un comando**, no
+descubrirla veinte minutos después disfrazada de "no hay internet":
+
+```bash
+curl -sI http://localhost:5173/ | grep -io "connect-src[^;]*"
+```
+
+**Lo que el producto hizo BIEN bajo esa falla, y conviene no romper:** con el
+servidor prohibiéndole hablar, B no perdió nada, no mintió y no se rompió —
+dijo "Sin conexión con la nube. Se reintenta solo.", en gris y no en rojo, y
+guardó el detalle técnico en el `title`. Eso es exactamente lo que ese diseño
+prometía, y fue lo que permitió diagnosticarlo.
+
+**Números al cerrar:** unit **1195**, e2e **183** (el flake del separador es
+preexistente: el mismo código da 8/10 en una corrida y otra cosa en la
+siguiente — una rotura falla 10/10), `pnpm check` con sus **4 errores
+preexistentes**, `pnpm rls:check` **20/20**.
+
+**Decidido por Hernán mirando el resultado, y todavía SIN construir:** cuando
+se va el último invitado, la nota **se cierra sola** y vuelve a la bóveda. Hoy
+queda compartida —fuera de la bóveda, sin cifrar— sin nadie del otro lado, y la
+sección "Quiénes la están viendo" desaparece entera, así que el estado es
+invisible. **No se puede hacer en el servidor solo:** cerrar incluye RESELLAR
+las filas para que entren al caño cifrado, y eso lo hace el aparato del dueño
+(`share-move.ts`); un `close_share` a secas dejaría la nota sin caño,
+sincronizando en silencio con nadie. Y "cerrar cuando no hay nadie" a secas
+rompe compartir: recién abierta, antes de generar el link, tampoco hay nadie.
+La forma sin adivinanzas es que el servidor ANOTE que la compartición se quedó
+sin nadie —una columna, puesta sólo por una salida real— y que el dueño la
+cierre bien en su pasada siguiente. **Necesita SQL nuevo.**
+
+---
+
+## El cierre automático (2026-08-17, después del gate): CONSTRUIDO Y VERIFICADO
+
+Pedido por Hernán mirando el resultado del gate: la nota quedaba compartida
+—fuera de la bóveda, sin cifrar— con nadie del otro lado, y el estado era
+invisible (la sección "Quiénes la están viendo" desaparece entera con cero
+miembros).
+
+**`cb5e51b`.** SQL aplicado por Hernán y medido: **`pnpm rls:check` 21/21**,
+con la prueba nueva "el último que se va deja la marca, y el que entra la
+levanta". **Comprobado además a mano con las dos cuentas**: B se salió, el ícono
+de A se apagó solo dentro de los 30 segundos, y editar esa nota en A después
+dejó el estado en "Todo subido" — que es lo único que prueba que volvió al caño
+cifrado y no quedó sin ninguno.
+
+Las tres decisiones, y por qué:
+
+- **El servidor MARCA (`shares.emptied`), no cierra.** Cerrar incluye resellar
+  las filas para que entren al caño cifrado, y eso sólo lo puede hacer el
+  aparato del dueño. Un `delete from shares` a secas dejaría la nota sin ningún
+  caño, sincronizando en silencio con nadie.
+- **No se deduce de "cero miembros".** Recién compartida, antes de generar el
+  link, tampoco hay nadie: esa regla rompería compartir. La marca la pone una
+  salida real, y `accept_share_invite` la levanta.
+- **Va sólo en `leave_share`, no en `remove_member`.** Cuando el dueño saca a
+  alguien está mirando esa pantalla, con el botón de cerrar al lado.
+
+**Trampa de Postgres:** `list_shares` ganó una columna y Postgres **se niega** a
+cambiarle el tipo de retorno a una función que ya existe. Sin el
+`drop function if exists` que ahora lleva adelante, el `schema.sql` entero se
+cae con "cannot change return type of existing function".
+
+## Y la trampa que costó dos rondas del gate: `pnpm test:e2e` rompía la app
+
+**`2ca185a`.** El build de e2e corre con las variables de la nube vacías a
+propósito (`playwright.config.ts`), y de paso reescribía
+`.svelte-kit/generated/server/internal.js` — **de donde el `vite dev` que esté
+corriendo lee la CSP**. El servidor lo recargaba en caliente, sin reiniciarse y
+sin decir nada, y a partir de ahí el navegador bloqueaba cada llamada a
+Supabase. La app lo contaba como `TypeError: Failed to fetch`: **indistinguible
+de quedarse sin internet**, y apuntando al lado equivocado.
+
+O sea: **correr la suite entre dos pruebas a mano dejaba la app rota en
+silencio**, que es exactamente lo que se hace durante un gate. Pasó dos veces el
+mismo día; la segunda estuvo a punto de anotarse como un bug del producto.
+
+Arreglado con un `svelte-kit sync` después del build, y el `unset` que hace que
+ese sync lea el `.env` de verdad. **Descartado con medición:** darle al build de
+e2e su propio `kit.outDir` — el plugin de PWA busca el precache en `.svelte-kit`
+y la prueba de "sin conexión" pasaba a fallar 3 de 3.
+
+**Cómo se detecta en 5 segundos**, antes de perder media hora:
+
+```bash
+curl -sI http://localhost:5173/ | grep -io "connect-src[^;]*"
+```
+
+Tiene que aparecer el host de Supabase, `https://` y `wss://`. Si no está, el
+servidor está envenenado: reiniciarlo.

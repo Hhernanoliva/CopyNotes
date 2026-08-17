@@ -13,8 +13,11 @@ import { expect } from '@playwright/test';
 // arranca, `+page.svelte` pinta un esqueleto en su lugar. Sirve en cualquier
 // estado (primera visita, notas ya sembradas, respaldo importado), a diferencia
 // de esperar el título de la nota de bienvenida, que sólo existe en la primera.
-export async function openApp(page) {
-	await page.goto('/');
+// El parámetro tiene valor por defecto para no tocar los ~80 llamadores que ya
+// existen. Lo usan las pruebas que abren la app con algo en la dirección — hoy,
+// un link de invitación (`?invitacion=...`).
+export async function openApp(page, url = '/') {
+	await page.goto(url);
 	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
 }
 

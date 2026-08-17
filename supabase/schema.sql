@@ -360,6 +360,40 @@ create table if not exists public.share_invites (
 	expires_at timestamptz not null
 );
 
+-- Los nombres (spec 038 §6, decidido con Hernán el 2026-08-16). El dueño escribe
+-- los dos: cómo se llama el invitado, y cómo firma él. NINGÚN mail viaja en
+-- ninguna dirección —es la misma promesa que hace el resto del producto— y
+-- cuesta un campo de texto en una pantalla que igual tenía que existir.
+--
+-- Se descartó el mail de la cuenta (filtra una dirección en los dos sentidos, y
+-- un link reenviado le dice al dueño quién lo aceptó) y el apodo elegido por el
+-- invitado (le deja firmar con el nombre de otra persona, que es justo lo que
+-- `push_shared_rows` gasta una sobreescritura en impedir).
+--
+-- Los tres son `text` y NO `not null`: una compartición abierta por la parte A no
+-- tiene ninguno, y el día que este archivo se corra esas filas siguen ahí. El
+-- cliente resuelve el nulo con una frase por defecto.
+alter table public.shares add column if not exists owner_label text;
+alter table public.share_members add column if not exists display_name text;
+alter table public.share_invites add column if not exists member_label text;
+
+-- "Esta compartición se quedó sin nadie" (decidido con Hernán al cerrar el gate
+-- de B1, 2026-08-17). Una nota compartida sin invitados está fuera de la bóveda
+-- y sin cifrar para nadie, y el dueño no se entera: la sección "Quiénes la están
+-- viendo" desaparece entera con cero miembros.
+--
+-- Es una MARCA y no el cierre, porque cerrar no se puede hacer desde acá: además
+-- de borrar la compartición hay que RESELLAR las filas de la nota para que
+-- entren al caño cifrado, y eso sólo lo puede hacer el aparato del dueño
+-- (`src/lib/sync/share-move.ts`). Un `delete from shares` a secas dejaría la
+-- nota sin ningún caño, sincronizando en silencio con nadie — que es la falla
+-- que ese archivo entero existe para evitar.
+--
+-- Y no se deduce de "cero miembros": recién abierta, antes de que el dueño
+-- genere el link, tampoco hay nadie. La marca la pone una SALIDA real y nada
+-- más, así que no hay nada que adivinar.
+alter table public.shares add column if not exists emptied boolean not null default false;
+
 -- Una fila de la nota, con SÓLO los campos de la lista blanca adentro de
 -- `payload` (src/lib/sync/shared-payload.ts). `change_seq` va como columna, no
 -- adentro del payload, igual que en `records`: es el sello de versión, no
@@ -448,6 +482,144 @@ begin
 	-- Sólo el dueño cierra. El `delete` en cascada de `shares` se lleva las
 	-- filas, los miembros y las invitaciones; están declaradas así arriba.
 	delete from public.shares where note_id = p_note_id and owner_id = auth.uid();
+end;
+$$;
+
+-- El link de invitación (spec 038 §7). El link NO da acceso: es un token que se
+-- canjea estando adentro de una cuenta, y eso es exactamente lo que hace que
+-- "¿quién tildó esto?" tenga respuesta.
+--
+-- Vence a los 7 días. No es configurable porque nadie pidió que lo fuera; el día
+-- que alguien lo pida, es un parámetro más.
+create or replace function public.create_share_invite(
+	p_note_id text,
+	p_member_label text,
+	p_owner_label text
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+	nuevo_token text;
+begin
+	if auth.uid() is null then
+		raise exception 'create_share_invite necesita una sesión iniciada';
+	end if;
+	-- Sólo el dueño invita. La comprobación va contra `shares` y NO contra
+	-- `is_share_participant`, justamente para dejar afuera a los invitados: si no,
+	-- cualquiera de ellos podría repartir la nota de otro.
+	if not exists (
+		select 1 from public.shares where note_id = p_note_id and owner_id = auth.uid()
+	) then
+		raise exception 'sólo quien comparte la nota puede invitar';
+	end if;
+	-- Dos uuid: 256 bits de token, que es lo que separa un link secreto de uno
+	-- adivinable. `gen_random_uuid()` viene en el core desde Postgres 13, no hace
+	-- falta pgcrypto.
+	nuevo_token := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+	insert into public.share_invites (token, note_id, owner_id, expires_at, member_label)
+	values (nuevo_token, p_note_id, auth.uid(), now() + interval '7 days', p_member_label);
+	-- El nombre del dueño vive en `shares` y no en la invitación: es uno solo por
+	-- nota, y corregirlo tiene que alcanzar también a los que ya entraron. El
+	-- `coalesce` con `nullif` deja que una invitación posterior no lo borre por
+	-- venir con el campo vacío.
+	update public.shares
+	   set owner_label = coalesce(nullif(p_owner_label, ''), owner_label)
+	 where note_id = p_note_id and owner_id = auth.uid();
+	return nuevo_token;
+end;
+$$;
+
+-- Canjear el token. Devuelve el `note_id` para que la app sepa qué nota esperar;
+-- la nota en sí baja después, por el caño compartido de siempre.
+--
+-- Re-aceptar es un no-op (§7: una membresía por nota por cuenta) y por eso el
+-- `on conflict do nothing` en vez de un error: quien abre el link dos veces no
+-- cometió ningún error.
+create or replace function public.accept_share_invite(p_token text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+	invitacion public.share_invites;
+begin
+	if auth.uid() is null then
+		raise exception 'accept_share_invite necesita una sesión iniciada';
+	end if;
+	select * into invitacion from public.share_invites where token = p_token;
+	if invitacion.token is null then
+		raise exception 'esa invitación no existe';
+	end if;
+	if invitacion.expires_at < now() then
+		raise exception 'esa invitación venció';
+	end if;
+	-- El dueño canjeando su propio link quedaría como miembro de su propia nota:
+	-- dos roles a la vez, y `list_shares` devolviéndole las dos filas.
+	if invitacion.owner_id = auth.uid() then
+		raise exception 'esa nota ya es tuya';
+	end if;
+	insert into public.share_members (note_id, member_id, display_name)
+	values (invitacion.note_id, auth.uid(), invitacion.member_label)
+	on conflict (note_id, member_id) do nothing;
+	-- Entró alguien: la nota ya no está sin nadie. Sin esto, una compartición que
+	-- se vació y volvió a llenarse antes de que el dueño abriera la app se
+	-- cerraría igual, dejando afuera al que acaba de entrar.
+	update public.shares set emptied = false where note_id = invitacion.note_id;
+	return invitacion.note_id;
+end;
+$$;
+
+-- Quitarle el acceso a alguien. Sólo el dueño. NO le borra la copia que ya tiene
+-- en su aparato —eso es imposible desde acá— y la pantalla lo dice con esas
+-- palabras antes de confirmar (§7).
+create or replace function public.remove_member(p_note_id text, p_member_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'remove_member necesita una sesión iniciada';
+	end if;
+	if not exists (
+		select 1 from public.shares where note_id = p_note_id and owner_id = auth.uid()
+	) then
+		raise exception 'sólo quien comparte la nota puede quitar a alguien';
+	end if;
+	delete from public.share_members
+	 where note_id = p_note_id and member_id = p_member_id;
+end;
+$$;
+
+-- Lo mismo desde el otro lado: el invitado se va solo. Se borra a sí mismo y a
+-- nadie más, y por eso NO toma un `p_member_id`: un parámetro que sólo puede
+-- valer `auth.uid()` es un agujero esperando a que alguien lo llame con otra cosa.
+create or replace function public.leave_share(p_note_id text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+	if auth.uid() is null then
+		raise exception 'leave_share necesita una sesión iniciada';
+	end if;
+	delete from public.share_members
+	 where note_id = p_note_id and member_id = auth.uid();
+	-- Si era el último, queda la marca para que el dueño la cierre bien en su
+	-- próxima pasada. Va SÓLO acá y no en `remove_member`: cuando el dueño saca a
+	-- alguien está mirando esa pantalla, con el botón de cerrar al lado y quizás a
+	-- punto de invitar a otra persona. Cuando el invitado se va solo, en cambio,
+	-- nadie le avisa, y la nota se queda fuera de la bóveda sin nadie del otro
+	-- lado.
+	if not exists (select 1 from public.share_members where note_id = p_note_id) then
+		update public.shares set emptied = true where note_id = p_note_id;
+	end if;
 end;
 $$;
 
@@ -637,8 +809,24 @@ $$;
 -- un aparato que nunca vio la nota no la tiene en ningún lado (su caño cifrado
 -- la saltea por la regla del caño único), y después de restaurar un respaldo la
 -- marca `share` no está a propósito.
+-- Devuelve además CÓMO SE LLAMA EL OTRO, y es UNA sola columna porque de cada
+-- lado el otro es uno solo: el invitado ve al dueño. Del lado del dueño viene
+-- nula a propósito —él ve a varios, y esa lista se lee de `share_members`, que su
+-- RLS ya le deja leer—. Lo que esta columna resuelve es el caso del invitado, que
+-- no tiene ninguna otra forma de saber el nombre del dueño.
+--
+-- El tipo de retorno cambió en la parte B1, y a eso `create or replace` contesta
+-- "cannot change return type of existing function". Por eso el `drop` antes.
+drop function if exists public.list_shares();
+
+-- El `drop` NO es opcional y no se puede reemplazar por `create or replace`:
+-- Postgres se niega a cambiarle el tipo de retorno a una función existente, y
+-- esta suma una columna. Sin el drop, correr este archivo sobre una base que ya
+-- tenía la versión de tres columnas falla con "cannot change return type of
+-- existing function" y se lleva puesto el resto del archivo.
+drop function if exists public.list_shares();
 create or replace function public.list_shares()
-returns table (note_id text, role text)
+returns table (note_id text, role text, counterpart_label text, emptied boolean)
 language plpgsql
 security definer
 set search_path = ''
@@ -648,9 +836,16 @@ begin
 		raise exception 'list_shares necesita una sesión iniciada';
 	end if;
 	return query
-	select s.note_id, 'owner'::text from public.shares as s where s.owner_id = auth.uid()
+	-- `emptied` viaja SÓLO en la fila del dueño: es él quien cierra, y decirle a
+	-- un invitado cuánta gente hay del otro lado es contarle algo que no le toca.
+	select s.note_id, 'owner'::text, null::text, s.emptied
+	  from public.shares as s
+	 where s.owner_id = auth.uid()
 	union all
-	select m.note_id, 'member'::text from public.share_members as m where m.member_id = auth.uid();
+	select m.note_id, 'member'::text, o.owner_label, false
+	  from public.share_members as m
+	  join public.shares as o on o.note_id = m.note_id
+	 where m.member_id = auth.uid();
 end;
 $$;
 
@@ -661,6 +856,10 @@ revoke all on function public.reset_records() from public;
 revoke all on function public.push_shared_rows(text, jsonb) from public;
 revoke all on function public.pull_shared_rows(text, bigint) from public;
 revoke all on function public.list_shares() from public;
+revoke all on function public.create_share_invite(text, text, text) from public;
+revoke all on function public.accept_share_invite(text) from public;
+revoke all on function public.remove_member(text, uuid) from public;
+revoke all on function public.leave_share(text) from public;
 grant execute on function public.open_share(text) to authenticated;
 grant execute on function public.close_share(text) to authenticated;
 grant execute on function public.delete_records(jsonb) to authenticated;
@@ -668,6 +867,10 @@ grant execute on function public.reset_records() to authenticated;
 grant execute on function public.push_shared_rows(text, jsonb) to authenticated;
 grant execute on function public.pull_shared_rows(text, bigint) to authenticated;
 grant execute on function public.list_shares() to authenticated;
+grant execute on function public.create_share_invite(text, text, text) to authenticated;
+grant execute on function public.accept_share_invite(text) to authenticated;
+grant execute on function public.remove_member(text, uuid) to authenticated;
+grant execute on function public.leave_share(text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Row-Level Security — the lock
