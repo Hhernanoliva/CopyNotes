@@ -24,6 +24,7 @@ la funcionalidad**, no al publicar.
 - En un título, el botón de negrita se ve apagado: los títulos ya vienen en negrita y antes el botón no hacía nada
 - Enter en medio de una línea la parte en dos: lo que está por delante del cursor se baja al renglón nuevo, con su tipo y su formato
 - Y el camino de vuelta: con el cursor al principio de un renglón, Backspace lo vuelve a unir con el de arriba (antes no hacía nada). El formato viaja, manda el tipo del de arriba y el cursor queda justo en la unión
+- Con la Agenda abierta al costado, el texto que escribís en un renglón con fecha ya aparece ahí solo. Antes, si le ponías la fecha al renglón todavía vacío, el ítem se quedaba en «Sin texto» por más que después escribieras: había que cambiar de pestaña o recargar para verlo. Lo mismo pasaba al ponerle nombre a la nota
 - Arrastrar un pedazo de una palabra en negrita (o con color, o con enlace) ya no lo deja pelado al soltarlo
 - Primera versión de escritorio publicada
 - Los agentes se pueden conectar desde Claude Code, OpenCode y Cursor

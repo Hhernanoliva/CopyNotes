@@ -281,3 +281,33 @@ test('agenda drops a note’s dates live when the note is deleted', async ({ pag
 	await page.getByRole('button', { name: 'Agenda', exact: true }).click();
 	await expect(page.getByRole('region', { name: 'Hoy' }).getByText('pagar')).toHaveCount(0);
 });
+
+// El panel de Agenda leía la base UNA sola vez —al abrirse y cuando cambiaba una
+// fecha— así que el texto escrito DESPUÉS de ponerle fecha a un renglón no
+// llegaba nunca: el ítem se quedaba en "Sin texto" hasta cambiar de pestaña.
+test('la Agenda abierta muestra el texto escrito despues de poner la fecha', async ({ page }) => {
+	await newNote(page);
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await expect(page.locator('#slash-menu')).toBeVisible();
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	await page.getByRole('button', { name: 'Hoy' }).click();
+	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveText(/hoy/);
+
+	// El renglón está vacío: la Agenda lo lista sin nombre.
+	const agenda = page.locator('div[aria-label="Agenda"]');
+	await page.getByRole('button', { name: 'Agenda' }).click();
+	await expect(agenda).toContainText('Sin texto');
+
+	// Escribir el texto con el panel a la vista tiene que bautizar el ítem.
+	await first.click();
+	await page.keyboard.type('Comprar pan', { delay: 25 });
+	await expect(agenda).toContainText('Comprar pan');
+	await expect(agenda).not.toContainText('Sin texto');
+
+	// Y el título de la nota, que es el subtítulo del ítem, sigue el mismo camino.
+	await page.getByRole('textbox', { name: 'Título de la nota' }).fill('Mandados');
+	await expect(agenda).toContainText('Mandados');
+});

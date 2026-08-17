@@ -795,7 +795,15 @@
 						noteId={currentNoteId}
 						initialFocusBlockId={pendingFocusBlockId}
 						onNoteUpdated={handleNoteUpdated}
-						onSaveStateChange={(state) => (saveState = state)}
+						onSaveStateChange={(state) => {
+							saveState = state;
+							// Un guardado que aterriza pudo cambiar el TEXTO de un renglón con fecha
+							// o el título de la nota, y la Agenda muestra los dos. Sin esto sólo
+							// releía al cambiar una fecha, así que el texto escrito DESPUÉS de
+							// fechar un renglón vacío se quedaba en «Sin texto». Va acá y no en
+							// cada tecla porque «guardado» ya llega una vez por ráfaga de tecleo.
+							if (state === 'saved') agendaVersion += 1;
+						}}
 						onSnippetsChanged={refreshSnippets}
 						onTagsChanged={refreshTags}
 						onDatesChanged={() => (agendaVersion += 1)}
