@@ -32,7 +32,24 @@ export default defineConfig({
 		}
 	],
 	webServer: {
-		command: 'pnpm build && pnpm preview --port 4173',
+		// El `sync` del medio no es un adorno, y no se saca.
+		//
+		// El build de acá abajo corre con las variables de la nube VACÍAS a
+		// propósito, y de paso reescribe `.svelte-kit/generated/server/internal.js`
+		// —de donde el `vite dev` que esté corriendo lee la CSP—. El servidor lo
+		// recarga en caliente, sin reiniciarse y sin decir nada: a partir de ahí el
+		// navegador BLOQUEA cada llamada a Supabase y la app lo cuenta como
+		// "TypeError: Failed to fetch", que es idéntico a quedarse sin internet.
+		// Correr la suite entre dos pruebas a mano dejaba la app rota sin que nada
+		// lo dijera (medido dos veces el 2026-08-17, la segunda a punto de anotarse
+		// como un bug del producto en un gate manual).
+		//
+		// El `unset` es lo que hace que el `sync` lea el `.env` de verdad y devuelva
+		// la CSP buena. No alcanza con darle un directorio propio al build de e2e:
+		// se probó, y el plugin de PWA busca el precache en `.svelte-kit` — la
+		// prueba de "sin conexión" pasó a fallar 3 de 3.
+		command:
+			'pnpm build && (unset PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY; pnpm exec svelte-kit sync) && pnpm preview --port 4173',
 		url: 'http://localhost:4173',
 		reuseExistingServer: !process.env.CI,
 		timeout: 120_000,
