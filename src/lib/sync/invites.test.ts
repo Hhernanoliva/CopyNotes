@@ -1,0 +1,134 @@
+import 'fake-indexeddb/auto';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { db } from '../storage/db';
+import { getShareName } from '../storage/share-names';
+import {
+	acceptInvite,
+	createInvite,
+	inviteLink,
+	leaveShare,
+	listMembers,
+	removeMember
+} from './invites';
+
+// El servidor de mentira ramifica por nombre de `rpc`. NO tratarlo como una sola
+// función: en la parte A, un doble que contestaba lo mismo a cualquier `rpc`
+// puso rojas diez pruebas de golpe apenas `syncNow` empezó a llamar a otra.
+function fakeClient(handlers = {}) {
+	const llamadas = [];
+	return {
+		llamadas,
+		rpc: async (name, args) => {
+			llamadas.push({ name, args });
+			return handlers[name]?.(args) ?? { data: null, error: null };
+		},
+		// `listMembers` encadena `.select(...).eq(...)`, así que el doble tiene que
+		// tener las dos.
+		from: (table) => ({
+			select: () => ({
+				eq: async (columna, valor) => {
+					llamadas.push({ name: `from:${table}`, args: { [columna]: valor } });
+					return handlers[`from:${table}`]?.() ?? { data: [], error: null };
+				}
+			})
+		})
+	};
+}
+
+describe('las invitaciones', () => {
+	beforeEach(async () => {
+		await db.table('shareMembers').clear();
+	});
+
+	it('pide el token con los dos nombres', async () => {
+		const client = fakeClient({
+			create_share_invite: () => ({ data: 'tok123', error: null })
+		});
+		expect(await createInvite(client, 'note_1', 'Juan', 'Hernán')).toBe('tok123');
+		expect(client.llamadas[0]).toEqual({
+			name: 'create_share_invite',
+			args: { p_note_id: 'note_1', p_member_label: 'Juan', p_owner_label: 'Hernán' }
+		});
+	});
+
+	// El error del servidor llega adentro de `error`, no como excepción. Sin esta
+	// rama la pantalla diría "listo" sobre una invitación que no se creó.
+	it('convierte el error del servidor en una excepción', async () => {
+		const client = fakeClient({
+			create_share_invite: () => ({
+				data: null,
+				error: { message: 'sólo quien comparte la nota puede invitar' }
+			})
+		});
+		await expect(createInvite(client, 'note_1', 'Juan', 'Hernán')).rejects.toThrow(
+			'sólo quien comparte la nota puede invitar'
+		);
+	});
+
+	// El link tiene que apuntar a la web SIEMPRE. Adentro de la app de escritorio
+	// `window.location.origin` es un esquema interno de Tauri, y un link así no lo
+	// puede abrir nadie más que la máquina que lo generó.
+	it('arma el link contra la web aunque lo genere la app de escritorio', () => {
+		expect(inviteLink('tok123', 'https://copynotes-beta.vercel.app')).toBe(
+			'https://copynotes-beta.vercel.app/?invitacion=tok123'
+		);
+		expect(inviteLink('tok123', 'tauri://localhost')).toBe(
+			'https://copynotes-beta.vercel.app/?invitacion=tok123'
+		);
+	});
+
+	// Y en desarrollo o en una preview, el origen de verdad sirve tal cual: si no,
+	// probar una invitación obligaría a tocar el código.
+	it('respeta un origen http de verdad', () => {
+		expect(inviteLink('tok123', 'http://localhost:5173')).toBe(
+			'http://localhost:5173/?invitacion=tok123'
+		);
+	});
+
+	it('canjea el token y devuelve qué nota esperar', async () => {
+		const client = fakeClient({ accept_share_invite: () => ({ data: 'note_1', error: null }) });
+		expect(await acceptInvite(client, 'tok123')).toBe('note_1');
+	});
+
+	// La lista sale de la tabla, que su RLS ya le deja leer al dueño. Y de paso se
+	// guardan los nombres, porque este es el único viaje que los trae.
+	it('lista los miembros y de paso guarda sus nombres', async () => {
+		const client = fakeClient({
+			'from:share_members': () => ({
+				data: [{ member_id: 'uuid-de-juan', display_name: 'Juan' }],
+				error: null
+			})
+		});
+		expect(await listMembers(client, 'note_1')).toEqual([{ id: 'uuid-de-juan', name: 'Juan' }]);
+		expect(await getShareName('uuid-de-juan')).toBe('Juan');
+	});
+
+	// Pide los miembros DE ESA NOTA. Sin el filtro, la pantalla del dueño mezcla
+	// los invitados de todas sus notas compartidas en una sola lista.
+	it('pide los miembros de esa nota y no de todas', async () => {
+		const client = fakeClient({ 'from:share_members': () => ({ data: [], error: null }) });
+		await listMembers(client, 'note_1');
+		expect(client.llamadas[0]).toEqual({ name: 'from:share_members', args: { note_id: 'note_1' } });
+	});
+
+	it('quita a un miembro por su uuid', async () => {
+		const client = fakeClient();
+		await removeMember(client, 'note_1', 'uuid-de-juan');
+		expect(client.llamadas[0]).toEqual({
+			name: 'remove_member',
+			args: { p_note_id: 'note_1', p_member_id: 'uuid-de-juan' }
+		});
+	});
+
+	// El invitado se va solo, y su puerta no toma a quién: un parámetro que sólo
+	// puede valer la propia cuenta es un agujero esperando a que alguien lo llame
+	// con otra cosa.
+	it('el invitado se va sin decir quién es', async () => {
+		const client = fakeClient();
+		await leaveShare(client, 'note_1');
+		expect(client.llamadas[0]).toEqual({
+			name: 'leave_share',
+			args: { p_note_id: 'note_1' }
+		});
+	});
+});

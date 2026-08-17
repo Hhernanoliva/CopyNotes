@@ -20,6 +20,7 @@ import {
 	setShareCursor,
 	setShareRole
 } from '../storage/shares';
+import { rememberShareName } from '../storage/share-names';
 import { toSharedPayload } from './shared-payload';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
 
@@ -138,13 +139,27 @@ export async function pullSharedNote(client, noteId) {
 export async function reconcileShares(client) {
 	const { data, error } = await client.rpc('list_shares');
 	if (error) throw new Error(error.message);
-	const fromServer = new Map((data ?? []).map((row) => [row.note_id, row.role]));
+	// El valor es un OBJETO y no el rol pelado, desde que `list_shares` devuelve
+	// también el nombre del otro. Un objeto y no un arreglo a propósito: recorrer
+	// un Map entrega `[clave, valor]`, así que un valor-arreglo obliga a
+	// desestructurar dos niveles y ese paréntesis de más es justo el que se olvida
+	// en el segundo llamador — y ahí el rol deja de ser 'member', el candado de
+	// `listSharedPending` se abre y el caño ofrece las tres tablas de una nota
+	// ajena. Hay una prueba que lo vigila en `shared.test.ts`.
+	const fromServer = new Map(
+		(data ?? []).map((row) => [row.note_id, { role: row.role, label: row.counterpart_label }])
+	);
 	const { owner, member } = await sharedNoteIdsByRole();
 	const local = new Map();
 	for (const noteId of owner) local.set(noteId, 'owner');
 	for (const noteId of member) local.set(noteId, 'member');
 	let changed = 0;
-	for (const [noteId, role] of fromServer) {
+	for (const [noteId, { role, label }] of fromServer) {
+		// El nombre se guarda aunque el rol no haya cambiado: el dueño puede
+		// corregir cómo firma, y eso llega por acá sin mover ninguna marca. Un nulo
+		// NO se guarda: una compartición abierta antes de que los nombres existieran
+		// devuelve nulo para siempre, y escribirlo borraría el bueno.
+		if (label) await rememberShareName(`owner:${noteId}`, label);
 		if (local.get(noteId) === role) continue;
 		await setShareRole(noteId, role);
 		changed++;
@@ -167,7 +182,7 @@ export async function reconcileShares(client) {
 export async function syncShared(client) {
 	const { shares, changed } = await reconcileShares(client);
 	let applied = changed;
-	for (const [noteId, role] of shares) {
+	for (const [noteId, { role }] of shares) {
 		await pushSharedNote(client, noteId, role);
 		applied += await pullSharedNote(client, noteId);
 	}
