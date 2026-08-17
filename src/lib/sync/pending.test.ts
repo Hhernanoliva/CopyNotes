@@ -7,6 +7,7 @@ import { appendActivity } from '../storage/activity';
 import { assignTag, createTag } from '../storage/tags';
 import { setShareRole } from '../storage/shares';
 import {
+	countAllPending,
 	countPendingUploads,
 	grantUploadConsent,
 	hasUploadConsent,
@@ -149,5 +150,26 @@ describe('una nota viaja por un caño solo', () => {
 		await setShareRole(shared.id, 'owner');
 
 		expect(await countPendingUploads()).toBe((await listPendingUploads()).length);
+	});
+
+	// El número que ve la persona son DOS colas sumadas, y el invitado sólo tiene
+	// la segunda: `countPendingUploads` arranca en cero sin permiso de subir, y un
+	// invitado no da ese permiso (no tiene bóveda ni notas propias en la nube).
+	// Estaba escrito en `upload.ts` y en `SettingsDialog` por separado, y el
+	// segundo se quedó con la mitad: abrir Configuración bajaba el número a cero
+	// hasta la pasada siguiente. Una suma, un solo lugar (gate manual 2026-08-17).
+	it('la cola del invitado cuenta aunque no haya permiso de subir', async () => {
+		const ajena = await createNote({ title: 'me la compartieron' });
+		await setShareRole(ajena.id, 'member');
+		await appendActivity({
+			blockId: 'b1',
+			noteId: ajena.id,
+			actor: 'user',
+			action: 'done',
+			text: ''
+		});
+
+		expect(await countPendingUploads()).toBe(0);
+		expect(await countAllPending()).toBe(1);
 	});
 });

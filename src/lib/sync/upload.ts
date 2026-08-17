@@ -24,7 +24,7 @@
 
 import { cloudConfigured, supabase } from './supabase';
 import {
-	countPendingUploads,
+	countAllPending,
 	hasUploadConsent,
 	listPendingUploads,
 	markUploadedThrough
@@ -32,7 +32,7 @@ import {
 import { encryptRecord } from './records';
 import { markSentToCloud } from '../storage/db';
 import { downloadAll } from './download';
-import { countSharedPending, sharedReady, syncShared } from './shared';
+import { sharedReady, syncShared } from './shared';
 import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
 import { getVaultKey, makeVaultProof, proofOpens } from './vault';
@@ -292,12 +292,12 @@ export async function syncNow() {
 		reportSyncFailure(error);
 	} finally {
 		syncStatus.uploading = false;
-		// Las dos colas. `countPendingUploads` arranca con el permiso de subir y
-		// devuelve 0 sin él —correcto para el caño cifrado, que es su puerta— y
-		// eso deja a un invitado leyendo "Todo subido" sobre cinco tildes sin
-		// mandar. Y esa línea es el ÚNICO testigo del gate manual de dos aparatos,
-		// así que no puede mentir.
-		syncStatus.pending = (await countPendingUploads()) + (await countSharedPending());
+		// Las dos colas sumadas, y por una sola puerta: escrita a mano acá y en
+		// `SettingsDialog`, el segundo se quedó con la mitad y abrir Configuración
+		// bajaba el número a cero. Por qué son dos y no una está en
+		// `countAllPending`. Esta línea es el ÚNICO testigo del gate manual de dos
+		// aparatos, así que no puede mentir.
+		syncStatus.pending = await countAllPending();
 		// The whole standing pile, not what this run happened to find: a conflict
 		// stays open until the person decides it.
 		syncStatus.conflicts = await countConflicts();

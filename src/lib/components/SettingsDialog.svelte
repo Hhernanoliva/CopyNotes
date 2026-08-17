@@ -40,7 +40,7 @@
 	import { forgetCloudAccount, resetCloud } from '$lib/sync/leave';
 	import { createVault, hasVault } from '$lib/sync/vault';
 	import { joinWithPairingCode, startPairing } from '$lib/sync/pairing';
-	import { countPendingUploads, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
+	import { countAllPending, grantUploadConsent, hasUploadConsent } from '$lib/sync/pending';
 	import { cloudVaultExists, syncNow } from '$lib/sync/upload';
 	import { downloadAll } from '$lib/sync/download';
 	import { countConflicts } from '$lib/sync/conflicts';
@@ -105,7 +105,7 @@
 		cloudSession = await currentSession();
 		vaultReady = await hasVault();
 		consentGiven = await hasUploadConsent();
-		syncStatus.pending = await countPendingUploads();
+		syncStatus.pending = await countAllPending();
 		syncStatus.conflicts = await countConflicts();
 		// Only worth asking the server when this device has no vault of its own:
 		// the answer decides between "create one" and "join the one that exists".

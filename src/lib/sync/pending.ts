@@ -17,6 +17,7 @@ import { db, SYNCED_TABLES } from '../storage/db';
 import { getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 import { sharedNoteIds } from '../storage/shares';
+import { countSharedPending } from './shared';
 
 export async function hasUploadConsent() {
 	return (await getSetting(KEY.syncConsent)) === true;
@@ -79,6 +80,19 @@ export async function countPendingUploads() {
 		)
 	);
 	return counts.reduce((total, count) => total + count, 0);
+}
+
+// El número que ve la persona: son DOS colas y hay que sumarlas.
+//
+// La de arriba arranca en cero sin permiso de subir, y un invitado nunca lo da
+// —no tiene bóveda ni notas propias en la nube—, así que lo único que él puede
+// tener pendiente es lo del caño compartido. La suma vivía escrita por separado
+// en `upload.ts` y en `SettingsDialog`, y el segundo se había quedado con la
+// mitad: abrir Configuración bajaba el número a cero hasta la pasada siguiente.
+// Una sola puerta, y no hay una mitad que se pueda olvidar (gate manual,
+// 2026-08-17).
+export async function countAllPending() {
+	return (await countPendingUploads()) + (await countSharedPending());
 }
 
 // Oldest change first, so an interrupted upload can be resumed by advancing the
