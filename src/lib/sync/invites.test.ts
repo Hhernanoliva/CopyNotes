@@ -65,6 +65,19 @@ describe('las invitaciones', () => {
 		);
 	});
 
+	// Visto en el gate manual (2026-08-17): aceptar una invitación con la red
+	// caída mostró "No se pudo: TypeError: Failed to fetch". Los mensajes del
+	// servidor ya vienen en castellano —los escribe cada `raise exception`— así
+	// que el único que hay que traducir es el del navegador.
+	it('la red caída se cuenta en castellano, no con el nombre de un tipo', async () => {
+		for (const message of ['TypeError: Failed to fetch', 'NetworkError', 'Load failed']) {
+			const client = fakeClient({
+				accept_share_invite: () => ({ data: null, error: { message } })
+			});
+			await expect(acceptInvite(client, 'tok')).rejects.toThrow(/no se pudo conectar/i);
+		}
+	});
+
 	// El link tiene que apuntar a la web SIEMPRE. Adentro de la app de escritorio
 	// `window.location.origin` es un esquema interno de Tauri, y un link así no lo
 	// puede abrir nadie más que la máquina que lo generó.

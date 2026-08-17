@@ -14,9 +14,25 @@ import { rememberShareName } from '../storage/share-names';
 // mantiene vivos el `localhost` del desarrollo y las previews de Vercel.
 const WEB_APP_URL = 'https://copynotes-beta.vercel.app';
 
+// Los mensajes del servidor ya vienen en castellano: los escribe a mano cada
+// `raise exception` del schema, y pasan tal cual. El único que no es nuestro es
+// el del navegador cuando no hay red, que llega como "TypeError: Failed to
+// fetch" —inglés, el nombre de un tipo, y ni una palabra sobre qué hacer— y
+// aterriza en un `toast` delante de la persona. Se traduce acá, en la puerta
+// única de las seis llamadas, y no en cada botón (visto en el gate manual,
+// 2026-08-17, aceptando una invitación).
+//
+// No se reusa el `spanishError` de `supabase.ts`: ese traduce fallas de LOGIN, y
+// su rama de 5xx contesta sobre la configuración del correo, que acá no viene a
+// cuento.
+const SIN_RED = /failed to fetch|networkerror|network error|load failed/i;
+
 const unwrap = ({ data, error }) => {
-	if (error) throw new Error(error.message);
-	return data;
+	if (!error) return data;
+	if (SIN_RED.test(error.message ?? '')) {
+		throw new Error('No se pudo conectar. Revisá tu conexión y probá de nuevo.');
+	}
+	throw new Error(error.message);
 };
 
 export function inviteLink(token, origin) {
