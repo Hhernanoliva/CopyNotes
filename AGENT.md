@@ -206,6 +206,42 @@ Dos veces el mismo día (spec 038, 2026-08-17):
 día que aparece el segundo llamador**, y no falla ruidosamente: falla mostrando algo
 viejo, que nadie reporta como bug.
 
+## Un tercer actor rompe toda condición binaria sobre `actor`
+
+Hasta la spec 038 había dos: `'user'` y el agente. Al aparecer el invitado
+(`member:<uuid>`), **cada `actor === 'user'` / `actor !== 'user'` del código pasó a
+significar otra cosa**, y ninguno falla ruidosamente. Los tres que aparecieron, y no
+estaban en ningún plan:
+
+- **`agentNotesByBlock` filtraba `actor !== 'user'`**, y en el aparato del invitado
+  `'user'` es EL DUEÑO: el invitado no veía ni uno de sus comentarios. La pregunta
+  correcta es **"¿esto lo escribí yo?"** (`isMine`), no "¿lo escribió el usuario?".
+- **`actorLabel` tenía dos respuestas** ("Vos" / "Agente") para tres actores, así que
+  el invitado figuraba como el agente en Configuración › Agentes.
+- **El botón "Rehacer" salía con `actor !== 'user'`**, o sea que ofrecía pedirle a un
+  agente que rehiciera lo que tildó una persona. Nadie lo listó: era correcto por
+  accidente mientras el agente fuera lo único que no era el usuario.
+
+**Al agregar un actor, `grep` de `actor` completo y tachar uno por uno** — igual que
+con las puertas del candado, y por el mismo motivo.
+
+Y **el agente se reconoce POR DESCARTE, nunca comparando contra `'agent'`**: el
+`actor` de una línea del agente es el id del agente conectado
+(`bridge/ingest.ts` › `resolveAgentActor`). Una prueba escrita con la palabra pasa
+sin probar nada. La única puerta es `isAgentActor()` en `storage/share-names.ts`.
+
+## Quién soy yo se pregunta al escribir, no se lee de un estado
+
+`myMemberActor()` es asíncrona, así que un `$state` que la guarda vale `null`
+durante el primer instante de la pantalla. Firmar con el respaldo `'user'` en esa
+ventana **no es un detalle cosmético**: en una nota ajena `'user'` significa el
+dueño, o sea que el comentario recién escrito aparece atribuido a la otra persona
+hasta que el servidor lo corrija. Se resuelve en el momento de escribir, por una
+puerta única (`actorParaEscribir()`), y **antes** de abrir la transacción de Dexie.
+
+Lo destapó una captura de pantalla, no un test: ninguna prueba automática de esta
+rama puede montar una sesión de Supabase, así que el caso sólo se ve mirando.
+
 ## Un campo que se DEDUCE no se compara, y su escritura no es un cambio
 
 Desde la spec 038 §5, `block.checked` de una nota compartida es un **cache**: la
