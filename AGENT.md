@@ -178,6 +178,15 @@ Y **una barra de acciones que aparece con todos sus botones inertes es peor que 
 tenerla**: promete algo que no va a pasar. Si el candado apaga lo que hay detrás,
 apagá también lo que lo ofrece.
 
+**Un candado con excepciones necesita un permiso aparte, no un `readOnly` más
+flojo.** La parte B2 de la spec 038 abre dos de esas puertas —la casilla de tarea y
+un ítem del menú `⋯`— porque tildar y comentar es cómo el invitado contesta. Se hace
+con un prop propio (`guest`), no aflojando `readOnly`: así cada puerta que se abre se
+lee en el diff como una decisión, y las que quedaron cerradas no se abren de arrastre.
+Y **la prueba que abre una puerta lleva su control en la MISMA nota**, comprobando que
+lo demás sigue trabado; sin eso, una siembra que no marque la nota como ajena hace
+pasar las dos mitades sin probar nada.
+
 ## Un número que la pantalla muestra se calcula en UNA función
 
 Dos veces el mismo día (spec 038, 2026-08-17):
@@ -196,6 +205,34 @@ Dos veces el mismo día (spec 038, 2026-08-17):
 **Devolver el número y confiar en que el llamador lo use es una regla que se rompe el
 día que aparece el segundo llamador**, y no falla ruidosamente: falla mostrando algo
 viejo, que nadie reporta como bug.
+
+## Un campo que se DEDUCE no se compara, y su escritura no es un cambio
+
+Desde la spec 038 §5, `block.checked` de una nota compartida es un **cache**: la
+verdad está en la bitácora (las líneas `done`/`reopened`, ordenadas por el
+`server_seq` que reparte el servidor). Un campo así arrastra tres reglas, y las tres
+fallan en silencio:
+
+1. **Sale de la comparación de "¿cambió algo?"** (`sameInAllowList`). Si se lo
+   compara, el renglón del otro lado —que sigue llevando su valor viejo— llega
+   "distinto" en cada pasada mientras esté dentro de la ventana de relectura, y **la
+   nota abierta se refresca sola cada 30 segundos** sin que nadie haya tocado nada.
+2. **Se escribe con `fromCloud`.** Es un cache, no una edición: sin la marca entra a
+   la cola de subida, la otra punta lo baja, deduce, escribe el suyo, y los dos se
+   rebotan la misma fila para siempre.
+3. **Se deduce al final de la tanda, nunca por fila.** Una misma bajada puede traer
+   la línea nueva y el renglón con el valor viejo; deducir cuando aterriza la línea
+   —que es como se escribe de primera— deja ganar al que venga después.
+
+Y la deducción tiene que poder decir **"no tengo opinión"** (un `null`, distinto de
+`false`). Una tarea puede estar tildada por un camino que no deja línea —un respaldo
+restaurado, un `[x]` pegado, una anterior a que existiera la bitácora— y ahí el cache
+es el único dato que hay: deducir `false` la destilda sola.
+
+**Al comprobar que la prueba discrimina, la mutación obvia puede no servir.** Acá
+mover la deducción adentro del bucle sigue en verde (la última corrida ve todo); la
+que la pone roja es la realista, deducir sólo cuando llega una línea. Si la mutación
+no rompe nada, la que está mal puede ser la mutación y no la prueba.
 
 ## Toda pantalla intermedia ofrece la salida barata, y antes que la cara
 
