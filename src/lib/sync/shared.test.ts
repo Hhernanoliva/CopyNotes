@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from '../storage/db';
+import { db, markSentToCloud } from '../storage/db';
 import { createNote, softDeleteNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { appendActivity } from '../storage/activity';
@@ -229,6 +229,128 @@ describe('la bajada por nota', () => {
 
 		expect((await db.table('notes').get(note.id)).deletedAt).toBe(null);
 		expect((await db.table('blocks').get(block.id)).deletedAt).toBe(null);
+	});
+});
+
+describe('el tilde se deduce al final de la tanda', () => {
+	// Arma una nota compartida con UNA tarea sin tildar y devuelve los dos ids.
+	async function tareaCompartida({ checked = false } = {}) {
+		const note = await createNote({ title: 'ticket' });
+		await setShareRole(note.id, 'owner');
+		const block = await createBlock({
+			noteId: note.id,
+			type: 'todo',
+			content: 'llamar',
+			order: 0
+		});
+		await db.table('blocks').update(block.id, { checked, fromCloud: true });
+		// Sembradas como YA SUBIDAS. Sin esto quedan pendientes desde que se crean y
+		// la prueba de "la deducción no encola nada" no puede distinguir su propia
+		// siembra de lo que quiere medir.
+		const stored = await db.table('blocks').get(block.id);
+		await markSentToCloud('blocks', block.id, stored.changeSeq);
+		await markSentToCloud('notes', note.id, (await db.table('notes').get(note.id)).changeSeq);
+		return { noteId: note.id, blockId: block.id };
+	}
+
+	const lineaDelInvitado = (noteId, blockId, { id = 'a1', action = 'done', serverSeq = 100 } = {}) => ({
+		table_name: 'activity',
+		id,
+		change_seq: 500,
+		deleted: false,
+		author_id: 'u2',
+		server_seq: serverSeq,
+		payload: {
+			id,
+			noteId,
+			blockId,
+			actor: 'member:u2',
+			action,
+			text: '',
+			seq: 5,
+			at: '2026-08-17T10:00:00.000Z',
+			deletedAt: null
+		}
+	});
+
+	const rpcCon = (filas) => ({ rpc: vi.fn().mockResolvedValue({ data: filas, error: null }) });
+
+	it('la línea del invitado tilda la tarea de este lado', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(rpcCon([lineaDelInvitado(noteId, blockId)]), noteId);
+
+		expect((await db.table('blocks').get(blockId)).checked).toBe(true);
+	});
+
+	// La misma bajada trae la línea del invitado Y el renglón del dueño con su
+	// `checked` viejo. Aplicándolas de a una, la respuesta depende del orden
+	// dentro del paquete: acá el renglón viene DESPUÉS y pisaría el tilde.
+	it('el renglón del dueño con su checked viejo no gana', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(
+			rpcCon([
+				lineaDelInvitado(noteId, blockId),
+				{
+					table_name: 'blocks',
+					id: blockId,
+					change_seq: 600,
+					deleted: false,
+					author_id: 'u1',
+					server_seq: 101,
+					payload: {
+						id: blockId,
+						noteId,
+						type: 'todo',
+						content: 'llamar al contador',
+						checked: false,
+						order: 0,
+						deletedAt: null
+					}
+				}
+			]),
+			noteId
+		);
+
+		const stored = await db.table('blocks').get(blockId);
+		expect(stored.checked).toBe(true);
+		expect(stored.content).toBe('llamar al contador');
+	});
+
+	it('la escritura deducida no queda pendiente de subida', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(rpcCon([lineaDelInvitado(noteId, blockId)]), noteId);
+
+		const stored = await db.table('blocks').get(blockId);
+		expect(stored.cloudSeq).toBe(stored.changeSeq);
+		expect(await countSharedPending()).toBe(0);
+	});
+
+	// Sin este freno, una tarea tildada por un camino que no deja línea —un
+	// respaldo restaurado, un "[x]" pegado— se destildaría sola en la primera
+	// pasada que trajera cualquier otra cosa de esa nota.
+	it('una tarea sin líneas de tilde no se destilda sola', async () => {
+		const { noteId, blockId } = await tareaCompartida({ checked: true });
+
+		await pullSharedNote(
+			rpcCon([lineaDelInvitado(noteId, blockId, { action: 'note' })]),
+			noteId
+		);
+
+		expect((await db.table('blocks').get(blockId)).checked).toBe(true);
+	});
+
+	// El eco de la ventana de relectura: la misma línea vuelve en cada pasada y
+	// ya no cambia nada. Sin esto la nota abierta se refrescaría cada 30 segundos.
+	it('una segunda pasada con lo mismo no despierta a nadie', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+		const filas = [lineaDelInvitado(noteId, blockId)];
+
+		await pullSharedNote(rpcCon(filas), noteId);
+
+		expect(await pullSharedNote(rpcCon(filas), noteId)).toBe(0);
 	});
 });
 
