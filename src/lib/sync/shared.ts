@@ -208,6 +208,26 @@ export async function reconcileShares(client) {
 			await rememberShareName(`owner:${row.note_id}`, row.counterpart_label);
 		}
 	}
+	// Y los nombres de los OTROS, que hasta ahora los leía sólo `ShareDialog`: un
+	// dueño que mira la bitácora sin abrir ese panel no tenía ningún nombre que
+	// mostrar y veía `member:8f3a…` crudo.
+	//
+	// Una consulta por pasada para todas las notas compartidas juntas, no una por
+	// nota. `share_members` le da `select` a cualquier participante (la política
+	// `read_share_members`), así que el mismo viaje sirve para el dueño que quiere
+	// nombrar a Juan y para Juan que quiere nombrar a un tercero.
+	//
+	// El nulo se saltea por el mismo motivo escrito arriba para el del dueño.
+	const ids = (data ?? []).map((row) => row.note_id);
+	if (ids.length) {
+		const { data: miembros } = await client
+			.from('share_members')
+			.select('member_id, display_name')
+			.in('note_id', ids);
+		for (const row of miembros ?? []) {
+			if (row.display_name) await rememberShareName(row.member_id, row.display_name);
+		}
+	}
 	// Las que el servidor marcó como "se quedó sin nadie" (spec 038 §7). Sólo
 	// vienen marcadas las del dueño, que es el único que las puede cerrar.
 	const emptied = (data ?? [])

@@ -947,7 +947,9 @@
 				<p
 					class="agent-note -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic"
 				>
-					<span class="agent-note-badge" aria-label="Escrito por la IA">IA</span>
+					<span class="agent-note-badge" aria-label={`Escrito por ${agentNote.label}`}
+						>{agentNote.label}</span
+					>
 					{agentNote.text}
 				</p>
 			{/each}

@@ -20,6 +20,14 @@ beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
 });
 
+// Desde spec 038 §6 `reconcileShares` consulta además la tabla `share_members`
+// para guardar los nombres de los invitados. Los clientes falsos que ya estaban
+// sólo tenían `rpc`; este trozo les completa la otra mitad, y con la lista
+// vacía ninguno cambia de comportamiento.
+const conMiembros = (filas = []) => ({
+	from: () => ({ select: () => ({ in: async () => ({ data: filas, error: null }) }) })
+});
+
 describe('qué ofrece el caño compartido', () => {
 	it('no ofrece nada de una nota que no está compartida', async () => {
 		const note = await createNote({ title: 'mía' });
@@ -360,6 +368,7 @@ describe('en qué estoy', () => {
 		const nueva = await createNote({ title: 'me la compartieron' });
 		await setShareRole(cerrada.id, 'owner');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nueva.id, role: 'member' }], error: null })
 		};
 
@@ -374,6 +383,7 @@ describe('en qué estoy', () => {
 		const vieja = await createNote({ title: 'ya la tenía marcada' });
 		await setShareRole(vieja.id, 'owner');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [
 					{ note_id: nueva.id, role: 'member' },
@@ -392,6 +402,7 @@ describe('en qué estoy', () => {
 	it('guarda el nombre del dueño que viene con la lista', async () => {
 		const nota = await createNote({ title: 'me la compartieron' });
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [{ note_id: nota.id, role: 'member', counterpart_label: 'Hernán' }],
 				error: null
@@ -411,6 +422,7 @@ describe('en qué estoy', () => {
 		await setShareRole(nota.id, 'member');
 		await rememberShareName(`owner:${nota.id}`, 'Hernán');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [{ note_id: nota.id, role: 'member', counterpart_label: null }],
 				error: null
@@ -421,6 +433,35 @@ describe('en qué estoy', () => {
 
 		expect(await getShareName(`owner:${nota.id}`)).toBe('Hernán');
 	});
+
+	// Los nombres de los INVITADOS los leía sólo `ShareDialog`, así que un dueño
+	// que mira la bitácora sin abrir ese panel no tenía ningún nombre que mostrar
+	// y veía `member:8f3a…` crudo.
+	it('guarda los nombres de los miembros en cada pasada, sin abrir el panel', async () => {
+		const nota = await createNote({ title: 'compartida' });
+		const client = {
+			...conMiembros([{ member_id: 'u-2', display_name: 'Juan' }]),
+			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nota.id, role: 'owner' }], error: null })
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName('u-2')).toBe('Juan');
+	});
+
+	// Mismo motivo que el del dueño, un renglón más abajo.
+	it('un nombre vacío no pisa el que ya había', async () => {
+		const nota = await createNote({ title: 'compartida' });
+		await rememberShareName('u-2', 'Juan');
+		const client = {
+			...conMiembros([{ member_id: 'u-2', display_name: null }]),
+			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nota.id, role: 'owner' }], error: null })
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName('u-2')).toBe('Juan');
+	});
 });
 
 // Encontrado en el gate manual del 2026-08-14: al compartir una nota en el otro
@@ -429,6 +470,7 @@ describe('en qué estoy', () => {
 // marca la pone `reconcileShares`, y su cambio no llegaba a `appliedVersion`.
 describe('el lazo entero', () => {
 	const clientWith = (shares) => ({
+		...conMiembros(),
 		rpc: vi.fn(async (name) =>
 			name === 'list_shares' ? { data: shares, error: null } : { data: [], error: null }
 		)
@@ -471,6 +513,7 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'owner');
 		const llamadas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name) => {
 				llamadas.push(name);
 				return name === 'list_shares'
@@ -492,6 +535,7 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'owner');
 		const llamadas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name) => {
 				llamadas.push(name);
 				return name === 'list_shares'
@@ -537,6 +581,7 @@ describe('el lazo entero', () => {
 		});
 		const subidas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name, args) => {
 				if (name === 'list_shares') {
 					return { data: [{ note_id: nota.id, role: 'member', counterpart_label: 'X' }], error: null };

@@ -34,6 +34,7 @@
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
+	import { actorName, isAgentActor } from '$lib/storage/share-names';
 	import { myMemberActor } from '$lib/sync/identity';
 	import { reconcileBlocks } from './reconcile';
 	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
@@ -144,10 +145,38 @@
 			vivo = false;
 		};
 	});
-	// La voz del agente por bloque (bitácora action:'note', actor ≠ user). Se
+	// La voz de los OTROS por bloque (bitácora action:'note' que no escribí yo). Se
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
 	let agentNotes = $state({});
+
+	// La etiqueta se resuelve ACÁ y no en `agent-notes.ts` porque sale de una tabla
+	// de Dexie y ese archivo es puro a propósito (se prueba sin base).
+	//
+	// Un nombre por actor distinto, no uno por línea: una tarea puede juntar quince
+	// comentarios de la misma persona y serían quince lecturas.
+	//
+	// Tiene que llamarse desde los DOS lugares que arman la lista, o uno de los dos
+	// caminos se queda viejo — es la tercera vez que este proyecto pierde algo por
+	// dejarlo en manos del llamador (`appliedVersion`, dos veces).
+	async function buildAgentNotes(rows) {
+		const ctx = { noteId: note?.id, role: note?.share ?? null, myActor };
+		const grouped = agentNotesByBlock(rows, ctx);
+		const cache = new Map();
+		for (const list of Object.values(grouped)) {
+			for (const item of list) {
+				// La itálica del renglón dice "IA" desde antes de que existiera
+				// compartir, y esa palabra no cambia: acá sólo se agrega el caso nuevo.
+				if (isAgentActor(item.actor)) {
+					item.label = 'IA';
+					continue;
+				}
+				if (!cache.has(item.actor)) cache.set(item.actor, await actorName(item.actor, ctx));
+				item.label = cache.get(item.actor);
+			}
+		}
+		return grouped;
+	}
 	// { [blockId]: { id, remote } } — el mismo renglón cambió acá y en otro
 	// dispositivo. Se muestra en el renglón, no escondido en Configuración.
 	let conflicts = $state({});
@@ -546,7 +575,12 @@
 			if (cancelled) return;
 			note = loadedNote;
 			blocks = loadedBlocks;
-			agentNotes = agentNotesByBlock(loadedActivity);
+			// Resolver los nombres lee Dexie, así que hay que volver a preguntar si la
+			// nota cambió mientras tanto: sin esto la lista de una nota vieja pisaría
+			// la de la que se acaba de abrir.
+			const conNombres = await buildAgentNotes(loadedActivity);
+			if (cancelled) return;
+			agentNotes = conNombres;
 			conflictsByBlock(loadedBlocks.map((row) => row.id)).then((found) => {
 				if (!cancelled) conflicts = found;
 			});
@@ -2025,7 +2059,7 @@
 		// próximo cambio de la nube, y editarlo sube esa versión vieja.
 		deferredRefresh = reconciled.deferred.length > 0;
 		conflicts = await conflictsByBlock(loadedBlocks.map((row) => row.id));
-		agentNotes = agentNotesByBlock(loadedActivity);
+		agentNotes = await buildAgentNotes(loadedActivity);
 		// El título se edita en su propio campo: sólo se pisa si nadie lo está
 		// escribiendo en este momento.
 		if (!pending.has(`title:${id}`)) note.title = loadedNote.title;

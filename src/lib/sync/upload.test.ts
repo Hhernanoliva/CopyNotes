@@ -78,7 +78,10 @@ vi.mock('./supabase', () => ({
 			// covered in download.test.ts.
 			select: () => ({
 				maybeSingle: async () => ({ data: serverVault.row, error: null }),
-				gt: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) })
+				gt: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }),
+				// Los nombres de los invitados, que `reconcileShares` guarda al pasar
+				// (spec 038 §6). Este servidor de mentira no tiene ninguno.
+				in: async () => ({ data: [], error: null })
 			})
 		})
 	})
