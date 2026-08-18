@@ -1443,6 +1443,15 @@ cannot order the owner's agent to redo anything; and the name has to be resolved
 **into** `export.json`, because the display-name cache is a Dexie table the MCP
 server cannot read.
 
+The "Listo" reaches the agent too, decided 2026-08-17 when Hernán asked why it
+would not. It costs no new tool: `mcp/lib/resources.js` is the projection the
+agent reads unprompted, so the latest "Listo" is one line under the note's
+title. A first pass had it excluded on the grounds that it needed a tool — that
+was wrong, and wrong in a way worth recording: it looked only at `tools.js`,
+where every question needs its own tool, and never at the always-on projection
+beside it. "Listo" is a state, not a history, so the projection is where it
+belongs anyway.
+
 **8. The name cache is filled on every sync pass, not only when the share dialog
 opens.** Today `listMembers` runs from `ShareDialog` alone, so an owner who
 reads the bitácora without opening that panel — or a guest naming a second guest

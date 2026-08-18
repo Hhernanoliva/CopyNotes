@@ -59,6 +59,7 @@
 | `src/lib/bridge/export.ts` | El nombre se resuelve al salir, no lo busca el que lee. |
 | `src/lib/bridge/ingest.ts` | En una nota ajena el agente sólo completa y comenta. |
 | `mcp/lib/tools.js` | El tercer rol. |
+| `mcp/lib/resources.js` | El "Listo" bajo el título de la nota. |
 | `docs/guia/20-compartir-una-nota.md`, `docs/guia-de-uso.md`, `CHANGELOG.md` | Tarea 9. |
 
 ---
@@ -1485,17 +1486,22 @@ git commit -m "feat(compartir): el invitado puede decir Listo"
 ## Task 8: El agente
 
 **Files:**
-- Modify: `src/lib/bridge/export.ts:39-52`, `:90-104`
-- Modify: `src/lib/bridge/ingest.ts`
+- Modify: `src/lib/bridge/export.ts:39-52`, `:54-68`, `:90-104`
+- Modify: `src/lib/bridge/ingest.ts:95-96`, `:54-57`
+- Modify: `src/lib/tasks/actions.ts` (`completeTask` acepta `fromCloud`)
 - Modify: `mcp/lib/tools.js:194`, `:208-212`
-- Test: `src/lib/bridge/export.test.ts` (jsdom), `mcp/` (ver abajo)
+- Modify: `mcp/lib/resources.js` (`noteToMarkdown`)
+- Test: `src/lib/bridge/export.test.ts` y `ingest.test.ts` (jsdom), `mcp/lib/tools.test.js` y `resources.test.js` (`cd mcp && pnpm test`)
 
 **Interfaces:**
 - Produces: cada fila de `activity` dentro de `export.json` lleva `actorLabel` (texto ya resuelto).
+- Produces: cada nota del payload lleva `done` — la última declaración de "Listo", o `null`.
 
 **Por qué el nombre se resuelve al SALIR:** el cachecito de nombres es una tabla de Dexie y el servidor MCP corre en otro proceso, sin navegador. No puede buscarlo. Si el nombre no baja resuelto, el agente recibe `member:8f3a...` pelado.
 
-**El techo que este plan acepta a propósito:** el **"Listo" de nota entera NO llega al agente**. `buildAgentExport` agrupa la bitácora por renglón (`activityByBlock[row.blockId]?.push(row)`), así que una fila con `blockId: null` se cae sola, y darle lugar significa un campo nuevo en la nota del payload **y** una herramienta MCP nueva para leerlo, porque hoy no hay ninguna que muestre la historia de una nota. El agente sí ve los tildes y los comentarios por tarea, que son el "qué pasó" que usa. Marcar el corte con un comentario `ponytail:` en `export.ts`.
+**El "Listo" también llega al agente, y NO necesita una herramienta nueva.** Una versión anterior de este plan decía que sí; era falso, y el error vale escribirlo porque se repite: se miró `mcp/lib/tools.js`, donde cada consulta necesita su herramienta, y no se miró `mcp/lib/resources.js`, que es la **proyección que el agente lee siempre** sin pedir nada. El "Listo" es un estado, no un historial, así que entra ahí — un renglón bajo el título — y no en una herramienta a demanda.
+
+Eso sí obliga a un campo nuevo en la nota del payload (`buildAgentExport` agrupa la bitácora por renglón, y una fila con `blockId: null` se cae sola de ese agrupamiento). Es aditivo: nada que lea `note.blocks` se entera.
 
 - [ ] **Step 1: La prueba que falla**
 
@@ -1529,20 +1535,64 @@ En `buildAgentExport`, dentro del bucle por nota (donde ya se sabe `note.id` y p
 		// El nombre se resuelve ACÁ, de este lado. El cachecito es una tabla de
 		// Dexie y el servidor MCP corre en otro proceso: si baja `member:<uuid>`
 		// pelado, no hay nadie del otro lado que lo pueda traducir.
-		//
-		// ponytail: sólo las entradas colgadas de un renglón. El "Listo" de nota
-		// entera (blockId null) se cae en el agrupamiento de abajo y queda fuera
-		// del export a propósito — darle lugar pide un campo nuevo en la nota Y una
-		// herramienta MCP que hoy no existe. Si el agente tiene que enterarse del
-		// "Listo", eso es el trabajo, no una línea más acá.
 		const ctx = { noteId: note.id, role: await getShareRole(note.id), myActor: await myMemberActor() };
 		for (const row of await listActivityByNote(note.id)) {
-			if (!activityByBlock[row.blockId]) continue;
-			activityByBlock[row.blockId].push({ ...row, actorLabel: await actorName(row.actor, ctx) });
+			const conNombre = { ...row, actorLabel: await actorName(row.actor, ctx) };
+			// Una entrada de nota entera ("Listo", spec 038 §8) no cuelga de ningún
+			// renglón, así que el agrupamiento de abajo la tiraría. Va aparte, en la
+			// nota, porque es lo que es: un estado de la nota.
+			if (row.blockId === null) (doneByNote[note.id] ??= []).push(conNombre);
+			else if (activityByBlock[row.blockId]) activityByBlock[row.blockId].push(conNombre);
 		}
 ```
 
 **Un nombre por actor distinto, no uno por línea** — cachear en un `Map` como en el editor; una nota con quince tildes de Juan haría quince lecturas de Dexie por exportación, y esto corre en cada escritura del agente.
+
+Y en `toAgentPayload`, un campo más en la nota. **Sólo la última**: "Listo" es una declaración de estado, y el agente no necesita la historia de cuántas veces se dijo — lo que necesita es si está dicho ahora. La proyección que lee es cara en tokens por diseño (`resources.js` no proyecta la bitácora a propósito), así que se le da un renglón, no una lista.
+
+```js
+	// `done`: la última declaración de "Listo" sobre esta nota, ya con el nombre
+	// resuelto. Aditivo — nada que lea `note.blocks` se entera de que existe.
+	done: (doneByNote[note.id] ?? []).at(-1) ?? null,
+```
+
+- [ ] **Step 3b: El renglón que el agente lee**
+
+`mcp/lib/resources.js`, en `noteToMarkdown`, justo después del `header`:
+
+```js
+	const lines = [header];
+	// El "Listo" de la otra persona (spec 038 §8). Va acá y no en una herramienta
+	// a demanda porque es un ESTADO, no un historial: el agente tiene que verlo
+	// sin preguntar, igual que ve el título. Una línea, sólo la última, y sólo
+	// cuando existe.
+	if (note.done) {
+		const aclaracion = note.done.text ? `: ${note.done.text}` : '';
+		lines.push(`> ✓ ${note.done.actorLabel ?? 'La otra persona'} marcó Listo${aclaracion}`);
+	}
+```
+
+Prueba en `mcp/lib/resources.test.js`:
+
+```js
+it('el Listo de la otra persona sale bajo el título', () => {
+	const md = noteToMarkdown({ id: 'n1', title: 'Contador', blocks: [], done: { actorLabel: 'Juan', text: 'falta la factura' } }, new Map());
+	expect(md).toContain('> ✓ Juan marcó Listo: falta la factura');
+});
+
+it('sin aclaración, la línea igual sale', () => {
+	const md = noteToMarkdown({ id: 'n1', title: 'Contador', blocks: [], done: { actorLabel: 'Juan', text: '' } }, new Map());
+	expect(md).toContain('> ✓ Juan marcó Listo');
+	expect(md).not.toContain('Listo:');
+});
+
+// El control: una nota sin Listo no gana ningún renglón. Sin esta prueba, un
+// `if` mal escrito mete un "> ✓ undefined" en TODAS las notas del agente.
+it('una nota sin Listo queda igual que siempre', () => {
+	const md = noteToMarkdown({ id: 'n1', title: 'Contador', blocks: [] }, new Map());
+	expect(md).not.toContain('✓');
+});
+```
 
 - [ ] **Step 4: El tercer rol en el MCP**
 
@@ -1767,7 +1817,7 @@ git commit -m "docs(compartir): la guía y el CHANGELOG de que la otra persona c
 - [ ] **9.** B aprieta **Listo** con la aclaración "falta la factura". **En A aparece al pie: "Juan marcó Listo" + la aclaración.**
 - [ ] **10.** En B, abrir el menú `⋯` de un renglón: **tiene un solo ítem**. Y probar las cuatro puertas que B1 cerró (pegar, la barra de formato, el chip de fecha, el título de la nota) — **siguen cerradas**.
 - [ ] **11.** En A, Configuración › Agentes: la bitácora dice **"Juan marcó hecha"**, no "Agente marcó hecha" ni "Vos marcaste hecha".
-- [ ] **12.** En A, con la nota visible para el agente: `get_task_history` de esa tarea dice **"Juan (invitado) anotó: le dejé mensaje"**.
+- [ ] **12.** En A, con la nota visible para el agente: `get_task_history` de esa tarea dice **"Juan (invitado) anotó: le dejé mensaje"**, y al leer la nota entera el agente ve, bajo el título, **"✓ Juan marcó Listo: falta la factura"**.
 - [ ] **13.** En B, **Configuración › "sin subir" tiene que llegar a cero** después de una pasada. Si se queda en un número que no baja, hay una fila atascada — que es justo lo que este plan afirma que no puede pasar.
 - [ ] **14.** En A, **exportar un respaldo y volver a importarlo.** El "Listo" y los comentarios de Juan sobreviven. *Falla si:* el archivo no valida (revisar `activity.blockId` nullable) o el "Listo" desaparece con un aviso (revisar `dropDanglingActivity`).
 - [ ] **15.** A saca a B de la compartición. **En B la nota se queda** (su copia es suya) y deja de recibir. En A, `pnpm rls:check` sigue dando **21/21**.
@@ -1791,5 +1841,4 @@ Al terminar, escribir al final de ESTE archivo qué pasó paso por paso, con los
 - El **contador de novedades** en la lista de notas (§8, mitad B3).
 - Que **deshacer no destilde** (§9, B3).
 - La **consulta de moderación** (B3).
-- El **"Listo" no llega al agente** (Tarea 8, con su razón escrita).
 - **Un solo invitado por nota es lo probado.** El código no lo limita —los nombres se resuelven por uuid y el pie lista todas las entradas— pero el gate corre con dos cuentas, así que "varios invitados" queda sin medir.
