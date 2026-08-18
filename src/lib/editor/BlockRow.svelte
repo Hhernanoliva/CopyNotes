@@ -46,6 +46,11 @@
 		// renglón que mande alguien que no es el dueño; esto es la cortesía de no
 		// dejar intentarlo, para que nadie escriba algo que no va a llegar nunca.
 		readOnly = false,
+		// Sólo lectura PERO puede tildar y comentar: el invitado de una nota
+		// compartida (spec 038 §5). Es un permiso aparte y no un `readOnly` más
+		// flojo, porque las puertas se abren de a una y a propósito: el candado de
+		// B1 tenía cuatro abiertas que nadie había listado.
+		guest = false,
 		depth = 0,
 		hasChildren = false,
 		agentNotes = [],
@@ -749,7 +754,7 @@
 			role="checkbox"
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
-			disabled={readOnly}
+			disabled={readOnly && !guest}
 			onclick={() => onToggleChecked(block)}
 			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>

@@ -165,7 +165,19 @@ export async function redoTask({ blockId, actor = 'user', text }) {
 // writing ONE bitácora line per affected task — done or reopened by its final
 // value. Returns the applied plan so the caller can update its in-memory rows,
 // or null when the target is not a todo.
-export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
+//
+// `actor` puede ser además `'member:<uuid>'` (spec 038 §6), y `fromCloud` dice
+// que esta cuenta es MIEMBRO de la nota, no su dueña: su línea de bitácora es lo
+// único suyo que puede viajar, y el renglón que se escribe al lado es un cache
+// local. Sin la marca ese renglón queda `changedSinceCloud` para siempre —
+// invisible para los dos contadores hoy, y subible a su propia bóveda el día que
+// se salga de la compartición.
+//
+// El llamador resuelve el rol ANTES de llamar y lo pasa. No se puede preguntar
+// acá adentro: `notes` no está en el alcance de la transacción, y una lectura
+// encadenada la haría escapar de la zona de Dexie y cerrarla temprano
+// (`PrematureCommitError`, el mismo que `createTask` documenta más arriba).
+export async function setTaskChecked({ noteId, blockId, actor = 'user', fromCloud = false }) {
 	const noteBlocks = await listBlocksByNote(noteId);
 	const plan = planToggleChecked(noteBlocks, blockId);
 	if (!plan) return null;
@@ -177,7 +189,9 @@ export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
 	// updateBlock's safety-net bump (inside) refreshes the export.
 	await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		for (const { id, checked } of plan.updates) {
-			await updateBlock(id, { checked });
+			// La marca vale para la cascada ENTERA, no sólo para la tarea que se tocó:
+			// spec 003 escribe un renglón por tarea afectada y todos son cache igual.
+			await updateBlock(id, fromCloud ? { checked, fromCloud: true } : { checked });
 			await appendActivity({
 				blockId: id,
 				noteId,

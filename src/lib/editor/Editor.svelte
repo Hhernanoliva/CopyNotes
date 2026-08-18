@@ -34,6 +34,7 @@
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
 	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
+	import { myMemberActor } from '$lib/sync/identity';
 	import { reconcileBlocks } from './reconcile';
 	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
@@ -127,6 +128,22 @@
 	// que no sea bitácora si quien la manda no es el dueño. Esto es la cortesía de
 	// no dejar intentarlo.
 	const readOnly = $derived(note === null || note.share === 'member');
+	// Lo mismo mirado al revés, y no es redundante: el invitado es el único que
+	// está en sólo lectura Y PUEDE tildar y comentar (spec 038 §5). `readOnly`
+	// cierra todo; esto reabre las dos puertas que se abren a propósito.
+	const isMember = $derived(note?.share === 'member');
+	// Con qué firma escribe este aparato en una nota ajena. Se resuelve UNA vez,
+	// fuera de cualquier transacción, porque adentro no se puede preguntar.
+	let myActor = $state(null);
+	$effect(() => {
+		let vivo = true;
+		myMemberActor().then((valor) => {
+			if (vivo) myActor = valor;
+		});
+		return () => {
+			vivo = false;
+		};
+	});
 	// La voz del agente por bloque (bitácora action:'note', actor ≠ user). Se
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
@@ -1478,7 +1495,17 @@
 		// por tarea, actor user). El snapshot de Deshacer sale del estado en
 		// memoria — que todavía no mutó — así que tomarlo después del write
 		// preserva el mismo undo de antes.
-		const plan = await setTaskChecked({ noteId: note.id, blockId: block.id });
+		//
+		// El rol se resuelve ACÁ, antes de entrar a la transacción (spec 038 §5).
+		// En una nota ajena la firma es la de miembro y el renglón se escribe como
+		// cache; el `?? 'user'` es el aparato sin sesión, donde no hay nada que
+		// mandar a ninguna parte igual.
+		const plan = await setTaskChecked({
+			noteId: note.id,
+			blockId: block.id,
+			actor: isMember ? (myActor ?? 'user') : 'user',
+			fromCloud: isMember
+		});
 		if (!plan) return;
 		recordSnapshot();
 		for (const update of plan.updates) {
@@ -2279,6 +2306,7 @@
 				<BlockRow
 					block={row.block}
 					{readOnly}
+					guest={isMember}
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}

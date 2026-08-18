@@ -117,13 +117,38 @@ test('en una nota que te comparten no está el menú del renglón', async ({ pag
 	await expect(menu).toHaveCount(0);
 });
 
-// Y la casilla de una tarea, que escribe el renglón sin pasar por el teclado.
-test('en una nota que te comparten la casilla no se puede tocar', async ({ page }) => {
+// La casilla es la EXCEPCIÓN al candado, desde spec 038 §5 (parte B2): tildar es
+// la forma en que el invitado contesta el ticket. Por dentro no escribe el
+// renglón del otro —deja una línea de bitácora, que es lo único que el servidor
+// le acepta— y el renglón que se ve tildado de este lado es un cache local.
+//
+// Esta prueba decía lo contrario hasta B2 (`toBeDisabled`), y el cambio es a
+// propósito: no se le abrió una puerta al candado, se construyó la única puerta
+// que el candado siempre tuvo que tener.
+test('en una nota que te comparten la casilla SÍ se puede tocar', async ({ page }) => {
 	await openApp(page);
 	await marcarComoAjena(page);
 
 	const casilla = page.getByRole('checkbox').first();
-	await expect(casilla).toBeDisabled();
+	await expect(casilla).toBeEnabled();
+	await casilla.click();
+	await expect(casilla).toHaveAttribute('aria-checked', 'true');
+});
+
+// El control de la de arriba, y no es decorativo: sin él, un renglón que dejara
+// de ser una tarea —o una siembra que no marcara la nota como ajena— haría pasar
+// las dos mitades sin probar nada. Lo que tiene que seguir cerrado, sigue
+// cerrado en la MISMA nota donde la casilla se abrió.
+test('pero el resto del candado sigue cerrado con la casilla abierta', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+
+	await expect(page.getByRole('checkbox').first()).toBeEnabled();
+	await expect(page.locator('main [data-block-surface]').first()).toHaveAttribute(
+		'contenteditable',
+		'false'
+	);
+	await expect(page.getByRole('button', { name: 'Más acciones' })).toHaveCount(0);
 });
 
 // Con quién estás del otro lado. El nombre del dueño se venía guardando desde
