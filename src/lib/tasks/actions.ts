@@ -105,7 +105,11 @@ export async function createTask({
 // subtasks stayed open — the exact mismatch the UI never allows. The agent's
 // summary lands on the target's bitácora line; cascaded blocks get an empty
 // 'done' line, matching setTaskChecked.
-export async function completeTask({ blockId, actor, text = '' }) {
+// `fromCloud` dice que esta cuenta es MIEMBRO de la nota, no su dueña (spec 038
+// §4): el renglón que se escribe al lado es un cache local, y sin la marca queda
+// pendiente de subir para siempre por un caño que lo va a rechazar por rol. Es
+// el mismo cambio de una línea que lleva `setTaskChecked`, y por el mismo motivo.
+export async function completeTask({ blockId, actor, text = '', fromCloud = false }) {
 	const block = await getBlock(blockId);
 	if (!block) return undefined;
 	const noteBlocks = await listBlocksByNote(block.noteId);
@@ -115,7 +119,7 @@ export async function completeTask({ blockId, actor, text = '' }) {
 	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		let target;
 		for (const { id, checked } of plan.updates) {
-			const updated = await updateBlock(id, { checked });
+			const updated = await updateBlock(id, fromCloud ? { checked, fromCloud: true } : { checked });
 			const activity = await appendActivity({
 				blockId: id,
 				noteId: block.noteId,

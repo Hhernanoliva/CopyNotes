@@ -450,3 +450,100 @@ describe('agent writes and the cloud', () => {
 		expect(await listPendingUploads()).toEqual([]);
 	});
 });
+
+// El portón de spec 038 §4: en una nota donde esta cuenta es MIEMBRO, el agente
+// completa y comenta, nada más.
+//
+// Sin esto: el invitado prende `agentVisible` en la nota que le compartieron, su
+// agente crea tareas, esas filas NUNCA pueden salir —el servidor las rechaza por
+// rol— y su copia se separa de la del dueño en silencio y para siempre.
+describe('el agente en una nota que te comparten', () => {
+	async function notaAjena() {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true, share: 'member' });
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		return { noteId: note.id, blockId: block.id };
+	}
+
+	it('no crea tareas', async () => {
+		const { noteId } = await notaAjena();
+
+		const res = await ingestAgentChange({
+			id: 'chg-ajena-1',
+			type: 'createTask',
+			noteId,
+			content: 'mía'
+		});
+
+		expect(res.ok).toBe(false);
+		expect(res.reason).toBe('not-allowed');
+		expect(await listTasks(noteId)).toHaveLength(1);
+	});
+
+	// El control, sin el cual la de arriba pasa aunque el portón no exista.
+	it('pero en una nota tuya sí', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+
+		const res = await ingestAgentChange({
+			id: 'chg-propia-1',
+			type: 'createTask',
+			noteId: note.id,
+			content: 'mía'
+		});
+
+		expect(res.ok).toBe(true);
+	});
+
+	it('comentar y completar sí pasan en la nota ajena', async () => {
+		const { blockId } = await notaAjena();
+
+		const comentario = await ingestAgentChange({
+			id: 'chg-ajena-2',
+			type: 'addNote',
+			blockId,
+			text: 'ojo con esto'
+		});
+		const completada = await ingestAgentChange({
+			id: 'chg-ajena-3',
+			type: 'completeTask',
+			blockId,
+			text: ''
+		});
+
+		expect(comentario.ok).toBe(true);
+		expect(completada.ok).toBe(true);
+	});
+
+	// Y su escritura de renglón va con la marca, igual que la del invitado en la
+	// pantalla: en una nota ajena el renglón es un cache local, y sin la marca
+	// queda pendiente de subir para siempre por un caño que lo va a rechazar.
+	it('y completar no deja el renglón pendiente de subir', async () => {
+		const { blockId } = await notaAjena();
+		const antes = (await getBlock(blockId)).changeSeq;
+
+		await ingestAgentChange({ id: 'chg-ajena-4', type: 'completeTask', blockId, text: '' });
+
+		const despues = await getBlock(blockId);
+		expect(despues.checked).toBe(true);
+		expect(despues.changeSeq).toBe(antes);
+	});
+
+	// El control de la de arriba: en una nota tuya el sello SÍ se mueve, que es lo
+	// que la manda a la nube.
+	it('pero en una nota tuya el sello se mueve, como siempre', async () => {
+		const note = await createNote();
+		await updateNote(note.id, { agentVisible: true });
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		const antes = (await getBlock(block.id)).changeSeq;
+
+		await ingestAgentChange({
+			id: 'chg-propia-2',
+			type: 'completeTask',
+			blockId: block.id,
+			text: ''
+		});
+
+		expect((await getBlock(block.id)).changeSeq).toBeGreaterThan(antes);
+	});
+});

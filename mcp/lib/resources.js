@@ -72,6 +72,14 @@ export function noteToMarkdown(note, shortIds) {
 	const titleAndFolder = note.folder ? `${note.title}  ·  ${note.folder}` : `${note.title}`;
 	const header = `## ${prefix}${titleAndFolder}`;
 	const lines = [header];
+	// El "Listo" de la otra persona (spec 038 §8). Va acá y no en una herramienta
+	// a demanda porque es un ESTADO, no un historial: el agente tiene que verlo
+	// sin preguntar, igual que ve el título. Una línea, sólo la última, y sólo
+	// cuando existe.
+	if (note?.done) {
+		const aclaracion = note.done.text ? `: ${note.done.text}` : '';
+		lines.push(`> ✓ ${note.done.actorLabel ?? 'La otra persona'} marcó Listo${aclaracion}`);
+	}
 	let previousWasTodo = false;
 	for (const block of note?.blocks ?? []) {
 		// Completed tasks are carried in the export (so tools can still resolve

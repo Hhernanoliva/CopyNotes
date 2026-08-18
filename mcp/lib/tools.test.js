@@ -189,6 +189,51 @@ describe('historyResult', () => {
 	// the export carries completed todos so its short id still expands, and both
 	// get_task_history and add_note (via expandArgs) work on it. If completed
 	// tasks were ever dropped from the export again, these two would break.
+	// El tercer rol (spec 038 §6): una línea de un invitado no es del agente ni
+	// del usuario. Acá el rótulo no se muestra en una pantalla, se ACTÚA sobre él:
+	// un LLM que lee su propio nombre sobre la instrucción de un tercero es peor
+	// que una palabra mal puesta.
+	const conActividad = (activity) => ({
+		notes: [
+			{
+				id: 'aaaaaaaa-1111-4111-8111-111111111111',
+				blocks: [
+					{ id: 'bbbbbbbb-2222-4222-8222-222222222222', type: 'todo', content: 't', depth: 0, activity }
+				]
+			}
+		]
+	});
+
+	it('una línea de un invitado sale con su nombre, no como del agente', () => {
+		const texto = historyResult(
+			conActividad([
+				{ actor: 'user', action: 'created', text: 'Llamar al contador' },
+				{ actor: 'member:u-2', actorLabel: 'Juan', action: 'note', text: 'le dejé mensaje' }
+			]),
+			'bbbbbbbb'
+		).content[0].text;
+		expect(texto).toContain('- Juan (invitado) anotó: le dejé mensaje');
+		expect(texto).not.toContain('agente anotó');
+	});
+
+	it('un invitado sin nombre resuelto no se hace pasar por el agente', () => {
+		const texto = historyResult(
+			conActividad([{ actor: 'member:u-9', action: 'note', text: 'hola' }]),
+			'bbbbbbbb'
+		).content[0].text;
+		expect(texto).toContain('- invitado (invitado) anotó: hola');
+	});
+
+	// La que importa: se pone roja si alguien escribe `entry.actor === 'agent'` en
+	// vez del descarte. El actor de una línea del agente es su ID.
+	it('y el agente sigue siendo el agente, con su id como actor', () => {
+		const texto = historyResult(
+			conActividad([{ actor: 'agt_7f21c9', action: 'note', text: 'propuesta' }]),
+			'bbbbbbbb'
+		).content[0].text;
+		expect(texto).toContain('- agente anotó: propuesta');
+	});
+
 	it('resuelve una tarea COMPLETADA para historial y para add_note (via expandArgs)', () => {
 		const payload = {
 			notes: [

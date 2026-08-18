@@ -156,3 +156,109 @@ describe('buildAgentExport (privacy gate over real storage)', () => {
 		expect(JSON.stringify(payload)).not.toContain('privadísimo');
 	});
 });
+
+// El nombre se resuelve al SALIR (spec 038 §6). El cachecito de nombres es una
+// tabla de Dexie y el servidor MCP corre en otro proceso, sin navegador: si baja
+// `member:8f3a…` pelado, no hay nadie del otro lado que lo pueda traducir.
+describe('quién es quién, visto por el agente', () => {
+	async function notaCompartidaConBitacora(actor) {
+		const { appendActivity } = await import('$lib/storage');
+		const { setShareRole } = await import('$lib/storage/shares');
+		const note = await createNote({ title: 'Contador' });
+		await updateNote(note.id, { agentVisible: true });
+		await setShareRole(note.id, 'owner');
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		await appendActivity({
+			blockId: block.id,
+			noteId: note.id,
+			actor,
+			action: 'note',
+			text: 'le dejé mensaje'
+		});
+		return { noteId: note.id, blockId: block.id };
+	}
+
+	it('el nombre del invitado baja resuelto, no como member:<uuid>', async () => {
+		const { rememberShareName } = await import('$lib/storage/share-names');
+		await rememberShareName('u-2', 'Juan');
+		await notaCompartidaConBitacora('member:u-2');
+
+		const linea = (await buildAgentExport()).notes[0].blocks[0].activity.at(-1);
+
+		expect(linea.actorLabel).toBe('Juan');
+		// Y el actor crudo sigue viajando: el rótulo es para leer, el actor es con
+		// lo que el MCP decide el rol.
+		expect(linea.actor).toBe('member:u-2');
+	});
+
+	it('un invitado sin nombre guardado no rompe nada', async () => {
+		await notaCompartidaConBitacora('member:u-9');
+
+		expect((await buildAgentExport()).notes[0].blocks[0].activity.at(-1).actorLabel).toBe(
+			'Invitado'
+		);
+	});
+
+	// El control: el actor de una línea del agente es su ID, no la palabra
+	// 'agent'. Una prueba con la palabra pasaría sin probar nada.
+	it('y una línea del agente sigue siendo del agente', async () => {
+		await notaCompartidaConBitacora('agt_7f21c9');
+
+		expect((await buildAgentExport()).notes[0].blocks[0].activity.at(-1).actorLabel).toBe('Agente');
+	});
+});
+
+// "Listo" es un ESTADO de la nota, no un historial: el agente tiene que verlo
+// sin preguntar, igual que ve el título. Por eso baja en la nota y no en una
+// herramienta a demanda — y por eso su fila, que no cuelga de ningún renglón, se
+// caería sola del agrupamiento por tarea si no se la separara acá.
+describe('el "Listo" que el agente lee', () => {
+	async function notaConListos(...textos) {
+		const { markNoteDone } = await import('$lib/tasks');
+		const { setShareRole } = await import('$lib/storage/shares');
+		const note = await createNote({ title: 'Contador' });
+		await updateNote(note.id, { agentVisible: true });
+		await setShareRole(note.id, 'owner');
+		await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		for (const texto of textos)
+			await markNoteDone({ noteId: note.id, actor: 'member:u-2', text: texto });
+		return note.id;
+	}
+
+	it('baja en la nota, con el nombre resuelto', async () => {
+		const { rememberShareName } = await import('$lib/storage/share-names');
+		await rememberShareName('u-2', 'Juan');
+		await notaConListos('falta la factura');
+
+		expect((await buildAgentExport()).notes[0].done).toMatchObject({
+			actorLabel: 'Juan',
+			text: 'falta la factura'
+		});
+	});
+
+	// Sólo la ÚLTIMA: es una declaración de estado, y lo que el agente necesita es
+	// si está dicho ahora, no cuántas veces se dijo. La proyección que lee es cara
+	// en tokens por diseño, así que se le da un renglón y no una lista.
+	it('sólo la última declaración', async () => {
+		await notaConListos('primera', 'segunda');
+
+		expect((await buildAgentExport()).notes[0].done.text).toBe('segunda');
+	});
+
+	// El control: sin él, un `if` mal escrito metería un "Listo" fantasma en TODAS
+	// las notas del agente.
+	it('una nota sin Listo trae null', async () => {
+		const note = await createNote({ title: 'Sola' });
+		await updateNote(note.id, { agentVisible: true });
+
+		expect((await buildAgentExport()).notes[0].done).toBe(null);
+	});
+
+	// Y no se cuela en la lista de ninguna tarea: no cuelga de ningún renglón.
+	it('no aparece en la bitácora de ningún renglón', async () => {
+		await notaConListos('falta la factura');
+
+		const bloques = (await buildAgentExport()).notes[0].blocks;
+		expect(bloques.flatMap((b) => b.activity ?? [])).toEqual([]);
+	});
+});

@@ -130,3 +130,32 @@ describe('staleExportNotice', () => {
 		expect(stale.endsWith('\n\nCUERPO')).toBe(true);
 	});
 });
+
+// El "Listo" de la otra persona (spec 038 §8), bajo el título. Va en la
+// proyección que el agente lee SIEMPRE, no en una herramienta a demanda, porque
+// es un estado y no un historial.
+describe('el Listo bajo el título', () => {
+	it('sale con el nombre y la aclaración', () => {
+		const md = noteToMarkdown(
+			{ id: 'n1', title: 'Contador', blocks: [], done: { actorLabel: 'Juan', text: 'falta la factura' } },
+			new Map()
+		);
+		expect(md).toContain('> ✓ Juan marcó Listo: falta la factura');
+	});
+
+	it('sin aclaración, la línea igual sale', () => {
+		const md = noteToMarkdown(
+			{ id: 'n1', title: 'Contador', blocks: [], done: { actorLabel: 'Juan', text: '' } },
+			new Map()
+		);
+		expect(md).toContain('> ✓ Juan marcó Listo');
+		expect(md).not.toContain('Listo:');
+	});
+
+	// El control: sin esta prueba, un `if` mal escrito mete un "✓ undefined" en
+	// TODAS las notas que el agente lee.
+	it('una nota sin Listo queda igual que siempre', () => {
+		const md = noteToMarkdown({ id: 'n1', title: 'Contador', blocks: [] }, new Map());
+		expect(md).not.toContain('✓');
+	});
+});
