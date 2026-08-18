@@ -39,7 +39,8 @@ Se quedan en tu aparato, y no las ve nadie más:
 
 - la **carpeta** donde la tenés y el **lugar** que ocupa en tu lista
 - las **etiquetas**
-- el **comentario** gris de cada renglón
+- el **comentario** gris que ponés vos en un renglón (el de la otra persona sí
+  viaja: ver más abajo)
 - si la nota está **visible para agentes**
 
 Eso significa que cada uno la ordena a su manera sin pisarle nada al otro.
@@ -83,13 +84,66 @@ Quien abre el link ve una tarjeta que dice **"Te compartieron una nota"**. Si no
 entró a su cuenta, se lo pide; cuando entra, la invitación **sigue esperándolo**.
 Al aceptar, la nota le aparece en su lista como una más.
 
-**Puede leerla y copiarla. No puede cambiar el texto**: ni escribir, ni pegar,
-ni cambiarle el título, ni borrar renglones, ni moverlos, ni tildar una tarea,
-ni tocarle la fecha o las etiquetas. Por ahora sólo lee — contestar el ticket
-llega en el paso siguiente.
-
 Si abre la pantalla de compartir de esa nota, ve **con qué nombre le figurás
 vos**: el que escribiste en "¿Cómo querés que te vean?".
+
+## Qué puede hacer la otra persona
+
+**No puede cambiar el texto de la nota**: ni escribir, ni pegar, ni cambiarle el
+título, ni borrar renglones, ni moverlos, ni tocarle la fecha o las etiquetas.
+Esa parte sigue siendo tuya.
+
+Lo que sí puede hacer es **contestarte**, de tres maneras:
+
+- **Marcar una tarea como hecha.** Toca la casilla y listo. Del lado tuyo la
+  tarea aparece tildada sola, sin que tengas que hacer nada.
+- **Dejar un comentario en una tarea.** En el menú **⋯** del renglón le aparece
+  una sola opción, *Agregar comentario*. Escribe, aprieta Enter, y su comentario
+  queda debajo de la tarea con su nombre al lado.
+- **Avisarte "Listo".** Al pie de la nota tiene un botón **Listo** y un campo
+  opcional para aclarar algo ("falta la factura"). Es sobre la nota entera, no
+  sobre una tarea. Vos lo ves al pie, con su nombre y la fecha.
+
+Nada de eso cambia tus renglones: son avisos que se suman, no ediciones.
+
+## Su comentario no se borra ni se edita
+
+**El comentario que deja la otra persona no se puede borrar ni corregir** — ni
+ella ni vos. Es un mensaje enviado, no un texto guardado. Por eso el campo, antes
+de que escriba, se lo avisa: *"Comentar (no se puede editar después)"*.
+
+**El tuyo sí**: el comentario gris que ponés vos en un renglón es otra cosa, es
+tuyo, lo editás y lo borrás cuando quieras… y **no viaja**. La otra persona no lo
+ve. Los dos se ven parecidos y viven en el mismo lugar, así que conviene tener
+clara la diferencia:
+
+| | El tuyo (comentario gris) | El de ella |
+|---|---|---|
+| ¿Lo ve el otro? | No | Sí |
+| ¿Se puede editar o borrar? | Sí | No |
+
+## Quién hizo cada cosa
+
+Todo lo que aparece debajo de una tarea lleva un **recuadro con el nombre** de
+quien lo escribió, y el color lo dice de un vistazo:
+
+- **Celeste** — lo escribió una persona. El nombre es el que **vos** pusiste al
+  generar el link ("¿Para quién es este link?"), o el que ella puso para vos.
+- **Ámbar, con la sigla IA** — lo escribió un agente.
+
+Lo mismo en **Configuración ⚙️ › Agentes**, donde está el registro de todo lo que
+pasó en tus notas: ahí vas a leer "Juan marcó hecha" o "Juan dejó una nota" en
+vez de un genérico "Agente".
+
+## Tu agente también la ve
+
+Si tenés la nota **visible para agentes** (el robotito 🤖), tu agente lee lo que
+la otra persona escribió **con su nombre**, y ve el "Listo" bajo el título de la
+nota. Sabe que eso lo dijo una persona y no él mismo.
+
+Al revés también hay un límite: **en una nota que te comparten a vos**, tu agente
+puede completar y comentar tareas, pero **no crear tareas nuevas**. Una tarea
+creada ahí no le llegaría nunca al dueño y se quedaría sólo en tu copia.
 
 ## Ver quiénes la miran, y cortar
 
@@ -119,5 +173,5 @@ por invitar a otra persona. Para cerrarla, **Dejar de compartir**.
 
 ## Todavía no
 
-Que la otra persona pueda tildar tareas y dejar comentarios, el botón **Listo**,
-y el contador de novedades llegan más adelante.
+El **contador de novedades** en la lista de notas —para ver de un vistazo en qué
+nota te contestaron sin tener que abrirlas— llega más adelante.

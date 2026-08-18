@@ -2,7 +2,10 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-17 (Nuevo: **cuando se va el último invitado, la
+Última actualización: 2026-08-18 (Nuevo: **la persona a la que le compartís una
+nota ya puede contestarte**: marcar tareas como hechas, comentar una tarea y
+avisarte "Listo", y cada cosa dice quién la hizo (tema 20).
+Antes: **cuando se va el último invitado, la
 nota vuelve sola a la bóveda** (tema 20).
 Antes: **una nota que te comparten dice de
 quién es**, y no se le puede tocar nada — ni el título, ni pegar, ni la fecha ni
@@ -82,7 +85,7 @@ dispositivo — antes se ofrecía siempre y no llevaba a ningún lado; ver el te
 17. [Agentes](guia/17-agentes.md) — hacer una nota visible para agentes, bitácora, pedir rehacer, conectar por MCP, cómo conviven con la nube (beta, escritorio)
 18. [La nube](guia/18-nube.md) — crear cuenta, sumar un aparato, dar el permiso, qué se sube y qué ve el servidor (beta)
 19. [Actualizaciones](guia/19-actualizaciones.md) — el puntito del engranaje, qué trae la versión nueva y qué trajo la tuya, y qué pasa al instalar (solo app de escritorio)
-20. [Compartir una nota](guia/20-compartir-una-nota.md) — sacar una nota de la bóveda para que otra persona la lea, invitarla con un link, qué viaja y qué se queda, quitar el acceso y cerrarla
+20. [Compartir una nota](guia/20-compartir-una-nota.md) — sacar una nota de la bóveda para que otra persona la lea, invitarla con un link, qué puede contestarte (tildar, comentar, "Listo"), quién hizo cada cosa, qué viaja y qué se queda, quitar el acceso y cerrarla
 
 ## Regla para el equipo
 
