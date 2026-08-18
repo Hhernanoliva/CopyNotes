@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { db } from './db';
-import { rememberShareName, actorName, isMine } from './share-names';
+import { rememberShareName, actorName, isMine, isAgentActor } from './share-names';
 
 const dueño = { noteId: 'n1', role: 'owner', myActor: null };
 const invitado = { noteId: 'n1', role: 'member', myActor: 'member:u-2' };
@@ -44,6 +44,22 @@ describe('actorName', () => {
 	it('un id de agente es el agente', async () => {
 		expect(await actorName('agt_7f21c9', dueño)).toBe('Agente');
 		expect(await actorName('agt_7f21c9', invitado)).toBe('Agente');
+	});
+});
+
+// La pantalla pinta de otro color lo que escribió una persona, así que este
+// descarte dejó de ser sólo una palabra: si dice que Juan es un agente, su
+// comentario sale del color equivocado.
+describe('isAgentActor', () => {
+	it('un id de agente sí, y la palabra suelta también', () => {
+		expect(isAgentActor('agt_7f21c9')).toBe(true);
+		expect(isAgentActor('agent')).toBe(true);
+	});
+	it('el usuario no', () => {
+		expect(isAgentActor('user')).toBe(false);
+	});
+	it('un miembro tampoco', () => {
+		expect(isAgentActor('member:u-2')).toBe(false);
 	});
 });
 

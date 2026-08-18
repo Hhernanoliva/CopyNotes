@@ -167,7 +167,10 @@
 			for (const item of list) {
 				// La itálica del renglón dice "IA" desde antes de que existiera
 				// compartir, y esa palabra no cambia: acá sólo se agrega el caso nuevo.
-				if (isAgentActor(item.actor)) {
+				// El booleano viaja además del nombre porque la pantalla lo pinta de
+				// otro color, y el color no se puede deducir del texto de la etiqueta.
+				item.esAgente = isAgentActor(item.actor);
+				if (item.esAgente) {
 					item.label = 'IA';
 					continue;
 				}

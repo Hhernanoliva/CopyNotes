@@ -946,6 +946,7 @@
 			{#each agentNotes as agentNote (agentNote.id)}
 				<p
 					class="agent-note -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic"
+					class:agent-note--person={!agentNote.esAgente}
 				>
 					<span class="agent-note-badge" aria-label={`Escrito por ${agentNote.label}`}
 						>{agentNote.label}</span
