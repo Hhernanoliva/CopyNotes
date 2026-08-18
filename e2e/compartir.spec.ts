@@ -67,9 +67,9 @@ test('la invitación no reaparece en la visita siguiente', async ({ page }) => {
 // La marca se planta en IndexedDB directo y no importando módulos de la app:
 // contra la build de preview no existen las rutas `/src`. El diálogo y el editor
 // releen al montarse, así que alcanza con recargar.
-async function marcarComoAjena(page) {
+async function marcarComoAjena(page, rol = 'member') {
 	await page.evaluate(
-		() =>
+		(rol) =>
 			new Promise((resolve, reject) => {
 				const abrir = indexedDB.open('copynotes');
 				abrir.onerror = () => reject(abrir.error);
@@ -78,12 +78,13 @@ async function marcarComoAjena(page) {
 					const store = tx.objectStore('notes');
 					store.getAll().onsuccess = (evento) => {
 						const nota = evento.target.result[0];
-						store.put({ ...nota, share: 'member' });
+						store.put({ ...nota, share: rol });
 					};
 					tx.oncomplete = () => resolve(null);
 					tx.onerror = () => reject(tx.error);
 				};
-			})
+			}),
+		rol
 	);
 	await page.reload();
 	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
@@ -291,4 +292,31 @@ test('en una nota que te comparten no aparece la barra de formato', async ({ pag
 	// algo NO aparece cuando se sabe cuánto tarda en aparecer.
 	await page.waitForTimeout(700);
 	await expect(barra).toHaveCount(0);
+});
+
+// El pie de la nota compartida (spec 038 §8). "Listo" habla de la nota ENTERA,
+// no de un renglón: es la forma en que el invitado contesta el pedido.
+//
+// El botón es SÓLO del invitado, y el registro lo leen los dos. Las tres mitades
+// se prueban juntas porque separadas cada una pasa vacíamente: un pie que no se
+// renderiza da "el dueño no ve el botón" igual de verde.
+test('el botón Listo es del invitado, y lo que declara lo ven los dos', async ({ page }) => {
+	await openApp(page);
+	// Control 1: una nota que no está compartida no tiene pie de ninguna clase.
+	await expect(page.getByRole('button', { name: 'Listo' })).toHaveCount(0);
+
+	await marcarComoAjena(page);
+
+	await expect(page.getByRole('button', { name: 'Listo' })).toBeVisible();
+	await page.getByPlaceholder('Algo que aclarar').fill('falta la factura');
+	await page.getByRole('button', { name: 'Listo' }).click();
+	await expect(page.getByText(/marcó Listo/)).toBeVisible();
+	await expect(page.getByText('falta la factura')).toBeVisible();
+
+	// Control 2: en la nota del DUEÑO la declaración se lee y el botón no está —
+	// no tiene a quién avisarle de su propia nota.
+	await marcarComoAjena(page, 'owner');
+
+	await expect(page.getByText(/marcó Listo/)).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Listo' })).toHaveCount(0);
 });

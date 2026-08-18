@@ -6,7 +6,8 @@ export {
 	readTask,
 	listTasks,
 	setTaskChecked,
-	convertToTask
+	convertToTask,
+	markNoteDone
 } from './actions';
 export { isRedoRequested } from './redo';
 export { deriveChecked } from './derive';

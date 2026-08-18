@@ -39,3 +39,17 @@ describe('actionLabel', () => {
 		);
 	});
 });
+
+// La quinta acción (spec 038 §8). Entra en los DOS mapas o el que falte muestra
+// la palabra `listo` cruda en pantalla — que es justo lo que la primera prueba
+// de arriba vigila.
+describe('la quinta acción', () => {
+	it('tiene palabra en los dos mapas', () => {
+		expect(
+			actionLabel({ actor: 'member:u-1', action: 'listo' }, { role: 'owner', myActor: null })
+		).toBe('marcó Listo');
+		expect(actionLabel({ actor: 'user', action: 'listo' }, { role: 'owner', myActor: null })).toBe(
+			'marcaste Listo'
+		);
+	});
+});

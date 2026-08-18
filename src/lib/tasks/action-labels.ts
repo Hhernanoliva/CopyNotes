@@ -14,14 +14,16 @@ export const ACTION_LABEL = {
 	created: 'creó una tarea',
 	done: 'marcó hecha',
 	reopened: 'reabrió',
-	note: 'dejó una nota'
+	note: 'dejó una nota',
+	listo: 'marcó Listo'
 };
 
 export const ACTION_LABEL_USER = {
 	created: 'creaste una tarea',
 	done: 'marcaste hecha',
 	reopened: 'reabriste',
-	note: 'dejaste una nota'
+	note: 'dejaste una nota',
+	listo: 'marcaste Listo'
 };
 
 // `ctx` es el mismo que el de `actorName`: el rol de este aparato en esa nota y

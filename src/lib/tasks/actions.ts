@@ -266,3 +266,26 @@ export async function listTasks(noteId) {
 	const blocks = await listBlocksByNote(noteId);
 	return blocks.filter((block) => block.type === 'todo');
 }
+
+// "Listo": una declaración sobre la NOTA, no sobre un renglón (spec 038 §8). No
+// es una máquina de estados — no hay aprobación, no hay reapertura, no hay
+// estado que consultar. El dueño la lee como una línea más.
+//
+// `blockId: null` no es una clave válida de IndexedDB, así que la fila queda
+// fuera del índice `blockId` y se lee por nota. Eso es exactamente lo que se
+// quiere, y está escrito porque parece un descuido.
+//
+// La palabra es castellana a propósito, contra el resto ('created', 'done',
+// 'reopened', 'note'): `done` ya está tomada y significa "se tildó una tarea",
+// que es otra cosa, y cualquier sinónimo inglés se confunde con ella al leer el
+// código. 'listo' es literalmente lo que dice el botón.
+//
+// No abre transacción: es la única acción que escribe UNA fila y ninguna otra,
+// así que no hay nada con qué quedar a medias. Por eso lleva el `bumpAgentData`
+// explícito, igual que `addTaskNote`: sin escritura de renglón, la red de
+// seguridad de `updateBlock` no se dispara.
+export async function markNoteDone({ noteId, actor = 'user', text = '' }) {
+	const activity = await appendActivity({ blockId: null, noteId, actor, action: 'listo', text });
+	bumpAgentData();
+	return { activity };
+}

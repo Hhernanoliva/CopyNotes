@@ -32,7 +32,8 @@
 		planTypeChangeSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
-	import { setTaskChecked, convertToTask, createTask, addTaskNote } from '$lib/tasks';
+	import { setTaskChecked, convertToTask, createTask, addTaskNote, markNoteDone } from '$lib/tasks';
+	import SharedFooter from './SharedFooter.svelte';
 	import { agentNotesByBlock } from './agent-notes';
 	import { actorName, isAgentActor } from '$lib/storage/share-names';
 	import { myMemberActor } from '$lib/sync/identity';
@@ -149,20 +150,38 @@
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
 	let agentNotes = $state({});
+	// Las declaraciones de "Listo" sobre la nota entera (spec 038 §8). Salen de la
+	// MISMA lectura que la itálica de cada renglón: son filas de la misma bitácora,
+	// las que no cuelgan de ningún renglón.
+	let doneEntries = $state([]);
 
-	// La etiqueta se resuelve ACÁ y no en `agent-notes.ts` porque sale de una tabla
-	// de Dexie y ese archivo es puro a propósito (se prueba sin base).
+	// Las etiquetas se resuelven ACÁ y no en `agent-notes.ts` porque salen de una
+	// tabla de Dexie y ese archivo es puro a propósito (se prueba sin base).
 	//
 	// Un nombre por actor distinto, no uno por línea: una tarea puede juntar quince
 	// comentarios de la misma persona y serían quince lecturas.
-	//
-	// Tiene que llamarse desde los DOS lugares que arman la lista, o uno de los dos
-	// caminos se queda viejo — es la tercera vez que este proyecto pierde algo por
-	// dejarlo en manos del llamador (`appliedVersion`, dos veces).
-	async function buildAgentNotes(rows) {
-		const ctx = { noteId: note?.id, role: note?.share ?? null, myActor };
-		const grouped = agentNotesByBlock(rows, ctx);
+	function resolvedorDeNombres(ctx) {
 		const cache = new Map();
+		return async (actor) => {
+			if (!cache.has(actor)) cache.set(actor, await actorName(actor, ctx));
+			return cache.get(actor);
+		};
+	}
+
+	// La puerta ÚNICA de todo lo que la pantalla saca de la bitácora. Las dos
+	// listas se llenan juntas o no se llenan: dejar que cada llamador arme la suya
+	// es exactamente cómo este proyecto perdió cosas tres veces (`appliedVersion`,
+	// dos; el segundo camino de `agentNotes`, una).
+	//
+	// `abortado` existe porque resolver los nombres lee Dexie, y en esa espera la
+	// persona puede haber abierto otra nota: sin la pregunta, las listas de la
+	// nota vieja pisarían las de la nueva. Se pregunta ACÁ, junto a la asignación,
+	// y no en el llamador, que es lo que la volvería olvidable otra vez.
+	async function applyActivity(rows, abortado = () => false) {
+		const ctx = { noteId: note?.id, role: note?.share ?? null, myActor };
+		const nombre = resolvedorDeNombres(ctx);
+
+		const grouped = agentNotesByBlock(rows, ctx);
 		for (const list of Object.values(grouped)) {
 			for (const item of list) {
 				// La itálica del renglón dice "IA" desde antes de que existiera
@@ -170,15 +189,20 @@
 				// El booleano viaja además del nombre porque la pantalla lo pinta de
 				// otro color, y el color no se puede deducir del texto de la etiqueta.
 				item.esAgente = isAgentActor(item.actor);
-				if (item.esAgente) {
-					item.label = 'IA';
-					continue;
-				}
-				if (!cache.has(item.actor)) cache.set(item.actor, await actorName(item.actor, ctx));
-				item.label = cache.get(item.actor);
+				item.label = item.esAgente ? 'IA' : await nombre(item.actor);
 			}
 		}
-		return grouped;
+
+		// El pie no dice "IA" nunca: un "Listo" sobre la nota entera lo declara una
+		// persona, y si algún día lo escribiera un agente su nombre es "Agente",
+		// que es lo que `actorName` ya devuelve.
+		const listos = rows.filter((row) => row.action === 'listo');
+		const conNombre = [];
+		for (const row of listos) conNombre.push({ ...row, label: await nombre(row.actor) });
+
+		if (abortado()) return;
+		agentNotes = grouped;
+		doneEntries = conNombre;
 	}
 	// { [blockId]: { id, remote } } — el mismo renglón cambió acá y en otro
 	// dispositivo. Se muestra en el renglón, no escondido en Configuración.
@@ -563,6 +587,7 @@
 		note = null;
 		blocks = [];
 		agentNotes = {};
+		doneEntries = [];
 		conflicts = {};
 		deferredRefresh = false;
 		// La selección y su menú de grupo son de ESTA nota; la próxima no hereda
@@ -578,12 +603,8 @@
 			if (cancelled) return;
 			note = loadedNote;
 			blocks = loadedBlocks;
-			// Resolver los nombres lee Dexie, así que hay que volver a preguntar si la
-			// nota cambió mientras tanto: sin esto la lista de una nota vieja pisaría
-			// la de la que se acaba de abrir.
-			const conNombres = await buildAgentNotes(loadedActivity);
+			await applyActivity(loadedActivity, () => cancelled);
 			if (cancelled) return;
-			agentNotes = conNombres;
 			conflictsByBlock(loadedBlocks.map((row) => row.id)).then((found) => {
 				if (!cancelled) conflicts = found;
 			});
@@ -1194,6 +1215,13 @@
 	// mismo camino es exactamente cómo se quedan viejos los llamadores.
 	async function handleComment(block, text) {
 		await addTaskNote({ blockId: block.id, actor: await actorParaEscribir(), text });
+		await refreshFromStorage();
+	}
+
+	// "Listo": lo mismo un piso más arriba. Habla de la nota entera, así que su
+	// línea no cuelga de ningún renglón y no aparece en ninguna itálica.
+	async function handleNoteDone(text) {
+		await markNoteDone({ noteId: note.id, actor: await actorParaEscribir(), text });
 		await refreshFromStorage();
 	}
 
@@ -2092,7 +2120,7 @@
 		// próximo cambio de la nube, y editarlo sube esa versión vieja.
 		deferredRefresh = reconciled.deferred.length > 0;
 		conflicts = await conflictsByBlock(loadedBlocks.map((row) => row.id));
-		agentNotes = await buildAgentNotes(loadedActivity);
+		await applyActivity(loadedActivity);
 		// El título se edita en su propio campo: sólo se pisa si nadie lo está
 		// escribiendo en este momento.
 		if (!pending.has(`title:${id}`)) note.title = loadedNote.title;
@@ -2457,6 +2485,13 @@
 				/>
 			{/each}
 		</div>
+		<!-- El pie de una nota compartida: el botón "Listo" del invitado y el
+		     registro que leen los dos (spec 038 §8). Va DENTRO de la columna de
+		     renglones para que arranque en la misma x que ellos, y sólo aparece
+		     cuando la nota está compartida. -->
+		{#if note?.share}
+			<SharedFooter role={note.share} entries={doneEntries} onDone={handleNoteDone} />
+		{/if}
 	</div>
 	{#if toolbar}
 		<FloatingFormattingToolbar
