@@ -355,11 +355,20 @@ describe('lo que un respaldo puede llevar', () => {
 		});
 		const tag = await createTag({ name: 't' });
 		await assignTag(tag.id, 'note', note.id);
-		await appendActivity({ blockId: block.id, noteId: note.id, actor: 'user', action: 'created' });
+		const linea = await appendActivity({
+			blockId: block.id,
+			noteId: note.id,
+			actor: 'user',
+			action: 'created'
+		});
 		await setSetting(KEY.theme, 'dark');
 		// Caño 1 (nube cifrada): `changeSeq` y `cloudSeq` los pone el gancho de escritura.
-		// Caño 2 (compartir): la marca de por qué caño viaja la nota.
+		// Caño 2 (compartir): la marca de por qué caño viaja la nota, y `serverSeq`,
+		// el orden que reparte el servidor a cada línea de bitácora (spec 038 §5).
+		// Es de ESTE aparato sobre un servidor: un archivo no puede afirmar nada
+		// sobre eso, así que no puede salir.
 		await setShareRole(note.id, 'owner');
+		await db.table('activity').update(linea.id, { serverSeq: 4242, fromCloud: true });
 
 		const dump = await dumpAllTables();
 

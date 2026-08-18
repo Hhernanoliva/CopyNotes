@@ -9,7 +9,10 @@
 // Bookkeeping que se reescribe sola: la nube sella `cloudSeq`, cada guardado
 // mueve `updatedAt` y `changeSeq`. Si contara como cambio, cualquier tic de
 // sincronización se vería como una edición sin que nada cambie en pantalla.
-const BOOKKEEPING = new Set(['updatedAt', 'changeSeq', 'cloudSeq', 'fromCloud']);
+//
+// `serverSeq` es de spec 038 §5: el orden que el servidor le reparte a cada línea
+// de bitácora al recibirla. Lo escribe el caño compartido, no la persona.
+const BOOKKEEPING = new Set(['updatedAt', 'changeSeq', 'cloudSeq', 'fromCloud', 'serverSeq']);
 
 // Todos los campos de una fila son valores sueltos (texto, número, booleano o
 // null), así que comparar uno por uno alcanza.
