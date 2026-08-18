@@ -462,3 +462,50 @@ describe('convertToTask', () => {
 		expect(result.activity.text).toBe('comprar leche');
 	});
 });
+
+// Spec 038 §6: el comentario del invitado NO es `block.note` —ese campo es del
+// dueño y no viaja— sino una línea de bitácora, que es lo único que el servidor
+// le acepta. `addTaskNote` ya aceptaba un `actor` cualquiera; lo que faltaba era
+// dejar escrito qué pasa cuando ese actor es un miembro.
+describe('addTaskNote de un invitado', () => {
+	async function tarea() {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		return { noteId: note.id, blockId: block.id, block };
+	}
+
+	it('queda firmado como él y pendiente de subir', async () => {
+		const { blockId } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'member:u-1', text: 'le dejé mensaje' });
+
+		const linea = (await listActivityByBlock(blockId)).at(-1);
+		expect(linea).toMatchObject({
+			actor: 'member:u-1',
+			action: 'note',
+			text: 'le dejé mensaje'
+		});
+		expect(linea.cloudSeq).toBeUndefined();
+	});
+
+	// La que vale la pena: `isRedoRequested` exige `actor === 'user'`, así que la
+	// puerta ya está cerrada — pero no había nada que lo dejara escrito, y es justo
+	// la clase de condición que alguien "simplifica" un año después.
+	it('y no puede pedirle al agente que rehaga nada', async () => {
+		const { blockId, block } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'member:u-1', text: 'rehacelo' });
+
+		expect(isRedoRequested(block, await listActivityByBlock(blockId))).toBe(false);
+	});
+
+	// El control: la misma frase escrita por el dueño SÍ es un pedido. Sin esto, la
+	// de arriba pasaría aunque `isRedoRequested` devolviera false siempre.
+	it('pero la misma frase del dueño sí lo es', async () => {
+		const { blockId, block } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'user', text: 'rehacelo' });
+
+		expect(isRedoRequested(block, await listActivityByBlock(blockId))).toBe(true);
+	});
+});

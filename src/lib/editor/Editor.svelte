@@ -32,7 +32,7 @@
 		planTypeChangeSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
-	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
+	import { setTaskChecked, convertToTask, createTask, addTaskNote } from '$lib/tasks';
 	import { agentNotesByBlock } from './agent-notes';
 	import { actorName, isAgentActor } from '$lib/storage/share-names';
 	import { myMemberActor } from '$lib/sync/identity';
@@ -1167,6 +1167,36 @@
 		runFormatCommand(block.id, name, undefined, { restoreSelection: false });
 	}
 
+	// Con qué firma escribe este aparato AHORA, resuelto en el momento de escribir
+	// y no leído de `myActor`.
+	//
+	// `myActor` lo llena un efecto asíncrono, así que hay un instante —el primero
+	// de la nota— en que todavía vale null. Firmar 'user' ahí no es un detalle: en
+	// una nota ajena `'user'` significa EL DUEÑO, o sea que el comentario recién
+	// escrito aparecería atribuido a la otra persona hasta que el servidor lo
+	// corrigiera treinta segundos después. La sesión ya está en memoria, así que
+	// preguntarla de nuevo no cuesta un viaje.
+	//
+	// Se resuelve ANTES de llamar a la acción, nunca adentro: una lectura
+	// encadenada dentro de una transacción de Dexie la cierra temprano.
+	async function actorParaEscribir() {
+		if (!isMember) return 'user';
+		return (await myMemberActor()) ?? 'user';
+	}
+
+	// El comentario del invitado NO es `block.note` —ese campo es del dueño y no
+	// viaja— sino una línea de bitácora, que es lo único que el servidor le acepta.
+	// Cae en la misma lista donde ya se leen las notas del agente, así que aparece
+	// bajo la tarea sin ninguna pantalla nueva.
+	//
+	// Recarga con `refreshFromStorage` y no con una lectura propia: esa función ya
+	// vuelve a leer la bitácora Y a resolver los nombres, y una segunda copia del
+	// mismo camino es exactamente cómo se quedan viejos los llamadores.
+	async function handleComment(block, text) {
+		await addTaskNote({ blockId: block.id, actor: await actorParaEscribir(), text });
+		await refreshFromStorage();
+	}
+
 	function handleNoteInput(block, text) {
 		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
@@ -1535,12 +1565,12 @@
 		//
 		// El rol se resuelve ACÁ, antes de entrar a la transacción (spec 038 §5).
 		// En una nota ajena la firma es la de miembro y el renglón se escribe como
-		// cache; el `?? 'user'` es el aparato sin sesión, donde no hay nada que
-		// mandar a ninguna parte igual.
+		// cache. Por la misma puerta que el comentario, y por el mismo motivo:
+		// leerla del estado deja una ventana en la que la firma todavía no llegó.
 		const plan = await setTaskChecked({
 			noteId: note.id,
 			blockId: block.id,
-			actor: isMember ? (myActor ?? 'user') : 'user',
+			actor: await actorParaEscribir(),
 			fromCloud: isMember
 		});
 		if (!plan) return;
@@ -2363,6 +2393,7 @@
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
+					onComment={handleComment}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
 					onJoinPrevious={handleJoinPrevious}

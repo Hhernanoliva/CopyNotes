@@ -27,7 +27,11 @@
 		onTag,
 		onDismiss,
 		pulseMenu = false,
-		contentActions = true
+		contentActions = true,
+		// El invitado de una nota compartida (spec 038 §6): de las seis puertas de
+		// este menú queda UNA, la de comentar. Las otras cinco escriben el renglón,
+		// y eso es exactamente lo que no puede hacer.
+		noteOnly = false
 	} = $props();
 
 	let open = $state(false);
@@ -118,59 +122,62 @@
 					<kbd class="text-faint border-border rounded border px-1 text-xs">Ctrl+↵</kbd>
 				</button>
 			{/if}
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onMoveUp)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<ArrowUp size={15} aria-hidden="true" />
-				<span class="flex-1">Mover arriba</span>
-			</button>
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onMoveDown)}
-				class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<ArrowDown size={15} aria-hidden="true" />
-				<span class="flex-1">Mover abajo</span>
-			</button>
-			{#if contentActions}
+			<!-- Todo lo que sigue escribe el renglón, así que el invitado no lo ve. -->
+			{#if !noteOnly}
 				<button
 					type="button"
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
-					onclick={() => run(onSaveSnippet)}
+					onclick={() => run(onMoveUp)}
 					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
-					<BookmarkPlus size={15} aria-hidden="true" />
-					<span class="flex-1">Guardar como snippet</span>
+					<ArrowUp size={15} aria-hidden="true" />
+					<span class="flex-1">Mover arriba</span>
 				</button>
 				<button
 					type="button"
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
-					onclick={() => run(onTag, false)}
+					onclick={() => run(onMoveDown)}
 					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
-					<Tag size={15} aria-hidden="true" />
-					<span class="flex-1">Etiquetar</span>
-					<kbd class="text-faint border-border rounded border px-1 text-xs">#</kbd>
+					<ArrowDown size={15} aria-hidden="true" />
+					<span class="flex-1">Mover abajo</span>
+				</button>
+				{#if contentActions}
+					<button
+						type="button"
+						role="menuitem"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => run(onSaveSnippet)}
+						class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+					>
+						<BookmarkPlus size={15} aria-hidden="true" />
+						<span class="flex-1">Guardar como snippet</span>
+					</button>
+					<button
+						type="button"
+						role="menuitem"
+						onmousedown={(event) => event.preventDefault()}
+						onclick={() => run(onTag, false)}
+						class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+					>
+						<Tag size={15} aria-hidden="true" />
+						<span class="flex-1">Etiquetar</span>
+						<kbd class="text-faint border-border rounded border px-1 text-xs">#</kbd>
+					</button>
+				{/if}
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onDelete, false)}
+					class="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				>
+					<Trash2 size={15} aria-hidden="true" />
+					<span class="flex-1">Eliminar</span>
 				</button>
 			{/if}
-			<button
-				type="button"
-				role="menuitem"
-				onmousedown={(event) => event.preventDefault()}
-				onclick={() => run(onDelete, false)}
-				class="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
-			>
-				<Trash2 size={15} aria-hidden="true" />
-				<span class="flex-1">Eliminar</span>
-			</button>
 		</div>
 	{/if}
 </div>

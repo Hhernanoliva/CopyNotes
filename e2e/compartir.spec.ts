@@ -99,22 +99,89 @@ test('una nota que te comparten no se puede escribir', async ({ page }) => {
 	);
 });
 
-// El teclado es una puerta de varias. El menú del renglón las tiene casi todas
-// juntas —mover, borrar, etiquetar, guardar como fragmento— y en celular es la
-// única forma de llegar a ellas.
+// Los controles del renglón son `pointer-events-none` hasta que el puntero entra
+// en la fila (o algo de adentro toma el foco). Las pruebas de B1 sólo los
+// CONTABAN, así que nunca hizo falta; para abrir el menú hay que pasar por
+// arriba primero, igual que una persona.
+async function abrirMenuDelRenglon(page) {
+	await page.locator('main .cn-row').first().hover();
+	await page.getByRole('button', { name: 'Más acciones' }).first().click();
+}
+
+// El menú del renglón tiene seis puertas y cinco escriben el renglón. Al
+// invitado le queda UNA, la de comentar (spec 038 §6, parte B2). Hasta B2 no le
+// quedaba ninguna, y el cambio es a propósito: comentar no escribe el renglón,
+// deja una línea de bitácora, que es lo único que el servidor le acepta.
+//
 // El control de la primera mitad NO es decorativo: la primera versión de esta
 // prueba buscaba "Acciones del bloque", que es el nombre del menú ABIERTO y no
 // del botón que lo abre, así que daba verde con el candado puesto y sin poner.
-// Comprobar primero que en una nota propia el botón SÍ está es lo que impide que
-// vuelva a pasar.
-test('en una nota que te comparten no está el menú del renglón', async ({ page }) => {
+// Contar los ítems en la nota propia ANTES es lo que impide que vuelva a pasar:
+// un menú que no se renderiza por cualquier motivo daría "un solo ítem" también.
+test('en una nota que te comparten el menú del renglón queda en un solo ítem', async ({
+	page
+}) => {
 	await openApp(page);
-	const menu = page.getByRole('button', { name: 'Más acciones' });
-	expect(await menu.count()).toBeGreaterThan(0);
+	await abrirMenuDelRenglon(page);
+	expect(await page.getByRole('menuitem').count()).toBe(6);
+	await page.keyboard.press('Escape');
 
 	await marcarComoAjena(page);
 
-	await expect(menu).toHaveCount(0);
+	await abrirMenuDelRenglon(page);
+	await expect(page.getByRole('menuitem')).toHaveCount(1);
+	await expect(page.getByRole('menuitem')).toHaveText(/Agregar comentario/);
+});
+
+// Y lo que el invitado escribe ahí aparece bajo la tarea, con su recuadro de
+// autor. No es `block.note` —ese campo es del dueño y no viaja— sino una línea
+// de bitácora, que se manda entera con Enter y no se puede editar después.
+test('el invitado comenta una tarea y su comentario queda debajo', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+
+	await abrirMenuDelRenglon(page);
+	await page.getByRole('menuitem', { name: /Agregar comentario/ }).click();
+	const campo = page.getByRole('textbox', { name: 'Comentar la tarea' });
+	await expect(campo).toHaveAttribute('contenteditable', 'plaintext-only');
+	await campo.fill('le dejé mensaje');
+	await page.keyboard.press('Enter');
+
+	const comentario = page.locator('main p.agent-note').filter({ hasText: 'le dejé mensaje' });
+	await expect(comentario).toBeVisible();
+	await expect(comentario.locator('.agent-note-badge')).toBeVisible();
+	// Y el campo se vació: es un mensaje que se manda, no un texto que se edita.
+	await expect(page.getByRole('textbox', { name: 'Comentar la tarea' })).toHaveCount(0);
+
+	// La afirmación central de todo esto, y la única que se puede medir mirando el
+	// disco: NINGÚN renglón quedó escrito. El comentario del dueño (`block.note`)
+	// es otro campo, es suyo, y no viaja por el caño compartido — si el invitado lo
+	// escribiera, su texto se quedaría en su propia copia y el dueño no lo vería
+	// nunca. Guardar al teclear dejaría además una fila por letra.
+	const notasDeRenglon = await page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const abrir = indexedDB.open('copynotes');
+				abrir.onerror = () => reject(abrir.error);
+				abrir.onsuccess = () => {
+					const tx = abrir.result.transaction('blocks', 'readonly');
+					tx.objectStore('blocks').getAll().onsuccess = (evento) =>
+						resolve(evento.target.result.map((fila) => fila.note ?? ''));
+				};
+			})
+	);
+	// El control viene de arriba y es real: la nota de demo YA trae un comentario
+	// del dueño, así que esta lista no está vacía. Sin eso, un `not.toContain`
+	// sobre una lista vacía —o sobre el campo equivocado— daría verde sin probar
+	// nada.
+	expect(notasDeRenglon.join('\n').length).toBeGreaterThan(0);
+	expect(notasDeRenglon.join('\n')).not.toContain('le dejé mensaje');
+
+	// Y sobrevive a cerrar y abrir: quedó guardado, no pintado en pantalla.
+	await page.reload();
+	await expect(
+		page.locator('main p.agent-note').filter({ hasText: 'le dejé mensaje' })
+	).toBeVisible();
 });
 
 // La casilla es la EXCEPCIÓN al candado, desde spec 038 §5 (parte B2): tildar es
@@ -148,7 +215,12 @@ test('pero el resto del candado sigue cerrado con la casilla abierta', async ({ 
 		'contenteditable',
 		'false'
 	);
-	await expect(page.getByRole('button', { name: 'Más acciones' })).toHaveCount(0);
+	// El menú existe (comentar es la otra excepción), pero mover, borrar,
+	// etiquetar y guardar como fragmento no están adentro.
+	await abrirMenuDelRenglon(page);
+	await expect(page.getByRole('menuitem', { name: /Eliminar|Mover|Etiquetar|fragmento/ })).toHaveCount(
+		0
+	);
 });
 
 // Con quién estás del otro lado. El nombre del dueño se venía guardando desde
