@@ -64,8 +64,10 @@ src/
     pwa/            service worker, offline. NOT installability: the web build
                     stopped offering "install this page as an app" — that
                     look-alike cannot host the agent channel (see desktop/)
-    desktop/        the Tauri seam: window-close write barrier, and the web-side
-                    card + link that point people at the desktop download
+    desktop/        the Tauri seam: window-close write barrier, the web-side
+                    card + link that point at the desktop download, and the
+                    "there is a new version" notice (check() only — the app
+                    never replaces itself; see docs/arquitectura-publicacion.md)
     sync/           account, encryption at the upload edge, upload/download,
                     conflicts (+ the word-level diff the in-row panel shows),
                     leaving an account, and the live channel (specs 029/030)
@@ -76,6 +78,11 @@ e2e/
 supabase/         schema.sql + how to set the project up. Not app code: it is
                   what gets pasted into the SQL editor, kept here to be reviewable
 scripts/          rls-check.mjs — proves one account cannot reach another's rows
+                  changelog-section.mjs — prints one CHANGELOG section; the
+                  release build FAILS when the section is missing
+.github/workflows/release.yml
+                  tag `v*` → compile, sign, publish a DRAFT release
+CHANGELOG.md      single source of the user-facing release notes, in Spanish
 ```
 
 Rules that keep agents safe here:
@@ -318,6 +325,32 @@ Las reglas que deja:
   configurada, así que `cloudConfigured()` da falso y la sección entera no se
   renderiza. Lo que encuentra estos agujeros es una persona usándolo.
 
+## Lo que se hornea al compilar no se puede arreglar después, y no avisa
+
+`import.meta.env.PUBLIC_*` (la nube) y el texto del `CHANGELOG.md` (las
+novedades) **quedan grabados dentro del artefacto en el momento de compilar**.
+No se leen en runtime y no se pueden editar en la release ya publicada.
+
+Eso convierte una variable ausente en un defecto **silencioso**: la `v0.2.0` se
+compiló en GitHub sin las `PUBLIC_SUPABASE_*` —viven en el `.env` local, que no
+se versiona— y salió sin nube. Compiló, se firmó y se publicó **sin una sola
+advertencia**; se descubrió cuando un humano abrió Configuración › Nube y leyó
+*"esta copia de CopyNotes no tiene una nube configurada"*.
+
+La regla que deja: **todo lo que se hornea se comprueba antes de compilar, en un
+paso que corta.** El workflow tiene una guardia que exige el `pubkey`,
+`createUpdaterArtifacts` y los cuatro secretos, y falla en segundos en vez de a
+los 25 minutos. Cualquier variable de build nueva **se agrega a esa guardia en el
+mismo commit que la introduce**.
+
+Corolario para verificar: **un `grep` vacío sobre un artefacto no prueba nada
+hasta que el método se valida con un control positivo.** Tauri embebe el frontend
+comprimido dentro del ejecutable, así que buscar la url de la nube ahí da cero
+aunque esté. La comprobación que sirve es reproducir el entorno del runner
+(`mv .env` aparte, variables sólo en el entorno, build, mirar la salida).
+
+Detalle completo en `docs/arquitectura-publicacion.md`.
+
 ## Quality Bar
 
 A feature is not done until: the app runs without errors; risky logic has Vitest tests; critical flows have a Playwright check (convention: NO component-test layer — pure Vitest + Playwright only, spec 013); relevant docs/specs updated (user guide per `docs/guia/` rule in CLAUDE.md); nothing unrelated broke; data-loss risk was considered. Extra care in high-risk areas: persistence, import/export/backup restore, nested hierarchy, reordering, copy formatting, tags/search.
@@ -370,6 +403,13 @@ mal la URL que le pasaste a alguien.
 | The formatting toolbar without a mouse: shortcuts + arrow navigation | `033` |
 | Sign in with Google: web (phase 1), desktop loopback (phase 2) | `034` |
 | Restoring a backup when the cloud is on (measured: 1 conflict per row) | `039` |
+
+Sin spec numerada, pero con documento propio:
+
+| Topic | Where |
+|---|---|
+| Publicar el escritorio: cómo funciona y por qué | `docs/arquitectura-publicacion.md` |
+| Publicar el escritorio: los pasos | `docs/release-checklist.md` §5 |
 
 Every meaningful feature gets a numbered spec (Objective / What enters / What does not / Data / Flows / Acceptance / Tests / Agent notes). Read `AGENT.md` plus the relevant spec before implementing; never contradict this file.
 
