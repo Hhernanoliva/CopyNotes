@@ -35,6 +35,7 @@
 	import { setTaskChecked, convertToTask, createTask, addTaskNote, markNoteDone } from '$lib/tasks';
 	import SharedFooter from './SharedFooter.svelte';
 	import { agentNotesByBlock } from './agent-notes';
+	import { actionLabel } from '$lib/tasks/action-labels';
 	import { actorName, isAgentActor } from '$lib/storage/share-names';
 	import { myMemberActor } from '$lib/sync/identity';
 	import { reconcileBlocks } from './reconcile';
@@ -198,7 +199,12 @@
 		// que es lo que `actorName` ya devuelve.
 		const listos = rows.filter((row) => row.action === 'listo');
 		const conNombre = [];
-		for (const row of listos) conNombre.push({ ...row, label: await nombre(row.actor) });
+		// La conjugación sale de `actionLabel`, la misma puerta que usa Configuración,
+		// y no de una cadena escrita en el pie: ahí decía "marcó Listo" fijo y con la
+		// etiqueta "Vos" se leía "Vos marcó Listo". El mapa de primera persona ya
+		// existía y ya tenía "marcaste Listo" — el pie simplemente no lo usaba.
+		for (const row of listos)
+			conNombre.push({ ...row, label: await nombre(row.actor), actionText: actionLabel(row, ctx) });
 
 		if (abortado()) return;
 		agentNotes = grouped;

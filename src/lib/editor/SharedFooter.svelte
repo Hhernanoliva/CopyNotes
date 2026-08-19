@@ -61,7 +61,7 @@
 						     "Juan  marcó Listo", con dos espacios. -->
 						<span class="flex flex-wrap items-center gap-x-1.5">
 							<Check size={14} aria-hidden="true" class="shrink-0" />
-							<span><span class="font-medium">{entry.label}</span> marcó Listo</span>
+							<span><span class="font-medium">{entry.label}</span> {entry.actionText}</span>
 							<span class="text-faint text-xs">· {fecha(entry.at)}</span>
 						</span>
 						{#if entry.text}

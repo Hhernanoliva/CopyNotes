@@ -310,6 +310,11 @@ test('el botón Listo es del invitado, y lo que declara lo ven los dos', async (
 	await expect(page.getByRole('button', { name: 'Listo' })).toBeVisible();
 	await page.getByPlaceholder('Algo que aclarar').fill('falta la factura');
 	await page.getByRole('button', { name: 'Listo' }).click();
+	// Tercera persona, y no es un descuido: el build de e2e no tiene Supabase, así
+	// que no hay sesión, la línea se escribe con actor 'user' y desde la silla del
+	// INVITADO 'user' es la otra parte. Con sesión real acá dice "Vos marcaste
+	// Listo" (medido en el gate del 2026-08-19). **No cambiar a /marcaste Listo/:**
+	// se probó y falla, y el que falla es el entorno, no el código.
 	await expect(page.getByText(/marcó Listo/)).toBeVisible();
 	await expect(page.getByText('falta la factura')).toBeVisible();
 
@@ -317,6 +322,10 @@ test('el botón Listo es del invitado, y lo que declara lo ven los dos', async (
 	// no tiene a quién avisarle de su propia nota.
 	await marcarComoAjena(page, 'owner');
 
-	await expect(page.getByText(/marcó Listo/)).toBeVisible();
+	// Y se lee CONJUGADA AL REVÉS que arriba, sobre la misma línea: desde la silla
+	// del dueño, 'user' es él. Ese contraste es lo que vigila que la conjugación
+	// salga de `actionLabel(entry, ctx)` y no de una cadena escrita a mano en el
+	// pie — con "marcó Listo" fijo, como estaba, una de las dos siempre mentía.
+	await expect(page.getByText(/marcaste Listo/)).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Listo' })).toHaveCount(0);
 });
