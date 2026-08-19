@@ -9,32 +9,15 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.0
 
-- La persona a la que le compartís una nota **ya puede contestarte**: marcar tareas como hechas, dejar un comentario en una tarea y avisarte **"Listo"** sobre la nota entera, con una aclaración si quiere. Tu lado se entera solo, sin que hagas nada. Lo que no cambió: sigue sin poder escribir, borrar, renombrar ni mover nada. Ojo con una diferencia: **su comentario no se puede borrar ni editar**, ni ella ni vos — es un mensaje enviado, y la pantalla se lo avisa antes de escribirlo. El comentario gris que ponés vos sigue siendo tuyo, editable, y **ella no lo ve**
-- Cada cosa que pasa en una nota compartida dice **quién la hizo**, con el nombre que vos pusiste al invitar. El color lo separa de un vistazo: celeste si lo escribió una persona, ámbar si lo escribió un agente. Lo mismo en Configuración › Agentes, donde antes todo lo que no eras vos decía "Agente"
-- Tu agente ve los comentarios de la otra persona **con su nombre**, y el "Listo" al leer la nota — antes leía el mensaje de un tercero como si se lo hubiera escrito él mismo. Y en una nota que **te comparten a vos**, tu agente puede completar y comentar tareas pero ya no crear tareas nuevas: una tarea creada ahí no le llegaba nunca al dueño y se quedaba sólo en tu copia, sin que ninguno de los dos se enterara
-- Arreglado: **Cerrar sesión ahora está siempre**. Si entrabas con una cuenta y la pantalla te pedía el código del otro aparato (o crear la bóveda, o permitir subir), no había forma simple de volver atrás: las dos únicas salidas visibles eran conseguir ese código o **Empezar de nuevo la nube**, que vacía el servidor. Entrar con la cuenta equivocada te dejaba encerrado, con lo único destructivo de la pantalla como única salida a mano
-- Ahora podés compartirle una nota **a otra persona**: le mandás un link, ella entra con su cuenta y la nota le aparece en su lista. Vos escribís con qué nombre va a figurar —no se comparte ningún mail, ni el tuyo ni el suyo—, ves quiénes la están mirando y le podés quitar el acceso cuando quieras. Por ahora la otra persona puede leerla y copiarla, pero no cambiar nada: ni el texto, ni el título, ni pegar, ni la fecha ni las etiquetas. De su lado ve con qué nombre le figurás vos. Ojo con la diferencia: quitarle el acceso **no** le borra la copia que ya tiene en su aparato; borrar la nota, en cambio, sí se la hace desaparecer. Y cuando se va el último invitado, **la nota vuelve sola a la bóveda**: si ya no queda nadie del otro lado no tiene sentido que siga afuera y sin cifrar, así que se cierra por vos en cuanto abrís la app
-- En computadora, la lista de notas se puede ensanchar arrastrando su borde derecho, para cuando los nombres largos quedan cortados. El ancho queda guardado; doble clic en el borde la devuelve al ancho normal, y si la tirás bien para adentro se esconde (el botón de panel la trae de vuelta, con el ancho que le habías dado)
-- La web ahora te avisa cuando hay una versión nueva, con un botón **Actualizar** que la pone en uso en un segundo (tus notas no se tocan). Antes se actualizaba "sola en la próxima visita" y sin avisar: si dejabas la pestaña abierta o el celular la mantenía dormida, seguías usando la versión vieja sin saberlo — y los arreglos que publicábamos no te llegaban
-- Arreglado: en la web, elegir un archivo de respaldo para importar no hacía nada — ni en la computadora ni en el iPhone. La app daba por cancelada la elección si el archivo tardaba en llegar, y se quedaba callada; en el iPhone tardaba más porque el sistema tiene que copiar el archivo primero. Ahora sólo se cancela si vos cancelás, sin importar cuánto tarde
-- Configuración muestra al final, en chico, qué versión de CopyNotes estás usando. Antes sólo se veía en la app de escritorio, dentro de Actualizaciones
-- Importar un respaldo ya no te duplica los renglones que tienen una comilla adentro: la app los reescribía de una forma equivalente al revisarlos y después los veía como distintos. Medido con un respaldo real: 326 renglones de 1450
-- Importar un respaldo viejo ya no te duplica las notas: antes, un renglón guardado por una versión anterior de la app se contaba como distinto del actual aunque no hubiera cambiado nada, y se quedaba con las dos copias. Medido con un respaldo real: pasó de 1154 renglones duplicados a 11, y esos 11 sí habían cambiado
-- Los respaldos bajados con versiones anteriores de CopyNotes se importan siempre: si al archivo le falta algún dato interno, se completa al entrar en vez de rechazar el respaldo entero por un renglón
-- Al bajar un respaldo, CopyNotes lo revisa antes de decir que está listo: si le encuentra un problema te lo dice ahí, en vez de que te enteres el día que lo necesitás
-- Si un archivo está dañado, ahora te dice en castellano cuántos renglones están mal en lugar de mostrar un error técnico
-- La ventana de Respaldo aclara, antes de que bajes el archivo, que se lee con cualquier editor de texto y que incluye las notas que borraste
-- Restaurar un respaldo con la nube encendida ahora funciona de verdad: antes cada renglón quedaba como una pregunta sin contestar y el respaldo no servía para nada. Ahora el archivo pasa a ser la versión buena de tu cuenta, y el cartel te avisa que esto también llega a tus otros dispositivos
-- Ahora podés compartir una nota: te avisa antes que mientras esté compartida sale de la bóveda y deja de estar cifrada, y vuelve sola cuando cerrás la compartición
-- El separador (la raya) ahora tiene su menú ⋯ con Mover y Eliminar: en el celular no había forma de borrarlo una vez puesto
-- En un título, el botón de negrita se ve apagado: los títulos ya vienen en negrita y antes el botón no hacía nada
-- Enter en medio de una línea la parte en dos: lo que está por delante del cursor se baja al renglón nuevo, con su tipo y su formato
-- Y el camino de vuelta: con el cursor al principio de un renglón, Backspace lo vuelve a unir con el de arriba (antes no hacía nada). El formato viaja, manda el tipo del de arriba y el cursor queda justo en la unión
-- Con la Agenda abierta al costado, el texto que escribís en un renglón con fecha ya aparece ahí solo. Antes, si le ponías la fecha al renglón todavía vacío, el ítem se quedaba en «Sin texto» por más que después escribieras: había que cambiar de pestaña o recargar para verlo. Lo mismo pasaba al ponerle nombre a la nota
-- Arrastrar un pedazo de una palabra en negrita (o con color, o con enlace) ya no lo deja pelado al soltarlo
-- Primera versión de escritorio publicada
-- Los agentes se pueden conectar desde Claude Code, OpenCode y Cursor
-- Tus notas se pueden guardar cifradas en la nube, si querés
-- La app avisa con un punto en el engranaje cuando hay una versión nueva
-- CopyNotes tiene su logo definitivo
-- El menú de los "⋯" ya no se sale de la pantalla en el celular con el teclado abierto
+Primera versión de CopyNotes para escritorio. Esto es lo que trae:
+
+- **Agentes de IA.** Podés conectar Claude Code, OpenCode o Cursor y dejar que lean y gestionen las tareas de las notas que vos habilites. Es lo único que la versión web no puede hacer
+- **Tus notas en varios dispositivos, cifradas.** Opcional: se cifran en tu aparato antes de salir y la llave que las abre no sale de ahí. Sin cuenta, CopyNotes funciona igual
+- **Compartir una nota con otra persona.** Le mandás un link, entra con su cuenta y la nota le aparece. No se comparte ningún mail. Ella puede marcar tareas, comentarlas y avisarte "Listo", pero no cambiar tu texto. Te avisa antes de que mientras esté compartida esa nota sale de la bóveda, y vuelve sola cuando cerrás la compartición
+- **Te avisa cuando hay una versión nueva**, con un punto en el engranaje. Nunca se actualiza sola: entrás a Configuración, ves qué trae y decidís vos
+- **Los respaldos dejaron de duplicarte notas.** Importar un archivo viejo repetía renglones que no habían cambiado; en un respaldo real eran 1154. Además ahora se revisa el archivo al bajarlo, y restaurarlo con la nube encendida por fin funciona
+- **Enter parte un renglón en dos y Backspace los vuelve a unir**, llevándose el formato
+- **La lista de notas se ensancha** arrastrando su borde derecho, para los nombres largos
+- **CopyNotes tiene su logo definitivo**
+
+Y muchos arreglos más chicos: el separador se puede borrar desde el celular, el menú ⋯ ya no se sale de la pantalla con el teclado abierto, y la Agenda se actualiza sola mientras escribís.
