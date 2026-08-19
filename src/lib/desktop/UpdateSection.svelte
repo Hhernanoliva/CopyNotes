@@ -2,7 +2,7 @@
 	import { openExternal } from '$lib/platform';
 	import { DESKTOP_DOWNLOAD_URL } from './download';
 	import { updateStatus } from './update-status.svelte';
-	import { changelogSection, parseNotes } from './update-check';
+	import { changelogSection, inlineMarks, parseNotes } from './update-check';
 	// El changelog viaja ADENTRO de la app, embebido en el build. Por eso el
 	// bloque "qué trajo tu versión" funciona sin internet y sigue estando cuando
 	// ya estás al día — que es justo cuando el aviso de arriba desaparece.
@@ -42,7 +42,14 @@
 			{#if updateStatus.notes.length}
 				<ul class="text-muted-foreground flex list-disc flex-col gap-0.5 pl-4 text-sm">
 					{#each updateStatus.notes as nota (nota)}
-						<li>{nota}</li>
+						<li>
+							{#each inlineMarks(nota) as pedazo (pedazo.text)}{#if pedazo.mark === 'bold'}<strong
+									class="text-foreground font-medium">{pedazo.text}</strong
+								>{:else if pedazo.mark === 'italic'}<em>{pedazo.text}</em>{:else if pedazo.mark === 'code'}<code
+									class="bg-muted rounded px-1 py-0.5 text-[0.9em]">{pedazo.text}</code
+								>{:else}{pedazo.text}{/if}
+							{/each}
+						</li>
 					{/each}
 				</ul>
 			{/if}
@@ -55,15 +62,23 @@
 				Descargar
 			</button>
 
-			<!-- La mitad del valor de esta sección. La firma de la app cambia en cada
-			     build, así que macOS pide la contraseña del Mac la primera vez que se
-			     abre una versión nueva. Avisado acá deja de ser un susto; denegado,
-			     la nube deja de sincronizar en esta computadora sin decir por qué.
-			     Este párrafo se borra el día que exista el certificado de Apple. -->
+			<!-- La mitad del valor de esta sección. Sin certificado de Apple pasan DOS
+			     cosas al abrir una versión nueva, y las dos asustan: macOS bloquea la
+			     app de entrada, y después el llavero pide la contraseña del Mac porque
+			     la firma ad-hoc cambia en cada build. El bloqueo va primero porque es
+			     lo primero que se ve y no tiene salida evidente: el cartel trae un solo
+			     botón ("Listo") y el viejo truco del clic derecho ya no funciona en las
+			     versiones nuevas de macOS. Denegar el llavero, en cambio, deja la nube
+			     muda sin decir por qué. Todo este párrafo se borra el día que exista el
+			     certificado. -->
 			<p class="text-muted-foreground text-xs">
-				Al abrir la versión nueva, macOS te va a pedir la contraseña del Mac una vez. Es
-				normal — tocá <span class="text-foreground font-medium">"Permitir siempre"</span>. Si
-				la denegás, la nube deja de sincronizar en esta computadora.
+				La primera vez, macOS va a hacer dos cosas y las dos son normales.
+				<span class="text-foreground font-medium">Va a bloquear la app</span> — se abre
+				igual desde Ajustes del Sistema › Privacidad y seguridad ›
+				<span class="text-foreground font-medium">"Abrir igualmente"</span>. Y va a pedirte
+				<span class="text-foreground font-medium">la contraseña del Mac</span>: tocá
+				<span class="text-foreground font-medium">"Permitir siempre"</span>, porque si la
+				denegás la nube deja de sincronizar en esta computadora.
 			</p>
 		</div>
 	{/if}
@@ -77,7 +92,14 @@
 			</summary>
 			<ul class="text-muted-foreground mt-1.5 flex list-disc flex-col gap-0.5 pl-4">
 				{#each mine as nota (nota)}
-					<li>{nota}</li>
+					<li>
+						{#each inlineMarks(nota) as pedazo (pedazo.text)}{#if pedazo.mark === 'bold'}<strong
+								class="text-foreground font-medium">{pedazo.text}</strong
+							>{:else if pedazo.mark === 'italic'}<em>{pedazo.text}</em>{:else if pedazo.mark === 'code'}<code
+								class="bg-muted rounded px-1 py-0.5 text-[0.9em]">{pedazo.text}</code
+							>{:else}{pedazo.text}{/if}
+						{/each}
+					</li>
 				{/each}
 			</ul>
 		</details>

@@ -34,6 +34,38 @@ export function parseNotes(body) {
 	return lines.filter((line) => !line.startsWith('#'));
 }
 
+// Parte un renglón del changelog en pedazos marcados, para que el componente
+// pinte cada uno con `<strong>`, `<em>`, `<code>` o pelado.
+//
+// Las tres marcas juntas y no sólo la negrita: el changelog se escribe en
+// Markdown porque el MISMO texto es el cuerpo de la release en GitHub, donde las
+// tres se ven. Soportar una sola deja el bug vivo para las otras dos — de hecho
+// ya estaba vivo, con `*cursiva*` y `` `código` `` a la vista en la 0.2.1.
+//
+// Devuelve pedazos y NO html: el texto sale del changelog embebido pero también
+// del `latest.json`, o sea de la red. Meterlo con `{@html}` sería abrir un
+// agujero por una negrita. Ver la regla de `block.html` en AGENT.md.
+//
+// El orden del alternado importa: `**` va antes que `*` o `**hola**` se leería
+// como una cursiva vacía seguida de basura. Y cada marca pide al menos un
+// carácter adentro (`.+?`), así un asterisco suelto o sin cerrar queda como
+// texto: comerse medio renglón por un símbolo perdido es peor que mostrarlo.
+const MARKS = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`/g;
+
+export function inlineMarks(text) {
+	const source = String(text ?? '');
+	const out = [];
+	let last = 0;
+	for (const match of source.matchAll(MARKS)) {
+		if (match.index > last) out.push({ text: source.slice(last, match.index), mark: null });
+		const mark = match[1] !== undefined ? 'bold' : match[2] !== undefined ? 'italic' : 'code';
+		out.push({ text: match[1] ?? match[2] ?? match[3], mark });
+		last = match.index + match[0].length;
+	}
+	if (last < source.length) out.push({ text: source.slice(last), mark: null });
+	return out;
+}
+
 // Traduce lo que contestó `check()` a lo que hay que pintar.
 //
 // Son TRES estados, no dos, y el tercero es el que se suele hacer mal: no haber

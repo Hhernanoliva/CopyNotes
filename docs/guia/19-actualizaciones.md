@@ -40,7 +40,18 @@ Bajás el archivo, lo instalás encima de la app que ya tenés y listo. **No se 
 
 Dos cosas que van a pasar y conviene saber de antes:
 
-- **La primera vez que abrís una descarga nueva**, macOS puede decir que la app está dañada o que no se puede abrir. No lo está: es porque todavía no compramos el certificado de Apple. Se resuelve con **clic derecho sobre la app → Abrir**, una sola vez.
+- **La primera vez que abrís una descarga nueva, macOS la va a bloquear.** Sale un cartel que dice *"No se abrió «CopyNotes» — Apple no pudo verificar que «CopyNotes» no contenga software malicioso que pudiera dañar tu Mac o poner tu privacidad en riesgo"*, con un solo botón: **Listo**. La app **no** tiene nada malo: pasa porque todavía no compramos el certificado de Apple, y le pasa a cualquier programa que no lo tenga.
+
+  Para abrirla igual:
+
+  1. Tocá **Listo**.
+  2. Andá a **Ajustes del Sistema › Privacidad y seguridad**.
+  3. Bajá hasta la sección **Seguridad**. Ahí va a aparecer un renglón sobre CopyNotes con un botón **Abrir igualmente**.
+  4. Tocalo, confirmá con tu contraseña o Touch ID, y en el último cartel elegí **Abrir**.
+
+  Ese renglón en Ajustes **solo aparece si recién intentaste abrir la app**. Si no lo ves, volvé a hacerle doble clic a CopyNotes para que salga el cartel y entrá a Ajustes enseguida.
+
+  Es una sola vez por versión. (Si tenés un Mac con una versión vieja de macOS, ahí alcanza con **clic derecho sobre la app → Abrir**; en las versiones nuevas Apple sacó ese atajo.)
 - **macOS te va a pedir la contraseña de tu Mac una vez**, por algo que se llama *"CopyNotes WebCrypto Master Key"*. Es normal y pasa en cada versión nueva, por el mismo motivo del certificado. Tocá **"Permitir siempre"**. ⚠️ Si la denegás, **la nube deja de sincronizar en esa computadora** y no te va a decir por qué. Tus notas de ese dispositivo no se tocan, pero deja de subir y bajar.
 
 El día que exista el certificado de Apple, las dos cosas desaparecen.

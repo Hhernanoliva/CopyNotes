@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { changelogSection, describeUpdate, parseNotes } from './update-check';
+import { changelogSection, describeUpdate, inlineMarks, parseNotes } from './update-check';
 
 const CHANGELOG = `# Novedades
 
@@ -81,6 +81,51 @@ describe('describeUpdate', () => {
 		expect(r.state).toBe('nueva');
 		expect(r.latest).toBe('0.2.1');
 		expect(r.notes).toEqual([]);
+	});
+});
+
+// El changelog se escribe en Markdown porque el mismo texto es el cuerpo de la
+// release en GitHub, donde las marcas se ven. Adentro de la app salían crudas
+// (visto en la 0.2.0 instalada, 2026-08-19).
+describe('inlineMarks', () => {
+	it('separa lo que va en negrita de lo que no', () => {
+		expect(inlineMarks('**Agentes de IA.** Podés conectar Claude Code')).toEqual([
+			{ text: 'Agentes de IA.', mark: 'bold' },
+			{ text: ' Podés conectar Claude Code', mark: null }
+		]);
+	});
+
+	it('reconoce las tres marcas que usa el changelog', () => {
+		expect(inlineMarks('**fuerte**, *suave* y `código`')).toEqual([
+			{ text: 'fuerte', mark: 'bold' },
+			{ text: ', ', mark: null },
+			{ text: 'suave', mark: 'italic' },
+			{ text: ' y ', mark: null },
+			{ text: 'código', mark: 'code' }
+		]);
+	});
+
+	// El orden del alternado: si `*` se probara antes que `**`, una negrita se
+	// leería como cursiva vacía y el renglón saldría partido mal.
+	it('la negrita gana sobre la cursiva, no al revés', () => {
+		expect(inlineMarks('**dos asteriscos**')).toEqual([{ text: 'dos asteriscos', mark: 'bold' }]);
+	});
+
+	it('sin marcas devuelve un solo pedazo', () => {
+		expect(inlineMarks('texto pelado')).toEqual([{ text: 'texto pelado', mark: null }]);
+	});
+
+	// Un símbolo suelto o sin cerrar es texto: comerse el resto del renglón por un
+	// asterisco perdido es peor que mostrarlo tal cual.
+	it('un símbolo sin pareja se queda como texto', () => {
+		expect(inlineMarks('2 ** 3 es ocho')).toEqual([{ text: '2 ** 3 es ocho', mark: null }]);
+		expect(inlineMarks('**sin cerrar')).toEqual([{ text: '**sin cerrar', mark: null }]);
+		expect(inlineMarks('un ` solo')).toEqual([{ text: 'un ` solo', mark: null }]);
+	});
+
+	it('aguanta que no venga nada', () => {
+		expect(inlineMarks(undefined)).toEqual([]);
+		expect(inlineMarks('')).toEqual([]);
 	});
 });
 

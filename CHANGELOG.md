@@ -7,6 +7,12 @@ Reglas: una sección `## X.Y.Z` por versión, la más nueva arriba, una viñeta 
 cambio, en castellano y sin jerga técnica. Se escribe **en el mismo commit que
 la funcionalidad**, no al publicar.
 
+## 0.2.1
+
+- **La nube vuelve a funcionar en la app descargada.** La 0.2.0 salía sin la nube adentro: entrabas a Configuración › Nube y decía *"esta copia de CopyNotes no tiene una nube configurada"*, sin forma de arreglarlo desde la app. Todo lo demás andaba, pero no había sincronización
+- **Las novedades se leen bien.** En "Qué trajo tu versión" se veían los asteriscos del formato (`**así**`) en vez de la negrita
+- **El aviso te prepara para lo que hace macOS.** La primera vez que abrís una descarga nueva, macOS bloquea la app y hay que destrabarla desde Ajustes del Sistema. Antes no lo decíamos en ningún lado y el cartel de macOS no da ninguna pista de cómo seguir
+
 ## 0.2.0
 
 Primera versión de CopyNotes para escritorio. Esto es lo que trae:

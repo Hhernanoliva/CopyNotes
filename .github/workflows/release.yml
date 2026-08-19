@@ -43,12 +43,20 @@ jobs:
               process.exit(1);
             }
           '
-          for secreto in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+          # PUBLIC_SUPABASE_* van acá porque Vite las hornea al compilar: si
+          # faltan, la app publicada arranca perfecto y recién se descubre
+          # abriendo Configuración › Nube, que dice "esta copia no tiene una nube
+          # configurada". Fue el defecto de la v0.2.0. Un build sin nube compila,
+          # firma y publica sin una sola advertencia — por eso el chequeo va acá.
+          for secreto in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD \
+                         PUBLIC_SUPABASE_URL PUBLIC_SUPABASE_ANON_KEY; do
             [ -n "${!secreto}" ] || { echo "::error::Falta el secreto $secreto en el repositorio."; exit 1; }
           done
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -96,6 +104,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Vite las hornea en el bundle al compilar (`import.meta.env`), no se
+          # leen en runtime: sin esto acá, la .app publicada sale SIN nube y dice
+          # "Esta copia de CopyNotes no tiene una nube configurada". Pasó en la
+          # v0.2.0 — nunca habíamos compilado fuera de la Mac de Hernán, donde
+          # el `.env` local (no versionado, y así tiene que quedar) las provee.
+          # No son secretos de verdad: la anon key ya viaja pública en el build
+          # web. Van como secretos igual para no escribirlas en el repo.
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          PUBLIC_SUPABASE_EMAIL_CODE: ${{ secrets.PUBLIC_SUPABASE_EMAIL_CODE }}
         with:
           tagName: v__VERSION__
           releaseName: 'CopyNotes v__VERSION__'
