@@ -2,6 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Estado al 2026-08-19 (rama `feat/windows-escritorio`):** Tareas **1, 2, 3, 4
+> y 5 HECHAS** (un commit cada una). La **6 ya estaba hecha** desde `32c442f`,
+> salvo los textos de Windows de la guía, que viajaron con la Tarea 5. Falta
+> sólo lo que depende de Hernán: el clic a un enlace en la app de escritorio de
+> macOS (Tarea 1 paso 7), y las **Tareas 7 y 8** enteras (VM + PC ajena). Las
+> casillas de abajo quedaron sin tildar; este bloque es el estado real.
+
 **Goal:** que CopyNotes se compile, se instale y funcione entera en Windows 10/11 x64 — notas, nube y puente de agentes MCP incluidos — y salga publicada en la misma release que macOS.
 
 **Architecture:** no hay arquitectura nueva. Se arreglan cinco bordes del código que hoy asumen macOS, se agrega un segundo trabajo al workflow de release, y se enciende el interruptor que muestra la descarga en la web. Toda la lógica de notas, almacenamiento y sincronización ya es multiplataforma y no se toca.
