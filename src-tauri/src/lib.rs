@@ -53,6 +53,12 @@ pub fn run() {
             .build(),
         )?;
       }
+      // Solo para PREGUNTAR si hay una versión nueva: la app nunca se
+      // reemplaza a sí misma. `tauri-plugin-process` queda deliberadamente
+      // afuera, así `relaunch()` no existe y esto no se puede volver
+      // auto-update sin que alguien lo decida a propósito.
+      #[cfg(desktop)]
+      app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
       Ok(())
     })
     .run(tauri::generate_context!())
