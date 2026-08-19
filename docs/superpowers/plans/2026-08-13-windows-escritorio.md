@@ -5,9 +5,10 @@
 > **Estado al 2026-08-19 (rama `feat/windows-escritorio`):** Tareas **1, 2, 3, 4
 > y 5 HECHAS** (un commit cada una). La **6 ya estaba hecha** desde `32c442f`,
 > salvo los textos de Windows de la guía, que viajaron con la Tarea 5. Falta
-> sólo lo que depende de Hernán: el clic a un enlace en la app de escritorio de
-> macOS (Tarea 1 paso 7), y las **Tareas 7 y 8** enteras (VM + PC ajena). Las
-> casillas de abajo quedaron sin tildar; este bloque es el estado real.
+> sólo las **Tareas 7 y 8** (VM + PC ajena). El paso 7 de la Tarea 1 —el clic a
+> un enlace en la app de escritorio de macOS— **lo verificó Hernán el 2026-08-19
+> y abre bien**. Las casillas de abajo quedaron sin tildar; este bloque es el
+> estado real.
 
 **Goal:** que CopyNotes se compile, se instale y funcione entera en Windows 10/11 x64 — notas, nube y puente de agentes MCP incluidos — y salga publicada en la misma release que macOS.
 
