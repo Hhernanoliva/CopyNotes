@@ -1036,7 +1036,17 @@ Si hace falta, ajustar la viñeta de `docs/guia/19-actualizaciones.md` con las p
 
 Recién ahora, ejecutar la Tarea 6 entera.
 
-- [ ] **Step 5: Publicar el borrador**
+- [x] **Step 5: Publicar el borrador** — **PUBLICADA la v0.2.2 el 2026-08-19**,
+  con `/releases/latest/download/latest.json` respondiendo 200 y las claves de
+  las dos plataformas.
+
+  **Se publicó a propósito con los pasos 6, 7 y 8 del gate SIN correr** (todo lo
+  de agentes en Windows). Decisión de Hernán, con el riesgo sobre la mesa: lo que
+  hace un usuario común —notas, nube, enlaces, una sola ventana— está probado en
+  una PC real, y lo que queda sin probar afecta sólo a quien conecte un agente
+  desde Windows. Si falla, sale una 0.2.3. **Que esta casilla esté tildada no
+  quiere decir que el gate esté completo**: los pasos 6, 7 y 8 de la Tarea 7
+  siguen abiertos abajo.
 
 En GitHub, pasar la release de borrador a publicada. Es el único punto sin marcha atrás del proceso: hasta acá, `latest.json` no resuelve para nadie porque sólo se sirve desde releases publicadas.
 
