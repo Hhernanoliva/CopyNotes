@@ -966,6 +966,27 @@ Ver `docs/superpowers/plans/2026-08-11-actualizacion-automatica-escritorio.md`. 
 
 Windows 11 en Parallels o UTM sobre la Mac, con **Node** y **Cursor** instalados. Windows en chip Apple traduce programas x64, así que el mismo `.exe` que va a bajar la gente sirve para probar.
 
+Pasos concretos, escritos para Hernán (2026-08-19). Calcular una hora, 40 minutos
+de espera:
+
+1. **Parallels Desktop** (pago, ~US$100/año, 14 días de prueba) hace todo solo:
+   *Instalar Windows 11* y listo. **UTM** (utm.app) es gratis pero hay que bajar
+   el archivo de Windows 11 **ARM** a mano desde Microsoft y elegir memoria y
+   disco. Para alguien que no es ingeniero, Parallels.
+2. **Cuando pida el nombre de usuario de Windows, poner `Juan Perez`** — con
+   espacio. Así el **paso 7 del gate se cubre solo** en todos los demás pasos, sin
+   crear una segunda cuenta. La clave de producto se saltea: sin activar funciona
+   igual, con una marca de agua.
+3. Desde el navegador **de la Windows**: Node (`nodejs.org`, botón LTS), Cursor
+   (`cursor.com`) y el `_x64-setup.exe` de
+   `github.com/Hhernanoliva/CopyNotes/releases`.
+4. Para el paso 7 hace falta Claude Code en la VM:
+   `npm install -g @anthropic-ai/claude-code`, después pegar el comando de
+   Ajustes › Agentes en **PowerShell** y comprobar con `claude mcp list` que
+   aparezca `copynotes` con el `Juan Perez` completo. **Sin instalarlo no hay
+   forma honesta de probar ese paso**: en PowerShell el truco de `echo` no sirve
+   porque el `-e` del comando se lee como parámetro del propio `echo`.
+
 **Antes de empezar el gate:**
 
 - [ ] Empujar la etiqueta de versión y esperar a que el workflow termine los tres trabajos.

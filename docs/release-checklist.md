@@ -70,8 +70,10 @@ La mayoría ya los protege Playwright; solo hacé a mano los marcados **manual**
 
 ## 5. Publicar una versión de escritorio (`vX.Y.Z` → GitHub Release)
 
-Probado de punta a punta con la v0.2.0 y la v0.2.1 (2026-08-19). ~20 min de
-compilación, casi todo espera.
+Probado de punta a punta con la v0.2.0, la v0.2.1 y la v0.2.2 (2026-08-19). Son
+**tres trabajos en fila** (preparar → macOS → Windows) y salen **dos
+instaladores**, `.dmg` y `.exe`. ~35 min, casi todo espera. El porqué de la
+secuencia, en `docs/arquitectura-publicacion.md`.
 
 - [ ] **Escribí las novedades en `CHANGELOG.md` ANTES de taguear.** Es
       obligatorio, no cortesía: `tauri-action` copia ese texto adentro del
@@ -97,6 +99,15 @@ compilación, casi todo espera.
 
       Tiene que traer las viñetas del changelog, no vacío ni relleno. Si esto
       falla, el resto no sirve.
+- [ ] **Y que el `latest.json` traiga las DOS plataformas**, `darwin-*` y
+      `windows-x86_64`, cada una con su `signature`:
+
+      node -e "const j=require('/tmp/latest.json'); console.log(Object.keys(j.platforms).join(', '))"
+
+      Si falta una, los dos trabajos se pisaron pese al `needs:` y esa plataforma
+      se queda sin aviso de versión nueva.
+- [ ] Comprobá que estén adjuntos **los dos instaladores**: el `.dmg` y el
+      `_x64-setup.exe`.
 - [ ] Publicá: `gh release edit vX.Y.Z --repo Hhernanoliva/CopyNotes --draft=false`.
       Recién ahí `/releases/latest/download/latest.json` empieza a resolver
       (antes da 404, y eso es correcto).

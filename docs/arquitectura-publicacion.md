@@ -5,8 +5,9 @@
 > pasos. Para el detalle de cada decisión, al plan
 > `docs/superpowers/plans/2026-08-11-actualizacion-automatica-escritorio.md`.
 >
-> Estado: **funcionando**. `v0.2.0` y `v0.2.1` publicadas y probadas a mano el
-> 2026-08-19.
+> Estado: **funcionando para macOS y Windows**. `v0.2.0`, `v0.2.1` y `v0.2.2`
+> publicadas y probadas a mano el 2026-08-19. La `v0.2.2` es la primera que
+> incluye el instalador de Windows.
 
 ## La decisión que ordena todo lo demás
 
@@ -35,7 +36,7 @@ Dos motivos concretos, no ideológicos:
 CHANGELOG.md                          fuente ÚNICA de las novedades
 package.json  "version"               fuente ÚNICA del número de versión
 scripts/changelog-section.mjs         imprime una sección; FALLA si no existe
-.github/workflows/release.yml         compila, firma y publica (tag `v*`)
+.github/workflows/release.yml         3 trabajos: preparar → macos → windows
 src-tauri/
   Cargo.toml                          tauri-plugin-updater = "2"
   src/lib.rs                          registra el plugin (#[cfg(desktop)])
@@ -49,6 +50,34 @@ src/lib/desktop/
   download.ts                         DESKTOP_RELEASE_PUBLISHED + la URL
 docs/release-checklist.md §5          el ritual de publicar
 ```
+
+### Tres trabajos, en fila india
+
+`preparar` (ubuntu) → `macos` → `windows`. No es paralelo, y no es por prolijidad:
+
+- **`preparar` existe porque hay dos plataformas.** La guardia del actualizador y
+  el texto de las novedades valen para las dos; duplicarlas en dos trabajos es
+  duplicar algo que se separa solo con el tiempo. Expone las novedades como
+  `outputs.body`.
+- **`windows` va con `needs: [preparar, macos]`, no en paralelo.** Los dos
+  trabajos de compilación **escriben el mismo `latest.json`**. `tauri-action`
+  sabe fusionar las claves de cada plataforma, pero si los dos escriben a la vez
+  el resultado depende de quién llegue último y **una de las dos plataformas se
+  queda sin aviso de versión nueva**. Esperar cuesta minutos; el error cuesta una
+  release.
+- **`preparar` va nombrado en ese `needs` aunque `macos` ya dependa de él.** En
+  GitHub Actions un trabajo **sólo puede leer los `outputs` de los que nombra**.
+  Con `needs: macos` a secas, `needs.preparar.outputs.body` llega **vacío**: la
+  release y el `latest.json` de Windows saldrían sin novedades, y nadie se
+  entera hasta abrir el archivo. El plan original tenía este error.
+- **`shell: bash` en el `build:flat` de Windows**, porque el script usa `rm -rf`.
+  Los runners de Windows traen Git Bash, así que corre tal cual.
+- **Windows sólo genera NSIS** (`args: --bundles nsis`). El bundler también sabe
+  hacer `.msi`; mantener dos instaladores duplica el soporte sin ganar nada.
+
+Comprobación después de publicar, la única que importa: bajar el `latest.json` y
+ver que estén **las claves de `darwin` Y las de `windows-x86_64`, las dos
+firmadas**. Si falta una, los trabajos se pisaron.
 
 ### Por qué el changelog es un archivo del repo y no el cuadro de texto de GitHub
 
@@ -143,8 +172,19 @@ que queda en `0.1.0` a propósito porque no alimenta la versión del bundle.
 
 ### El `node_modules` plano de `mcp/`
 
-Paso propio del workflow (`cd mcp && pnpm run build:flat`). Sin eso el `.app`
-publicado viaja con symlinks rotos y **el puente de agentes muere en runtime**.
+Paso propio del workflow (`cd mcp && pnpm run build:flat`), **en los dos
+trabajos**. Sin eso el `.app` o el `.exe` publicado viaja con symlinks rotos y
+**el puente de agentes muere en runtime**. Es el defecto que menos se nota: la
+app abre, las notas andan, y **sólo falla el agente**.
+
+### Windows no se puede compilar ni revisar desde la Mac
+
+Ni siquiera `cargo check`. Probado y descartado el 2026-08-19:
+`rustup target add x86_64-pc-windows-msvc` instala bien, pero `ring` —que entra
+por el actualizador— compila C y muere con `fatal error: 'assert.h' file not
+found`; falta el SDK de MSVC y `cargo check` igual corre los `build.rs`.
+**GitHub Actions no es una comodidad, es el único camino**, y el primer
+compilado va sin red de contención local.
 
 ## Lo que macOS le hace a quien instala
 
@@ -171,20 +211,57 @@ El día que exista el certificado, se van las dos, se borra el párrafo de
 advertencia de `UpdateSection.svelte`, y **recién ahí** conviene auto-update de
 verdad.
 
+## Lo que Windows le hace a quien instala
+
+Tampoco va firmado, y el mecanismo es distinto del de Apple: **SmartScreen
+decide por reputación del archivo**, no por certificado. Confirmado en una PC
+real el 2026-08-19: pantalla azul *"Windows protegió su PC"* → **Más
+información** → **Ejecutar de todos modos**. Una sola vez. Documentado en
+`docs/guia/19-actualizaciones.md`.
+
+Tres cosas que se suelen creer mal:
+
+- **No tiene nada que ver con la Microsoft Store.** No publicar ahí no es lo que
+  lo dispara.
+- **Sólo salta si el archivo llegó por descarga** (la marca que Windows le pone
+  a lo que baja un navegador). Copiarlo por pendrive o carpeta compartida **no
+  muestra la advertencia** — y por eso probarlo así da un falso verde.
+- **Un certificado OV barato no la elimina**: arranca sin reputación igual. Sólo
+  uno EV la saca desde el día uno. Por eso: sin firma, igual que macOS.
+
+La reputación se acumula sola con las descargas, así que esto se va con el
+tiempo sin hacer nada.
+
+**Una release en borrador da 404 a cualquiera que no tenga permiso de escritura
+en el repo**, aunque el repo sea público. Para que un tercero pruebe el `.exe`
+antes de publicar, hay que pasarle el archivo por otro medio; lo que dispara
+SmartScreen es que **él** lo baje con un navegador, no de dónde venga.
+
 ## Qué queda abierto
 
 - **El certificado de Apple.** No hay que rehacer nada de esto; se suma (un paso
   que importa el `.p12` y las variables `APPLE_*` en `tauri-action`).
-- **Windows y Linux.** El workflow de acá es **sólo macOS** (`runs-on:
-  macos-latest`, `--target universal-apple-darwin`). Windows tiene su propio plan
-  escrito y sin construir: `docs/superpowers/plans/2026-08-13-windows-escritorio.md`.
-  **Quien lo ejecute tiene que releer este documento primero**: la guardia del
-  paso 3, las `PUBLIC_SUPABASE_*` horneadas y el `node_modules` plano de `mcp/`
-  aplican igual, y la firma de Windows es un mecanismo distinto del minisign de
-  acá.
+- **El gate de agentes en Windows.** La `v0.2.2` se publicó **a propósito** con
+  los pasos 6, 7 y 8 del gate sin correr (que el agente lea y escriba, el comando
+  de Claude Code en PowerShell, y que el buzón no se pierda un cambio). Decisión
+  de Hernán con el riesgo a la vista: una PC real confirmó instalar, no perder
+  texto, los enlaces, una sola ventana y **entrar con Google + sincronizar**, o
+  sea todo lo que hace alguien que no usa agentes. Lo que falta afecta sólo a
+  quien conecte un agente desde Windows; si falla, sale una `0.2.3`. Pasos y
+  cómo armar la máquina virtual, en
+  `docs/superpowers/plans/2026-08-13-windows-escritorio.md` (Tarea 7).
+- **El paso 9 del gate no se pudo correr** —instalar una versión nueva encima de
+  una vieja y ver que no se pierdan notas— porque no existía una versión de
+  Windows anterior a la `0.2.2`. Se prueba en la `0.2.3`.
+- **Linux.** Sin plan y con un problema abierto: un Ubuntu ARM sobre una Mac con
+  chip Apple **no corre el AppImage x64** que publicaríamos (Windows sí traduce,
+  Linux no), así que no hay dónde probarlo sin conseguir una máquina. Análisis
+  viejo en `docs/analisis-futuro-multiplataforma.md`.
 - **La url de descarga dentro del `latest.json`** apunta a
   `api.github.com/repos/.../releases/assets/{id}` en vez de al nombre del
   archivo (así lo escribe `tauri-action` para un borrador, y publicar **no**
   regenera el `latest.json`). Hoy es inofensivo porque **nunca descargamos**,
   sólo `check()`. Revisar antes de activar auto-update.
-- **Sección `## 0.2.2` ya escrita** en `CHANGELOG.md`, esperando esa versión.
+- **El `CHANGELOG.md` no tiene sección abierta**: la `## 0.2.2` ya salió. La
+  próxima funcionalidad visible abre `## 0.2.3` en el mismo commit que la
+  implementa.
