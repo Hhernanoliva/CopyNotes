@@ -2,7 +2,16 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-19 (Nuevo: **la persona a la que le compartís una
+Última actualización: 2026-08-19 (Nuevo: **ya se puede bajar la app de
+escritorio**. Entrando desde una computadora volvieron la tarjetita *"¿Usás
+agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**;
+estaban ocultos porque todavía no había nada publicado. ⚠️ La primera vez que la
+abrís, **macOS la va a bloquear** —no tiene nada malo, es que todavía no
+compramos el certificado de Apple— y se destraba desde **Ajustes del Sistema ›
+Privacidad y seguridad › "Abrir igualmente"**; después te pide la contraseña del
+Mac una vez, y ahí hay que tocar **"Permitir siempre"** o la nube deja de
+sincronizar en esa computadora. El paso a paso, en el tema 19; ver también el
+tema 17. Antes: **la persona a la que le compartís una
 nota ya puede contestarte**: marcar tareas como hechas, comentar una tarea y
 avisarte "Listo", y cada cosa dice quién la hizo (tema 20).
 Antes: **cuando se va el último invitado, la

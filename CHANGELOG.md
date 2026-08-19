@@ -7,6 +7,10 @@ Reglas: una sección `## X.Y.Z` por versión, la más nueva arriba, una viñeta 
 cambio, en castellano y sin jerga técnica. Se escribe **en el mismo commit que
 la funcionalidad**, no al publicar.
 
+## 0.2.2
+
+- **La web vuelve a ofrecer la app de escritorio.** Ahora que hay una versión publicada para bajar, volvieron la tarjetita *"¿Usás agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**. Estaban ocultos porque llevaban a una página vacía
+
 ## 0.2.1
 
 - **La nube vuelve a funcionar en la app descargada.** La 0.2.0 salía sin la nube adentro: entrabas a Configuración › Nube y decía *"esta copia de CopyNotes no tiene una nube configurada"*, sin forma de arreglarlo desde la app. Todo lo demás andaba, pero no había sincronización
