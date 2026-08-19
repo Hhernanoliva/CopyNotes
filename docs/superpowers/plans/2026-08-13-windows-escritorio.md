@@ -977,7 +977,10 @@ Windows 11 en Parallels o UTM sobre la Mac, con **Node** y **Cursor** instalados
 - [ ] **1. Instala y abre.** Ejecutar el `.exe`, atravesar la pantalla azul, completar el instalador, abrir CopyNotes. Comprueba que el motor de navegador (WebView2) se resuelva solo.
 - [ ] **2. No pierde texto al cerrar.** Escribir una nota, cerrar la ventana con la X, volver a abrir. El texto está.
 - [ ] **3. Los enlaces abren.** Escribir `https://example.com` en un renglón y hacerle clic. Abre en el navegador. (Tarea 1.)
-- [ ] **4. Entrar con Google.** Desde la app instalada, iniciar sesión. Anotar si el cortafuegos de Windows pregunta algo: el servidor de vuelta escucha en `127.0.0.1` (`oauth.rs:56`), que es sólo la máquina misma, así que **no debería** — pero hay que verlo, no suponerlo.
+- [x] **4. Entrar con Google. PASÓ** en la PC ajena el 2026-08-19 (ver Tarea 8):
+  inició sesión y **vinculó las notas de la web**, así que además del login quedó
+  probada la nube entera en Windows. Falta el dato del cortafuegos, ver abajo.
+  Desde la app instalada, iniciar sesión. Anotar si el cortafuegos de Windows pregunta algo: el servidor de vuelta escucha en `127.0.0.1` (`oauth.rs:56`), que es sólo la máquina misma, así que **no debería** — pero hay que verlo, no suponerlo.
 - [ ] **5. Una sola ventana.** Doble clic al ícono, y con la app ya abierta, doble clic otra vez. Tiene que traer la ventana existente al frente, no abrir una segunda. (Tarea 3.)
 - [ ] **6. El agente se conecta.** Instalar Node y Cursor. En Ajustes › Agentes, copiar y aplicar la configuración de Cursor. Pedirle al agente que lea una nota y que escriba otra. Las dos cosas funcionan.
 - [ ] **7. El comando con espacio en el nombre.** Crear un usuario de Windows llamado por ejemplo `Juan Perez`, entrar con él, instalar CopyNotes y pegar el comando de **Claude Code** de Ajustes › Agentes en **PowerShell**. Es el caso exacto que rompía. (Tarea 4.) **Si falla acá**, el techo declarado en la spec §3.4 se cumplió: la salida es mostrar el JSON de configuración en vez del comando, como ya hacen los demás clientes. Anotarlo y seguir con el gate.
@@ -1015,6 +1018,12 @@ Una máquina virtual no reemplaza a una computadora ajena: el antivirus y la rep
   queda con la redacción estándar de Microsoft — la única duda viva es si el
   botón dice *"Ejecutar de todos modos"* o *"de todas formas"*, que cambia según
   la versión de Windows y no vale la pena perseguir.
+
+- [x] **Extra, no estaba en la lista: entrar con Google y sincronizar.** El
+  conocido inició sesión desde la app instalada y **vinculó sus notas de la web**
+  (2026-08-19). Cubre el paso 4 del gate de la Tarea 7 y, de paso, dos cosas que
+  ningún test alcanza: que las `PUBLIC_SUPABASE_*` llegaron horneadas al `.exe`
+  (el defecto de la v0.2.0) y que la bóveda se abre en una máquina Windows.
 
 No se le pide MCP: eso ya quedó probado en la Tarea 7.
 
