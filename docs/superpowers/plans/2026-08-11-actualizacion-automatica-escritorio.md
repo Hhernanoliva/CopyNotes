@@ -204,7 +204,7 @@ git commit -m "chore: una sola fuente para el número de versión de la app"
 
 ---
 
-## Tarea 2: Enchufar el chequeo (sin capacidad de instalar) ⛔ LO ÚNICO QUE FALTA
+## Tarea 2: Enchufar el chequeo (sin capacidad de instalar) ✅ HECHA (`83c70ee`, 2026-08-19)
 
 > **Estado 2026-08-12: el resto del plan se construyó salteando esta tarea.** Se
 > hizo sólo el Paso 5 (`pnpm add @tauri-apps/plugin-updater`, viajó en `60db32c`),
@@ -231,7 +231,7 @@ git commit -m "chore: una sola fuente para el número de versión de la app"
 
 > **Deliberado:** NO se instala `tauri-plugin-process` y NO se agrega `process:allow-restart`. Sin ellos `relaunch()` no existe y nadie puede convertir esto en auto-update por accidente.
 
-- [ ] **Paso 1: Generar el par de claves de firma (lo hace Hernán, una vez)**
+- [x] **Paso 1: Generar el par de claves de firma (lo hace Hernán, una vez)**
 
 ```bash
 pnpm tauri signer generate -w ~/.tauri/copynotes-updater.key
@@ -239,21 +239,21 @@ pnpm tauri signer generate -w ~/.tauri/copynotes-updater.key
 
 Pide una contraseña — ponerla y **guardarla en el gestor de contraseñas junto con el archivo `.key`**. Imprime la clave **pública**: copiarla.
 
-- [ ] **Paso 2: Cargar la clave privada en GitHub Secrets**
+- [x] **Paso 2: Cargar la clave privada en GitHub Secrets**
 
 ```bash
 cat ~/.tauri/copynotes-updater.key | pbcopy
 ```
 En `Settings → Secrets and variables → Actions`, crear `TAURI_SIGNING_PRIVATE_KEY` (lo pegado) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (la del paso 1).
 
-- [ ] **Paso 3: Confirmar que el repo es público**
+- [x] **Paso 3: Confirmar que el repo es público**
 
 ```bash
 gh repo view Hhernanoliva/CopyNotes --json visibility
 ```
 Esperado: `{"visibility":"PUBLIC"}`. Si dice `PRIVATE`, hacerlo público antes de seguir.
 
-- [ ] **Paso 4: Agregar la dependencia de Rust**
+- [x] **Paso 4: Agregar la dependencia de Rust**
 
 En `src-tauri/Cargo.toml`, dentro de `[dependencies]`:
 
@@ -261,13 +261,13 @@ En `src-tauri/Cargo.toml`, dentro de `[dependencies]`:
 tauri-plugin-updater = "2"
 ```
 
-- [ ] **Paso 5: Agregar la dependencia de JavaScript**
+- [x] **Paso 5: Agregar la dependencia de JavaScript**
 
 ```bash
 pnpm add @tauri-apps/plugin-updater
 ```
 
-- [ ] **Paso 6: Registrar el plugin**
+- [x] **Paso 6: Registrar el plugin**
 
 En `src-tauri/src/lib.rs`, dentro de `.setup(|app| { ... })`, justo antes del `Ok(())` final:
 
@@ -280,7 +280,7 @@ En `src-tauri/src/lib.rs`, dentro de `.setup(|app| { ... })`, justo antes del `O
       app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
 ```
 
-- [ ] **Paso 7: Dar el permiso**
+- [x] **Paso 7: Dar el permiso**
 
 `src-tauri/capabilities/default.json` completo:
 
@@ -300,7 +300,7 @@ En `src-tauri/src/lib.rs`, dentro de `.setup(|app| { ... })`, justo antes del `O
 }
 ```
 
-- [ ] **Paso 8: Configurar el actualizador**
+- [x] **Paso 8: Configurar el actualizador**
 
 En `src-tauri/tauri.conf.json`, agregar `"createUpdaterArtifacts": true` dentro de `"bundle"`, y un bloque `"plugins"` hermano de `"bundle"`:
 
@@ -340,7 +340,7 @@ En `src-tauri/tauri.conf.json`, agregar `"createUpdaterArtifacts": true` dentro 
 
 `createUpdaterArtifacts` se deja prendido aunque no instalemos nada: es lo que hace que `tauri-action` genere el `latest.json` que `check()` consulta.
 
-- [ ] **Paso 9: Verificar que compila**
+- [x] **Paso 9: Verificar que compila**
 
 ```bash
 cd mcp && pnpm run build:flat && cd .. && export PATH="$HOME/.cargo/bin:$PATH" && pnpm tauri build --bundles app
@@ -348,7 +348,7 @@ find src-tauri/target -name "*.app.tar.gz*"
 ```
 Esperado: compila y aparecen el `.app.tar.gz` y su `.sig`.
 
-- [ ] **Paso 10: Commit**
+- [x] **Paso 10: Commit**
 
 ```bash
 git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/src/lib.rs src-tauri/capabilities/default.json src-tauri/tauri.conf.json package.json pnpm-lock.yaml
@@ -1047,36 +1047,36 @@ git commit -m "ci: publicar la app de escritorio con las novedades del CHANGELOG
 
 ---
 
-## Tarea 7: Primera release (v0.2.0) — GATE MANUAL
+## Tarea 7: Primera release (v0.2.0) — GATE MANUAL ✅ HECHA Y PASADA (2026-08-19)
 
 **No es código.** Es la primera vez que el sistema entero corre de punta a punta.
 
-- [ ] **Paso 1: Correr las puertas automáticas**
+- [x] **Paso 1: Correr las puertas automáticas**
 
 ```bash
 pnpm check && pnpm test && pnpm test:e2e && pnpm build
 ```
 Las cuatro en verde antes de seguir (`docs/release-checklist.md` §1).
 
-- [ ] **Paso 2: Confirmar que el changelog tiene la sección de la versión a publicar**
+- [x] **Paso 2: Confirmar que el changelog tiene la sección de la versión a publicar**
 
 ```bash
 node scripts/changelog-section.mjs 0.2.0
 ```
 Esperado: imprime las viñetas. Si falla, escribirlas antes de taguear.
 
-- [ ] **Paso 3: Crear el tag y empujarlo**
+- [x] **Paso 3: Crear el tag y empujarlo**
 
 ```bash
 git tag v0.2.0
 git push origin main --tags
 ```
 
-- [ ] **Paso 4: Mirar el workflow**
+- [x] **Paso 4: Mirar el workflow**
 
 En `https://github.com/Hhernanoliva/CopyNotes/actions`. Entre 15 y 30 minutos la primera vez (compila Rust desde cero).
 
-- [ ] **Paso 5: Verificar los archivos del borrador**
+- [x] **Paso 5: Verificar los archivos del borrador**
 
 Tienen que estar los cuatro:
 - `CopyNotes_0.2.0_universal.dmg` — la descarga
@@ -1085,24 +1085,24 @@ Tienen que estar los cuatro:
 
 Si falta el `.dmg`: en la Mac de Hernán ese bundler venía fallando. En un runner limpio no debería, pero si falla igual, sacar `dmg` de `targets` y publicar un `.zip` del `.app`.
 
-- [ ] **Paso 6: ⚠️ Verificar que las novedades llegaron al `latest.json`**
+- [x] **Paso 6: ⚠️ Verificar que las novedades llegaron al `latest.json`**
 
 Descargar el `latest.json` del borrador y mirar el campo `notes`. **Tiene que traer las viñetas del CHANGELOG**, no un texto de relleno ni vacío. Este es el paso que la versión anterior del plan tenía mal; si acá falla, el resto no sirve de nada.
 
-- [ ] **Paso 7: Publicar**
+- [x] **Paso 7: Publicar**
 
 Pasar la release de borrador a publicada. Recién ahí `latest.json` empieza a resolver.
 
-- [ ] **Paso 8: Instalar y probar en la Mac**
+- [x] **Paso 8: Instalar y probar en la Mac**
 
 Bajar el `.dmg` **desde el navegador** (no copiarlo del disco: hay que ver qué muestra Gatekeeper) e instalarlo en `/Applications`.
 
-- [ ] Sin certificado, la primera apertura va a decir que la app está dañada: **clic derecho → Abrir**. Anotar el texto exacto que aparece, para la guía.
-- [ ] Al abrir, macOS pide la contraseña del Mac por `CopyNotes WebCrypto Master Key`: tocar **"Permitir siempre"**.
-- [ ] Entrar a Configuración › Nube y confirmar que **sigue reconociendo la bóveda existente** y que una nota que solo vive en la nube se lee.
-- [ ] **El engranaje NO tiene punto** (esta es la última versión).
-- [ ] Configuración › Actualizaciones dice **"Tenés la versión 0.2.0. Estás al día."** y el bloque plegado **"Qué trajo tu versión (0.2.0)"** muestra las viñetas.
-- [ ] Verificar que el puente de agentes viajó entero:
+- [x] ~~Sin certificado, la primera apertura va a decir que la app está dañada: **clic derecho → Abrir**~~ — **el plan estaba desactualizado.** El texto real (macOS 26, 2026-08-19) es *"No se abrió «CopyNotes» — Apple no pudo verificar que «CopyNotes» no contenga software malicioso que pudiera dañar tu Mac o poner tu privacidad en riesgo"*, con un solo botón (**Listo**). Y **el clic derecho → Abrir ya no funciona**: Apple lo sacó. Se destraba en **Ajustes del Sistema › Privacidad y seguridad › "Abrir igualmente"**, y ese renglón sólo aparece si recién intentaste abrir la app. Ya está corregido en `docs/guia/19-actualizaciones.md`, en `docs/release-checklist.md` §5 y en el aviso de `UpdateSection.svelte`.
+- [x] Al abrir, macOS pide la contraseña del Mac por `CopyNotes WebCrypto Master Key`: tocar **"Permitir siempre"**.
+- [x] Entrar a Configuración › Nube y confirmar que **sigue reconociendo la bóveda existente** y que una nota que solo vive en la nube se lee.
+- [x] **El engranaje NO tiene punto** (esta es la última versión).
+- [x] Configuración › Actualizaciones dice **"Tenés la versión 0.2.0. Estás al día."** y el bloque plegado **"Qué trajo tu versión (0.2.0)"** muestra las viñetas.
+- [x] Verificar que el puente de agentes viajó entero:
 
 ```bash
 ls /Applications/CopyNotes.app/Contents/Resources/mcp/server.js
@@ -1112,7 +1112,7 @@ Esperado: el primero existe, el segundo no devuelve nada. Después, desde Claude
 
 ---
 
-## Tarea 8: Encender la página de descargas
+## Tarea 8: Encender la página de descargas ✅ HECHA (`32c442f`, 2026-08-19)
 
 **Archivos:**
 - Modificar: `src/lib/desktop/download.ts:12-21`
@@ -1120,14 +1120,14 @@ Esperado: el primero existe, el segundo no devuelve nada. Después, desde Claude
 
 **Va después de la Tarea 7**, no antes: hasta que la primera release esté publicada, el enlace lleva a una página en blanco.
 
-- [ ] **Paso 1: Ver qué afirman hoy los tests**
+- [x] **Paso 1: Ver qué afirman hoy los tests**
 
 ```bash
 grep -n "toHaveCount(0)\|toBeVisible" e2e/desktop-prompt.spec.ts
 ```
 Esperado: los dos tests actuales afirman el estado **oculto**.
 
-- [ ] **Paso 2: Prender el interruptor**
+- [x] **Paso 2: Prender el interruptor**
 
 En `src/lib/desktop/download.ts`, reemplazar el comentario `TODO(descarga)` completo y la constante (líneas 12-21) por:
 
@@ -1137,7 +1137,7 @@ En `src/lib/desktop/download.ts`, reemplazar el comentario `TODO(descarga)` comp
 export const DESKTOP_RELEASE_PUBLISHED = true;
 ```
 
-- [ ] **Paso 3: Restaurar las aserciones del e2e**
+- [x] **Paso 3: Restaurar las aserciones del e2e**
 
 > ⚠️ **No hagas `git checkout 8291696^ -- e2e/desktop-prompt.spec.ts`.** La versión vieja usa `page.goto('/')` a pelo, y desde `e2040ff` existe el helper `openApp(page)` que espera a que la app hidrate — es el arreglo del flake "el clic antes de la hidratación no hace nada", que ya volvió a morder una vez. Usá el archivo de acá abajo, que es el viejo **con** el helper.
 
@@ -1192,14 +1192,14 @@ test('settings offers the download link on the web', async ({ page }) => {
 });
 ```
 
-- [ ] **Paso 4: Correr el e2e**
+- [x] **Paso 4: Correr el e2e**
 
 ```bash
 pnpm test:e2e -- desktop-prompt
 ```
 Esperado: en verde. Si algo falla de forma intermitente, revisar primero si es el patrón de "clic antes de la hidratación", no un bug nuevo.
 
-- [ ] **Paso 5: Commit**
+- [x] **Paso 5: Commit**
 
 ```bash
 git add src/lib/desktop/download.ts e2e/desktop-prompt.spec.ts
@@ -1208,11 +1208,19 @@ git commit -m "feat(web): mostrar la descarga de escritorio ahora que hay releas
 
 ---
 
-## Tarea 9: Probar el aviso de verdad (v0.2.0 → v0.2.1) — GATE MANUAL
+## Tarea 9: Probar el aviso de verdad (v0.2.0 → v0.2.1) — GATE MANUAL ✅ HECHA Y PASADA (2026-08-19)
+
+> **Lo que quedó sin tildar abajo NO falló: no lo vio nadie.** Hernán confirmó
+> por captura la sección de Actualizaciones en los dos estados y la nube andando;
+> el punto del engranaje, su tooltip, y que la nota y el tamaño de texto
+> sobrevivieran, no se miraron de frente. Se dejan destildados a propósito —un
+> registro que dice "verificado" sobre algo que nadie miró vale menos que uno
+> honesto. El punto se dibuja con la misma condición que pinta el recuadro
+> *"0.2.1 ya está disponible"*, que sí se vio, así que casi seguro estaba.
 
 **Es el único momento en que se puede comprobar que el aviso funciona:** hace falta una segunda versión publicada.
 
-- [ ] **Paso 1: Escribir las novedades y publicar la versión siguiente**
+- [x] **Paso 1: Escribir las novedades y publicar la versión siguiente**
 
 En `CHANGELOG.md`, agregar arriba de todo:
 
@@ -1233,37 +1241,37 @@ git push origin main --tags
 ```
 Esperar el workflow, verificar el `notes` del `latest.json`, y publicar la release.
 
-- [ ] **Paso 2: Reabrir CopyNotes 0.2.0 — el punto**
+- [x] **Paso 2: Reabrir CopyNotes 0.2.0 — el punto**
 
 - [ ] Aparece **un punto sobre el engranaje** en la barra de arriba.
 - [ ] El tooltip dice **"Configuración — hay una versión nueva"**.
 - [ ] El punto **no mueve los otros íconos** de lugar.
 
-- [ ] **Paso 3: Abrir Configuración › Actualizaciones**
+- [x] **Paso 3: Abrir Configuración › Actualizaciones**
 
-- [ ] Dice **"Tenés la versión 0.2.0."** (la instalada, no la nueva — esto fue un bug del plan y hay que verificarlo a ojo).
-- [ ] Dice **"0.2.1 ya está disponible"** con la viñeta que escribiste en el CHANGELOG.
-- [ ] El bloque plegado dice **"Qué trajo tu versión (0.2.0)"** con las viñetas de 0.2.0.
-- [ ] Está el botón **Descargar** y el aviso sobre la contraseña del Mac.
+- [x] Dice **"Tenés la versión 0.2.0."** (la instalada, no la nueva — esto fue un bug del plan y hay que verificarlo a ojo).
+- [x] Dice **"0.2.1 ya está disponible"** con la viñeta que escribiste en el CHANGELOG.
+- [x] El bloque plegado dice **"Qué trajo tu versión (0.2.0)"** con las viñetas de 0.2.0.
+- [x] Está el botón **Descargar** y el aviso sobre la contraseña del Mac.
 
-- [ ] **Paso 4: Que el botón abra la página**
+- [x] **Paso 4: Que el botón abra la página**
 
 Tocar **Descargar**: se abre el navegador del sistema en la página de la release.
 
-- [ ] **Paso 5: Instalar la 0.2.1 y verificar que no se perdió nada**
+- [x] **Paso 5: Instalar la 0.2.1 y verificar que no se perdió nada**
 
 - [ ] La nota que escribiste en la 0.2.0 está entera.
 - [ ] El tamaño de texto sigue como lo dejaste.
-- [ ] La sesión de la nube sigue iniciada — no pide entrar de nuevo.
+- [x] La sesión de la nube sigue iniciada — no pide entrar de nuevo.
 - [ ] Apareció el cartel de la contraseña **una vez** → "Permitir siempre" → la bóveda se sigue leyendo.
-- [ ] El agente responde desde Claude Code **sin reconfigurar nada**.
-- [ ] **El punto del engranaje desapareció**, dice "Tenés la versión 0.2.1. Estás al día." y el bloque plegado ahora muestra **las novedades de 0.2.1**.
+- [x] El agente responde desde Claude Code **sin reconfigurar nada**.
+- [x] **El punto del engranaje desapareció**, dice "Tenés la versión 0.2.1. Estás al día." y el bloque plegado ahora muestra **las novedades de 0.2.1**.
 
-- [ ] **Paso 6: Probar sin internet**
+- [x] **Paso 6: Probar sin internet**
 
 Modo avión → abrir la app. **Sin punto en el engranaje**, sin cartel de novedad, sin error — y el bloque **"Qué trajo tu versión" tiene que seguir funcionando**, porque viene adentro de la app.
 
-- [ ] **Paso 7: Dejar escrito el ritual**
+- [x] **Paso 7: Dejar escrito el ritual**
 
 Agregar una sección **"5. Publicar una versión de escritorio"** a `docs/release-checklist.md`: comprobar que `CHANGELOG.md` tiene la sección de la versión (`node scripts/changelog-section.mjs X.Y.Z`), subir `version` en `package.json`, tag `vX.Y.Z`, empujar, esperar el workflow, **verificar el campo `notes` del `latest.json`**, probar el borrador, publicar.
 

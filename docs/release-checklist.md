@@ -67,3 +67,54 @@ La mayoría ya los protege Playwright; solo hacé a mano los marcados **manual**
 - [ ] Los commits que van a `main` **no** llevan trazas de agente (nada de `Co-Authored-By`) — producción sale de `main`.
 - [ ] Nada no relacionado se rompió.
 - [ ] Riesgo de pérdida de datos considerado: persistencia, import/export/restaurar, jerarquía anidada, reordenar, formato al copiar, **migraciones de base**.
+
+## 5. Publicar una versión de escritorio (`vX.Y.Z` → GitHub Release)
+
+Probado de punta a punta con la v0.2.0 y la v0.2.1 (2026-08-19). ~20 min de
+compilación, casi todo espera.
+
+- [ ] **Escribí las novedades en `CHANGELOG.md` ANTES de taguear.** Es
+      obligatorio, no cortesía: `tauri-action` copia ese texto adentro del
+      `latest.json` **en la misma corrida** que crea la release, y ese archivo no
+      se puede editar después. Editar la descripción de la release en GitHub no
+      regenera nada.
+- [ ] Comprobalo: `node scripts/changelog-section.mjs X.Y.Z` imprime las viñetas
+      (si no, corta el build más adelante).
+- [ ] Subí `"version"` en `package.json`. **Es la única fuente**:
+      `src-tauri/Cargo.toml` y `mcp/package.json` quedan donde están, a propósito.
+- [ ] Puertas automáticas (§1) en verde. Ojo: `pnpm check` arrastra **4 errores
+      preexistentes** (`db.migrations.test.ts`, `DatePanel.svelte:64`); lo que
+      importa es que no haya ninguno nuevo.
+- [ ] `git tag vX.Y.Z && git push origin main --tags`
+- [ ] Mirá el workflow. **El paso 3 es una guardia**: corta en segundos si falta
+      el `pubkey`, `createUpdaterArtifacts`, o cualquiera de los cuatro secretos
+      (`TAURI_SIGNING_PRIVATE_KEY`, `..._PASSWORD`, `PUBLIC_SUPABASE_URL`,
+      `PUBLIC_SUPABASE_ANON_KEY`). Si pasa el 3, el resto es cuestión de esperar.
+- [ ] **⚠️ Verificá el `notes` del `latest.json` del borrador** antes de publicar:
+
+      gh release download vX.Y.Z --repo Hhernanoliva/CopyNotes --pattern latest.json --dir /tmp
+      node -e "const j=require('/tmp/latest.json'); console.log(j.version); console.log(j.notes)"
+
+      Tiene que traer las viñetas del changelog, no vacío ni relleno. Si esto
+      falla, el resto no sirve.
+- [ ] Publicá: `gh release edit vX.Y.Z --repo Hhernanoliva/CopyNotes --draft=false`.
+      Recién ahí `/releases/latest/download/latest.json` empieza a resolver
+      (antes da 404, y eso es correcto).
+- [ ] Instalá el `.dmg` **bajado desde el navegador** y comprobá en la app:
+      Configuración › **Nube** con la cuenta a la vista (si dice *"esta copia no
+      tiene una nube configurada"*, las `PUBLIC_SUPABASE_*` no llegaron al
+      build), **Actualizaciones** al día con su bloque plegado, y **Agentes**
+      activos.
+
+### Lo que macOS le hace a quien instala (mientras no haya certificado de Apple)
+
+Decirlo en el changelog y en la guía, porque el sistema no da ninguna pista:
+
+1. **Bloquea la app**: *"Apple no pudo verificar que «CopyNotes» no contenga
+   software malicioso"*, con un solo botón (**Listo**). Se destraba en **Ajustes
+   del Sistema › Privacidad y seguridad › "Abrir igualmente"**. El viejo truco
+   del clic derecho → Abrir **ya no funciona** en las versiones nuevas de macOS.
+2. **Pide la contraseña del Mac** una vez, por `CopyNotes WebCrypto Master Key`:
+   hay que tocar **"Permitir siempre"**. Denegarlo deja la nube muda en ese
+   aparato sin decir por qué. Pasa en **cada** versión nueva, porque la firma
+   ad-hoc cambia en cada build.
