@@ -1004,14 +1004,22 @@ Una máquina virtual no reemplaza a una computadora ajena: el antivirus y la rep
 - [x] Instala y abre (paso 1 del gate). **PASÓ (2026-08-19, PC real):** apareció
   la pantalla azul de SmartScreen, siguió adelante y el instalador terminó sin
   problemas. De paso confirma que WebView2 se resolvió solo.
-- [ ] Escribe una nota, cierra, vuelve a abrir, el texto está (paso 2).
-- [ ] Un enlace abre en el navegador (paso 3).
-- [ ] Doble clic dos veces = una sola ventana (paso 5).
-- [ ] **Qué apareció exactamente en pantalla al bajar y al abrir el archivo**, con captura si se puede. Esto no es una comprobación: es información. Si el texto no coincide con lo que dice `docs/guia/19-actualizaciones.md`, hay que corregir la guía.
+- [x] Escribe una nota, cierra, vuelve a abrir, el texto está (paso 2). **PASÓ.**
+- [x] Un enlace abre en el navegador (paso 3). **PASÓ** ⇒ Tarea 1 verificada en
+  Windows, no sólo en macOS.
+- [x] Doble clic dos veces = una sola ventana (paso 5). **PASÓ** ⇒ Tarea 3
+  verificada donde el problema existe de verdad.
+- [x] **Qué apareció exactamente en pantalla al bajar y al abrir el archivo.**
+  Hernán lo vio en persona: la pantalla azul **típica** de un programa sin firma,
+  sin nada raro. No se capturó el texto palabra por palabra, así que la guía
+  queda con la redacción estándar de Microsoft — la única duda viva es si el
+  botón dice *"Ejecutar de todos modos"* o *"de todas formas"*, que cambia según
+  la versión de Windows y no vale la pena perseguir.
 
 No se le pide MCP: eso ya quedó probado en la Tarea 7.
 
-- [ ] **Step 3: Corregir la guía si el texto de la advertencia no coincide**
+- [x] **Step 3: Corregir la guía si el texto de la advertencia no coincide** — no
+  hizo falta: lo que apareció es la pantalla estándar que la guía ya describe.
 
 Si hace falta, ajustar la viñeta de `docs/guia/19-actualizaciones.md` con las palabras exactas que vio, actualizar la fecha del índice, y commitear.
 
