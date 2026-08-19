@@ -992,13 +992,18 @@ Windows 11 en Parallels o UTM sobre la Mac, con **Node** y **Cursor** instalados
 
 Una máquina virtual no reemplaza a una computadora ajena: el antivirus y la reputación del archivo sólo se ven ahí.
 
-- [ ] **Step 1: Pasarle el instalador a un conocido con Windows**
-
-Que lo baje **desde el navegador**, con la dirección de la release borrador o por el medio que sea, pero descargado y no copiado.
+- [x] **Step 1: Pasarle el instalador a un conocido con Windows** — hecho el
+  2026-08-19 con el `CopyNotes_0.2.2_x64-setup.exe` de la release borrador. La
+  release borrador **no la puede abrir nadie sin permisos de escritura** (da 404
+  aunque el repo sea público), así que el archivo se le pasó aparte; lo que hace
+  aparecer la advertencia es que el destinatario lo **baje con un navegador**,
+  no de dónde venga.
 
 - [ ] **Step 2: Que confirme cuatro cosas y describa una**
 
-- [ ] Instala y abre (paso 1 del gate).
+- [x] Instala y abre (paso 1 del gate). **PASÓ (2026-08-19, PC real):** apareció
+  la pantalla azul de SmartScreen, siguió adelante y el instalador terminó sin
+  problemas. De paso confirma que WebView2 se resolvió solo.
 - [ ] Escribe una nota, cierra, vuelve a abrir, el texto está (paso 2).
 - [ ] Un enlace abre en el navegador (paso 3).
 - [ ] Doble clic dos veces = una sola ventana (paso 5).
