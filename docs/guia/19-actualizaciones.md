@@ -54,6 +54,8 @@ Dos cosas que van a pasar y conviene saber de antes:
   Es una sola vez por versión. (Si tenés un Mac con una versión vieja de macOS, ahí alcanza con **clic derecho sobre la app → Abrir**; en las versiones nuevas Apple sacó ese atajo.)
 - **macOS te va a pedir la contraseña de tu Mac una vez**, por algo que se llama *"CopyNotes WebCrypto Master Key"*. Es normal y pasa en cada versión nueva, por el mismo motivo del certificado. Tocá **"Permitir siempre"**. ⚠️ Si la denegás, **la nube deja de sincronizar en esa computadora** y no te va a decir por qué. Tus notas de ese dispositivo no se tocan, pero deja de subir y bajar.
 
+- **En Windows, la primera vez puede salir una pantalla azul** que dice *"Windows protegió su PC"*. Tampoco está roto: es por lo mismo, todavía no compramos el certificado. Tocá **"Más información"** y aparece el botón **"Ejecutar de todos modos"**. Una sola vez. Antes de eso, tu navegador puede avisarte que el archivo "no se descarga habitualmente" — es el mismo motivo y también se puede seguir. Esto se va solo con el tiempo, a medida que más gente lo descarga.
+
 El día que exista el certificado de Apple, las dos cosas desaparecen.
 
 ## Si preferís no actualizar

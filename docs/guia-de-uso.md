@@ -2,9 +2,12 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-19 (Nuevo: **el comando de Claude Code ya sirve en
-Windows**: se pega en **PowerShell** y funciona aunque tu nombre de usuario tenga
-un espacio (tema 17). Antes: **ya se puede bajar la app de
+Última actualización: 2026-08-19 (Nuevo: **CopyNotes también es para Windows**.
+La próxima descarga trae un instalador `.exe` además del de Mac; la primera vez
+Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar
+de todos modos"* (tema 19), y el comando de Claude Code se pega en **PowerShell**
+y ya funciona aunque tu nombre de usuario tenga un espacio (tema 17).
+Antes: **ya se puede bajar la app de
 escritorio**. Entrando desde una computadora volvieron la tarjetita *"¿Usás
 agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**;
 estaban ocultos porque todavía no había nada publicado. ⚠️ La primera vez que la
