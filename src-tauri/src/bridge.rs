@@ -19,6 +19,35 @@ fn restrict(path: &Path, mode: u32) {
 #[cfg(not(unix))]
 fn restrict(_path: &Path, _mode: u32) {}
 
+// En Unix un `rename` sobre un destino existente no puede fallar por culpa de
+// otro proceso. En Windows sí: `MoveFileEx` devuelve "acceso denegado" mientras
+// alguien tenga el destino abierto — y `export.json` lo lee el servidor MCP en
+// CADA llamada, mientras la app lo reescribe con cada cambio de notas. El
+// antivirus agranda la ventana porque abre archivos para escanearlos sin avisar.
+//
+// La ventana dura milisegundos, así que unos pocos reintentos la cubren. El tope
+// es obligatorio: sin él, un error permanente colgaría este hilo para siempre.
+const REPLACE_ATTEMPTS: u32 = 5;
+const REPLACE_BACKOFF: Duration = Duration::from_millis(20);
+
+fn replace_atomically(tmp: &Path, target: &Path) -> Result<(), String> {
+    let mut last = String::new();
+    for attempt in 0..REPLACE_ATTEMPTS {
+        match fs::rename(tmp, target) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                last = error.to_string();
+                if attempt + 1 < REPLACE_ATTEMPTS {
+                    std::thread::sleep(REPLACE_BACKOFF * (attempt + 1));
+                }
+            }
+        }
+    }
+    // El temporal se queda donde está a propósito: la próxima escritura lo pisa,
+    // y borrarlo acá tiraría la única copia del contenido que no llegó a destino.
+    Err(last)
+}
+
 // A file older than this is history nobody reads. Keeping them forever left a
 // growing pile of the user's own task text on disk. Applies to inbox/processed/
 // (requests already applied) and to outbox/ (answers the client read and
@@ -74,7 +103,7 @@ pub fn bridge_write_export(app: tauri::AppHandle, contents: String) -> Result<St
     // Lock it down BEFORE the rename, so the final path is never briefly
     // world-readable.
     restrict(&tmp, 0o600);
-    fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
+    replace_atomically(&tmp, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -235,7 +264,7 @@ pub fn bridge_write_outbox(app: tauri::AppHandle, id: String, contents: String) 
     let tmp = outbox.join(format!("{id}.json.tmp"));
     fs::write(&tmp, contents).map_err(|e| e.to_string())?;
     restrict(&tmp, 0o600);
-    fs::rename(&tmp, &target).map_err(|e| e.to_string())?;
+    replace_atomically(&tmp, &target)?;
     Ok(target.to_string_lossy().to_string())
 }
 
@@ -335,6 +364,51 @@ mod tests {
         ack_in(&inbox, "aplicada.json").unwrap();
 
         let _ = fs::remove_dir_all(&inbox);
+    }
+
+    #[test]
+    fn replace_atomically_pisa_el_destino_que_ya_existe() {
+        let dir = std::env::temp_dir().join(format!("cn-replace-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let target = dir.join("export.json");
+        let tmp = dir.join("export.json.tmp");
+        fs::write(&target, "viejo").unwrap();
+        fs::write(&tmp, "nuevo").unwrap();
+
+        replace_atomically(&tmp, &target).unwrap();
+
+        assert_eq!(fs::read_to_string(&target).unwrap(), "nuevo");
+        assert!(!tmp.exists(), "el temporal se consume en el renombre");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // Los reintentos cubren una ventana de milisegundos, no un destino imposible.
+    // Sin un tope, un error permanente colgaría el hilo del webview para siempre:
+    // la app se quedaría tildada al guardar, sin error y sin explicación.
+    #[test]
+    fn replace_atomically_se_rinde_en_vez_de_reintentar_para_siempre() {
+        let dir = std::env::temp_dir().join(format!("cn-replace-err-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let tmp = dir.join("origen.json");
+        fs::write(&tmp, "{}").unwrap();
+        // Un directorio como destino no se puede pisar con un archivo en ningún
+        // sistema, así que el renombre falla en los cinco intentos.
+        let target = dir.join("soy-una-carpeta");
+        fs::create_dir_all(&target).unwrap();
+
+        let empezo = std::time::Instant::now();
+        assert!(replace_atomically(&tmp, &target).is_err());
+        assert!(
+            empezo.elapsed() < Duration::from_secs(2),
+            "el tope de reintentos tiene que cortar rápido"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
