@@ -1806,21 +1806,21 @@ git commit -m "docs(compartir): la guía y el CHANGELOG de que la otra persona c
 
 **Los pasos, en orden. Cada uno tiene su "cómo se ve que falló":**
 
-- [ ] **1.** A comparte una nota con tres tareas e invita a B con el nombre "Juan". B acepta.
-- [ ] **2.** B tilda una tarea. **En A la tarea se tilda sola dentro de los 30 segundos.** *Falla si:* queda sin tildar (la deducción no corre) o si tilda y vuelve a destildar (el `checked` sigue viajando y ganando).
-- [ ] **3.** Con la nota abierta en A y sin tocar nada, **contar cuántas veces se refresca en 3 minutos.** *Tiene que ser cero.* Es el bug que la Tarea 3 previene, y sólo se ve mirando.
-- [ ] **4.** A destilda la misma tarea. **En B se destilda.** Los dos sentidos, no uno.
-- [ ] **5.** B tilda una tarea **madre** con hijas. **En A se tildan la madre y las hijas.** La cascada son N líneas, no una.
-- [ ] **6.** B comenta una tarea ("le dejé mensaje"). **En A aparece bajo la tarea, en itálica, con la etiqueta "Juan"** — no "IA", no `member:8f3a…`.
-- [ ] **7.** A comenta la misma tarea con **su** comentario (el de siempre, el del menú ⋯). **En B NO aparece** (es `block.note`, no viaja) — y A lo sigue viendo. Esto no es un bug: es la diferencia entre los dos comentarios, y el paso existe para que quede medida y no se descubra como sorpresa.
-- [ ] **8.** A deja una línea de bitácora en esa tarea desde Configuración › Agentes ("Rehacer"). **En B aparece con el nombre de A**, no con "Vos".
-- [ ] **9.** B aprieta **Listo** con la aclaración "falta la factura". **En A aparece al pie: "Juan marcó Listo" + la aclaración.**
-- [ ] **10.** En B, abrir el menú `⋯` de un renglón: **tiene un solo ítem**. Y probar las cuatro puertas que B1 cerró (pegar, la barra de formato, el chip de fecha, el título de la nota) — **siguen cerradas**.
-- [ ] **11.** En A, Configuración › Agentes: la bitácora dice **"Juan marcó hecha"**, no "Agente marcó hecha" ni "Vos marcaste hecha".
-- [ ] **12.** En A, con la nota visible para el agente: `get_task_history` de esa tarea dice **"Juan (invitado) anotó: le dejé mensaje"**, y al leer la nota entera el agente ve, bajo el título, **"✓ Juan marcó Listo: falta la factura"**.
-- [ ] **13.** En B, **Configuración › "sin subir" tiene que llegar a cero** después de una pasada. Si se queda en un número que no baja, hay una fila atascada — que es justo lo que este plan afirma que no puede pasar.
-- [ ] **14.** En A, **exportar un respaldo y volver a importarlo.** El "Listo" y los comentarios de Juan sobreviven. *Falla si:* el archivo no valida (revisar `activity.blockId` nullable) o el "Listo" desaparece con un aviso (revisar `dropDanglingActivity`).
-- [ ] **15.** A saca a B de la compartición. **En B la nota se queda** (su copia es suya) y deja de recibir. En A, `pnpm rls:check` sigue dando **21/21**.
+- [x] **1.** A comparte una nota con tres tareas e invita a B con el nombre "Juan". B acepta.
+- [x] **2.** B tilda una tarea. **En A la tarea se tilda sola dentro de los 30 segundos.** *Falla si:* queda sin tildar (la deducción no corre) o si tilda y vuelve a destildar (el `checked` sigue viajando y ganando).
+- [x] **3.** Con la nota abierta en A y sin tocar nada, **contar cuántas veces se refresca en 3 minutos.** *Tiene que ser cero.* Es el bug que la Tarea 3 previene, y sólo se ve mirando.
+- [x] **4.** A destilda la misma tarea. **En B se destilda.** Los dos sentidos, no uno.
+- [x] **5.** B tilda una tarea **madre** con hijas. **En A se tildan la madre y las hijas.** La cascada son N líneas, no una.
+- [x] **6.** B comenta una tarea ("le dejé mensaje"). **En A aparece bajo la tarea, en itálica, con la etiqueta "Juan"** — no "IA", no `member:8f3a…`.
+- [x] **7.** A comenta la misma tarea con **su** comentario (el de siempre, el del menú ⋯). **En B NO aparece** (es `block.note`, no viaja) — y A lo sigue viendo. Esto no es un bug: es la diferencia entre los dos comentarios, y el paso existe para que quede medida y no se descubra como sorpresa.
+- [x] **8.** A deja una línea de bitácora en esa tarea desde Configuración › Agentes ("Rehacer"). **En B aparece con el nombre de A**, no con "Vos".
+- [x] **9.** B aprieta **Listo** con la aclaración "falta la factura". **En A aparece al pie: "Juan marcó Listo" + la aclaración.**
+- [x] **10.** En B, abrir el menú `⋯` de un renglón: **tiene un solo ítem**. Y probar las cuatro puertas que B1 cerró (pegar, la barra de formato, el chip de fecha, el título de la nota) — **siguen cerradas**.
+- [x] **11.** En A, Configuración › Agentes: la bitácora dice **"Juan marcó hecha"**, no "Agente marcó hecha" ni "Vos marcaste hecha".
+- [x] **12.** En A, con la nota visible para el agente: `get_task_history` de esa tarea dice **"Juan (invitado) anotó: le dejé mensaje"**, y al leer la nota entera el agente ve, bajo el título, **"✓ Juan marcó Listo: falta la factura"**.
+- [x] **13.** En B, **Configuración › "sin subir" tiene que llegar a cero** después de una pasada. Si se queda en un número que no baja, hay una fila atascada — que es justo lo que este plan afirma que no puede pasar.
+- [x] **14.** En A, **exportar un respaldo y volver a importarlo.** El "Listo" y los comentarios de Juan sobreviven. *Falla si:* el archivo no valida (revisar `activity.blockId` nullable) o el "Listo" desaparece con un aviso (revisar `dropDanglingActivity`).
+- [x] **15.** A saca a B de la compartición. **En B la nota se queda** (su copia es suya) y deja de recibir. En A, `pnpm rls:check` sigue dando **21/21**.
 
 - [ ] **Step final: escribir el resultado**
 
@@ -1842,3 +1842,83 @@ Al terminar, escribir al final de ESTE archivo qué pasó paso por paso, con los
 - Que **deshacer no destilde** (§9, B3).
 - La **consulta de moderación** (B3).
 - **Un solo invitado por nota es lo probado.** El código no lo limita —los nombres se resuelven por uuid y el pie lista todas las entradas— pero el gate corre con dos cuentas, así que "varios invitados" queda sin medir.
+
+---
+
+## Resultado del gate (2026-08-19): LOS 15 PASOS PASADOS
+
+Corrido con Hernán, dos ventanas de Chrome contra el `vite dev` de siempre
+(A = ventana normal con su cuenta; B = incógnito, invitado "Juan"; el dueño
+firma como "Kza", que es el nombre que escribió al invitar). `pnpm rls:check`
+**21/21**. Unit **1278**, `pnpm check` en sus **4 errores preexistentes**.
+
+### Los dos bugs que encontró, los dos arreglados en esta misma rama
+
+1. **El invitado no veía su propio comentario.** Escribía, apretaba Enter y
+   desaparecía de su pantalla: sin forma de saber si se había mandado.
+   `agent-notes.ts` filtraba con `!isMine(...)`. Esconder lo propio vale para el
+   DUEÑO, que lo ve en `block.note`; el invitado **no tiene ese campo**
+   (`BlockRow.svelte`: `noteVisible = showNote || (!guest && …)`), así que se
+   quedaba sin ningún lugar donde mirarlo. **La regla no era "no muestres lo
+   mío" sino "no lo muestres dos veces".**
+   Hubo que **dar vuelta una prueba que afirmaba el bug** (`'y los propios no'`),
+   y se le agregó el control del otro lado: en la nota propia, los del dueño
+   siguen fuera de la itálica.
+   **Cuarta vez que una condición binaria sobre `actor` se rompe al aparecer el
+   tercer actor** — y la primera que se escapa CON la regla ya escrita en
+   `AGENT.md`, porque este filtro no nombra a `actor`: nombra "lo mío".
+2. **"Vos marcó Listo" en el pie.** `SharedFooter` tenía `marcó Listo`
+   **hardcodeado** al lado de `{entry.label}`, y la etiqueta de lo propio es
+   "Vos". `actionLabel` —puro, probado, con `ACTION_LABEL_USER.listo =
+   'marcaste Listo'` ya escrito— existía desde antes y el pie no lo usaba.
+   Arreglado reusándolo, no escribiendo una segunda conjugación.
+   Configuración lo mostraba bien todo el tiempo, y esa diferencia entre las dos
+   pantallas fue lo que encerró el bug en el pie.
+
+### Dos apuntes de pantalla, también arreglados
+
+3. El comentario del dueño y la itálica del invitado quedaban **pegados**: los
+   dos llevaban `-mt-0.5`, que existe para que lo PRIMERO que cuelga del renglón
+   se abrace a su texto. Con dos apilados, el segundo se abrazaba al primero.
+   Ahora sólo abraza el primero.
+4. El panel decía *"Lo último que hicieron los agentes en tus tareas"*, escrito
+   cuando el agente era lo único que no era el usuario. Hoy la lista mezcla
+   agentes y personas, y en la pantalla del invitado las tareas ni siquiera son
+   suyas. **Se cambió la frase y NO el título:** "Agentes" está nombrado en 10
+   lugares de la guía y otros documentos, y lo que mentía era la frase.
+
+### Lo que queda anotado y NO se tocó
+
+**Al quitarle el acceso a alguien, la nota le queda con candado hasta que cambie
+de nota y vuelva.** Los datos están bien —`reconcileShares` le saca la marca en
+el bucle de "el servidor ya no la lista"— pero el editor **lee el rol al montarse
+y no lo vuelve a leer**. Ya estaba anotado en B1 como "falla del lado seguro";
+la novedad es que acá es el estado FINAL de una persona, no uno transitorio.
+Decisión de Hernán: se arregla aparte, porque es el único de los cinco que toca
+cómo el editor relee las cosas.
+
+**Deuda chica preexistente, NO de B2:** el panel "Estado de tus datos" muestra un
+número que sólo se recalcula al terminar una pasada de `syncNow` o al abrir
+Configuración. Entre que escribís y la pasada siguiente puede decir "Todo subido"
+habiendo algo sin subir.
+
+### Método, para el próximo gate
+
+- **El paso del agente no necesita empaquetar la `.app`.** `pnpm tauri dev`
+  (con la build de debug ya hecha, arranca en segundos) escribe el `export.json`
+  real, y un script que importa `mcp/lib/tools.js` **del repo** lo lee. Cubre las
+  dos mitades: los nombres los resuelve `bridge/export.ts` al escribir, las
+  etiquetas las arma `tools.js` al leer. **Las herramientas MCP de la sesión NO
+  sirven**: el servidor conectado vive dentro de la `.app` y se levantó con el
+  código viejo.
+- **`pnpm tauri dev` no envenena la CSP del `vite dev`** que esté corriendo: el
+  envenenamiento de e2e venía de construir con `PUBLIC_SUPABASE_URL: ''`.
+  Medido con el `curl` de 5 segundos justo después; las dos ventanas del gate
+  siguieron trabajando.
+- **El paso del respaldo se prueba sin arriesgar nada** exportando el estado
+  ACTUAL y reimportando ESE archivo.
+- **Un control mal diseñado confunde más que ninguno:** pedí ver el contador
+  "sin subir" parpadear al escribir, y no puede — `syncStatus.pending` sólo lo
+  escriben `SettingsDialog.refreshCloud()` y el `finally` de `syncNow`. Lo que el
+  paso sí prueba es que una fila ATASCADA quedaría contada, porque ese `finally`
+  corre salga bien o mal la pasada.
