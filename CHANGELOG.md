@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.2
 
+- **CopyNotes ahora tiene app de escritorio para Windows**, además de la de Mac. Es la misma app, con todo adentro: notas, nube y agentes. La primera vez que la abrís, Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar de todos modos"*
 - **La web vuelve a ofrecer la app de escritorio.** Ahora que hay una versión publicada para bajar, volvieron la tarjetita *"¿Usás agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**. Estaban ocultos porque llevaban a una página vacía
 
 ## 0.2.1

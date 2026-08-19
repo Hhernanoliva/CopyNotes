@@ -174,7 +174,10 @@ a ver la sección **"Conectar un agente (MCP)"** con una opción lista para cada
 programa. Elegí la del que uses:
 
 - **Claude Code:** copiá el comando (icono de copiar, dos hojas → tilde ✓) y
-  pegalo en tu terminal **una sola vez**.
+  pegalo en tu terminal **una sola vez**. En Windows, pegalo en **PowerShell**
+  (el que abre con el botón derecho sobre el menú Inicio → *Terminal*), no en
+  la ventana negra vieja: ahí las comillas no funcionan igual y el comando se
+  parte si tu nombre de usuario tiene un espacio.
 - **OpenCode:** copiá el bloque y pegalo en tu archivo
   `~/.config/opencode/opencode.json`.
 - **Cursor:** tocá el botón **"Añadir a Cursor"** — se abre Cursor y lo agrega

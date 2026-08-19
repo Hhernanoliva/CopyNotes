@@ -35,9 +35,21 @@ function shellQuote(value) {
 	return `'${String(value).replaceAll("'", `'\\''`)}'`;
 }
 
-// Claude Code: one global command.
-export function claudeCodeCommand({ serverPath, mailboxPath }) {
-	return `claude mcp add copynotes -s user -e CN_MAILBOX=${shellQuote(mailboxPath)} -- node ${shellQuote(serverPath)}`;
+// PowerShell, que es la consola por defecto de Windows desde hace años. Sus
+// comillas simples también son literales — adentro no expande nada — y la única
+// que hay que escapar es la comilla simple misma, duplicándola. El truco POSIX
+// de cerrar-escapar-reabrir NO funciona acá: dejaría el resto de la ruta fuera
+// de toda cita. Citar hace falta igual, por el espacio en "Juan Perez".
+function powershellQuote(value) {
+	return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+// Claude Code: un solo comando global. `windows` elige el dialecto de comillas;
+// los demás clientes van en JSON y ahí JSON.stringify ya escapa las barras
+// invertidas de Windows correctamente.
+export function claudeCodeCommand({ serverPath, mailboxPath }, windows = false) {
+	const quote = windows ? powershellQuote : shellQuote;
+	return `claude mcp add copynotes -s user -e CN_MAILBOX=${quote(mailboxPath)} -- node ${quote(serverPath)}`;
 }
 
 export function openCodeConfig({ serverPath, mailboxPath }) {
