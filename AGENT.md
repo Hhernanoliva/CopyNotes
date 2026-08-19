@@ -225,6 +225,20 @@ estaban en ningún plan:
 **Al agregar un actor, `grep` de `actor` completo y tachar uno por uno** — igual que
 con las puertas del candado, y por el mismo motivo.
 
+**Y el cuarto caso, que ese `grep` NO encuentra** (gate de B2, 2026-08-19): el
+arreglo del primero —cambiar `actor !== 'user'` por `!isMine(...)`— se rompió a su
+vez, en la misma función. `isMine` es correcto, pero la regla que lo usaba cargaba
+una premisa que nadie escribió: *"no muestres lo mío **porque ya lo veo en otro
+lado**"*. El dueño ve lo suyo en `block.note`; el invitado no tiene ese campo, así
+que se quedaba sin ningún lugar donde mirar su propio comentario. **La regla no era
+"no muestres lo mío" sino "no lo muestres dos veces".**
+
+Se escapó con la regla de arriba ya escrita, y por un motivo que vale para la
+próxima: **la condición no nombra a `actor`, nombra "lo mío"**. Un `grep` de `actor`
+no la ve. Al agregar un actor hay que revisar además **toda condición que esconda
+algo por ser propio**, y preguntarse dónde más lo ve ese actor — si la respuesta es
+"en ningún lado", esconderlo lo deja escribiendo contra una pared.
+
 Y **el agente se reconoce POR DESCARTE, nunca comparando contra `'agent'`**: el
 `actor` de una línea del agente es el id del agente conectado
 (`bridge/ingest.ts` › `resolveAgentActor`). Una prueba escrita con la palabra pasa
@@ -241,6 +255,12 @@ puerta única (`actorParaEscribir()`), y **antes** de abrir la transacción de D
 
 Lo destapó una captura de pantalla, no un test: ninguna prueba automática de esta
 rama puede montar una sesión de Supabase, así que el caso sólo se ve mirando.
+
+**Consecuencia para los e2e, que ya hizo perder una vuelta:** sin sesión, `myActor`
+es nulo e **`isMine` da falso siempre**, así que una línea escrita en un e2e sale con
+actor `'user'` y se lee como de la otra parte. Una aserción que ahí dice "marcó" y no
+"marcaste" **puede estar bien**: antes de corregirla, medir qué puede producir ese
+entorno. El par que sí discrimina es la MISMA línea mirada con los dos roles.
 
 ## Un campo que se DEDUCE no se compara, y su escritura no es un cambio
 
