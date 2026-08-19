@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from '../storage/db';
+import { db, markSentToCloud } from '../storage/db';
 import { createNote, softDeleteNote } from '../storage/notes';
 import { createBlock } from '../storage/blocks';
 import { appendActivity } from '../storage/activity';
@@ -18,6 +18,14 @@ import {
 
 beforeEach(async () => {
 	await Promise.all(db.tables.map((table) => table.clear()));
+});
+
+// Desde spec 038 §6 `reconcileShares` consulta además la tabla `share_members`
+// para guardar los nombres de los invitados. Los clientes falsos que ya estaban
+// sólo tenían `rpc`; este trozo les completa la otra mitad, y con la lista
+// vacía ninguno cambia de comportamiento.
+const conMiembros = (filas = []) => ({
+	from: () => ({ select: () => ({ in: async () => ({ data: filas, error: null }) }) })
 });
 
 describe('qué ofrece el caño compartido', () => {
@@ -232,12 +240,135 @@ describe('la bajada por nota', () => {
 	});
 });
 
+describe('el tilde se deduce al final de la tanda', () => {
+	// Arma una nota compartida con UNA tarea sin tildar y devuelve los dos ids.
+	async function tareaCompartida({ checked = false } = {}) {
+		const note = await createNote({ title: 'ticket' });
+		await setShareRole(note.id, 'owner');
+		const block = await createBlock({
+			noteId: note.id,
+			type: 'todo',
+			content: 'llamar',
+			order: 0
+		});
+		await db.table('blocks').update(block.id, { checked, fromCloud: true });
+		// Sembradas como YA SUBIDAS. Sin esto quedan pendientes desde que se crean y
+		// la prueba de "la deducción no encola nada" no puede distinguir su propia
+		// siembra de lo que quiere medir.
+		const stored = await db.table('blocks').get(block.id);
+		await markSentToCloud('blocks', block.id, stored.changeSeq);
+		await markSentToCloud('notes', note.id, (await db.table('notes').get(note.id)).changeSeq);
+		return { noteId: note.id, blockId: block.id };
+	}
+
+	const lineaDelInvitado = (noteId, blockId, { id = 'a1', action = 'done', serverSeq = 100 } = {}) => ({
+		table_name: 'activity',
+		id,
+		change_seq: 500,
+		deleted: false,
+		author_id: 'u2',
+		server_seq: serverSeq,
+		payload: {
+			id,
+			noteId,
+			blockId,
+			actor: 'member:u2',
+			action,
+			text: '',
+			seq: 5,
+			at: '2026-08-17T10:00:00.000Z',
+			deletedAt: null
+		}
+	});
+
+	const rpcCon = (filas) => ({ rpc: vi.fn().mockResolvedValue({ data: filas, error: null }) });
+
+	it('la línea del invitado tilda la tarea de este lado', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(rpcCon([lineaDelInvitado(noteId, blockId)]), noteId);
+
+		expect((await db.table('blocks').get(blockId)).checked).toBe(true);
+	});
+
+	// La misma bajada trae la línea del invitado Y el renglón del dueño con su
+	// `checked` viejo. Aplicándolas de a una, la respuesta depende del orden
+	// dentro del paquete: acá el renglón viene DESPUÉS y pisaría el tilde.
+	it('el renglón del dueño con su checked viejo no gana', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(
+			rpcCon([
+				lineaDelInvitado(noteId, blockId),
+				{
+					table_name: 'blocks',
+					id: blockId,
+					change_seq: 600,
+					deleted: false,
+					author_id: 'u1',
+					server_seq: 101,
+					payload: {
+						id: blockId,
+						noteId,
+						type: 'todo',
+						content: 'llamar al contador',
+						checked: false,
+						order: 0,
+						deletedAt: null
+					}
+				}
+			]),
+			noteId
+		);
+
+		const stored = await db.table('blocks').get(blockId);
+		expect(stored.checked).toBe(true);
+		expect(stored.content).toBe('llamar al contador');
+	});
+
+	it('la escritura deducida no queda pendiente de subida', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+
+		await pullSharedNote(rpcCon([lineaDelInvitado(noteId, blockId)]), noteId);
+
+		const stored = await db.table('blocks').get(blockId);
+		expect(stored.cloudSeq).toBe(stored.changeSeq);
+		expect(await countSharedPending()).toBe(0);
+	});
+
+	// Sin este freno, una tarea tildada por un camino que no deja línea —un
+	// respaldo restaurado, un "[x]" pegado— se destildaría sola en la primera
+	// pasada que trajera cualquier otra cosa de esa nota.
+	it('una tarea sin líneas de tilde no se destilda sola', async () => {
+		const { noteId, blockId } = await tareaCompartida({ checked: true });
+
+		await pullSharedNote(
+			rpcCon([lineaDelInvitado(noteId, blockId, { action: 'note' })]),
+			noteId
+		);
+
+		expect((await db.table('blocks').get(blockId)).checked).toBe(true);
+	});
+
+	// El eco de la ventana de relectura: la misma línea vuelve en cada pasada y
+	// ya no cambia nada. Sin esto la nota abierta se refrescaría cada 30 segundos.
+	it('una segunda pasada con lo mismo no despierta a nadie', async () => {
+		const { noteId, blockId } = await tareaCompartida();
+		const filas = [lineaDelInvitado(noteId, blockId)];
+
+		await pullSharedNote(rpcCon(filas), noteId);
+
+		expect(await pullSharedNote(rpcCon(filas), noteId)).toBe(0);
+	});
+});
+
 describe('en qué estoy', () => {
 	it('el servidor manda: pone la marca que falta y saca la que sobra', async () => {
 		const cerrada = await createNote({ title: 'ya no se comparte' });
 		const nueva = await createNote({ title: 'me la compartieron' });
 		await setShareRole(cerrada.id, 'owner');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nueva.id, role: 'member' }], error: null })
 		};
 
@@ -252,6 +383,7 @@ describe('en qué estoy', () => {
 		const vieja = await createNote({ title: 'ya la tenía marcada' });
 		await setShareRole(vieja.id, 'owner');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [
 					{ note_id: nueva.id, role: 'member' },
@@ -270,6 +402,7 @@ describe('en qué estoy', () => {
 	it('guarda el nombre del dueño que viene con la lista', async () => {
 		const nota = await createNote({ title: 'me la compartieron' });
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [{ note_id: nota.id, role: 'member', counterpart_label: 'Hernán' }],
 				error: null
@@ -289,6 +422,7 @@ describe('en qué estoy', () => {
 		await setShareRole(nota.id, 'member');
 		await rememberShareName(`owner:${nota.id}`, 'Hernán');
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn().mockResolvedValue({
 				data: [{ note_id: nota.id, role: 'member', counterpart_label: null }],
 				error: null
@@ -299,6 +433,35 @@ describe('en qué estoy', () => {
 
 		expect(await getShareName(`owner:${nota.id}`)).toBe('Hernán');
 	});
+
+	// Los nombres de los INVITADOS los leía sólo `ShareDialog`, así que un dueño
+	// que mira la bitácora sin abrir ese panel no tenía ningún nombre que mostrar
+	// y veía `member:8f3a…` crudo.
+	it('guarda los nombres de los miembros en cada pasada, sin abrir el panel', async () => {
+		const nota = await createNote({ title: 'compartida' });
+		const client = {
+			...conMiembros([{ member_id: 'u-2', display_name: 'Juan' }]),
+			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nota.id, role: 'owner' }], error: null })
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName('u-2')).toBe('Juan');
+	});
+
+	// Mismo motivo que el del dueño, un renglón más abajo.
+	it('un nombre vacío no pisa el que ya había', async () => {
+		const nota = await createNote({ title: 'compartida' });
+		await rememberShareName('u-2', 'Juan');
+		const client = {
+			...conMiembros([{ member_id: 'u-2', display_name: null }]),
+			rpc: vi.fn().mockResolvedValue({ data: [{ note_id: nota.id, role: 'owner' }], error: null })
+		};
+
+		await reconcileShares(client);
+
+		expect(await getShareName('u-2')).toBe('Juan');
+	});
 });
 
 // Encontrado en el gate manual del 2026-08-14: al compartir una nota en el otro
@@ -307,6 +470,7 @@ describe('en qué estoy', () => {
 // marca la pone `reconcileShares`, y su cambio no llegaba a `appliedVersion`.
 describe('el lazo entero', () => {
 	const clientWith = (shares) => ({
+		...conMiembros(),
 		rpc: vi.fn(async (name) =>
 			name === 'list_shares' ? { data: shares, error: null } : { data: [], error: null }
 		)
@@ -349,6 +513,7 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'owner');
 		const llamadas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name) => {
 				llamadas.push(name);
 				return name === 'list_shares'
@@ -370,6 +535,7 @@ describe('el lazo entero', () => {
 		await setShareRole(nota.id, 'owner');
 		const llamadas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name) => {
 				llamadas.push(name);
 				return name === 'list_shares'
@@ -415,6 +581,7 @@ describe('el lazo entero', () => {
 		});
 		const subidas = [];
 		const client = {
+			...conMiembros(),
 			rpc: vi.fn(async (name, args) => {
 				if (name === 'list_shares') {
 					return { data: [{ note_id: nota.id, role: 'member', counterpart_label: 'X' }], error: null };

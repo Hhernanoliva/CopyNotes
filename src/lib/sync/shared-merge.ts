@@ -52,12 +52,21 @@ async function birthFields(table) {
 	return { ...fields, sortOrder: await topSortOrder('note') };
 }
 
-export async function mergeFromShared(table, payload, changeSeq) {
+// `serverSeq` es el orden que repartió el servidor al recibir la fila, y es lo
+// ÚNICO que puede decidir un tilde entre dos cuentas: `seq` sale del reloj de
+// cada aparato y dos relojes no se pueden comparar (spec 038 §5).
+//
+// Viaja como parámetro y no adentro de la carga porque no es un campo de la fila
+// del otro —es lo que el servidor anotó al recibirla—, y por eso está fuera de
+// la lista blanca. Un aparato que ya tiene la fila no la vuelve a pedir, así que
+// el número no puede quedarse en la respuesta: se guarda.
+export async function mergeFromShared(table, payload, changeSeq, serverSeq = undefined) {
 	const clean = cleanSharedPayload(table, payload);
 	const local = await db.table(table).get(clean.id);
 	const merged = {
 		...(local ?? (await birthFields(table))),
 		...clean,
+		...(serverSeq === undefined ? {} : { serverSeq }),
 		changeSeq,
 		cloudSeq: changeSeq,
 		fromCloud: true
@@ -65,11 +74,28 @@ export async function mergeFromShared(table, payload, changeSeq) {
 	await db.table(table).put(merged);
 }
 
+// El cache no se compara: se deduce.
+//
+// Desde spec 038 §5, `block.checked` es un cache de la bitácora y no un dato que
+// las dos puntas negocien. Comparándolo, el renglón del dueño —que sigue
+// llevando su valor viejo— llega "distinto" en CADA pasada mientras esté dentro
+// de la ventana de relectura de `pullSharedNote`: `applied` sube, con él sube
+// `appliedVersion`, y la nota abierta se refresca sola cada 30 segundos por algo
+// que nadie tocó.
+//
+// Sigue VIAJANDO en la fila, y tiene que seguir: un renglón que aterriza en un
+// aparato que nunca lo vio no tiene ninguna línea de bitácora todavía, así que el
+// valor que vino es el único que hay. Ese caso no pasa por acá — sin fila local
+// esta función devuelve false y la fila se escribe entera.
+const NO_SE_COMPARAN = { blocks: new Set(['checked']) };
+
 // "¿Son la misma para quien las mira?", pero mirando sólo lo que se mandó — la
 // única lectura honesta cuando media fila nunca salió del otro aparato.
 export function sameInAllowList(table, local, payload) {
 	if (!local) return false;
+	const saltear = NO_SE_COMPARAN[table];
 	for (const field of SHARED_FIELDS[table] ?? []) {
+		if (saltear?.has(field)) continue;
 		if (payload[field] === undefined) continue;
 		if (local[field] !== payload[field]) return false;
 	}

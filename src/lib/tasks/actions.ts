@@ -105,7 +105,11 @@ export async function createTask({
 // subtasks stayed open — the exact mismatch the UI never allows. The agent's
 // summary lands on the target's bitácora line; cascaded blocks get an empty
 // 'done' line, matching setTaskChecked.
-export async function completeTask({ blockId, actor, text = '' }) {
+// `fromCloud` dice que esta cuenta es MIEMBRO de la nota, no su dueña (spec 038
+// §4): el renglón que se escribe al lado es un cache local, y sin la marca queda
+// pendiente de subir para siempre por un caño que lo va a rechazar por rol. Es
+// el mismo cambio de una línea que lleva `setTaskChecked`, y por el mismo motivo.
+export async function completeTask({ blockId, actor, text = '', fromCloud = false }) {
 	const block = await getBlock(blockId);
 	if (!block) return undefined;
 	const noteBlocks = await listBlocksByNote(block.noteId);
@@ -115,7 +119,7 @@ export async function completeTask({ blockId, actor, text = '' }) {
 	const result = await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		let target;
 		for (const { id, checked } of plan.updates) {
-			const updated = await updateBlock(id, { checked });
+			const updated = await updateBlock(id, fromCloud ? { checked, fromCloud: true } : { checked });
 			const activity = await appendActivity({
 				blockId: id,
 				noteId: block.noteId,
@@ -165,7 +169,19 @@ export async function redoTask({ blockId, actor = 'user', text }) {
 // writing ONE bitácora line per affected task — done or reopened by its final
 // value. Returns the applied plan so the caller can update its in-memory rows,
 // or null when the target is not a todo.
-export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
+//
+// `actor` puede ser además `'member:<uuid>'` (spec 038 §6), y `fromCloud` dice
+// que esta cuenta es MIEMBRO de la nota, no su dueña: su línea de bitácora es lo
+// único suyo que puede viajar, y el renglón que se escribe al lado es un cache
+// local. Sin la marca ese renglón queda `changedSinceCloud` para siempre —
+// invisible para los dos contadores hoy, y subible a su propia bóveda el día que
+// se salga de la compartición.
+//
+// El llamador resuelve el rol ANTES de llamar y lo pasa. No se puede preguntar
+// acá adentro: `notes` no está en el alcance de la transacción, y una lectura
+// encadenada la haría escapar de la zona de Dexie y cerrarla temprano
+// (`PrematureCommitError`, el mismo que `createTask` documenta más arriba).
+export async function setTaskChecked({ noteId, blockId, actor = 'user', fromCloud = false }) {
 	const noteBlocks = await listBlocksByNote(noteId);
 	const plan = planToggleChecked(noteBlocks, blockId);
 	if (!plan) return null;
@@ -177,7 +193,9 @@ export async function setTaskChecked({ noteId, blockId, actor = 'user' }) {
 	// updateBlock's safety-net bump (inside) refreshes the export.
 	await db.transaction('rw', db.table('blocks'), db.table('activity'), async () => {
 		for (const { id, checked } of plan.updates) {
-			await updateBlock(id, { checked });
+			// La marca vale para la cascada ENTERA, no sólo para la tarea que se tocó:
+			// spec 003 escribe un renglón por tarea afectada y todos son cache igual.
+			await updateBlock(id, fromCloud ? { checked, fromCloud: true } : { checked });
 			await appendActivity({
 				blockId: id,
 				noteId,
@@ -251,4 +269,27 @@ export async function readTask(blockId) {
 export async function listTasks(noteId) {
 	const blocks = await listBlocksByNote(noteId);
 	return blocks.filter((block) => block.type === 'todo');
+}
+
+// "Listo": una declaración sobre la NOTA, no sobre un renglón (spec 038 §8). No
+// es una máquina de estados — no hay aprobación, no hay reapertura, no hay
+// estado que consultar. El dueño la lee como una línea más.
+//
+// `blockId: null` no es una clave válida de IndexedDB, así que la fila queda
+// fuera del índice `blockId` y se lee por nota. Eso es exactamente lo que se
+// quiere, y está escrito porque parece un descuido.
+//
+// La palabra es castellana a propósito, contra el resto ('created', 'done',
+// 'reopened', 'note'): `done` ya está tomada y significa "se tildó una tarea",
+// que es otra cosa, y cualquier sinónimo inglés se confunde con ella al leer el
+// código. 'listo' es literalmente lo que dice el botón.
+//
+// No abre transacción: es la única acción que escribe UNA fila y ninguna otra,
+// así que no hay nada con qué quedar a medias. Por eso lleva el `bumpAgentData`
+// explícito, igual que `addTaskNote`: sin escritura de renglón, la red de
+// seguridad de `updateBlock` no se dispara.
+export async function markNoteDone({ noteId, actor = 'user', text = '' }) {
+	const activity = await appendActivity({ blockId: null, noteId, actor, action: 'listo', text });
+	bumpAgentData();
+	return { activity };
 }

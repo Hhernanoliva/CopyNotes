@@ -32,8 +32,12 @@
 		planTypeChangeSelection
 	} from '$lib/blocks/selection';
 	import { filterSnippets, planSnippetInsertion, snippetFieldsFromBlocks } from '$lib/snippets';
-	import { setTaskChecked, convertToTask, createTask } from '$lib/tasks';
+	import { setTaskChecked, convertToTask, createTask, addTaskNote, markNoteDone } from '$lib/tasks';
+	import SharedFooter from './SharedFooter.svelte';
 	import { agentNotesByBlock } from './agent-notes';
+	import { actionLabel } from '$lib/tasks/action-labels';
+	import { actorName, isAgentActor } from '$lib/storage/share-names';
+	import { myMemberActor } from '$lib/sync/identity';
 	import { reconcileBlocks } from './reconcile';
 	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
@@ -127,10 +131,85 @@
 	// que no sea bitácora si quien la manda no es el dueño. Esto es la cortesía de
 	// no dejar intentarlo.
 	const readOnly = $derived(note === null || note.share === 'member');
-	// La voz del agente por bloque (bitácora action:'note', actor ≠ user). Se
+	// Lo mismo mirado al revés, y no es redundante: el invitado es el único que
+	// está en sólo lectura Y PUEDE tildar y comentar (spec 038 §5). `readOnly`
+	// cierra todo; esto reabre las dos puertas que se abren a propósito.
+	const isMember = $derived(note?.share === 'member');
+	// Con qué firma escribe este aparato en una nota ajena. Se resuelve UNA vez,
+	// fuera de cualquier transacción, porque adentro no se puede preguntar.
+	let myActor = $state(null);
+	$effect(() => {
+		let vivo = true;
+		myMemberActor().then((valor) => {
+			if (vivo) myActor = valor;
+		});
+		return () => {
+			vivo = false;
+		};
+	});
+	// La voz de los OTROS por bloque (bitácora action:'note' que no escribí yo). Se
 	// recarga con la nota; el editor se re-monta tras cada cambio de agente
 	// (dataVersion), así que una nota nueva del agente aparece al re-montar.
 	let agentNotes = $state({});
+	// Las declaraciones de "Listo" sobre la nota entera (spec 038 §8). Salen de la
+	// MISMA lectura que la itálica de cada renglón: son filas de la misma bitácora,
+	// las que no cuelgan de ningún renglón.
+	let doneEntries = $state([]);
+
+	// Las etiquetas se resuelven ACÁ y no en `agent-notes.ts` porque salen de una
+	// tabla de Dexie y ese archivo es puro a propósito (se prueba sin base).
+	//
+	// Un nombre por actor distinto, no uno por línea: una tarea puede juntar quince
+	// comentarios de la misma persona y serían quince lecturas.
+	function resolvedorDeNombres(ctx) {
+		const cache = new Map();
+		return async (actor) => {
+			if (!cache.has(actor)) cache.set(actor, await actorName(actor, ctx));
+			return cache.get(actor);
+		};
+	}
+
+	// La puerta ÚNICA de todo lo que la pantalla saca de la bitácora. Las dos
+	// listas se llenan juntas o no se llenan: dejar que cada llamador arme la suya
+	// es exactamente cómo este proyecto perdió cosas tres veces (`appliedVersion`,
+	// dos; el segundo camino de `agentNotes`, una).
+	//
+	// `abortado` existe porque resolver los nombres lee Dexie, y en esa espera la
+	// persona puede haber abierto otra nota: sin la pregunta, las listas de la
+	// nota vieja pisarían las de la nueva. Se pregunta ACÁ, junto a la asignación,
+	// y no en el llamador, que es lo que la volvería olvidable otra vez.
+	async function applyActivity(rows, abortado = () => false) {
+		const ctx = { noteId: note?.id, role: note?.share ?? null, myActor };
+		const nombre = resolvedorDeNombres(ctx);
+
+		const grouped = agentNotesByBlock(rows, ctx);
+		for (const list of Object.values(grouped)) {
+			for (const item of list) {
+				// La itálica del renglón dice "IA" desde antes de que existiera
+				// compartir, y esa palabra no cambia: acá sólo se agrega el caso nuevo.
+				// El booleano viaja además del nombre porque la pantalla lo pinta de
+				// otro color, y el color no se puede deducir del texto de la etiqueta.
+				item.esAgente = isAgentActor(item.actor);
+				item.label = item.esAgente ? 'IA' : await nombre(item.actor);
+			}
+		}
+
+		// El pie no dice "IA" nunca: un "Listo" sobre la nota entera lo declara una
+		// persona, y si algún día lo escribiera un agente su nombre es "Agente",
+		// que es lo que `actorName` ya devuelve.
+		const listos = rows.filter((row) => row.action === 'listo');
+		const conNombre = [];
+		// La conjugación sale de `actionLabel`, la misma puerta que usa Configuración,
+		// y no de una cadena escrita en el pie: ahí decía "marcó Listo" fijo y con la
+		// etiqueta "Vos" se leía "Vos marcó Listo". El mapa de primera persona ya
+		// existía y ya tenía "marcaste Listo" — el pie simplemente no lo usaba.
+		for (const row of listos)
+			conNombre.push({ ...row, label: await nombre(row.actor), actionText: actionLabel(row, ctx) });
+
+		if (abortado()) return;
+		agentNotes = grouped;
+		doneEntries = conNombre;
+	}
 	// { [blockId]: { id, remote } } — el mismo renglón cambió acá y en otro
 	// dispositivo. Se muestra en el renglón, no escondido en Configuración.
 	let conflicts = $state({});
@@ -514,6 +593,7 @@
 		note = null;
 		blocks = [];
 		agentNotes = {};
+		doneEntries = [];
 		conflicts = {};
 		deferredRefresh = false;
 		// La selección y su menú de grupo son de ESTA nota; la próxima no hereda
@@ -529,7 +609,8 @@
 			if (cancelled) return;
 			note = loadedNote;
 			blocks = loadedBlocks;
-			agentNotes = agentNotesByBlock(loadedActivity);
+			await applyActivity(loadedActivity, () => cancelled);
+			if (cancelled) return;
 			conflictsByBlock(loadedBlocks.map((row) => row.id)).then((found) => {
 				if (!cancelled) conflicts = found;
 			});
@@ -1113,6 +1194,43 @@
 		runFormatCommand(block.id, name, undefined, { restoreSelection: false });
 	}
 
+	// Con qué firma escribe este aparato AHORA, resuelto en el momento de escribir
+	// y no leído de `myActor`.
+	//
+	// `myActor` lo llena un efecto asíncrono, así que hay un instante —el primero
+	// de la nota— en que todavía vale null. Firmar 'user' ahí no es un detalle: en
+	// una nota ajena `'user'` significa EL DUEÑO, o sea que el comentario recién
+	// escrito aparecería atribuido a la otra persona hasta que el servidor lo
+	// corrigiera treinta segundos después. La sesión ya está en memoria, así que
+	// preguntarla de nuevo no cuesta un viaje.
+	//
+	// Se resuelve ANTES de llamar a la acción, nunca adentro: una lectura
+	// encadenada dentro de una transacción de Dexie la cierra temprano.
+	async function actorParaEscribir() {
+		if (!isMember) return 'user';
+		return (await myMemberActor()) ?? 'user';
+	}
+
+	// El comentario del invitado NO es `block.note` —ese campo es del dueño y no
+	// viaja— sino una línea de bitácora, que es lo único que el servidor le acepta.
+	// Cae en la misma lista donde ya se leen las notas del agente, así que aparece
+	// bajo la tarea sin ninguna pantalla nueva.
+	//
+	// Recarga con `refreshFromStorage` y no con una lectura propia: esa función ya
+	// vuelve a leer la bitácora Y a resolver los nombres, y una segunda copia del
+	// mismo camino es exactamente cómo se quedan viejos los llamadores.
+	async function handleComment(block, text) {
+		await addTaskNote({ blockId: block.id, actor: await actorParaEscribir(), text });
+		await refreshFromStorage();
+	}
+
+	// "Listo": lo mismo un piso más arriba. Habla de la nota entera, así que su
+	// línea no cuelga de ningún renglón y no aparece en ninguna itálica.
+	async function handleNoteDone(text) {
+		await markNoteDone({ noteId: note.id, actor: await actorParaEscribir(), text });
+		await refreshFromStorage();
+	}
+
 	function handleNoteInput(block, text) {
 		recordTextSnapshot(`note:${block.id}`);
 		block.note = text;
@@ -1478,7 +1596,17 @@
 		// por tarea, actor user). El snapshot de Deshacer sale del estado en
 		// memoria — que todavía no mutó — así que tomarlo después del write
 		// preserva el mismo undo de antes.
-		const plan = await setTaskChecked({ noteId: note.id, blockId: block.id });
+		//
+		// El rol se resuelve ACÁ, antes de entrar a la transacción (spec 038 §5).
+		// En una nota ajena la firma es la de miembro y el renglón se escribe como
+		// cache. Por la misma puerta que el comentario, y por el mismo motivo:
+		// leerla del estado deja una ventana en la que la firma todavía no llegó.
+		const plan = await setTaskChecked({
+			noteId: note.id,
+			blockId: block.id,
+			actor: await actorParaEscribir(),
+			fromCloud: isMember
+		});
 		if (!plan) return;
 		recordSnapshot();
 		for (const update of plan.updates) {
@@ -1998,7 +2126,7 @@
 		// próximo cambio de la nube, y editarlo sube esa versión vieja.
 		deferredRefresh = reconciled.deferred.length > 0;
 		conflicts = await conflictsByBlock(loadedBlocks.map((row) => row.id));
-		agentNotes = agentNotesByBlock(loadedActivity);
+		await applyActivity(loadedActivity);
 		// El título se edita en su propio campo: sólo se pisa si nadie lo está
 		// escribiendo en este momento.
 		if (!pending.has(`title:${id}`)) note.title = loadedNote.title;
@@ -2279,6 +2407,7 @@
 				<BlockRow
 					block={row.block}
 					{readOnly}
+					guest={isMember}
 					depth={row.depth}
 					hasChildren={row.hasChildren}
 					agentNotes={agentNotes[row.block.id] ?? []}
@@ -2298,6 +2427,7 @@
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
+					onComment={handleComment}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
 					onJoinPrevious={handleJoinPrevious}
@@ -2361,6 +2491,13 @@
 				/>
 			{/each}
 		</div>
+		<!-- El pie de una nota compartida: el botón "Listo" del invitado y el
+		     registro que leen los dos (spec 038 §8). Va DENTRO de la columna de
+		     renglones para que arranque en la misma x que ellos, y sólo aparece
+		     cuando la nota está compartida. -->
+		{#if note?.share}
+			<SharedFooter role={note.share} entries={doneEntries} onDone={handleNoteDone} />
+		{/if}
 	</div>
 	{#if toolbar}
 		<FloatingFormattingToolbar

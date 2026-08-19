@@ -571,6 +571,12 @@ rather than a disagreement. Worse than one stuck row: every pass drags
 
 Two guards, and both are built:
 
+> **Superseded, measured 2026-08-17.** The first guard already exists —
+> `listSharedPending` filters by role — and the stuck *cursor* this paragraph
+> fears does not: `pushSharedNote` marks row by row and carries no cursor. Only
+> the `fromCloud` flag of the second guard survives, and for a different reason.
+> See "Part B2 — design decisions", point 3.
+
 - The shared uploader hands up **only `activity` rows** when this account is a
   member of the note. This is the one a caller added later cannot forget, and it
   is the client-side mirror of the SQL check.
@@ -743,6 +749,9 @@ resolved on the way into the export**, not looked up by the reader.
 
 The two halves of "how does the ticket come back", which is otherwise a question
 with no answer because nothing has to physically return:
+
+> **The two halves ship apart.** "Listo" moved into B2 and gained an optional
+> text line; the news counter stays in B3. See "Part B2 — design decisions".
 
 - **"Listo"** — a button for the member that appends one `activity` entry to the
   note. It is a statement, not a state machine: no workflow, no approval, no
@@ -1362,6 +1371,100 @@ It now reads:
 
 The `docs/guia/` topic file and the "Where Detail Lives" table in `AGENT.md` are
 part of the implementation commit, not of this spec.
+
+## Part B2 — design decisions, 2026-08-17
+
+B1 shipped (`e75b5b7`): the second person enters, reads and copies. B2 is the
+half where they answer. These are the calls taken with Hernán before writing the
+plan; they amend the sections named, they do not replace them.
+
+**Nothing here needs new SQL.** B1 already built every server-side piece B2
+relies on: `push_shared_rows` overwrites `actor` with `'member:' || auth.uid()`
+and stamps `author_id`, `pull_shared_rows` returns `server_seq` and `author_id`,
+and `read_share_members` lets any participant read the note's names. B2 is a
+client-only change, so it has no gate step that waits on a human pasting SQL.
+
+**1. Scope: tick, per-task comment, and "Listo" — the last one moved forward.**
+"Listo" is written in §8 as part of B3. It ships in B2 instead, because a guest
+who can tick and comment but cannot say "I finished" has to invent a fake task to
+say it. It gains **an optional text line** beside the button: `appendActivity`
+already carries `text`, so the row costs nothing and "Listo — falta la factura de
+marzo" is the answer people actually give. The news counter, the other half of
+§8, stays in B3.
+
+**2. The comment door is one item of the `⋯` menu**, not a new control. B1 closed
+that menu whole because every item of it writes; B2 reopens exactly one, "Dejar
+una nota". The gesture and the result already exist — an italic line under the
+task — so the guest's comment looks like the owner's even though one is a block
+field and the other a bitácora row. That difference is invisible and must stay
+invisible, with one exception the UI has to be honest about: **the guest's
+comment can never be edited or deleted**, by either side, because §4 forbids a
+member touching a row that already exists.
+
+**3. The two anti-jam guards of §5 and §3c are dropped — measured, not assumed.**
+The jam those paragraphs describe does not exist in the code that was actually
+built. `sync/pending.ts`'s `skipsSharedRows` removes every row of a shared note
+from the encrypted pipe; `listSharedPending` offers a member `activity` and
+nothing else; and `pushSharedNote` marks row by row with `markSentToCloud`,
+carrying no cursor of the shape `uploadedThrough` has. An unsendable row of the
+guest's is therefore pending for ever *and invisible to both counters and both
+pipes*: it drags nothing. What survives of those two paragraphs is one flag, not
+a task — see decision 6.
+
+**4. `checked` comes off `sameInAllowList`.** With the tick derived, the owner's
+block row keeps arriving with their older `checked` on every pass it is still
+inside `pullSharedNote`'s re-read window, so a comparison that includes `checked`
+reports a change every time: `applied` rises, `appliedVersion` rises, and the
+open note refreshes itself every 30 seconds for nothing — the exact waste the
+comment above `pullSharedNote` exists to prevent. Once the bitácora is the source
+of truth, `checked` is a cache and comparing it is comparing the wrong thing. It
+still travels on the row (a block arriving on a device that has never seen it
+carries its value, because `sameInAllowList` returns false on a missing local
+row); it just stops deciding whether anything changed.
+
+**5. The derivation only acts on a block that has at least one `done`/`reopened`
+entry.** Otherwise it would untick every task whose `checked` was set by a path
+that leaves no line — a restored backup, a pasted `[x]`, a task from before the
+bitácora existed. No entries means no opinion, and `block.checked` stands.
+
+**6. The guest's tick writes its block with the `fromCloud` flag.** This is the
+one line left of decision 3. It is not needed to prevent a jam; it is needed
+because that write is not a local change, and without it the row sits
+`changedSinceCloud` for ever and becomes uploadable to the guest's own vault the
+day they leave the share. As §5 requires, "is this account a member" is resolved
+by the caller before the transaction opens, never read inside it.
+
+**7. The agent sees the guest, named and labelled.** `mcp/lib/tools.js` renders
+"Juan (invitado) dejó una nota: …". Hiding those entries would leave the agent
+looking at a ticked task with no reason for it, which is precisely the "what
+happened" it is useful for. Two things already checked: `isRedoRequested`
+(`src/lib/tasks/redo.ts`) requires `actor === 'user'`, so a guest's comment
+cannot order the owner's agent to redo anything; and the name has to be resolved
+**into** `export.json`, because the display-name cache is a Dexie table the MCP
+server cannot read.
+
+The "Listo" reaches the agent too, decided 2026-08-17 when Hernán asked why it
+would not. It costs no new tool: `mcp/lib/resources.js` is the projection the
+agent reads unprompted, so the latest "Listo" is one line under the note's
+title. A first pass had it excluded on the grounds that it needed a tool — that
+was wrong, and wrong in a way worth recording: it looked only at `tools.js`,
+where every question needs its own tool, and never at the always-on projection
+beside it. "Listo" is a state, not a history, so the projection is where it
+belongs anyway.
+
+**8. The name cache is filled on every sync pass, not only when the share dialog
+opens.** Today `listMembers` runs from `ShareDialog` alone, so an owner who
+reads the bitácora without opening that panel — or a guest naming a second guest
+— has no name to show. `reconcileShares` already makes the call that knows which
+notes are shared; the member names ride along with it.
+
+**9. `server_seq` has to be stored on the local `activity` row.** §5 decides the
+tick by server order, and a device that already holds a row will not re-fetch it,
+so the number cannot stay in the response. It is bookkeeping: it must be excluded
+from `SHARED_FIELDS` and from the backup, and included in whatever list keeps a
+bookkeeping difference from being read as a disagreement. The implementation plan
+owns enumerating those lists — a new field on a synced row is the same trap spec
+`040` recorded, where a new pipe touched three of the five lists it needed.
 
 ## Estimated cost
 

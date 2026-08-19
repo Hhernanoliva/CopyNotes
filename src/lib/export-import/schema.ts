@@ -221,7 +221,11 @@ function dropDanglingActivity(data, existing) {
 // the truth is one `list_shares()` away on the next pass. This is the shape the
 // agent kill switch already got wrong once, in the other direction: a restore
 // un-paused agents nobody had un-paused.
-export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud', 'share'];
+// `serverSeq` (spec 038 §5) es el mismo caño y el mismo tipo de mentira una
+// tabla más abajo: es el orden que un servidor le dio a esa línea de bitácora.
+// Colado desde un archivo decidiría un tilde —la deducción ordena por ese
+// número— con un valor que nadie repartió.
+export const LOCAL_ONLY_FIELDS = ['changeSeq', 'cloudSeq', 'fromCloud', 'share', 'serverSeq'];
 
 // Las claves que un respaldo PUEDE llevar, por tabla. Lista blanca, y por el mismo
 // motivo que `sync/shared-payload.ts`: lo que falla de una lista negra es una fuga

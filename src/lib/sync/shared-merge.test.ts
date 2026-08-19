@@ -144,4 +144,65 @@ describe('comparar sólo lo que se mandó', () => {
 			false
 		);
 	});
+
+	// Spec 038 §5: `checked` pasó a ser un cache de la bitácora, no un dato que las
+	// dos puntas negocien. Comparándolo, el renglón del dueño —que sigue llevando
+	// su valor viejo— llega "distinto" en CADA pasada mientras esté dentro de la
+	// ventana de relectura, y la nota abierta se refresca sola cada 30 segundos.
+	it('un checked distinto NO es un desacuerdo: lo decide la bitácora', () => {
+		const local = { id: 'b1', noteId: 'n1', type: 'todo', content: 'hola', checked: true };
+		const payload = { id: 'b1', noteId: 'n1', type: 'todo', content: 'hola', checked: false };
+		expect(sameInAllowList('blocks', local, payload)).toBe(true);
+	});
+
+	it('pero cualquier otro campo del renglón sí', () => {
+		const local = { id: 'b1', noteId: 'n1', type: 'todo', content: 'hola', checked: true };
+		const payload = { id: 'b1', noteId: 'n1', type: 'todo', content: 'chau', checked: true };
+		expect(sameInAllowList('blocks', local, payload)).toBe(false);
+	});
+});
+
+describe('el orden que reparte el servidor', () => {
+	const linea = (id) => ({
+		id,
+		noteId: 'n1',
+		blockId: 'b1',
+		actor: 'user',
+		action: 'done',
+		text: '',
+		seq: 5,
+		at: '2026-08-17T10:00:00.000Z',
+		deletedAt: null
+	});
+
+	it('se guarda en la fila que llega', async () => {
+		await mergeFromShared('activity', linea('a1'), 100, 4242);
+		expect((await db.table('activity').get('a1')).serverSeq).toBe(4242);
+	});
+
+	it('sin número, no se inventa uno', async () => {
+		await mergeFromShared('activity', linea('a2'), 101);
+		expect((await db.table('activity').get('a2')).serverSeq).toBeUndefined();
+	});
+
+	// Una fila que vuelve a llegar por la ventana de relectura tiene que traer su
+	// número actualizado, no quedarse con el primero que le tocó.
+	it('una segunda llegada lo pisa', async () => {
+		await mergeFromShared('activity', linea('a3'), 100, 4242);
+		await mergeFromShared('activity', { ...linea('a3'), text: 'cambió' }, 105, 5000);
+		expect((await db.table('activity').get('a3')).serverSeq).toBe(5000);
+	});
+
+	// Un renglón que aterriza por primera vez trae su `checked`: no tiene ninguna
+	// línea de bitácora todavía, así que el valor que vino es el único que hay.
+	// Este caso no pasa por `sameInAllowList` —sin fila local devuelve false— y por
+	// eso la prueba de arriba no lo cubre.
+	it('un renglón que este aparato no tenía se escribe entero, checked incluido', async () => {
+		await mergeFromShared(
+			'blocks',
+			{ id: 'b9', noteId: 'n1', type: 'todo', content: 'nueva', checked: true, order: 0 },
+			10
+		);
+		expect((await db.table('blocks').get('b9')).checked).toBe(true);
+	});
 });

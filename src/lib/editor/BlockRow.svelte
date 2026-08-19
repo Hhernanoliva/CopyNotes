@@ -46,11 +46,20 @@
 		// renglón que mande alguien que no es el dueño; esto es la cortesía de no
 		// dejar intentarlo, para que nadie escriba algo que no va a llegar nunca.
 		readOnly = false,
+		// Sólo lectura PERO puede tildar y comentar: el invitado de una nota
+		// compartida (spec 038 §5). Es un permiso aparte y no un `readOnly` más
+		// flojo, porque las puertas se abren de a una y a propósito: el candado de
+		// B1 tenía cuatro abiertas que nadie había listado.
+		guest = false,
 		depth = 0,
 		hasChildren = false,
 		agentNotes = [],
 		// El mismo renglón cambió acá y en otro dispositivo: { remote } o null.
 		conflict = null,
+		// El comentario del invitado. No pasa por `onNoteInput` a propósito: ese
+		// escribe `block.note`, que es del dueño y no viaja; esto manda una línea
+		// de bitácora, de una vez y sin poder editarla después.
+		onComment = () => {},
 		onConflictResolve,
 		focused = false,
 		active = false,
@@ -143,7 +152,11 @@
 	// The secondary note editor shows once it has content or the user is adding
 	// one via Shift+Enter (editor UX pass, slice B).
 	let showNote = $state(false);
-	const noteVisible = $derived(showNote || (block.note ?? '') !== '');
+	// Al invitado el renglón en itálica NO le muestra el comentario del dueño: ese
+	// campo (`block.note`) ni siquiera viaja por el caño compartido, así que lo que
+	// vería sería el suyo viejo de otra cosa. Le sirve de hoja en blanco para
+	// escribir el suyo, que es otra cosa —una línea de bitácora— y se manda entera.
+	const noteVisible = $derived(showNote || (!guest && (block.note ?? '') !== ''));
 
 	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
 	// literal plain text (code needs exact whitespace, separator has no content).
@@ -187,7 +200,7 @@
 	});
 
 	$effect(() => {
-		if (noteEl && noteEl.textContent !== (block.note ?? '')) {
+		if (!guest && noteEl && noteEl.textContent !== (block.note ?? '')) {
 			noteEl.textContent = block.note ?? '';
 		}
 	});
@@ -216,7 +229,21 @@
 	}
 
 	function handleNoteInput() {
+		// El invitado no guarda al teclear: su comentario es una línea de bitácora
+		// y una línea de bitácora no se edita después (spec 038 §4), así que
+		// guardar letra por letra dejaría una entrada por letra.
+		if (guest) return;
 		onNoteInput(block, noteEl.textContent);
+	}
+
+	// El borrador se manda ENTERO: con Enter o al salir del renglón. Después de
+	// mandarlo el campo queda vacío y se cierra, porque no es un campo que se
+	// edite: es un mensaje que se envía.
+	function commitComment() {
+		const text = (noteEl?.textContent ?? '').trim();
+		showNote = false;
+		if (noteEl) noteEl.textContent = '';
+		if (text) onComment(block, text);
 	}
 
 	// The one definition of this block's focus target: the editable when it is
@@ -253,6 +280,23 @@
 	}
 
 	function handleNoteKeydown(event) {
+		// El invitado no está editando `block.note`, así que ninguna de las tres
+		// salidas de abajo aplica: junta un borrador y lo manda. Escape lo descarta
+		// vaciando el campo ANTES de cerrar, para que el blur que viene atrás no
+		// mande lo que se acaba de descartar.
+		if (guest) {
+			if (event.key === 'Enter' && !event.shiftKey) {
+				event.preventDefault();
+				commitComment();
+				focusBlockSurface();
+			} else if (event.key === 'Escape') {
+				event.preventDefault();
+				if (noteEl) noteEl.textContent = '';
+				showNote = false;
+				focusBlockSurface();
+			}
+			return;
+		}
 		if (event.key === 'Enter' && !event.shiftKey) {
 			if (tryNoteExit()) {
 				event.preventDefault();
@@ -305,10 +349,25 @@
 	// line, planNoteExit returns null and the newline is inserted as usual.
 	function handleNoteBeforeInput(event) {
 		if (!intentFromBeforeInput(event.inputType)) return;
+		// El teclado de celular no manda keydown 'Enter': manda un beforeinput, y
+		// en un campo plaintext-only llega como insertLineBreak. Sin esta rama, en
+		// el teléfono Enter escribiría un salto de línea en vez de mandar.
+		if (guest) {
+			event.preventDefault();
+			commitComment();
+			focusBlockSurface();
+			return;
+		}
 		if (tryNoteExit()) event.preventDefault();
 	}
 
 	function handleNoteBlur() {
+		// Tocar en otro lado también manda: el borrador no sobrevive a irse del
+		// renglón, y dejarlo escrito sin mandar sería peor que mandarlo.
+		if (guest) {
+			commitComment();
+			return;
+		}
 		// An empty note that loses focus disappears; a filled one stays.
 		if (noteEl && noteEl.textContent === '') showNote = false;
 	}
@@ -749,7 +808,7 @@
 			role="checkbox"
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
-			disabled={readOnly}
+			disabled={readOnly && !guest}
 			onclick={() => onToggleChecked(block)}
 			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>
@@ -855,17 +914,18 @@
 			{#if noteVisible}
 				<div
 					bind:this={noteEl}
-					contenteditable={readOnly ? 'false' : 'plaintext-only'}
+					contenteditable={readOnly && !guest ? 'false' : 'plaintext-only'}
 					role="textbox"
 					tabindex="0"
 					aria-multiline="true"
-					aria-label="Comentario del bloque"
-					data-placeholder="Comentario…"
+					aria-label={guest ? 'Comentar la tarea' : 'Comentario del bloque'}
+					data-placeholder={guest ? 'Comentar (no se puede editar después)' : 'Comentario…'}
 					onkeydown={handleNoteKeydown}
 					onbeforeinput={handleNoteBeforeInput}
 					oninput={handleNoteInput}
 					onblur={handleNoteBlur}
-					class="block-editable block-editable--note text-muted-foreground -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic outline-none {readOnly
+					class="block-editable block-editable--note text-muted-foreground -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic outline-none {readOnly &&
+					!guest
 					? 'cursor-default'
 					: ''}"
 				></div>
@@ -938,11 +998,21 @@
 					</button>
 				</div>
 			{/if}
-			{#each agentNotes as agentNote (agentNote.id)}
+			<!-- El margen negativo existe para que lo PRIMERO que cuelga del renglón se
+			     abrace a su texto. Con dos cosas apiladas, la segunda se abrazaba a la
+			     primera: el comentario del dueño y la itálica del invitado se leían
+			     como un solo bloque. Sólo el primero abraza; el resto lleva aire. -->
+			{#each agentNotes as agentNote, index (agentNote.id)}
 				<p
-					class="agent-note -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic"
+					class="agent-note w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic {index ===
+						0 && !noteVisible
+						? '-mt-0.5'
+						: 'mt-1'}"
+					class:agent-note--person={!agentNote.esAgente}
 				>
-					<span class="agent-note-badge" aria-label="Escrito por la IA">IA</span>
+					<span class="agent-note-badge" aria-label={`Escrito por ${agentNote.label}`}
+						>{agentNote.label}</span
+					>
 					{agentNote.text}
 				</p>
 			{/each}
@@ -1023,12 +1093,13 @@
 		<!-- También en el separador: no es editable, así que en celular no hay
 		     Backspace y este menú es la única forma de borrarlo. Ahí quedan sólo
 		     mover y eliminar (contentActions).
-		     En una nota que te comparten no va: TODOS sus ítems escriben, y en
-		     celular es la única forma de llegar a varios de ellos. Copiar sigue
-		     estando en sus botones propios, que no escriben nada. -->
-		{#if !readOnly}
+		     En una nota que te comparten queda UNO —comentar— y los otros cinco no,
+		     porque escriben el renglón (noteOnly). Copiar sigue estando en sus
+		     botones propios, que no escriben nada. -->
+		{#if !readOnly || guest}
 			<BlockActionsMenu
 				{pulseMenu}
+				noteOnly={guest}
 				contentActions={block.type !== 'separator'}
 				onAddNote={openNote}
 				onMoveUp={() => onMoveUp(block)}

@@ -30,6 +30,8 @@ import { syncStatus } from './status.svelte';
 import { unshareNote } from './share-move';
 import { toSharedPayload } from './shared-payload';
 import { mergeFromShared, sameInAllowList } from './shared-merge';
+import { listActivityByBlock } from '../storage/activity';
+import { deriveChecked } from '../tasks/derive';
 
 const BATCH = 200;
 // El servidor reparte `server_seq` al EMPEZAR la escritura, no al confirmarla,
@@ -111,6 +113,29 @@ export async function pushSharedNote(client, noteId, role) {
 // ventana de relectura de arriba vuelve a traer en CADA pasada filas que este
 // aparato ya tiene —las suyas propias, sin ir más lejos—. Contándolas a todas,
 // la nota abierta se refrescaría cada 30 segundos para nada.
+// Vuelve a calcular el tilde de los renglones que esta tanda tocó, y sólo de
+// esos (spec 038 §5).
+//
+// Corre UNA vez, al final: una misma bajada puede traer el renglón del dueño
+// —con su `checked` viejo— y la línea del invitado, y aplicándolas de a una la
+// respuesta dependería del orden adentro del paquete.
+//
+// La escritura lleva `fromCloud` porque es un CACHE, no un cambio: sin eso el
+// renglón entra a la cola de subida, la otra punta lo baja, deduce, escribe el
+// suyo, y los dos aparatos se rebotan la misma fila para siempre. Es la misma
+// trampa para la que se construyó `putFromCloud`.
+async function deriveTicks(blockIds) {
+	for (const blockId of blockIds) {
+		const block = await db.table('blocks').get(blockId);
+		if (!block || block.type !== 'todo') continue;
+		const checked = deriveChecked(await listActivityByBlock(blockId));
+		// `null` es "no tengo opinión", no "no está hecha": una tarea sin líneas de
+		// tilde se queda como está.
+		if (checked === null || checked === block.checked) continue;
+		await db.table('blocks').update(blockId, { checked, fromCloud: true });
+	}
+}
+
 export async function pullSharedNote(client, noteId) {
 	const cursor = await getShareCursor(noteId);
 	const { data, error } = await client.rpc('pull_shared_rows', {
@@ -120,12 +145,29 @@ export async function pullSharedNote(client, noteId) {
 	if (error) throw new Error(error.message);
 	if (!data?.length) return 0;
 	let applied = 0;
+	// Los renglones que hay que volver a deducir se juntan de TODAS las filas que
+	// vinieron, incluidas las que `sameInAllowList` saltea: una línea de bitácora
+	// que este aparato ya tiene puede ser la que decide el tilde de un renglón que
+	// recién ahora llega por primera vez.
+	const tocados = new Set();
 	for (const row of data) {
+		if (row.table_name === 'activity' && row.payload?.blockId) tocados.add(row.payload.blockId);
+		if (row.table_name === 'blocks') tocados.add(row.id);
 		const local = await db.table(row.table_name).get(row.id);
 		if (sameInAllowList(row.table_name, local, row.payload)) continue;
-		await mergeFromShared(row.table_name, row.payload, row.change_seq);
+		await mergeFromShared(row.table_name, row.payload, row.change_seq, row.server_seq);
 		applied++;
 	}
+	// Después de aplicar la tanda entera, nunca adentro del bucle.
+	//
+	// Comprobado que la prueba lo vigila (2026-08-17): deducir cuando aterriza
+	// cada línea de bitácora —la forma en que uno lo escribe de primera— pone roja
+	// "el renglón del dueño con su checked viejo no gana". Deducir después de CADA
+	// fila, en cambio, pasa igual: la última corrida ve todo. La diferencia real no
+	// es "adentro o afuera del bucle", es que la deducción tiene que correr después
+	// del ÚLTIMO merge, y afuera es el único lugar donde eso no depende del orden
+	// en que el servidor mandó las filas.
+	await deriveTicks(tocados);
 	await setShareCursor(noteId, data[data.length - 1].server_seq);
 	return applied;
 }
@@ -164,6 +206,26 @@ export async function reconcileShares(client) {
 	for (const row of data ?? []) {
 		if (row.counterpart_label) {
 			await rememberShareName(`owner:${row.note_id}`, row.counterpart_label);
+		}
+	}
+	// Y los nombres de los OTROS, que hasta ahora los leía sólo `ShareDialog`: un
+	// dueño que mira la bitácora sin abrir ese panel no tenía ningún nombre que
+	// mostrar y veía `member:8f3a…` crudo.
+	//
+	// Una consulta por pasada para todas las notas compartidas juntas, no una por
+	// nota. `share_members` le da `select` a cualquier participante (la política
+	// `read_share_members`), así que el mismo viaje sirve para el dueño que quiere
+	// nombrar a Juan y para Juan que quiere nombrar a un tercero.
+	//
+	// El nulo se saltea por el mismo motivo escrito arriba para el del dueño.
+	const ids = (data ?? []).map((row) => row.note_id);
+	if (ids.length) {
+		const { data: miembros } = await client
+			.from('share_members')
+			.select('member_id, display_name')
+			.in('note_id', ids);
+		for (const row of miembros ?? []) {
+			if (row.display_name) await rememberShareName(row.member_id, row.display_name);
 		}
 	}
 	// Las que el servidor marcó como "se quedó sin nadie" (spec 038 §7). Sólo

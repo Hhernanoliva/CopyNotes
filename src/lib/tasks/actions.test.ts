@@ -356,6 +356,75 @@ describe('setTaskChecked', () => {
 	});
 });
 
+// Spec 038 §5: el invitado de una nota compartida tilda igual, pero su renglón
+// es un cache local —el servidor le rechaza cualquier fila que no sea bitácora—
+// así que se escribe con la marca "esto no es un cambio local".
+describe('setTaskChecked de un invitado', () => {
+	async function tarea() {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		return { noteId: note.id, blockId: block.id };
+	}
+
+	it('tilda la tarea sin mover el sello de cambio', async () => {
+		const { noteId, blockId } = await tarea();
+		const antes = (await getBlock(blockId)).changeSeq;
+
+		await setTaskChecked({ noteId, blockId, actor: 'member:u-1', fromCloud: true });
+
+		const despues = await getBlock(blockId);
+		expect(despues.checked).toBe(true);
+		expect(despues.changeSeq).toBe(antes);
+	});
+
+	// La línea sí tiene que quedar pendiente: es lo ÚNICO suyo que puede viajar.
+	it('su línea de bitácora queda pendiente y firmada como él', async () => {
+		const { noteId, blockId } = await tarea();
+
+		await setTaskChecked({ noteId, blockId, actor: 'member:u-1', fromCloud: true });
+
+		const linea = (await listActivityByBlock(blockId)).at(-1);
+		expect(linea).toMatchObject({ actor: 'member:u-1', action: 'done' });
+		expect(linea.cloudSeq).toBeUndefined();
+	});
+
+	// El control: sin él, las dos de arriba pasarían aunque la marca no hiciera
+	// nada, porque nadie comprueba que el camino del dueño siga siendo el de antes.
+	it('y el tilde del dueño sigue moviendo el sello, como siempre', async () => {
+		const { noteId, blockId } = await tarea();
+		const antes = (await getBlock(blockId)).changeSeq;
+
+		await setTaskChecked({ noteId, blockId });
+
+		expect((await getBlock(blockId)).changeSeq).toBeGreaterThan(antes);
+	});
+
+	// La cascada de spec 003 escribe una línea por tarea afectada: la marca tiene
+	// que valer para TODAS, no sólo para la que se tocó.
+	it('la cascada entera entra con la marca', async () => {
+		const note = await createNote();
+		const parent = await createBlock({ noteId: note.id, type: 'todo', content: 'padre' });
+		const child = await createBlock({
+			noteId: note.id,
+			parentBlockId: parent.id,
+			type: 'todo',
+			content: 'hijo'
+		});
+		const antes = (await getBlock(child.id)).changeSeq;
+
+		await setTaskChecked({
+			noteId: note.id,
+			blockId: parent.id,
+			actor: 'member:u-1',
+			fromCloud: true
+		});
+
+		expect((await getBlock(child.id)).checked).toBe(true);
+		expect((await getBlock(child.id)).changeSeq).toBe(antes);
+		expect((await listActivityByBlock(child.id)).at(-1).actor).toBe('member:u-1');
+	});
+});
+
 describe('convertToTask', () => {
 	it('converts a text block to todo with a created line', async () => {
 		const note = await createNote();
@@ -391,5 +460,52 @@ describe('convertToTask', () => {
 		expect(result.block.type).toBe('todo');
 		expect(result.block.content).toBe('comprar leche');
 		expect(result.activity.text).toBe('comprar leche');
+	});
+});
+
+// Spec 038 §6: el comentario del invitado NO es `block.note` —ese campo es del
+// dueño y no viaja— sino una línea de bitácora, que es lo único que el servidor
+// le acepta. `addTaskNote` ya aceptaba un `actor` cualquiera; lo que faltaba era
+// dejar escrito qué pasa cuando ese actor es un miembro.
+describe('addTaskNote de un invitado', () => {
+	async function tarea() {
+		const note = await createNote();
+		const block = await createBlock({ noteId: note.id, type: 'todo', content: 'llamar' });
+		return { noteId: note.id, blockId: block.id, block };
+	}
+
+	it('queda firmado como él y pendiente de subir', async () => {
+		const { blockId } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'member:u-1', text: 'le dejé mensaje' });
+
+		const linea = (await listActivityByBlock(blockId)).at(-1);
+		expect(linea).toMatchObject({
+			actor: 'member:u-1',
+			action: 'note',
+			text: 'le dejé mensaje'
+		});
+		expect(linea.cloudSeq).toBeUndefined();
+	});
+
+	// La que vale la pena: `isRedoRequested` exige `actor === 'user'`, así que la
+	// puerta ya está cerrada — pero no había nada que lo dejara escrito, y es justo
+	// la clase de condición que alguien "simplifica" un año después.
+	it('y no puede pedirle al agente que rehaga nada', async () => {
+		const { blockId, block } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'member:u-1', text: 'rehacelo' });
+
+		expect(isRedoRequested(block, await listActivityByBlock(blockId))).toBe(false);
+	});
+
+	// El control: la misma frase escrita por el dueño SÍ es un pedido. Sin esto, la
+	// de arriba pasaría aunque `isRedoRequested` devolviera false siempre.
+	it('pero la misma frase del dueño sí lo es', async () => {
+		const { blockId, block } = await tarea();
+
+		await addTaskNote({ blockId, actor: 'user', text: 'rehacelo' });
+
+		expect(isRedoRequested(block, await listActivityByBlock(blockId))).toBe(true);
 	});
 });

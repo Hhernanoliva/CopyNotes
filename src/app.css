@@ -74,6 +74,13 @@
 	--fmt-color-gray: oklch(0.6 0.01 80);
 	/* La "voz" del agente inline (ámbar): contraste AA sobre --background claro */
 	--agent-ink: oklch(0.52 0.13 75);
+	/* La voz de la OTRA PERSONA en una nota compartida (spec 038 §6). Un matiz
+	   propio y no el ámbar: ese ámbar significa "esto lo escribió un agente" en
+	   toda la app, y desde que el invitado puede comentar habría dos cosas
+	   distintas del mismo color. Cian y no azul (--fmt-color-blue, 250) para que
+	   no se lea como texto que alguien pintó a mano, ni violeta (--cn-conflict,
+	   300) que ya significa "hay que decidir algo". Medido: 5.40:1 acá. */
+	--person-ink: oklch(0.5 0.08 210);
 	/* "Este renglón cambió en dos lados" (spec 030 fase 3). Violeta: no es un
 	   error (nada se perdió) ni la voz del agente; es una decisión pendiente. */
 	--cn-conflict: oklch(0.5 0.15 300);
@@ -126,6 +133,8 @@
 	--fmt-color-gray: oklch(0.72 0.01 80);
 	/* La "voz" del agente inline (ámbar): más claro para AA sobre fondo oscuro */
 	--agent-ink: oklch(0.8 0.12 82);
+	/* Idem, aclarado para AA sobre fondo oscuro. Medido: 9.2:1. */
+	--person-ink: oklch(0.78 0.1 210);
 	/* Idem, aclarado para AA sobre fondo oscuro. */
 	--cn-conflict: oklch(0.78 0.13 300);
 }
@@ -469,8 +478,15 @@
 
 /* La voz del agente inline: ámbar + cursiva, con un badge "IA" que la marca
    como escrita por la IA. Nunca se confunde con el texto del usuario. */
+/* El renglón que cuelga de una tarea: lo escribió alguien que no sos vos.
+   `.agent-note` sigue llevando el tamaño y el layout de los dos casos; lo único
+   que cambia es la tinta. La clase doble es a propósito: gana por especificidad
+   y no por orden de declaración, así que reordenar este archivo no la apaga. */
 .agent-note {
 	color: var(--agent-ink);
+}
+.agent-note.agent-note--person {
+	color: var(--person-ink);
 }
 
 /* El renglón que cambió en dos dispositivos a la vez. */

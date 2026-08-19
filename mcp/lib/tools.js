@@ -193,6 +193,22 @@ export function readNoteResult(exportPayload, ref) {
 const HISTORY_TAIL = 10;
 const ACTION_VERBS = { created: 'creó', done: 'completó', reopened: 'reabrió', note: 'anotó' };
 
+// Tres roles, no dos (spec 038 §6). Acá el rótulo no se MUESTRA: se actúa sobre
+// él — un LLM que lee su propio nombre sobre la instrucción de un tercero es
+// peor que una palabra mal puesta en una pantalla.
+//
+// El nombre viene resuelto desde la app (`actorLabel`): el cachecito de nombres
+// es una tabla del navegador y este proceso no la puede leer.
+//
+// El agente va POR DESCARTE y no por igualdad: el `actor` de una línea del
+// agente es el ID del agente conectado, no la palabra 'agent'.
+function rolDe(entry) {
+	if (entry.actor === 'user') return 'usuario';
+	if (typeof entry.actor === 'string' && entry.actor.startsWith('member:'))
+		return `${entry.actorLabel ?? 'invitado'} (invitado)`;
+	return 'agente';
+}
+
 // Bitácora on demand: the single read that was ~683 tokens inline is now paid
 // only when the agent explicitly asks for one task's history.
 export function historyResult(exportPayload, blockId) {
@@ -206,7 +222,7 @@ export function historyResult(exportPayload, blockId) {
 		const lines = (task.activity ?? [])
 			.slice(-HISTORY_TAIL)
 			.map((entry) => {
-				const rol = entry.actor === 'user' ? 'usuario' : 'agente';
+				const rol = rolDe(entry);
 				const verbo = ACTION_VERBS[entry.action] ?? entry.action;
 				return `- ${rol} ${verbo}: ${entry.text}`;
 			});

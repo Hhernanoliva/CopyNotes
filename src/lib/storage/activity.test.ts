@@ -28,6 +28,34 @@ describe('activity repository', () => {
 		expect(row.deletedAt).toBe(null);
 	});
 
+	// Spec 038: `seq` salía de UN contador monótono, así que no podía empatar. Dos
+	// cuentas son dos contadores leyendo el mismo reloj, y ahí sí.
+	//
+	// Se prueba contra `listRecentActivity` y no contra las dos ascendentes A
+	// PROPÓSITO: IndexedDB ya devuelve las filas por clave primaria, así que un
+	// orden ascendente con empate sale bien de casualidad y la prueba pasaría sin
+	// el desempate. Al invertir el comparador esa casualidad se acaba, y ahí lo
+	// único que puede sostener el orden es el desempate explícito.
+	it('dos líneas con el mismo seq no se dan vuelta entre listas', async () => {
+		const base = {
+			noteId: 'n1',
+			blockId: 'b1',
+			actor: 'user',
+			action: 'note',
+			seq: 7,
+			at: '2026-08-17T10:00:00.000Z',
+			deletedAt: null
+		};
+		await db.table('activity').bulkAdd([
+			{ ...base, id: 'zzz', text: 'segunda' },
+			{ ...base, id: 'aaa', text: 'primera' }
+		]);
+
+		expect((await listActivityByBlock('b1')).map((r) => r.text)).toEqual(['primera', 'segunda']);
+		// La misma lista al revés tiene que ser exactamente la inversa.
+		expect((await listRecentActivity()).map((r) => r.text)).toEqual(['segunda', 'primera']);
+	});
+
 	it('lists a block entries ascending by at', async () => {
 		await appendActivity({ blockId: 'b1', noteId: 'n1', actor: 'user', action: 'created', text: 'a' });
 		await appendActivity({ blockId: 'b1', noteId: 'n1', actor: 'agent', action: 'done', text: 'b' });

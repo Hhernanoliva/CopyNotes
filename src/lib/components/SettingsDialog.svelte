@@ -2,7 +2,11 @@
 	import { X, Copy, Check } from '@lucide/svelte';
 	import { SCALE_STEPS, DEFAULT_SCALE, nextScale } from '$lib/settings/text-scale';
 	import { listRecentActivity, getAgentsPaused, setAgentsPaused } from '$lib/storage';
+	import { actorName, isAgentActor } from '$lib/storage/share-names';
+	import { sharedNoteIdsByRole } from '$lib/storage/shares';
+	import { myMemberActor } from '$lib/sync/identity';
 	import { redoTask } from '$lib/tasks';
+	import { actionLabel } from '$lib/tasks/action-labels';
 	import { isTauriRuntime } from '$lib/platform';
 	// Del `package.json` y no escrita a mano, por el mismo motivo que en
 	// `BackupDialog`: ya pasó que el número escrito a mano dijera una versión que
@@ -350,7 +354,7 @@
 		}
 		redoFor = null;
 		redoText = '';
-		activity = await listRecentActivity(20);
+		await cargarActividad();
 		onDataChanged?.();
 	}
 
@@ -361,7 +365,7 @@
 		// A danger step must never be waiting where somebody left it: reopening
 		// Configuración should not land on "Sí, cerrar sesión".
 		confirmingLeave = false;
-		listRecentActivity(20).then((rows) => (activity = rows));
+		cargarActividad().catch((error) => console.error('No se pudo leer la bitácora', error));
 		refreshCloud().catch((error) => console.error('No se pudo leer el estado de la nube', error));
 		if (isTauriRuntime()) {
 			getAgentsPaused()
@@ -422,29 +426,43 @@
 		open = false;
 	}
 
-	const ACTION_LABEL = {
-		created: 'creó una tarea',
-		done: 'marcó hecha',
-		reopened: 'reabrió',
-		note: 'dejó una nota'
-	};
-
-	// Con la puerta única las acciones del usuario también entran al feed;
-	// "Vos marcó hecha" no conjuga, así que el actor user tiene su propia tabla.
-	const ACTION_LABEL_USER = {
-		created: 'creaste una tarea',
-		done: 'marcaste hecha',
-		reopened: 'reabriste',
-		note: 'dejaste una nota'
-	};
-
-	function actionLabel(entry) {
-		const labels = entry.actor === 'user' ? ACTION_LABEL_USER : ACTION_LABEL;
-		return labels[entry.action] ?? entry.action;
-	}
-
-	function actorLabel(actor) {
-		return actor === 'user' ? 'Vos' : 'Agente';
+	// La bitácora de acá es de TODAS las notas, así que "quién hizo esto" se
+	// resuelve POR NOTA y no una vez para el feed entero: la misma línea
+	// `actor: 'user'` es "Vos" en tu nota y el dueño en una que te comparten
+	// (spec 038 §6).
+	//
+	// Los tres viajes van juntos, en el mismo lugar donde se arma la lista. Si los
+	// roles se leyeran en su propio efecto, las etiquetas ya resueltas se
+	// quedarían viejas cuando ese efecto llegara segundo.
+	async function cargarActividad() {
+		const [filas, { owner, member }, miActor] = await Promise.all([
+			listRecentActivity(20),
+			sharedNoteIdsByRole(),
+			myMemberActor()
+		]);
+		const roles = new Map();
+		for (const id of owner) roles.set(id, 'owner');
+		for (const id of member) roles.set(id, 'member');
+		// Un nombre por actor y nota, no uno por línea: veinte líneas de la misma
+		// persona serían veinte lecturas de Dexie.
+		const cache = new Map();
+		const out = [];
+		for (const entry of filas) {
+			const ctx = { noteId: entry.noteId, role: roles.get(entry.noteId) ?? null, myActor: miActor };
+			const clave = `${entry.noteId}:${entry.actor}`;
+			if (!cache.has(clave)) cache.set(clave, await actorName(entry.actor, ctx));
+			out.push({
+				...entry,
+				actorText: cache.get(clave),
+				actionText: actionLabel(entry, ctx),
+				// "Rehacer" es un pedido a un AGENTE, así que sólo va sobre una línea
+				// del agente. Antes decía `actor !== 'user'`, que valía cuando el
+				// agente era lo único que no era el usuario; desde que hay invitados
+				// ofrecería rehacer lo que tildó una persona.
+				esAgente: isAgentActor(entry.actor)
+			});
+		}
+		activity = out;
 	}
 
 	function timeLabel(at) {
@@ -868,8 +886,14 @@
 
 		<section class="flex flex-col gap-3">
 			<div class="flex flex-col gap-0.5">
+				<!-- Decía "los agentes en tus tareas", escrito cuando el agente era lo
+				     único que no eras vos. Hoy esta lista mezcla agentes y personas, y en
+				     la pantalla del invitado las tareas ni siquiera son suyas. -->
 				<h3 class="text-sm font-bold">Agentes</h3>
-				<p class="text-muted-foreground text-sm">Lo último que hicieron los agentes en tus tareas.</p>
+				<p class="text-muted-foreground text-sm">
+					Lo último que pasó en las tareas: lo que hicieron tus agentes y las personas con las que
+					compartís una nota.
+				</p>
 			</div>
 
 			<!-- El corte de emergencia. Solo en escritorio: en el navegador no hay
@@ -929,14 +953,14 @@
 					{#each activity as entry (entry.id)}
 						<li class="border-border flex flex-col gap-0.5 rounded-md border px-3 py-2 text-sm">
 							<span>
-								<span class="font-medium">{actorLabel(entry.actor)}</span>
-								{actionLabel(entry)}
+								<span class="font-medium">{entry.actorText}</span>
+								{entry.actionText}
 							</span>
 							{#if entry.text}
 								<span class="text-muted-foreground">{entry.text}</span>
 							{/if}
 							<span class="text-faint text-xs">{timeLabel(entry.at)}</span>
-							{#if entry.action === 'done' && entry.actor !== 'user'}
+							{#if entry.action === 'done' && entry.esAgente}
 								{#if redoFor === entry.id}
 									<div class="mt-1 flex items-center gap-2">
 										<input

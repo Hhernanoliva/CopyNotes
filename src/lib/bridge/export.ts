@@ -21,6 +21,8 @@ import {
 	listFolders,
 	getAgentsPaused
 } from '$lib/storage';
+import { actorName } from '$lib/storage/share-names';
+import { myMemberActor } from '$lib/sync/identity';
 import { flattenTree } from '$lib/blocks/hierarchy';
 
 export const AGENT_EXPORT_FORMAT = 'copynotes.agent';
@@ -51,7 +53,13 @@ function projectBlock(block, depth, activity) {
 	return { id: block.id, type: block.type, content: block.content, depth };
 }
 
-export function toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById = {}) {
+export function toAgentPayload(
+	notes,
+	blocksByNote,
+	activityByBlock,
+	folderNamesById = {},
+	doneByNote = {}
+) {
 	const visible = notes.filter((note) => note.agentVisible === true);
 	return {
 		format: AGENT_EXPORT_FORMAT,
@@ -60,6 +68,11 @@ export function toAgentPayload(notes, blocksByNote, activityByBlock, folderNames
 			id: note.id,
 			title: note.title,
 			folder: folderNamesById[note.folderId] ?? null,
+			// `done`: la última declaración de "Listo" sobre esta nota, ya con el
+			// nombre resuelto (spec 038 §8). Sólo la última — es un ESTADO, y lo que
+			// el agente necesita es si está dicho ahora, no cuántas veces se dijo.
+			// Aditivo: nada que lea `note.blocks` se entera de que existe.
+			done: (doneByNote[note.id] ?? []).at(-1) ?? null,
 			blocks: flattenTree(blocksByNote[note.id] ?? [])
 				.filter(({ block }) => includeBlock(block))
 				.map(({ block, depth }) =>
@@ -88,6 +101,8 @@ export async function buildAgentExport() {
 	for (const folder of await listFolders('note')) folderNamesById[folder.id] = folder.name;
 	const blocksByNote = {};
 	const activityByBlock = {};
+	const doneByNote = {};
+	const myActor = await myMemberActor();
 	for (const note of notes) {
 		const blocks = await listBlocksByNote(note.id);
 		blocksByNote[note.id] = blocks;
@@ -98,8 +113,26 @@ export async function buildAgentExport() {
 		// task count. `listActivityByNote` already sorts by seq, and grouping
 		// keeps each task's lines in that order.
 		for (const block of blocks) if (block.type === 'todo') activityByBlock[block.id] = [];
-		for (const row of await listActivityByNote(note.id))
-			activityByBlock[row.blockId]?.push(row);
+		// El nombre se resuelve ACÁ, de este lado (spec 038 §6). El cachecito es una
+		// tabla de Dexie y el servidor MCP corre en otro proceso: si baja
+		// `member:<uuid>` pelado, no hay nadie del otro lado que lo pueda traducir.
+		//
+		// Un nombre por actor distinto, no uno por línea: una nota con quince tildes
+		// de Juan haría quince lecturas, y esto corre en CADA escritura del agente.
+		const ctx = { noteId: note.id, role: note.share ?? null, myActor };
+		const nombres = new Map();
+		for (const row of await listActivityByNote(note.id)) {
+			if (!nombres.has(row.actor)) nombres.set(row.actor, await actorName(row.actor, ctx));
+			const conNombre = { ...row, actorLabel: nombres.get(row.actor) };
+			// Una entrada de nota entera ("Listo") no cuelga de ningún renglón, así
+			// que el agrupamiento de al lado la tiraría. Va aparte, en la nota,
+			// porque es lo que es: un estado de la nota.
+			if (row.blockId === null) (doneByNote[note.id] ??= []).push(conNombre);
+			else activityByBlock[row.blockId]?.push(conNombre);
+		}
 	}
-	return { ...toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById), exportedAt: new Date().toISOString() };
+	return {
+		...toAgentPayload(notes, blocksByNote, activityByBlock, folderNamesById, doneByNote),
+		exportedAt: new Date().toISOString()
+	};
 }

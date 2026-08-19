@@ -51,9 +51,9 @@ const HANDLERS = {
 		const order = siblings.length;
 		return () => createTask({ noteId, content, actor, order });
 	},
-	async completeTask(change, actor) {
+	async completeTask(change, actor, noteId, isMember) {
 		const text = toCleanText(change.text);
-		return () => completeTask({ blockId: change.blockId, actor, text });
+		return () => completeTask({ blockId: change.blockId, actor, text, fromCloud: isMember });
 	},
 	async addNote(change, actor) {
 		const text = toCleanText(change.text);
@@ -95,6 +95,17 @@ async function checkChange(change) {
 	const note = await getNote(noteId);
 	if (!note || note.agentVisible !== true) return { reason: REASON.notAgentVisible };
 
+	// El mismo permiso que la pantalla, y por el mismo motivo (spec 038 §4): en
+	// una nota que te comparten, completar y comentar. Crear no — una tarea nueva
+	// del agente del invitado es una fila que el servidor rechaza por rol, así que
+	// viviría sólo en su copia, y el dueño no la vería nunca. Se separan en
+	// silencio, que es la peor forma de romperse.
+	//
+	// `note.share` ya viene en la fila de arriba: no cuesta ninguna consulta más.
+	if (note.share === 'member' && change.type === 'createTask') {
+		return { reason: REASON.notAllowed };
+	}
+
 	// The target must be a live todo block: a completeTask/addNote pointed at a
 	// text/bullet/heading block would otherwise set checked:true or append
 	// activity on a non-task. Checked after the visibility gate so a hidden
@@ -107,7 +118,7 @@ async function checkChange(change) {
 	// setConnectedAgent goes through trackPendingWrite — so it stays out here,
 	// before the transaction opens.
 	const actor = await resolveAgentActor();
-	return { run: await handler(change, actor, noteId) };
+	return { run: await handler(change, actor, noteId, note.share === 'member') };
 }
 
 // Request/response with idempotency (Task P1): every change carries a unique
