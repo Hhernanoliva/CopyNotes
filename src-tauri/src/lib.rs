@@ -9,7 +9,7 @@ mod oauth;
 //
 // La dirección llega desde el webview, o sea desde texto que escribió alguien,
 // así que el esquema se vuelve a validar ACÁ y no se confía en que el frontend
-// ya lo hizo: `open` de macOS abre archivos y aplicaciones, no sólo páginas, y
+// ya lo hizo: el abridor del sistema abre archivos y aplicaciones, no sólo páginas, y
 // un `file://` o la ruta de un binario entrarían solos. Con la lista blanca la
 // dirección tampoco puede empezar con `-`, así que nunca se lee como una opción
 // del comando.
@@ -18,20 +18,24 @@ fn is_openable(url: &str) -> bool {
 }
 
 #[tauri::command]
-fn open_external(url: String) -> Result<(), String> {
+fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
   if !is_openable(&url) {
     return Err(format!("esquema no permitido: {url}"));
   }
-  std::process::Command::new("/usr/bin/open")
-    .arg(&url)
-    .spawn()
-    .map(|_| ())
+  // El complemento oficial resuelve el abridor de cada sistema (`open` en
+  // macOS, `ShellExecute` en Windows, `xdg-open` en Linux). Va DETRÁS de la
+  // guardia, no en su lugar: la dirección sigue llegando desde texto que
+  // escribió alguien, y el abridor de Windows lanza programas registrados por
+  // otras apps con la misma facilidad con que `open` abre archivos.
+  tauri_plugin_opener::OpenerExt::opener(&app)
+    .open_url(url, None::<&str>)
     .map_err(|error| error.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_opener::init())
     .manage(oauth::Pending::default())
     .invoke_handler(tauri::generate_handler![
       open_external,
@@ -80,6 +84,12 @@ mod tests {
     assert!(!is_openable("file:///etc/passwd"));
     assert!(!is_openable("/Applications/Calculator.app"));
     assert!(!is_openable("javascript:alert(1)"));
+
+    // Dos esquemas que un complemento genérico abriría sin chistar: uno arranca
+    // un cliente FTP, el otro es la puerta por la que Windows lanza programas
+    // registrados por otras apps. La lista blanca es lo único que los frena.
+    assert!(!is_openable("ftp://ejemplo.com/x"));
+    assert!(!is_openable("ms-msdt:/id"));
     assert!(!is_openable("-a"));
     assert!(!is_openable(""));
   }
