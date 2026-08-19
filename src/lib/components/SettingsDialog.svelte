@@ -7,7 +7,7 @@
 	import { myMemberActor } from '$lib/sync/identity';
 	import { redoTask } from '$lib/tasks';
 	import { actionLabel } from '$lib/tasks/action-labels';
-	import { isTauriRuntime } from '$lib/platform';
+	import { isTauriRuntime, isWindows } from '$lib/platform';
 	// Del `package.json` y no escrita a mano, por el mismo motivo que en
 	// `BackupDialog`: ya pasó que el número escrito a mano dijera una versión que
 	// nunca existió. Vite inlinea sólo este export, no el manifiesto entero.
@@ -396,7 +396,7 @@
 	// mailboxPath, so the user never edits a path by hand. Guarded on both being
 	// present — the whole block hides until then.
 	const paths = $derived(mailboxPath && serverPath ? { serverPath, mailboxPath } : null);
-	const claudeCmd = $derived(paths ? claudeCodeCommand(paths) : '');
+	const claudeCmd = $derived(paths ? claudeCodeCommand(paths, isWindows()) : '');
 	const openCodeJson = $derived(paths ? openCodeConfig(paths) : '');
 	const cursorJson = $derived(paths ? cursorConfig(paths) : '');
 	const cursorLink = $derived(paths ? cursorDeeplink(paths) : '');

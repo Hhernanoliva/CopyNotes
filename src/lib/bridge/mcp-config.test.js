@@ -47,6 +47,35 @@ describe('claudeCodeCommand', () => {
 	});
 });
 
+describe('claudeCodeCommand en Windows', () => {
+	// Un nombre de usuario CON espacio: es el caso que parte el comando hoy, y
+	// en Windows es de lo más común.
+	const winPaths = {
+		serverPath: 'C:\\Program Files\\CopyNotes\\mcp\\server.js',
+		mailboxPath: 'C:\\Users\\Juan Perez\\AppData\\Roaming\\com.copynotes.app\\mailbox'
+	};
+
+	it('cita al estilo PowerShell y deja las barras invertidas como están', () => {
+		expect(claudeCodeCommand(winPaths, true)).toBe(
+			"claude mcp add copynotes -s user -e CN_MAILBOX='C:\\Users\\Juan Perez\\AppData\\Roaming\\com.copynotes.app\\mailbox' -- node 'C:\\Program Files\\CopyNotes\\mcp\\server.js'"
+		);
+	});
+
+	it('duplica la comilla simple en vez de cerrar la cita', () => {
+		// PowerShell no entiende el truco POSIX de cerrar-escapar-reabrir. Si se
+		// usara acá, el resto de la ruta quedaría FUERA de toda cita.
+		expect(
+			claudeCodeCommand({ serverPath: "C:\\Users\\o'brien\\s.js", mailboxPath: 'C:\\m' }, true)
+		).toContain("node 'C:\\Users\\o''brien\\s.js'");
+	});
+
+	it('sin la bandera sigue siendo el comando de siempre', () => {
+		expect(claudeCodeCommand(paths)).toContain(
+			"CN_MAILBOX='/Users/h/Library/Application Support/com.copynotes.app/mailbox'"
+		);
+	});
+});
+
 describe('openCodeConfig', () => {
 	it('builds the opencode.json shape with type local and CN_MAILBOX env', () => {
 		expect(JSON.parse(openCodeConfig(paths))).toEqual({

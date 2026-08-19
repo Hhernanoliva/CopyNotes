@@ -34,3 +34,12 @@ export async function openExternal(url) {
 	const { invoke } = await import('@tauri-apps/api/core');
 	await invoke('open_external', { url });
 }
+
+// Windows necesita otro escape en el comando que se copia desde Ajustes ›
+// Agentes (ver mcp-config.js). Se mira el userAgent y no un complemento de
+// Tauri: el webview lo hereda del motor del sistema, así que la respuesta es
+// igual de confiable y no suma una dependencia. En SSR no hay navigator y la
+// respuesta correcta es "no".
+export function isWindows() {
+	return typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent);
+}
