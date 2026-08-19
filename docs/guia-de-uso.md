@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-18 (Nuevo: **la persona a la que le compartís una
+Última actualización: 2026-08-19 (Nuevo: **la persona a la que le compartís una
 nota ya puede contestarte**: marcar tareas como hechas, comentar una tarea y
 avisarte "Listo", y cada cosa dice quién la hizo (tema 20).
 Antes: **cuando se va el último invitado, la

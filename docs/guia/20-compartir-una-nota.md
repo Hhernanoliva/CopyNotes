@@ -99,7 +99,8 @@ Lo que sí puede hacer es **contestarte**, de tres maneras:
   tarea aparece tildada sola, sin que tengas que hacer nada.
 - **Dejar un comentario en una tarea.** En el menú **⋯** del renglón le aparece
   una sola opción, *Agregar comentario*. Escribe, aprieta Enter, y su comentario
-  queda debajo de la tarea con su nombre al lado.
+  queda debajo de la tarea con su nombre al lado. En su propia pantalla también
+  lo ve, con la etiqueta *Vos*, así que sabe que se mandó.
 - **Avisarte "Listo".** Al pie de la nota tiene un botón **Listo** y un campo
   opcional para aclarar algo ("falta la factura"). Es sobre la nota entera, no
   sobre una tarea. Vos lo ves al pie, con su nombre y la fecha.

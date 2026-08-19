@@ -14,9 +14,15 @@
 import { isMine } from '$lib/storage/share-names';
 
 export function agentNotesByBlock(activityRows, ctx = { role: null, myActor: null }) {
+	// Esconder lo propio vale para el DUEÑO, que lo ve en `block.note`. El
+	// invitado no tiene ese campo —`BlockRow` lo apaga con `!guest`, porque es del
+	// dueño y no viaja— así que para él la itálica es el ÚNICO lugar donde su
+	// comentario existe: filtrarlo lo deja apretando Enter contra una pared.
+	// La regla no es "no muestres lo mío" sino "no lo muestres DOS veces".
+	const invitado = ctx.role === 'member';
 	const byBlock = {};
 	const rows = (activityRows ?? [])
-		.filter((row) => row.action === 'note' && row.blockId && !isMine(row.actor, ctx))
+		.filter((row) => row.action === 'note' && row.blockId && (invitado || !isMine(row.actor, ctx)))
 		.sort((a, b) => a.seq - b.seq);
 	for (const row of rows) {
 		(byBlock[row.blockId] ??= []).push({ id: row.id, text: row.text, actor: row.actor });
