@@ -175,7 +175,13 @@ verdad.
 
 - **El certificado de Apple.** No hay que rehacer nada de esto; se suma (un paso
   que importa el `.p12` y las variables `APPLE_*` en `tauri-action`).
-- **Windows y Linux.** El workflow es sólo macOS.
+- **Windows y Linux.** El workflow de acá es **sólo macOS** (`runs-on:
+  macos-latest`, `--target universal-apple-darwin`). Windows tiene su propio plan
+  escrito y sin construir: `docs/superpowers/plans/2026-08-13-windows-escritorio.md`.
+  **Quien lo ejecute tiene que releer este documento primero**: la guardia del
+  paso 3, las `PUBLIC_SUPABASE_*` horneadas y el `node_modules` plano de `mcp/`
+  aplican igual, y la firma de Windows es un mecanismo distinto del minisign de
+  acá.
 - **La url de descarga dentro del `latest.json`** apunta a
   `api.github.com/repos/.../releases/assets/{id}` en vez de al nombre del
   archivo (así lo escribe `tauri-action` para un borrador, y publicar **no**
