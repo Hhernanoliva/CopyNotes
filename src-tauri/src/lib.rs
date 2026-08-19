@@ -1,6 +1,8 @@
 mod bridge;
 mod oauth;
 
+use tauri::Manager;
+
 // `window.open` no abre nada dentro del webview de Tauri: WebKit sólo atiende
 // el pedido de ventana nueva si la app registró un manejador para eso, y esta
 // no lo hace (wry `wry_web_view_ui_delegate.rs`, rama `if let Some(...)`). El
@@ -35,6 +37,17 @@ fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+      // Ya hay una ventana viva: traerla al frente y dejar morir a este proceso.
+      // macOS impide solo el doble arranque; Windows no, y ahí dos procesos
+      // escribirían sobre la MISMA IndexedDB sin verse — el aviso entre pestañas
+      // (BroadcastChannel) no cruza entre procesos distintos.
+      if let Some(ventana) = app.get_webview_window("main") {
+        let _ = ventana.unminimize();
+        let _ = ventana.show();
+        let _ = ventana.set_focus();
+      }
+    }))
     .plugin(tauri_plugin_opener::init())
     .manage(oauth::Pending::default())
     .invoke_handler(tauri::generate_handler![
@@ -92,5 +105,18 @@ mod tests {
     assert!(!is_openable("ms-msdt:/id"));
     assert!(!is_openable("-a"));
     assert!(!is_openable(""));
+  }
+
+  // El complemento de instancia única busca la ventana por su etiqueta, y Tauri
+  // le pone "main" a la primera cuando el archivo de configuración no dice otra
+  // cosa. Si alguien agrega un `label` distinto, el segundo arranque dejaría de
+  // traer la ventana al frente y parecería que la app no abre.
+  #[test]
+  fn la_ventana_principal_se_llama_main() {
+    let conf: serde_json::Value =
+      serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    let ventanas = conf["app"]["windows"].as_array().unwrap();
+    let etiqueta = ventanas[0]["label"].as_str().unwrap_or("main");
+    assert_eq!(etiqueta, "main");
   }
 }
