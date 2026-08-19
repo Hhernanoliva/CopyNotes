@@ -886,8 +886,14 @@
 
 		<section class="flex flex-col gap-3">
 			<div class="flex flex-col gap-0.5">
+				<!-- Decía "los agentes en tus tareas", escrito cuando el agente era lo
+				     único que no eras vos. Hoy esta lista mezcla agentes y personas, y en
+				     la pantalla del invitado las tareas ni siquiera son suyas. -->
 				<h3 class="text-sm font-bold">Agentes</h3>
-				<p class="text-muted-foreground text-sm">Lo último que hicieron los agentes en tus tareas.</p>
+				<p class="text-muted-foreground text-sm">
+					Lo último que pasó en las tareas: lo que hicieron tus agentes y las personas con las que
+					compartís una nota.
+				</p>
 			</div>
 
 			<!-- El corte de emergencia. Solo en escritorio: en el navegador no hay

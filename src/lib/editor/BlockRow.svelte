@@ -998,9 +998,16 @@
 					</button>
 				</div>
 			{/if}
-			{#each agentNotes as agentNote (agentNote.id)}
+			<!-- El margen negativo existe para que lo PRIMERO que cuelga del renglón se
+			     abrace a su texto. Con dos cosas apiladas, la segunda se abrazaba a la
+			     primera: el comentario del dueño y la itálica del invitado se leían
+			     como un solo bloque. Sólo el primero abraza; el resto lleva aire. -->
+			{#each agentNotes as agentNote, index (agentNote.id)}
 				<p
-					class="agent-note -mt-0.5 w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic"
+					class="agent-note w-full min-w-0 pl-2 leading-snug break-words whitespace-pre-wrap italic {index ===
+						0 && !noteVisible
+						? '-mt-0.5'
+						: 'mt-1'}"
 					class:agent-note--person={!agentNote.esAgente}
 				>
 					<span class="agent-note-badge" aria-label={`Escrito por ${agentNote.label}`}
