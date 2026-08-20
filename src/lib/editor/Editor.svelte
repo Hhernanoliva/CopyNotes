@@ -41,12 +41,15 @@
 	import { reconcileBlocks } from './reconcile';
 	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
+	import { insertImageBlock } from '$lib/images/insert';
+	import { measureImage } from '$lib/images/ingest';
+	import { IMAGE_INSERT_MESSAGES, roomIsTight } from '$lib/images/doors';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { isTauriRuntime } from '$lib/platform';
+	import { isTauriRuntime, openImageFiles } from '$lib/platform';
 	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -1455,6 +1458,65 @@
 		focusBlockId = afterId;
 	}
 
+	// Donde terminan las tres puertas (spec 041 §3.4): pegar, soltar encima y
+	// `/imagen`. Las capturas entran DE A UNA y esperando a la anterior — dos
+	// inserciones a la vez le preguntarían a `planEnter` por el mismo lugar y una
+	// se pondría encima de la otra, así que el orden en que las soltaste dejaría
+	// de ser el orden en pantalla.
+	async function handleInsertImages(block, files) {
+		if (!files || files.length === 0) return;
+		recordSnapshot();
+		let afterId = block.id;
+		let warned = false;
+		for (const file of files) {
+			// Aviso, no permiso: la estimación orienta y nada más. Se intenta igual, y
+			// la última palabra la tiene el aparato con su `QuotaExceededError`, que
+			// vuelve como 'failed'. Una sola vez por tanda: cinco capturas grandes no
+			// son cinco avisos.
+			if (!warned && (await roomIsTight(file))) {
+				warned = true;
+				toast.warning('Queda poco espacio en este aparato. Puede que la imagen no entre.');
+			}
+			const plan = planEnter(blocks, afterId);
+			if (!plan) break;
+			await applyUpdates(plan.updates);
+			const result = await insertImageBlock({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				order: plan.order,
+				file,
+				// La única parte que necesita un navegador de verdad entra inyectada
+				// desde acá: `createImageBitmap` no existe en node ni en jsdom.
+				measure: measureImage
+			});
+			if (result.status !== 'ready') {
+				toast.error(IMAGE_INSERT_MESSAGES[result.status] ?? IMAGE_INSERT_MESSAGES.failed);
+				continue;
+			}
+			blocks = [...blocks, result.block];
+			afterId = result.block.id;
+		}
+		if (afterId === block.id) return; // no entró ninguna: el renglón queda como estaba
+		// El renglón vacío donde cayó la captura no queda de adorno — es lo mismo que
+		// hace pegar renglones. Nunca uno con hijos (dejaría la rama huérfana), nunca
+		// un separador, y NUNCA otra imagen: una imagen sin descripción tiene el
+		// contenido vacío y borrarla sería tirar la captura de al lado.
+		const origin = blocks.find((item) => item.id === block.id);
+		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
+		if (
+			origin &&
+			(origin.content ?? '') === '' &&
+			origin.type !== 'separator' &&
+			origin.type !== 'image' &&
+			!originHasChildren
+		) {
+			cancelPending(`block:${block.id}`);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((item) => item.id !== block.id);
+		}
+		focusBlockId = afterId;
+	}
+
 	async function handleBackspaceEmpty(block) {
 		if (backspaceAction(block) === 'convert') {
 			recordSnapshot();
@@ -2227,6 +2289,33 @@
 			await writeBlock(row.id, { content: kept.content, html: kept.html });
 			return;
 		}
+		if (command.id === 'image') {
+			// `/imagen` es una ACCIÓN, no un cambio de tipo: abre el selector y recién
+			// cuando VUELVE un archivo se come el "/imagen" que la persona escribió.
+			// Cancelar no consume NADA — ni el "/", ni el tipo del renglón, ni el
+			// lugar del cursor.
+			//
+			// Ese "nada" hay que escribirlo: `cancelPending` de arriba ya tiró el
+			// guardado con retraso de ese texto, así que sin esta escritura el
+			// "/imagen" se vería en pantalla y desaparecería al recargar. Y el cursor
+			// se vuelve a poner donde estaba porque el diálogo del sistema se lo lleva
+			// al abrirse.
+			const query = slash.query;
+			slash = null;
+			const chosen = await openImageFiles();
+			if (chosen.status !== 'opened') {
+				focusBlockId = row.id;
+				focusCaret = anchor + 1 + query.length;
+				await writeBlock(row.id, { content: row.content ?? '', html: row.html ?? '' });
+				return;
+			}
+			const kept = strippedSlashFields(row, anchor, query);
+			row.content = kept.content;
+			row.html = kept.html;
+			await writeBlock(row.id, { content: kept.content, html: kept.html });
+			await handleInsertImages(row, chosen.files);
+			return;
+		}
 		// Strip the "/query" span; whatever the user had typed around it stays,
 		// and the caret goes back to where the "/" was.
 		const stripped = strippedSlashFields(row, anchor, slash.query);
@@ -2481,6 +2570,7 @@
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
+					onInsertImages={handleInsertImages}
 					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
 					onRequestToolbarFocus={handleRequestToolbarFocus}

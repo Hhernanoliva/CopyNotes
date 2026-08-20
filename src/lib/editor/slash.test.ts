@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { SLASH_COMMANDS, filterCommands, moveSelection, nextSlashState } from './slash';
 
 describe('SLASH_COMMANDS', () => {
-	it('offers the block types from spec 003 plus /snippet from spec 005', () => {
+	it('offers the block types from spec 003 plus /snippet from spec 005 and /imagen from spec 041', () => {
 		const ids = SLASH_COMMANDS.map((command) => command.id);
-		expect(ids).toEqual(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'date', 'code', 'separator', 'snippet']);
+		expect(ids).toEqual(['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'date', 'code', 'image', 'separator', 'snippet']);
 	});
 });
 
@@ -41,6 +41,14 @@ describe('filterCommands', () => {
 	it('filters headings by h2', () => {
 		const ids = filterCommands('h2').map((c) => c.id);
 		expect(ids).toContain('heading2');
+	});
+
+	// Imagen es una ACCIÓN, no un tipo: abre el selector de archivos. Se busca
+	// por como la nombra cada uno — captura, pantallazo, foto.
+	it('encuentra Imagen por cualquiera de sus nombres (spec 041)', () => {
+		for (const query of ['imagen', 'captura', 'pantallazo', 'foto', 'screenshot']) {
+			expect(filterCommands(query).map((command) => command.id)).toContain('image');
+		}
 	});
 
 	it('offers Fecha and finds it by keyword (spec 021)', () => {

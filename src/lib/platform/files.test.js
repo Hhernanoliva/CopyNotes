@@ -14,7 +14,7 @@
 // Corre bajo jsdom: necesita `document` y eventos.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openTextFile } from './files';
+import { openImageFiles, openTextFile } from './files';
 
 function fileInput() {
 	return document.querySelector('input[type="file"]');
@@ -83,5 +83,37 @@ describe('un archivo que tarda en llegar', () => {
 
 		vi.useRealTimers();
 		expect(await promise).toMatchObject({ status: 'opened', fileName: 'respaldo.json' });
+	});
+});
+
+// La puerta binaria (spec 041): el mismo diálogo, sin leer el archivo a texto.
+// El tope NO va acá — lo pone `images/ingest.ts`, que sabe cuál es el de una
+// imagen. Y cancelar sigue siendo lo que dice el navegador y nadie más.
+describe('elegir una imagen', () => {
+	it('devuelve el archivo tal cual, sin leerlo', async () => {
+		const promise = openImageFiles();
+		const input = fileInput();
+		expect(input.getAttribute('accept')).toBe('image/*');
+		pick(input, 'captura.png', 'no-importa');
+
+		const result = await promise;
+		expect(result.status).toBe('opened');
+		expect(result.files.map((file) => file.name)).toEqual(['captura.png']);
+	});
+
+	it('cerrar el diálogo sin elegir nada no inserta nada', async () => {
+		const promise = openImageFiles();
+		fileInput().dispatchEvent(new Event('cancel'));
+
+		expect(await promise).toEqual({ status: 'cancelled' });
+	});
+
+	// Una captura de 8 MB tiene que LLEGAR: el "pesa demasiado" se lo dice el
+	// ingestor con su propio mensaje, no este diálogo con silencio.
+	it('no le pone tope al peso: eso lo decide el ingestor', async () => {
+		const promise = openImageFiles();
+		pick(fileInput(), 'gigante.png', 'x'.repeat(2000));
+
+		expect(await promise).toMatchObject({ status: 'opened' });
 	});
 });

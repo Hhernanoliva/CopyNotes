@@ -36,6 +36,7 @@
 	import { sanitizeHtml, htmlToPlainText, normalizeForest, normalizeUrl } from '$lib/format';
 	import { openExternal } from '$lib/platform';
 	import { imageUrl } from '$lib/images/url.svelte';
+	import { imageFilesFrom } from '$lib/images/doors';
 	import { planNoteExit } from './note';
 	import { intentFromBeforeInput } from './mobileInput';
 	import { planSplit } from './split';
@@ -117,6 +118,10 @@
 		onPasteLines,
 		onPasteBlocks,
 		onPasteCode,
+		// Una captura que entra por cualquiera de las tres puertas: pegar, soltarla
+		// encima o `/imagen` (spec 041 §3.4). Recibe la lista porque pegar y
+		// arrastrar pueden traer varias de una.
+		onInsertImages,
 		onRequestLink,
 		onRequestToolbarFocus,
 		datePanelOpen = false,
@@ -695,6 +700,19 @@
 			event.preventDefault();
 			return;
 		}
+		// Spec 041: un archivo de verdad en el portapapeles gana. Una dirección
+		// `<img src="https://...">` copiada de una página NO se descarga: sólo se
+		// acepta un archivo que el portapapeles entregue.
+		//
+		// Medido en Safari 26.5: una captura llega como `image.png`, `image/png`.
+		// Y un pegado puede venir SIN nada —ni archivos ni tipos—: eso cae al
+		// camino de texto de siempre, como antes.
+		const images = imageFilesFrom(event.clipboardData);
+		if (images.length > 0) {
+			event.preventDefault();
+			onInsertImages?.(block, images);
+			return;
+		}
 		const text = event.clipboardData?.getData('text/plain') ?? '';
 		if (block.type === 'code') {
 			if (text === '') return;
@@ -717,6 +735,26 @@
 		event.preventDefault();
 		if ((block.content ?? '') === '' && onPasteCode?.(block, text)) return;
 		onPasteLines?.(block, text);
+	}
+
+	// La segunda puerta: soltar una captura encima del renglón. El mismo filtro y
+	// el mismo camino que pegar — una sola forma de entrar, dos maneras de pedirlo.
+	//
+	// `dragover` sólo se frena cuando el arrastre trae ARCHIVOS: frenarlo siempre
+	// convertiría al renglón en destino de todo, y arrastrar texto de otra ventana
+	// —que hoy el navegador deja caer solo— dejaría de andar.
+	function handleDragOver(event) {
+		if (readOnly) return;
+		if (!event.dataTransfer?.types?.includes('Files')) return;
+		event.preventDefault();
+	}
+
+	function handleDrop(event) {
+		if (readOnly) return;
+		const images = imageFilesFrom(event.dataTransfer);
+		if (images.length === 0) return;
+		event.preventDefault();
+		onInsertImages?.(block, images);
 	}
 
 	// Shift+click selects a block range instead of moving the caret; a plain
@@ -812,6 +850,8 @@
 	style="padding-left: {depth * 1.5}rem"
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
 	onpointerdown={(event) => onDragHold?.(block.id, event)}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
 >
 	<!-- Grip handle: grab to move this row (and any active selection). Shown on
 	     hover/focus. Not editable, so dragging never fights text selection.
