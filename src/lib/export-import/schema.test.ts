@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateBackup } from './schema';
+import { validateBackup, EXPORTED_FIELDS } from './schema';
 import { planMerge } from './merge';
 import { buildBackup } from './backup';
 import { missingShapeFields } from '../storage/shape';
@@ -767,5 +767,29 @@ describe('un archivo roto se explica en castellano (spec 040)', () => {
 		);
 
 		expect(validateBackup(backup).ok).toBe(true);
+	});
+});
+
+describe('spec 041: un bloque de imagen es un bloque válido', () => {
+	const imageBlock = () => ({
+		...makeBlock(),
+		type: 'image',
+		content: 'el error de la consola',
+		imageId: 'a'.repeat(64),
+		imageType: 'image/png',
+		imageBytes: 332372,
+		imageWidth: 3018,
+		imageHeight: 1312
+	});
+
+	it('pasa la validación', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [imageBlock()] }));
+		expect(result.ok).toBe(true);
+	});
+
+	it('y sus cinco campos llegan al archivo', () => {
+		for (const field of ['imageId', 'imageType', 'imageBytes', 'imageWidth', 'imageHeight']) {
+			expect(EXPORTED_FIELDS.blocks).toContain(field);
+		}
 	});
 });

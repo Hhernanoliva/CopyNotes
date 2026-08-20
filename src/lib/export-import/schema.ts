@@ -42,6 +42,13 @@ const blockSchema = v.looseObject({
 	checked: v.boolean(),
 	dueDate: v.optional(v.nullable(v.pipe(v.string(), v.isoDate()))),
 	note: v.optional(v.string()),
+	// Spec 041. `looseObject` los dejaría pasar sin mirar; declararlos es lo que
+	// hace que un archivo con un `imageId` que no es una huella se rechace.
+	imageId: v.optional(v.nullable(v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)))),
+	imageType: v.optional(v.nullable(v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']))),
+	imageBytes: v.optional(v.nullable(v.number())),
+	imageWidth: v.optional(v.nullable(v.number())),
+	imageHeight: v.optional(v.nullable(v.number())),
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	deletedAt: nullableTimestamp
@@ -262,6 +269,11 @@ export const EXPORTED_FIELDS = {
 		'dueDate',
 		'html',
 		'id',
+		'imageBytes',
+		'imageHeight',
+		'imageId',
+		'imageType',
+		'imageWidth',
 		'note',
 		'noteId',
 		'order',
