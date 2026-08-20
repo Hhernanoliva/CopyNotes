@@ -153,14 +153,64 @@ categoría que el selector de archivos nativo, que ya costó un bug en producci�
 Sin conversión de formatos, sin EXIF, sin librería de ZIP, sin arrastrar
 archivos, sin HEIC.
 
-### 0.8 Lo único que queda por medir
+### 0.8 Lo único que quedaba por medir — MEDIDO, ver §0.9
 
-Leyendo código no se puede averiguar. Hay que probarlo:
+Leyendo código no se podía averiguar. Se probó:
 
 1. Si pegar una captura entrega el archivo en los cuatro lados: aplicación de
    macOS, aplicación de Windows, navegador y iPhone.
 2. Cuánto pesan las capturas reales de Hernán, para fijar el tope con un número
    y no a ojo.
+
+### 0.9 Medición real (2026-08-20, Safari 26.5 en la Mac de Hernán)
+
+Se corrió la prueba de pegado con cinco capturas de trabajo de verdad. Resultados:
+
+| Medidas | Pesa | Al pedir WebP llegó | PNG a la mitad |
+|---|---|---|---|
+| 1540x1292 | 1,66 MB | **PNG** — 1,57 MB | 522 KB |
+| 3018x1312 | 325 KB | **PNG** — 294 KB | 119 KB |
+| 578x526 | 345 KB | **PNG** — 326 KB | 112 KB |
+| 2506x660 | 126 KB | **PNG** — 117 KB | 50 KB |
+| 816x788 | 57 KB | **PNG** — 49 KB | 18 KB |
+
+**Lo que quedó demostrado:**
+
+1. **Pegar entrega el archivo.** Llega como `image.png`, tipo `image/png`, y la
+   firma real coincide. El motor de la aplicación de escritorio de macOS es el
+   mismo, así que el camino funciona ahí.
+2. **La trampa de §0.4 es real, cinco de cinco.** Se pidió WebP y llegó PNG
+   siempre, sin ningún aviso. Confirmado en la máquina de Hernán, no en la
+   documentación.
+3. **Recodificar no sirve para nada.** El PNG que devuelve el navegador pesa
+   entre 8% y 10% menos que el original. Ese ahorro no paga ningún riesgo:
+   **hay que guardar los bytes tal como vinieron.**
+4. **El peso no tiene nada que ver con las medidas, y eso tira abajo el límite
+   por píxeles de §6.** La captura de 3018x1312 —cuatro megapíxeles— pesa 325
+   KB; la de 578x526 —treinta veces más chica en píxeles— pesa 345 KB. Lo que
+   manda es el contenido, no el tamaño. Un tope de 2560 px habría achicado la
+   grande, borroneándole el texto, sin tocar la que de verdad pesa.
+   **El tope va en bytes, nunca en píxeles.**
+5. **Los tamaños reales son chicos.** La más pesada fue 1,66 MB y la mitad anda
+   por 325 KB.
+
+**Decisiones que esto cierra:**
+
+- **Tope: 5 MB por captura**, sobre los bytes. Da tres veces de aire sobre la
+  más pesada de Hernán y queda por debajo de los 6 MB a partir de los cuales
+  Supabase pide subida reanudable. Arriba de eso se rechaza con un mensaje
+  claro. Achicar a la mitad —que según la medición deja un tercio del peso— es
+  la salida si algún día alguien choca de verdad contra el tope; hoy no hace
+  falta escribirla.
+- **Cero conversión, cero recodificado, cero achicado.**
+- Con 325 KB de mediana, el gigabyte gratis de Supabase entra unas 3000
+  capturas. Alcanza de sobra para la beta.
+- No hace falta correr la prueba en Chrome ni en Windows: como la decisión pasó
+  a ser "no convertir nada", que esos dos sí sepan hacer WebP dejó de importar.
+  Que el pegado entregue el archivo en Windows se confirma al construir.
+
+Detalle menor observado: un pegado llegó sin nada —ni archivo ni tipos—. La
+aplicación tiene que dejarlo pasar al camino de texto de siempre, no romperse.
 
 ## 1. Decisiones provisionales de esta conversación
 
