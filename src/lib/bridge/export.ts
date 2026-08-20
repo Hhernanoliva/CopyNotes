@@ -24,6 +24,7 @@ import {
 import { actorName } from '$lib/storage/share-names';
 import { myMemberActor } from '$lib/sync/identity';
 import { flattenTree } from '$lib/blocks/hierarchy';
+import { imageExportText } from '$lib/images/export-text';
 
 export const AGENT_EXPORT_FORMAT = 'copynotes.agent';
 export const AGENT_EXPORT_VERSION = 2;
@@ -35,14 +36,6 @@ function includeBlock(block) {
 	if (block.type === 'image') return true; // se avisa igual sin descripción, como en el export a archivo
 	if (!CONTEXT_TYPES.has(block.type)) return false;
 	return (block.content ?? '').trim() !== '';
-}
-
-// Spec 041 §8: la autorización que Hernán dio es para texto y tareas, no para
-// una imagen — mostrarle una foto al agente es otro permiso, no una
-// consecuencia de `agentVisible`. Mismo texto que el export a archivo
-// (note-export.ts), sin bytes, sin medidas, sin ids de imagen.
-function imageExportText(block) {
-	return block.content ? `[Imagen: ${block.content}]` : '[Imagen]';
 }
 
 // Copies ONLY the allow-listed fields. `note` (the user's comment) and `html`

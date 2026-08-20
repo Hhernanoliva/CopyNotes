@@ -8,6 +8,7 @@ import { HEADING_LEVELS } from '../format/blocktype';
 import { htmlInlineToMarkdown } from '../format/inline-markdown';
 import { escapeHtml, plainTextToHtml } from '../format/sanitize';
 import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
+import { imageExportText } from '../images/export-text';
 
 // Inline formatting (bold, links, colors) lives in block.html; blocks without
 // one (old data) fall back to their plain content. Markdown gets the html
@@ -33,14 +34,6 @@ function buildForest(blocks) {
 
 function todoMark(block) {
 	return block.checked ? '[x]' : '[ ]';
-}
-
-// Spec 041 §8: los bytes de una imagen viven en `imageBodies`, sin sincronizar,
-// y un `blob:` deja de existir en cuanto CopyNotes se cierra — así que un
-// archivo exportado NUNCA lo escribe. Se avisa en texto que hubo una imagen, y
-// la descripción es lo único de la imagen que puede viajar a un archivo.
-function imageExportText(block) {
-	return block.content ? `[Imagen: ${block.content}]` : '[Imagen]';
 }
 
 // --- Markdown ---
