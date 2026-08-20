@@ -19,6 +19,7 @@
 	import { diffWords } from '$lib/sync/diff';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
+	import ImageLightbox from './ImageLightbox.svelte';
 	import DatePanel from './DatePanel.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
 	import TagPicker from '$lib/components/TagPicker.svelte';
@@ -34,6 +35,7 @@
 	} from '$lib/copy/serialize';
 	import { sanitizeHtml, htmlToPlainText, normalizeForest, normalizeUrl } from '$lib/format';
 	import { openExternal } from '$lib/platform';
+	import { imageUrl } from '$lib/images/url.svelte';
 	import { planNoteExit } from './note';
 	import { intentFromBeforeInput } from './mobileInput';
 	import { planSplit } from './split';
@@ -74,6 +76,11 @@
 		onInput,
 		onFormat,
 		onNoteInput,
+		// La descripción de una imagen: texto pelado, guardado en `content`. Va por
+		// una puerta propia y no por `onInput` porque no pasa por `block.html` ni por
+		// los gatillos de "/" y "#" — este renglón no tiene caja editable donde
+		// abrirlos (spec 041 §3.5).
+		onCaption,
 		onEnter,
 		onBackspaceEmpty,
 		onJoinPrevious,
@@ -160,7 +167,10 @@
 
 	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
 	// literal plain text (code needs exact whitespace, separator has no content).
-	const isRich = $derived(block.type !== 'code' && block.type !== 'separator');
+	const isRich = $derived(
+		block.type !== 'code' && block.type !== 'separator' && block.type !== 'image'
+	);
+
 	const codeLines = $derived(
 		block.type === 'code' && (block.content ?? '') !== ''
 			? normalizeNewlines(block.content).split('\n')
@@ -171,10 +181,46 @@
 	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
 	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
 
+	// La captura y su descripción (spec 041). `picture` pide los bytes al
+	// aparato y revoca la URL temporal cuando el renglón se va; para un renglón
+	// que no es imagen `block.imageId` es `null` y no pide nada.
+	const picture = imageUrl(() => block.imageId);
+	let zoomed = $state(false);
+	// Dos pasos a propósito: el primer Backspace sobre una descripción vacía
+	// marca la imagen, el segundo borra el bloque. Y NUNCA se une con el renglón
+	// de arriba — unir un archivo con texto no significa nada.
+	let imageFocused = $state(false);
+
+	function handleImageCaptionKeys(event) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			// Sin corte ni tipo forzado: el renglón nuevo sale de la herencia de
+			// siempre, que para una imagen es texto normal. Que un Enter sobre una
+			// imagen sin descripción no la convierta en texto lo garantiza
+			// `enterOnEmptyAction`, no este llamador.
+			onEnter(block);
+			return;
+		}
+		if (event.key !== 'Backspace' || event.currentTarget.selectionStart !== 0) return;
+		if ((block.content ?? '') !== '') return;
+		event.preventDefault();
+		if (!imageFocused) {
+			imageFocused = true;
+			return;
+		}
+		onDelete(block);
+	}
+
 	// El botón + es una alternativa de mouse a tipear "/", pensada para quien
 	// no conoce el atajo (spec: docs/superpowers/specs/2026-07-30-plus-boton-linea-activa-design.md).
 	const showPlus = $derived(
-		active && block.content === '' && block.type !== 'code' && block.type !== 'separator'
+		active &&
+			block.content === '' &&
+			block.type !== 'code' &&
+			block.type !== 'separator' &&
+			// Una imagen sin descripción no es un renglón vacío: el + ahí invita a
+			// escribir sobre una captura que ya está puesta (spec 041 §3.5).
+			block.type !== 'image'
 	);
 
 	const today = $derived(currentDay());
@@ -843,6 +889,58 @@
 		>
 			<hr class="border-border w-full" />
 		</div>
+	{:else if block.type === 'image'}
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			{#if picture.missing}
+				<!-- La referencia llegó y los bytes no. En la parte A esto sólo pasa
+				     importando un paquete incompleto; en la B, mientras baja. -->
+				<div
+					class="bg-muted text-muted-foreground flex items-center justify-center rounded-md text-sm"
+					style="aspect-ratio: {block.imageWidth} / {block.imageHeight}; max-width: 100%"
+				>
+					Imagen no disponible
+				</div>
+			{:else if picture.url}
+				<!-- Un `<button>` y no un `<img>` con onclick: abrir la captura es una
+				     acción, así que se llega con Tab y con Enter como a cualquier otra.
+				     `self-start` para que la columna no la estire — una captura chica se
+				     ve chica, nunca agrandada. El anillo marca el primer paso del
+				     borrado de dos tiempos (ver handleImageCaptionKeys). -->
+				<button
+					type="button"
+					aria-label={block.content
+						? `Ver a tamaño real: ${block.content}`
+						: 'Ver la captura a tamaño real'}
+					onclick={() => (zoomed = true)}
+					class="focus-visible:ring-ring max-w-full cursor-zoom-in self-start rounded-md focus-visible:ring-2 focus-visible:outline-none {imageFocused
+						? 'ring-ring ring-2'
+						: ''}"
+				>
+					<!-- `width`/`height` reservan el lugar exacto ANTES de que cargue, que es
+					     lo que impide que la nota salte. -->
+					<img
+						src={picture.url}
+						alt={block.content}
+						width={block.imageWidth}
+						height={block.imageHeight}
+						loading="lazy"
+						decoding="async"
+						class="h-auto max-w-full rounded-md"
+					/>
+				</button>
+			{/if}
+			<input
+				class="text-muted-foreground placeholder:text-faint w-full border-0 bg-transparent p-0 text-sm focus:outline-none"
+				placeholder="Descripción (opcional)"
+				aria-label="Descripción de la imagen"
+				value={block.content}
+				disabled={readOnly}
+				onfocus={() => onActive(block)}
+				onblur={() => (imageFocused = false)}
+				oninput={(event) => onCaption(block, event.currentTarget.value)}
+				onkeydown={handleImageCaptionKeys}
+			/>
+		</div>
 	{:else}
 		<div class="flex min-w-0 flex-1 flex-col">
 			{#if codeCollapsed}
@@ -1145,6 +1243,10 @@
 			onClose={onTagPickerClose}
 			align="right"
 		/>
+	{/if}
+
+	{#if zoomed && picture.url}
+		<ImageLightbox url={picture.url} alt={block.content} onClose={() => (zoomed = false)} />
 	{/if}
 </div>
 

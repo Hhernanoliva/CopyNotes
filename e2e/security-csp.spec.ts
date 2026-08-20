@@ -32,3 +32,16 @@ test('la app arranca sin violaciones de CSP', async ({ page }) => {
 
 	expect(violations).toEqual([]);
 });
+
+// Un `img-src` sin `blob:` no rompe nada a la vista: las capturas simplemente no
+// se dibujan (spec 041). Esta prueba lee la política de verdad, la que viaja en
+// el HTML, para que sacar `blob:` falle acá y no en la nota de alguien.
+test('la política deja pintar una captura guardada (blob:)', async ({ page }) => {
+	await openApp(page);
+	const policy = await page
+		.locator('meta[http-equiv="Content-Security-Policy"]')
+		.getAttribute('content');
+	const imgSrc = (policy ?? '').split(';').find((directive) => directive.trim().startsWith('img-src'));
+	expect(imgSrc).toBeTruthy();
+	expect(imgSrc).toContain('blob:');
+});

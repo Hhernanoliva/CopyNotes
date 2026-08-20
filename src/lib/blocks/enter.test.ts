@@ -79,6 +79,13 @@ describe('enterOnEmptyAction', () => {
 		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: null })).toBe('insert');
 		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: 'p' })).toBe('insert');
 	});
+
+	// Spec 041: una imagen sin descripción tiene la captura puesta. Enter da un
+	// renglón nuevo — nunca la convierte en texto ni la desanida.
+	it('inserts after an image with no description, nested or not', () => {
+		expect(enterOnEmptyAction({ type: 'image', parentBlockId: null })).toBe('insert');
+		expect(enterOnEmptyAction({ type: 'image', parentBlockId: 'p' })).toBe('insert');
+	});
 });
 
 describe('backspaceAction', () => {

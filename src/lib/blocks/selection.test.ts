@@ -260,6 +260,14 @@ describe('planTypeChangeSelection', () => {
 		expect(plan.updates).toEqual([{ id: 'c', type: 'todo', checked: true }]);
 	});
 
+	// Spec 041: una imagen no se convierte en nada. Sin este salto, la fila se
+	// empujaba igual con sólo el `id` — una escritura que no cambia nada.
+	it('skips image rows inside the selection', () => {
+		const withImage = [...rows, b('img', null, 4, { type: 'image', content: '' })];
+		const plan = planTypeChangeSelection(withImage, ['a', 'img'], 'todo');
+		expect(plan.updates).toEqual([{ id: 'a', type: 'todo', checked: false }]);
+	});
+
 	it('skips separators inside the selection', () => {
 		const plan = planTypeChangeSelection(rows, ['a', 'sep', 'c'], 'todo');
 		expect(plan.updates.map((update) => update.id)).toEqual(['a', 'c']);

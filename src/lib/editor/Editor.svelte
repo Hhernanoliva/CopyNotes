@@ -807,7 +807,9 @@
 	// Convert a block to a different type (e.g. heading) via the format engine's
 	// planner, which decides which fields change.
 	async function setBlockType(block, nextType) {
+		// `null` = la conversión no existe (spec 041: ni desde ni hacia una imagen).
 		const changes = planBlockType(block, nextType);
+		if (!changes) return;
 		Object.assign(block, changes);
 		if (nextType === 'todo') {
 			// Convertir a tarea nace por la capa (bitácora 'created').
@@ -1239,6 +1241,17 @@
 			id: block.id,
 			changes: { note: text }
 		});
+	}
+
+	// La descripción de una imagen (spec 041 §3.5): texto pelado que vive en
+	// `content`, hace de `alt` y entra en la búsqueda. No pasa por
+	// `handleBlockInput` a propósito — ese escribe también `block.html` y corre los
+	// gatillos de "/" y "#", que en un renglón sin caja editable no tienen dónde
+	// abrirse.
+	function handleCaption(block, text) {
+		recordTextSnapshot(block.id);
+		block.content = text;
+		writeBlock(block.id, { content: text }, 500);
 	}
 
 	// A new block keeps list-like types going; code and separators hand
@@ -2255,6 +2268,7 @@
 		if (HEADING_TYPES.includes(command.id)) {
 			// Headings are a type change, not an insert, so no new block is created.
 			const changes = planBlockType(row, command.id);
+			if (!changes) return;
 			Object.assign(row, changes);
 			focusBlockId = row.id;
 			focusCaret = anchor;
@@ -2427,6 +2441,7 @@
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
+					onCaption={handleCaption}
 					onComment={handleComment}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}

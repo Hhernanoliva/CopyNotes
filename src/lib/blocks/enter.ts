@@ -34,8 +34,14 @@ export function planEnter(blocks, id) {
 // typed rows at root cancel their type, and everything else inserts as
 // usual. Separators keep inserting because Enter there means "give me a
 // row after the line".
+//
+// Una imagen sin descripción NO es un renglón vacío (spec 041 §3.5): su
+// contenido es la captura. Sin esta línea, Enter la "cancelaba" convirtiéndola
+// en texto —dejando los bytes colgados— o la desanidaba en vez de dar un
+// renglón nuevo. Va junto al separador y antes del desanidado, por lo mismo:
+// el renglón tiene algo puesto, no está esperando que escribas.
 export function enterOnEmptyAction(block) {
-	if (block.type === 'separator') return 'insert';
+	if (block.type === 'separator' || block.type === 'image') return 'insert';
 	if ((block.parentBlockId ?? null) !== null) return 'outdent';
 	if (block.type !== 'text') return 'convert';
 	return 'insert';
