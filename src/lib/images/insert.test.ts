@@ -1,8 +1,9 @@
 import 'fake-indexeddb/auto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
 import { listBodyIds } from './bodies';
 import { insertImageBlock } from './insert';
+import * as blocksModule from '../storage/blocks';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4, 5, 6, 7, 8]);
 const SVG = new TextEncoder().encode('<svg></svg>');
@@ -48,5 +49,14 @@ describe('insertar una captura', () => {
 		});
 		expect(result.status).toBe('failed');
 		expect(await db.table('blocks').count()).toBe(0);
+	});
+
+	it('si falla crear el bloque, tampoco queda huérfano', async () => {
+		const spy = vi.spyOn(blocksModule, 'createBlock').mockRejectedValueOnce(new Error('Dexie full'));
+		const result = await insertImageBlock({ noteId: 'n1', file: file(PNG), measure: measures });
+		expect(result.status).toBe('failed');
+		expect(result.block).toBe(null);
+		expect(await db.table('blocks').count()).toBe(0);
+		spy.mockRestore();
 	});
 });

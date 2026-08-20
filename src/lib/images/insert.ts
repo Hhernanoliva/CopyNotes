@@ -8,33 +8,46 @@ import { prepareImage } from './ingest';
 export async function insertImageBlock({
 	noteId,
 	parentBlockId = null,
-	order,
+	order = undefined,
 	file,
 	measure,
 	saveBody = putBody
 }) {
 	const prepared = await prepareImage(file, measure);
-	if (prepared.status !== 'ready') return prepared;
+	if (prepared.status !== 'ready') return { ...prepared, block: null };
 
 	// Los bytes primero. Un cuerpo huérfano se puede limpiar; un bloque que
 	// apunta a bytes que no existen es una imagen rota en pantalla.
 	try {
-		await saveBody(prepared);
+		await saveBody({
+			imageId: prepared.imageId,
+			blob: prepared.blob,
+			type: prepared.type,
+			bytes: prepared.bytes,
+			width: prepared.width,
+			height: prepared.height
+		});
 	} catch (error) {
-		return { status: 'failed', reason: String(error?.message ?? error) };
+		const reason = error instanceof Error ? error.message : String(error);
+		return { status: 'failed', block: null, reason };
 	}
 
-	const block = await createBlock({
-		noteId,
-		parentBlockId,
-		order,
-		type: 'image',
-		content: '',
-		imageId: prepared.imageId,
-		imageType: prepared.type,
-		imageBytes: prepared.bytes,
-		imageWidth: prepared.width,
-		imageHeight: prepared.height
-	});
-	return { status: 'ready', block };
+	try {
+		const block = await createBlock({
+			noteId,
+			parentBlockId,
+			order,
+			type: 'image',
+			content: '',
+			imageId: prepared.imageId,
+			imageType: prepared.type,
+			imageBytes: prepared.bytes,
+			imageWidth: prepared.width,
+			imageHeight: prepared.height
+		});
+		return { status: 'ready', block };
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		return { status: 'failed', block: null, reason };
+	}
 }
