@@ -51,7 +51,12 @@ export function enterOnEmptyAction(block) {
 // become plain text on the same row, Workflowy-style); only a plain text
 // row or a separator is actually deleted.
 export function backspaceAction(block) {
-	return block.type === 'text' || block.type === 'separator' ? 'delete' : 'convert';
+	// La imagen va con el separador y no con los tipos que se cancelan: no hay un
+	// "texto normal" atrás al que volver, y convertirla dejaría los bytes
+	// colgados. Es el gemelo de la línea de `enterOnEmptyAction`.
+	return block.type === 'text' || block.type === 'separator' || block.type === 'image'
+		? 'delete'
+		: 'convert';
 }
 
 // Backspace on an EMPTY row that still has sub-items: instead of refusing (which

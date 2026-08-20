@@ -191,6 +191,18 @@
 	// de arriba — unir un archivo con texto no significa nada.
 	let imageFocused = $state(false);
 
+	// El hueco tiene la forma exacta de la captura ANTES de que lleguen los bytes:
+	// sin esto la nota crece de golpe cuando el <img> aparece, que es justo el
+	// salto que `width`/`height` existen para evitar. El ancho explícito es lo que
+	// le da tamaño a una caja vacía; `max-width` lo baja a la columna y
+	// `aspect-ratio` saca el alto del ancho ya recortado. Sin medidas guardadas
+	// (un respaldo viejo) queda una caja chica en vez de colapsar a nada.
+	const placeholderStyle = $derived(
+		block.imageWidth && block.imageHeight
+			? `aspect-ratio: ${block.imageWidth} / ${block.imageHeight}; width: ${block.imageWidth}px; max-width: 100%`
+			: 'width: 12rem; min-height: 4rem; max-width: 100%'
+	);
+
 	function handleImageCaptionKeys(event) {
 		if (event.key === 'Enter') {
 			event.preventDefault();
@@ -201,8 +213,22 @@
 			onEnter(block);
 			return;
 		}
-		if (event.key !== 'Backspace' || event.currentTarget.selectionStart !== 0) return;
-		if ((block.content ?? '') !== '') return;
+		// `event.repeat` es la tecla sola repitiéndose, no una segunda pulsación:
+		// borrar "pantallazo del error" manteniendo Backspace vacía el campo y
+		// sigue disparando cada ~60 ms, así que sin esto el mismo gesto que limpia
+		// la descripción se llevaba la captura dos repeticiones después.
+		const arming =
+			event.key === 'Backspace' &&
+			!event.repeat &&
+			event.currentTarget.selectionStart === 0 &&
+			(block.content ?? '') === '';
+		if (!arming) {
+			// Cualquier otra tecla desarma. Si no, el anillo quedaba prendido
+			// mientras se escribía la descripción nueva y el paso siguiente sobre un
+			// campo vacío borraba el bloque de una: dos pasos que eran uno.
+			imageFocused = false;
+			return;
+		}
 		event.preventDefault();
 		if (!imageFocused) {
 			imageFocused = true;
@@ -891,16 +917,7 @@
 		</div>
 	{:else if block.type === 'image'}
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			{#if picture.missing}
-				<!-- La referencia llegó y los bytes no. En la parte A esto sólo pasa
-				     importando un paquete incompleto; en la B, mientras baja. -->
-				<div
-					class="bg-muted text-muted-foreground flex items-center justify-center rounded-md text-sm"
-					style="aspect-ratio: {block.imageWidth} / {block.imageHeight}; max-width: 100%"
-				>
-					Imagen no disponible
-				</div>
-			{:else if picture.url}
+			{#if picture.url}
 				<!-- Un `<button>` y no un `<img>` con onclick: abrir la captura es una
 				     acción, así que se llega con Tab y con Enter como a cualquier otra.
 				     `self-start` para que la columna no la estire — una captura chica se
@@ -928,6 +945,17 @@
 						class="h-auto max-w-full rounded-md"
 					/>
 				</button>
+			{:else}
+				<!-- El mismo hueco sirve para los dos momentos: mientras los bytes
+				     salen del aparato (un parpadeo) y cuando no están. "Imagen no
+				     disponible" en la parte A sólo pasa importando un paquete
+				     incompleto; en la B, mientras baja. -->
+				<div
+					class="bg-muted text-muted-foreground flex items-center justify-center self-start rounded-md px-3 text-center text-sm"
+					style={placeholderStyle}
+				>
+					{#if picture.missing}Imagen no disponible{/if}
+				</div>
 			{/if}
 			<input
 				class="text-muted-foreground placeholder:text-faint w-full border-0 bg-transparent p-0 text-sm focus:outline-none"

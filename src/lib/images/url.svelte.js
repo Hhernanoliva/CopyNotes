@@ -13,15 +13,21 @@ export function imageUrl(getImageId) {
 		url = null;
 		missing = false;
 		if (!imageId) return;
-		getBody(imageId).then((body) => {
-			if (revoked) return;
-			if (!body) {
-				missing = true;
-				return;
-			}
-			current = URL.createObjectURL(body.blob);
-			url = current;
-		});
+		getBody(imageId)
+			.then((body) => {
+				if (revoked) return;
+				if (!body) {
+					missing = true;
+					return;
+				}
+				current = URL.createObjectURL(body.blob);
+				url = current;
+			})
+			// Si la base falla, el renglón tiene que decirlo. Sin esto la promesa
+			// rota quedaba suelta y la fila no mostraba ni la imagen ni el hueco.
+			.catch(() => {
+				if (!revoked) missing = true;
+			});
 		return () => {
 			revoked = true;
 			if (current) URL.revokeObjectURL(current);

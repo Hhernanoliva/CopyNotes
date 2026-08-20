@@ -9,9 +9,15 @@ import { newNote } from './app';
 // no se agrande, que la descripción se guarde, y que ni Enter ni Backspace se
 // lleven puestos los bytes.
 
+// El id de una imagen es la huella SHA-256 de sus bytes: 64 caracteres hex en
+// minúscula, nunca otra cosa. Acá alcanza con que TENGA esa forma.
+function fakeImageId(width) {
+	return width.toString(16).padStart(64, '0');
+}
+
 async function seedImage(page, blockId, width, height) {
 	await page.evaluate(
-		async ({ id, w, h }) => {
+		async ({ id, w, h, imageId }) => {
 			const canvas = document.createElement('canvas');
 			canvas.width = w;
 			canvas.height = h;
@@ -28,7 +34,7 @@ async function seedImage(page, blockId, width, height) {
 				open.onsuccess = () => {
 					const tx = open.result.transaction(['imageBodies', 'blocks'], 'readwrite');
 					tx.objectStore('imageBodies').put({
-						imageId: `img-${w}`,
+						imageId,
 						blob,
 						type: 'image/png',
 						bytes: blob.size,
@@ -44,7 +50,7 @@ async function seedImage(page, blockId, width, height) {
 						row.type = 'image';
 						row.content = '';
 						row.html = '';
-						row.imageId = `img-${w}`;
+						row.imageId = imageId;
 						row.imageType = 'image/png';
 						row.imageBytes = blob.size;
 						row.imageWidth = w;
@@ -56,7 +62,7 @@ async function seedImage(page, blockId, width, height) {
 				};
 			});
 		},
-		{ id: blockId, w: width, h: height }
+		{ id: blockId, w: width, h: height, imageId: fakeImageId(width) }
 	);
 	await page.reload();
 	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
@@ -121,4 +127,141 @@ test('Enter da un renglón nuevo sin convertir la imagen; dos Backspace la borra
 	await page.keyboard.press('Backspace');
 	await expect(page.locator('main img')).toHaveCount(0);
 	await expect(page.locator('main [data-block-id]')).toHaveCount(1);
+});
+
+// Mantener Backspace apretado NO es apretarlo muchas veces: el navegador manda
+// el mismo `keydown` una y otra vez con `event.repeat === true`. Playwright no
+// tiene auto-repetición, así que las teclas de esta prueba salen por CDP
+// (`Input.dispatchKeyEvent` con `autoRepeat`), que es el mismo evento de
+// confianza que manda el teclado de verdad: borra el texto Y trae el `repeat`.
+async function holdBackspace(page, times) {
+	const cdp = await page.context().newCDPSession(page);
+	for (let index = 0; index < times; index += 1) {
+		await cdp.send('Input.dispatchKeyEvent', {
+			type: 'keyDown',
+			key: 'Backspace',
+			code: 'Backspace',
+			windowsVirtualKeyCode: 8,
+			nativeVirtualKeyCode: 8,
+			autoRepeat: index > 0
+		});
+	}
+	await cdp.send('Input.dispatchKeyEvent', {
+		type: 'keyUp',
+		key: 'Backspace',
+		code: 'Backspace',
+		windowsVirtualKeyCode: 8,
+		nativeVirtualKeyCode: 8
+	});
+	await cdp.detach();
+}
+
+// "No se borró" no se puede afirmar en el mismo instante de la tecla:
+// `handleDeleteBlock` es asíncrono y cualquier assertion inmediata contesta
+// antes de que el borrado llegue — con el bug puesto la prueba salía verde
+// (medido). Se le da tiempo de llegar y recién ahí se mira.
+async function sigueAhi(page, caption) {
+	await page.waitForTimeout(300);
+	await expect(caption).toBeVisible();
+	await expect(page.locator('main img')).toBeVisible();
+}
+
+test('borrar la descripción manteniendo Backspace no se lleva la captura', async ({ page }) => {
+	await newNote(page);
+	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
+	await seedImage(page, blockId, 400, 200);
+
+	const caption = page.getByRole('textbox', { name: 'Descripción de la imagen' });
+	// Un segundo renglón primero: la app no borra el último bloque de una nota, y
+	// sin él esta prueba pasaría aunque el borrado se disparara — que es
+	// exactamente lo que hay que poder ver fallar.
+	await caption.click();
+	await page.keyboard.press('Enter');
+	await expect(page.locator('main [data-block-id]')).toHaveCount(2);
+
+	await caption.click();
+	await caption.fill('hola');
+	await caption.click();
+	await page.keyboard.press('End');
+
+	// Cuatro repeticiones para vaciar "hola" y tres de sobra sobre el campo ya
+	// vacío: sin el guardia de `repeat`, la segunda de sobra borraba el bloque.
+	await holdBackspace(page, 7);
+	await expect(caption).toHaveValue('');
+	await sigueAhi(page, caption);
+
+	// Segundo síntoma, mismo camino: el primer paso no queda guardado. Un
+	// Backspace sobre el campo vacío arma el borrado; escribir lo desarma; volver
+	// a vaciar el campo NO deja el borrado listo para el Backspace siguiente.
+	await caption.press('Backspace');
+	await caption.pressSequentially('ab');
+	await caption.press('Backspace');
+	await caption.press('Backspace');
+	await expect(caption).toHaveValue('');
+
+	await caption.press('Backspace');
+	await sigueAhi(page, caption);
+});
+
+test('sin los bytes queda un hueco del tamaño de la captura, no una franja', async ({ page }) => {
+	await newNote(page);
+	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
+	// El bloque apunta a unos bytes que no están: en la parte A pasa importando un
+	// paquete incompleto. El hueco tiene que medir lo que medía la captura, no
+	// estirarse a la columna entera.
+	await page.evaluate(
+		({ id, imageId }) =>
+			new Promise((resolve, reject) => {
+				const open = indexedDB.open('copynotes');
+				open.onerror = () => reject(open.error);
+				open.onsuccess = () => {
+					const tx = open.result.transaction('blocks', 'readwrite');
+					const blocks = tx.objectStore('blocks');
+					const get = blocks.get(id);
+					get.onsuccess = () => {
+						const row = get.result;
+						row.type = 'image';
+						row.content = '';
+						row.html = '';
+						row.imageId = imageId;
+						row.imageType = 'image/png';
+						row.imageBytes = 1234;
+						row.imageWidth = 240;
+						row.imageHeight = 160;
+						blocks.put(row);
+					};
+					tx.oncomplete = () => resolve(null);
+					tx.onerror = () => reject(tx.error);
+				};
+			}),
+		{ id: blockId, imageId: fakeImageId(240) }
+	);
+	await page.reload();
+	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
+
+	const hueco = page.getByText('Imagen no disponible');
+	await expect(hueco).toBeVisible();
+	const box = await hueco.boundingBox();
+	expect(Math.round(box.width)).toBe(240);
+	expect(Math.round(box.height)).toBe(160);
+});
+
+test('la lupa toma el foco al abrirse y lo devuelve al cerrarse', async ({ page }) => {
+	await newNote(page);
+	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
+	await seedImage(page, blockId, 400, 200);
+
+	const zoom = page.getByRole('button', { name: /Ver la captura a tamaño real/ });
+	await zoom.focus();
+	await page.keyboard.press('Enter');
+
+	const dialog = page.getByRole('dialog', { name: 'Captura ampliada' });
+	await expect(dialog).toBeVisible();
+	expect(await page.evaluate(() => document.activeElement?.getAttribute('role'))).toBe('dialog');
+
+	await page.keyboard.press('Escape');
+	await expect(dialog).toHaveCount(0);
+	expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe(
+		'Ver la captura a tamaño real'
+	);
 });

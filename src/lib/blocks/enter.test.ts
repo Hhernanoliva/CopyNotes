@@ -99,6 +99,12 @@ describe('backspaceAction', () => {
 		expect(backspaceAction({ type: 'text' })).toBe('delete');
 		expect(backspaceAction({ type: 'separator' })).toBe('delete');
 	});
+
+	// Spec 041: una imagen no se "cancela" volviendo a texto — no hay texto atrás
+	// y la conversión dejaría los bytes colgados. El gemelo de enterOnEmptyAction.
+	it('deletes an image instead of converting it to text', () => {
+		expect(backspaceAction({ type: 'image' })).toBe('delete');
+	});
 });
 
 describe('canDeleteOnBackspace', () => {
