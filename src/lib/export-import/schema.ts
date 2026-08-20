@@ -13,6 +13,17 @@ export const SUPPORTED_FORMAT = 'copynotes.backup';
 // sortOrder/folderId organization fields; version 5 (spec 030 phase 0) added
 // the activity table so the task bitácora survives a backup round-trip.
 // Shapes are otherwise identical, so older versions import with no migration.
+//
+// Version 6 (spec 041) is deliberately NOT in this list. It means the file is
+// a `.copynotes` package (`export-import/package.ts`) rather than a bare
+// `.json` — the bytes of every image live alongside it as `images/<id>.<ext>`
+// entries, which `validateBackup` alone has no way to see. A bare `.json`
+// claiming formatVersion 6 is lying about its own shape and must be rejected
+// (spec §5.3); that is exactly what leaving 6 out of this list does, for
+// free, at the version check above the schema. `images` (below) is still
+// declared, because `readPackage`'s own JSON.parse does not validate shape —
+// whoever wires the package import through `validateBackup` next will need
+// it and should not have to remember to add it.
 export const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5];
 export const CURRENT_VERSION = 5;
 
@@ -135,6 +146,18 @@ const settingSchema = v.looseObject({
 	updatedAt: isoTimestamp
 });
 
+// El manifiesto de un paquete `.copynotes` (spec 041 §5.1): una fila por
+// captura, aparte de `data.blocks` — es lo que `export-import/package.ts` usa
+// para saber qué archivo de `images/` corresponde a cada bloque, sin tener
+// que abrir cada uno para adivinar el tipo o el tamaño.
+const imageMetaSchema = v.looseObject({
+	imageId: v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)),
+	type: v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+	bytes: v.number(),
+	width: v.number(),
+	height: v.number()
+});
+
 const backupSchema = v.looseObject({
 	format: v.literal(SUPPORTED_FORMAT),
 	formatVersion: v.number(),
@@ -144,6 +167,9 @@ const backupSchema = v.looseObject({
 	// tiene bajados no traen el campo y todos son completos. Al revés, "Reemplazar
 	// todo" desaparecería de golpe de cada uno de ellos.
 	complete: v.optional(v.boolean(), true),
+	// Sólo lo lleva un paquete formatVersion 6; un `.json` de siempre no tiene
+	// capturas y por lo tanto no tiene nada que declarar acá.
+	images: v.optional(v.array(imageMetaSchema), []),
 	data: v.looseObject({
 		notes: v.array(noteSchema),
 		blocks: v.array(blockSchema),
