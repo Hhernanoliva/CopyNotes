@@ -24,7 +24,12 @@ export function createBlock(fields) {
 			checked = false,
 			note = '',
 			dueDate = null,
-			createdBy = 'user'
+			createdBy = 'user',
+			imageId = null,
+			imageType = null,
+			imageBytes = null,
+			imageWidth = null,
+			imageHeight = null
 		} = fields;
 		let { order } = fields;
 		if (order === undefined) {
@@ -49,6 +54,11 @@ export function createBlock(fields) {
 			note,
 			dueDate,
 			createdBy,
+			imageId,
+			imageType,
+			imageBytes,
+			imageWidth,
+			imageHeight,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			deletedAt: null
