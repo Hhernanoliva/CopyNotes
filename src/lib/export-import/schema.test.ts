@@ -771,7 +771,7 @@ describe('un archivo roto se explica en castellano (spec 040)', () => {
 });
 
 describe('spec 041: un bloque de imagen es un bloque válido', () => {
-	const imageBlock = () => ({
+	const imageBlock = (overrides = {}) => ({
 		...makeBlock(),
 		type: 'image',
 		content: 'el error de la consola',
@@ -779,7 +779,8 @@ describe('spec 041: un bloque de imagen es un bloque válido', () => {
 		imageType: 'image/png',
 		imageBytes: 332372,
 		imageWidth: 3018,
-		imageHeight: 1312
+		imageHeight: 1312,
+		...overrides
 	});
 
 	it('pasa la validación', () => {
@@ -791,5 +792,19 @@ describe('spec 041: un bloque de imagen es un bloque válido', () => {
 		for (const field of ['imageId', 'imageType', 'imageBytes', 'imageWidth', 'imageHeight']) {
 			expect(EXPORTED_FIELDS.blocks).toContain(field);
 		}
+	});
+
+	it('rechaza un imageId que no es una huella SHA-256 válida', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: 'no-es-una-huella' })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	it('rechaza un imageType que no es uno de los cuatro MIME types permitidos', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageType: 'image/svg+xml' })] })
+		);
+		expect(invalid.ok).toBe(false);
 	});
 });

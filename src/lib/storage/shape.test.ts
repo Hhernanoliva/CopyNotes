@@ -21,16 +21,18 @@ describe('la marca de borrado también se completa', () => {
 describe('spec 041: la forma de un bloque conoce las imágenes', () => {
 	it('los cinco campos nacen en null', () => {
 		const born = missingShapeFields('blocks', {}, '2026-08-20T00:00:00.000Z');
-		expect(born.imageId).toBe(null);
-		expect(born.imageType).toBe(null);
-		expect(born.imageBytes).toBe(null);
-		expect(born.imageWidth).toBe(null);
-		expect(born.imageHeight).toBe(null);
+		expect(born).toMatchObject({
+			imageId: null,
+			imageType: null,
+			imageBytes: null,
+			imageWidth: null,
+			imageHeight: null
+		});
 	});
 
 	it('y una fila que ya los trae no se pisa', () => {
 		const filled = missingShapeFields('blocks', { imageId: 'abc', imageBytes: 12 }, '2026-08-20T00:00:00.000Z');
-		expect(filled.imageId).toBeUndefined();
-		expect(filled.imageBytes).toBeUndefined();
+		expect(filled).not.toHaveProperty('imageId');
+		expect(filled).not.toHaveProperty('imageBytes');
 	});
 });
