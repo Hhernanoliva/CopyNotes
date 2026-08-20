@@ -199,6 +199,17 @@ db.version(12).upgrade(async (tx) => {
 	}
 });
 
+// v13 (spec 041): los bytes de las capturas, en su propia tabla y sólo con su
+// clave. El Blob NO se indexa: una cadena de Dexie declara índices, y nadie
+// busca una imagen por su contenido.
+//
+// NO entra en SYNCED_TABLES a propósito: una fila sincronizada pasa por
+// `JSON.stringify` (sync/records.ts) y un Blob se convierte en `{}` sin error.
+// Los bytes viajan por Storage, no por `records` (spec 041 §6).
+db.version(13).stores({
+	imageBodies: 'imageId'
+});
+
 // Every write to a synced table carries a change stamp. One hook per table
 // instead of a stamp at each of the ~20 repository write sites: a write path
 // added later cannot forget it, and a change sync never sees is a change lost.
