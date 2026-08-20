@@ -6,8 +6,26 @@
 import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
-import { BACKUP_TABLES, LOCAL_ONLY_FIELDS } from '../export-import/schema';
+import {
+	BACKUP_TABLES,
+	CURRENT_VERSION,
+	LOCAL_ONLY_FIELDS,
+	PACKAGE_VERSION
+} from '../export-import/schema';
+import { referencedImageIds } from '../export-import/package';
+import { imageBodyRow } from '../images/bodies';
 import { isBackupSafe } from './settings-registry';
+
+// Spec 041 §5.1: el formato lo decide el contenido del respaldo, no una
+// preferencia ni una casilla. Sin un solo `imageId` referenciado —papelera
+// incluida, porque un bloque borrado sigue apuntando a su imagen— el archivo
+// es exactamente el `.json` versión 5 de siempre, que cualquier CopyNotes
+// anterior sigue importando.
+export function chooseBackupFormat(blocks) {
+	return referencedImageIds(blocks).size === 0
+		? { extension: 'json', formatVersion: CURRENT_VERSION }
+		: { extension: 'copynotes', formatVersion: PACKAGE_VERSION };
+}
 
 // The change counter (spec 030 phase 1) is per-device bookkeeping and never
 // leaves through here: a row is re-stamped when it is written, so a counter
@@ -75,13 +93,23 @@ export async function applyMergePlan(plan) {
 //     despausara. La pausa tiene que fallar cerrada.
 //   - Nada más: los conflictos de la nube sí se tiran, porque describen dos
 //     versiones de un renglón que después de esto puede no existir.
-export async function replaceAllTables(data) {
+//
+// `bodies` son las capturas que trae un paquete `.copynotes` (spec 041 §5.5),
+// ya validadas por `readPackage`. Van adentro de esta misma transacción y ANTES
+// de las filas, por dos motivos: `imageBodies` NO está en `BACKUP_TABLES` a
+// propósito —sus filas no son JSON—, así que el borrado de abajo no la toca y
+// los cuerpos de la base anterior sobrevivirían al reemplazo; y un corte que
+// dejara los bloques escritos sin sus bytes es una imagen rota en pantalla,
+// mientras que un cuerpo huérfano no se ve y se recupera.
+export async function replaceAllTables(data, bodies = []) {
 	await settlePendingWrites();
 	const deviceOnly = (await db.table('settings').toArray()).filter(
 		(row) => !isBackupSafe(row.key)
 	);
 	return trackPendingWrite(() =>
-		db.transaction('rw', [...BACKUP_TABLES, 'conflicts'], async () => {
+		db.transaction('rw', [...BACKUP_TABLES, 'conflicts', 'imageBodies'], async () => {
+			await db.table('imageBodies').clear();
+			if (bodies.length > 0) await db.table('imageBodies').bulkPut(bodies.map(imageBodyRow));
 			for (const name of BACKUP_TABLES) {
 				await db.table(name).clear();
 				const rows = data[name] ?? [];

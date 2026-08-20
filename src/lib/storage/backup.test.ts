@@ -10,7 +10,7 @@ import { setShareRole } from './shares';
 import { appendActivity, listActivityByBlock } from './activity';
 import { setSetting, getSetting } from './settings';
 import { KEY } from './settings-registry';
-import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
+import { chooseBackupFormat, dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 import { trackPendingWrite } from './pending-writes';
 import { buildBackup } from '../export-import/backup';
 import { validateBackup, EXPORTED_FIELDS } from '../export-import/schema';
@@ -381,5 +381,56 @@ describe('lo que un respaldo puede llevar', () => {
 			const strays = keysOf(rows).filter((key) => !declared.has(key));
 			expect(strays, `claves no declaradas en ${table}`).toEqual([]);
 		}
+	});
+});
+
+describe('spec 041: el formato lo decide si hay imágenes', () => {
+	it('sin imágenes sigue siendo el .json de siempre, versión 5', () => {
+		const chosen = chooseBackupFormat([{ type: 'text', imageId: null }]);
+		expect(chosen.extension).toBe('json');
+		expect(chosen.formatVersion).toBe(5);
+	});
+
+	it('con una sola imagen pasa a .copynotes versión 6', () => {
+		const chosen = chooseBackupFormat([{ type: 'image', imageId: 'a'.repeat(64) }]);
+		expect(chosen.extension).toBe('copynotes');
+		expect(chosen.formatVersion).toBe(6);
+	});
+
+	it('una imagen en la papelera también cuenta', () => {
+		const chosen = chooseBackupFormat([
+			{ type: 'image', imageId: 'a'.repeat(64), deletedAt: '2026-08-01T00:00:00.000Z' }
+		]);
+		expect(chosen.extension).toBe('copynotes');
+	});
+});
+
+describe('spec 041: reemplazar todo y los cuerpos de imagen', () => {
+	// `imageBodies` no está en `BACKUP_TABLES` (sus filas no son JSON), y el
+	// borrado camina justo esa lista — así que sin un borrado explícito los
+	// cuerpos de la base ANTERIOR sobreviven al reemplazo.
+	it('limpia los cuerpos que había', async () => {
+		await db.table('imageBodies').put({ imageId: 'z'.repeat(64), uploadedFor: null });
+		await replaceAllTables({});
+		expect(await db.table('imageBodies').count()).toBe(0);
+	});
+
+	it('escribe los cuerpos que trae el paquete', async () => {
+		const imageId = 'a'.repeat(64);
+		await replaceAllTables({}, [
+			{
+				imageId,
+				blob: new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }),
+				type: 'image/png',
+				bytes: 4,
+				width: 2,
+				height: 2
+			}
+		]);
+		const row = await db.table('imageBodies').get(imageId);
+		expect(row.uploadedFor).toBe(null);
+		expect(new Uint8Array(await row.blob.arrayBuffer())).toEqual(
+			new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+		);
 	});
 });

@@ -6,24 +6,30 @@
 	import {
 		backupFileName,
 		buildBackup,
+		buildPackage,
 		filterSafeSettings,
 		noteExportFileName,
 		noteToHtml,
 		noteToMarkdown,
+		packageFileName,
 		planMerge,
+		readPackage,
+		referencedImageIds,
 		validateBackup
 	} from '$lib/export-import';
+	import { getBody, putBody } from '$lib/images/bodies';
 	import { sanitizeBackupData } from '$lib/format';
 	// The version stamped into every backup file, read from package.json instead
 	// of typed here: it used to say 0.0.1 while Tauri, Cargo and the MCP package
 	// all said 0.1.0, so a restored file named a version that never shipped.
 	// Vite inlines just this named export, not the whole manifest.
 	import { version as APP_VERSION } from '../../../package.json';
-	import { getBackupSource, openTextFile, saveTextFile } from '$lib/platform';
+	import { getBackupSource, openBinaryFile, saveBinaryFile, saveTextFile } from '$lib/platform';
 	// Spec 039: restaurar reemplaza también la copia de la nube, y el cartel lo dice.
 	import { claimAccountAfterRestore, restoreReachesCloud } from '$lib/sync/restore';
 	import {
 		applyMergePlan,
+		chooseBackupFormat,
 		dumpAllTables,
 		getNote,
 		listBlocksByNote,
@@ -37,6 +43,9 @@
 	// idle → reviewing (file validated) → confirmingReplace (danger step)
 	let step = $state('idle');
 	let review = $state(null);
+	// Las capturas que trae el archivo elegido, ya comprobadas por `readPackage`.
+	// Sin `$state`: nada del dibujo depende de ellas y son Blobs.
+	let pendingBodies = [];
 	let importing = $state(false);
 	let exporting = $state(false);
 	// Si el cartel de "Reemplazar todo" va a hablar de la nube. Se lee al entrar a
@@ -51,6 +60,7 @@
 		if (open && !dialogEl.open) {
 			step = 'idle';
 			review = null;
+			pendingBodies = [];
 			dialogEl.showModal();
 			// showModal() auto-focuses the first tabbable element (the X), which
 			// reads as if the close button were pre-pressed. Park focus on the
@@ -65,7 +75,7 @@
 		if (!importing) open = false;
 	}
 
-	async function exportAllJson() {
+	async function exportBackup() {
 		exporting = true;
 		try {
 			// La barrera corre igual dentro de `dumpAllTables`; acá se la llama antes
@@ -89,16 +99,37 @@
 			// Sobre una copia: `validateBackup` normaliza carpetas y posiciones en el objeto
 			// que recibe, y lo que se escribe en el archivo no lo puede tocar la revisión.
 			const selfCheck = validateBackup(JSON.parse(JSON.stringify(backup)));
-			const result = await saveTextFile({
-				fileName: backupFileName(new Date()),
-				content: JSON.stringify(backup, null, 2),
-				mimeType: 'application/json'
-			});
+			// Spec 041 §5.1: si alguna nota tiene una captura —la papelera cuenta— el
+			// archivo deja de ser un `.json` suelto y pasa a ser un paquete
+			// `.copynotes` con los bytes adentro. Sin capturas no cambia una coma.
+			let result;
+			let complete = true;
+			if (chooseBackupFormat(backup.data.blocks).extension === 'copynotes') {
+				const ids = [...referencedImageIds(backup.data.blocks)];
+				const bodies = (await Promise.all(ids.map(getBody))).filter(Boolean);
+				// `complete` lo decide `buildPackage` comprobando cada huella, nunca
+				// lo que este llamador crea tener (spec §5.4).
+				const packaged = await buildPackage(backup, bodies);
+				complete = packaged.complete;
+				result = await saveBinaryFile({
+					fileName: packageFileName(new Date()),
+					blob: packaged.blob
+				});
+			} else {
+				result = await saveTextFile({
+					fileName: backupFileName(new Date()),
+					content: JSON.stringify(backup, null, 2),
+					mimeType: 'application/json'
+				});
+			}
 			if (result.status !== 'saved') return;
 			if (!selfCheck.ok)
 				toast.warning(
 					'Respaldo descargado, pero al revisarlo le encontramos un problema. Guardalo igual y avisanos.'
 				);
+			// Un respaldo al que le falta una captura y lo dice vale más que uno que
+			// se declara entero (spec §5.4).
+			else if (!complete) toast.warning('Se guardó el respaldo, pero le falta alguna imagen.');
 			else if (allSaved) toast.success('Respaldo descargado');
 			else
 				toast.warning(
@@ -147,22 +178,53 @@
 	async function chooseBackupFile() {
 		let opened;
 		try {
-			opened = await openTextFile({ accept: '.json,application/json' });
+			// Se lee en bytes y no en texto porque un `.copynotes` es un ZIP:
+			// `file.text()` lo decodificaría como UTF-8 y perdería los bytes de las
+			// capturas sin decir nada. El tope de 64 MB que tenía el camino de texto
+			// no se muda acá a propósito: un paquete que la propia app acaba de
+			// exportar puede pasarlo con veinte capturas, y negarse a importar el
+			// archivo que uno mismo bajó es peor que el riesgo de memoria que ese
+			// tope cuidaba.
+			opened = await openBinaryFile({ accept: '.json,.copynotes' });
 		} catch {
 			toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
 			return;
 		}
 		if (opened.status === 'cancelled') return;
-		if (opened.status === 'too-large') {
-			toast.error('Ese archivo pesa más de 64 MB. Un respaldo de CopyNotes pesa muchísimo menos.');
-			return;
-		}
+		const raw = new Uint8Array(opened.bytes);
+		// Por el nombre Y por los bytes: la gente renombra archivos, y `PK\x03\x04`
+		// es la firma con la que arranca todo ZIP.
+		const packaged =
+			opened.fileName.toLowerCase().endsWith('.copynotes') ||
+			(raw[0] === 0x50 && raw[1] === 0x4b && raw[2] === 0x03 && raw[3] === 0x04);
 		let parsed;
-		try {
-			parsed = JSON.parse(opened.content);
-		} catch {
-			toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
-			return;
+		let imageBytes = null;
+		if (packaged) {
+			// Todo lo que puede rechazar un paquete corre acá, antes de tocar un solo
+			// renglón de la base (spec §5.3/§5.5): nombres, cuenta, tamaños y la
+			// huella de cada captura. Los motivos son muchos y la salida es una
+			// sola, porque no hay nada distinto que hacer con ninguno.
+			let read;
+			try {
+				read = await readPackage(raw);
+			} catch {
+				read = { status: 'not-a-package' };
+			}
+			if (read.status !== 'ok') {
+				toast.error(
+					'Ese paquete .copynotes está dañado o no es un respaldo de CopyNotes. No se importó nada.'
+				);
+				return;
+			}
+			parsed = read.backup;
+			imageBytes = read.images;
+		} else {
+			try {
+				parsed = JSON.parse(new TextDecoder().decode(raw));
+			} catch {
+				toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
+				return;
+			}
 		}
 		let local;
 		try {
@@ -180,12 +242,19 @@
 		let plan;
 		let standalone;
 		try {
-			result = validateBackup(parsed, {
-				existingNoteIds: local.notes.map((row) => row.id),
-				existingBlockIds: local.blocks.map((row) => row.id),
-				existingTagIds: local.tags.map((row) => row.id),
-				existingSnippetIds: local.snippets.map((row) => row.id)
-			});
+			result = validateBackup(
+				parsed,
+				{
+					existingNoteIds: local.notes.map((row) => row.id),
+					existingBlockIds: local.blocks.map((row) => row.id),
+					existingTagIds: local.tags.map((row) => row.id),
+					existingSnippetIds: local.snippets.map((row) => row.id)
+				},
+				// La versión 6 sólo se acepta si vino de adentro de un paquete: un
+				// `.json` suelto que la declara está mintiendo sobre su propia forma,
+				// porque los bytes no pueden estar ahí (spec §5.3).
+				{ packaged }
+			);
 			if (result.ok) {
 				// Ingest gate: ningún html llega a la base sin pasar por la limpieza. Los
 				// dos caminos la tienen: el plan del merge, y `replaceData` más abajo.
@@ -200,7 +269,7 @@
 				// `export-import/merge.sanitize.test.ts`.
 				plan = planMerge(local, result.backup.data);
 				plan.inserts = sanitizeBackupData(plan.inserts);
-				standalone = validateBackup(parsed);
+				standalone = validateBackup(parsed, undefined, { packaged });
 			}
 		} catch {
 			toast.error('No se pudo revisar ese archivo. No se importó nada y tus notas siguen igual.');
@@ -220,6 +289,27 @@
 		// regla 6). Ausente = completo, así que los archivos de siempre no cambian.
 		const complete = standalone.ok && standalone.backup.complete === true;
 		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
+		// Fuera de `$state` a propósito: son Blobs, la pantalla no los mira, y un
+		// proxy de Svelte no se puede clonar hacia IndexedDB. Se pisa entero en cada
+		// elección de archivo, así que no puede quedar viejo.
+		pendingBodies = result.backup.images.flatMap((meta) => {
+			const data = imageBytes?.get(meta.imageId);
+			// Declarada en el manifiesto pero sin archivo: es el `complete: false`
+			// del que salió el paquete (spec §5.4), no algo para reparar acá.
+			if (!data) return [];
+			// El largo real y no el declarado: la huella —que `readPackage` sí
+			// comprobó— es de estos bytes, así que ellos son la verdad.
+			return [
+				{
+					imageId: meta.imageId,
+					blob: new Blob([data], { type: meta.type }),
+					type: meta.type,
+					bytes: data.length,
+					width: meta.width,
+					height: meta.height
+				}
+			];
+		});
 		review = {
 			fileName: opened.fileName,
 			warnings: result.warnings,
@@ -233,6 +323,10 @@
 	async function applyMerge() {
 		importing = true;
 		try {
+			// Los bytes primero y los bloques después (spec §5.5). Un cuerpo huérfano
+			// no se ve y se puede recuperar; un bloque que apunta a bytes que no
+			// están es una imagen rota en pantalla.
+			for (const body of pendingBodies) await putBody(body);
 			// $state proxies can't be structured-cloned into IndexedDB.
 			await applyMergePlan($state.snapshot(review.plan));
 			const refreshed = await finishImport();
@@ -252,7 +346,13 @@
 		importing = true;
 		try {
 			const data = $state.snapshot(review.replaceData);
-			await replaceAllTables({ ...data, settings: filterSafeSettings(data.settings) });
+			// Los cuerpos viajan adentro de la misma transacción que las filas: ahí
+			// se borran los de la base anterior —`imageBodies` no está en
+			// `BACKUP_TABLES`— y se escriben estos antes que los bloques (spec §5.5).
+			await replaceAllTables(
+				{ ...data, settings: filterSafeSettings(data.settings) },
+				pendingBodies
+			);
 		} catch {
 			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
 			importing = false;
@@ -287,6 +387,9 @@
 		const refreshed = await onDataChanged();
 		step = 'idle';
 		review = null;
+		// Son Blobs: dejarlos acá mantiene vivas las capturas del archivo hasta la
+		// próxima importación.
+		pendingBodies = [];
 		open = false;
 		return refreshed;
 	}
@@ -349,12 +452,12 @@
 				<h3 class="text-xs font-bold tracking-wide uppercase text-muted-foreground">Exportar</h3>
 				<button
 					type="button"
-					onclick={exportAllJson}
+					onclick={exportBackup}
 					disabled={exporting}
 					class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center gap-2 rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
 				>
 					<FileDown size={16} aria-hidden="true" />
-					Descargar respaldo completo (JSON)
+					Descargar respaldo completo
 				</button>
 				<!-- Va acá y no en el resumen de después: el riesgo se crea al bajar el
 				     archivo, así que la frase tiene que leerse antes de la decisión, no

@@ -7,20 +7,18 @@ import { trackPendingWrite } from '../storage/pending-writes';
 
 const bodies = () => db.table('imageBodies');
 
+// La forma de una fila de `imageBodies`, en un solo lugar. La escribe `putBody`
+// y también `replaceAllTables` (spec 041 §5.5), que tiene que meter los cuerpos
+// adentro de su propia transacción y no puede llamar acá sin anidarla.
+export function imageBodyRow({ imageId, blob, type, bytes, width, height }) {
+	return { imageId, blob, type, bytes, width, height, createdAt: now(), uploadedFor: null };
+}
+
 export function putBody({ imageId, blob, type, bytes, width, height }) {
 	return trackPendingWrite(async () => {
 		// `put` y no `add`: la huella ES el contenido, así que volver a guardar la
 		// misma imagen escribe exactamente los mismos bytes. No es un conflicto.
-		await bodies().put({
-			imageId,
-			blob,
-			type,
-			bytes,
-			width,
-			height,
-			createdAt: now(),
-			uploadedFor: null
-		});
+		await bodies().put(imageBodyRow({ imageId, blob, type, bytes, width, height }));
 		return imageId;
 	});
 }
