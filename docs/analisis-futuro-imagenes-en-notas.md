@@ -203,8 +203,20 @@ Se corrió la prueba de pegado con cinco capturas de trabajo de verdad. Resultad
   la salida si algún día alguien choca de verdad contra el tope; hoy no hace
   falta escribirla.
 - **Cero conversión, cero recodificado, cero achicado.**
-- Con 325 KB de mediana, el gigabyte gratis de Supabase entra unas 3000
-  capturas. Alcanza de sobra para la beta.
+- Con 325 KB de mediana, el gigabyte gratis de Supabase entra unas 3200
+  capturas **en total, compartidas entre todos los usuarios**, no por persona.
+  Alcanza para la beta; para abrir la función al público hace falta Pro (100 GB
+  entre todos, US$25 al mes, y unos 2 centavos por gigabyte extra al mes). El
+  tope de 50 MB del plan gratis es el tamaño máximo de un archivo suelto y nunca
+  se toca, porque el tope propio es 5 MB.
+- **Comprimir más se puede postergar sin costo.** Queda entre 25% y 30% de jugo,
+  pero cada forma de sacarlo cuesta algo: pedirle al navegador que re-apriete da
+  8-10% (nada, ya medido); WebP con pérdida ensucia las letras, que es justo lo
+  que se captura; WebP sin pérdida y re-apretar el PNG a fondo dan entre 25% y
+  40% pero **necesitan una librería nueva**. Lo importante es que la compresión
+  ocurre al pegar, antes de guardar: sumarla más adelante no migra ni convierte
+  nada, las capturas viejas quedan como están. Revisar recién cuando la factura
+  de Supabase sea la restricción.
 - No hace falta correr la prueba en Chrome ni en Windows: como la decisión pasó
   a ser "no convertir nada", que esos dos sí sepan hacer WebP dejó de importar.
   Que el pegado entregue el archivo en Windows se confirma al construir.
