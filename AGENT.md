@@ -403,6 +403,8 @@ mal la URL que le pasaste a alguien.
 | The formatting toolbar without a mouse: shortcuts + arrow navigation | `033` |
 | Sign in with Google: web (phase 1), desktop loopback (phase 2) | `034` |
 | Restoring a backup when the cloud is on (measured: 1 conflict per row) | `039` |
+| The backup contract: a file the app produced always imports | `040` |
+| Screenshots in notes: paste, local bytes, `.copynotes` package, encrypted upload | `041` |
 
 Sin spec numerada, pero con documento propio:
 
