@@ -808,3 +808,23 @@ describe('spec 041: un bloque de imagen es un bloque válido', () => {
 		expect(invalid.ok).toBe(false);
 	});
 });
+
+describe('spec 041: la versión 6 sólo vale si el JSON dice que viene de un paquete', () => {
+	it('un .json suelto en v6 se rechaza igual que antes, pero explica por qué', () => {
+		const result = validateBackup(makeBackup({}, { formatVersion: 6 }));
+		expect(result.ok).toBe(false);
+		expect(result.errors[0]).toContain('6');
+		expect(result.errors[0]).toContain('.copynotes');
+	});
+
+	it('el mismo v6 pasa cuando el llamador dice que viene de un paquete', () => {
+		const result = validateBackup(makeBackup({}, { formatVersion: 6 }), undefined, { packaged: true });
+		expect(result.ok).toBe(true);
+	});
+
+	it('el manifiesto de imágenes rechaza bytes/width/height negativos o no enteros', () => {
+		const backup = makeBackup({}, { formatVersion: 6, images: [{ imageId: 'a'.repeat(64), type: 'image/png', bytes: -1, width: 2, height: 2 }] });
+		const result = validateBackup(backup, undefined, { packaged: true });
+		expect(result.ok).toBe(false);
+	});
+});

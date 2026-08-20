@@ -26,6 +26,10 @@ export const SUPPORTED_FORMAT = 'copynotes.backup';
 // it and should not have to remember to add it.
 export const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5];
 export const CURRENT_VERSION = 5;
+// La versión que SÓLO existe adentro de un paquete `.copynotes`
+// (`export-import/package.ts`). `buildPackage` es quien la estampa — nunca el
+// llamador — precisamente para que este número no dependa de acordarse.
+export const PACKAGE_VERSION = 6;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -150,12 +154,15 @@ const settingSchema = v.looseObject({
 // captura, aparte de `data.blocks` — es lo que `export-import/package.ts` usa
 // para saber qué archivo de `images/` corresponde a cada bloque, sin tener
 // que abrir cada uno para adivinar el tipo o el tamaño.
+// `bytes`/`width`/`height` con `v.integer()` + `v.minValue(0)`, no `v.number()`
+// a secas: este esquema es justo el portón contra un manifiesto ajeno, y
+// `-1` o `1.5` pasarían un `v.number()` sin quejarse.
 const imageMetaSchema = v.looseObject({
 	imageId: v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)),
 	type: v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
-	bytes: v.number(),
-	width: v.number(),
-	height: v.number()
+	bytes: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	width: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	height: v.pipe(v.number(), v.integer(), v.minValue(0))
 });
 
 const backupSchema = v.looseObject({
@@ -482,7 +489,13 @@ function fillFromIssues(raw, issues) {
 
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
-export function validateBackup(raw, existingIds = undefined) {
+//
+// `packaged` es lo único que distingue un `.json` suelto de un
+// `backup.json` que `readPackage` ya sacó de un `.copynotes`: la MISMA fila
+// puede ser una mentira en un archivo y la verdad en el otro, así que la
+// regla no puede vivir en la lista de versiones sola — necesita saber de
+// dónde vino el JSON.
+export function validateBackup(raw, existingIds = undefined, { packaged = false } = {}) {
 	const existing = {
 		existingNoteIds: existingIds?.existingNoteIds ?? [],
 		existingBlockIds: existingIds?.existingBlockIds ?? [],
@@ -505,15 +518,18 @@ export function validateBackup(raw, existingIds = undefined) {
 			warnings: []
 		};
 	}
-	if (!SUPPORTED_VERSIONS.includes(raw.formatVersion)) {
-		return {
-			ok: false,
-			errors: [
-				`Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`
-			],
-			details: [],
-			warnings: []
-		};
+	const supportedVersions = packaged ? [...SUPPORTED_VERSIONS, PACKAGE_VERSION] : SUPPORTED_VERSIONS;
+	if (!supportedVersions.includes(raw.formatVersion)) {
+		// La versión de paquete pedida sin paquete no es "una versión futura que
+		// todavía no entendemos" — la app la entiende perfectamente, sólo que
+		// esos bytes no pueden vivir sueltos en un `.json` (spec §5.3). Decir
+		// "no se puede leer" ahí es falso y manda a la gente a resignarse a un
+		// respaldo que en realidad puede abrir con el archivo correcto.
+		const message =
+			raw.formatVersion === PACKAGE_VERSION && !packaged
+				? `Este archivo dice ser la versión ${PACKAGE_VERSION} de un respaldo, pero la versión ${PACKAGE_VERSION} sólo existe adentro de un paquete .copynotes — elegí ese archivo (termina en .copynotes) en vez de este .json.`
+				: `Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`;
+		return { ok: false, errors: [message], details: [], warnings: [] };
 	}
 	let parsed = v.safeParse(backupSchema, raw);
 	let filled = false;
