@@ -58,6 +58,7 @@
 		canDeleteFromMenu,
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
+		originIsDisposable,
 		planEnter,
 		planJoinWithPrevious,
 		planPromoteChildren,
@@ -1448,9 +1449,7 @@
 			await refreshTags();
 			if (onTagsChanged) onTagsChanged();
 		}
-		const origin = blocks.find((item) => item.id === block.id);
-		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
-		if (origin && (origin.content ?? '') === '' && origin.type !== 'separator' && !originHasChildren) {
+		if (originIsDisposable(blocks, block.id)) {
 			cancelPending(`block:${block.id}`);
 			await softDeleteBlock(block.id);
 			blocks = blocks.filter((item) => item.id !== block.id);
@@ -1478,7 +1477,14 @@
 				toast.warning('Queda poco espacio en este aparato. Puede que la imagen no entre.');
 			}
 			const plan = planEnter(blocks, afterId);
-			if (!plan) break;
+			if (!plan) {
+				// El renglón destino ya no está: lo borraron mientras el diálogo estaba
+				// abierto (una baja que llegó de la nube). No es ninguno de los finales de
+				// `insertImageBlock`, así que lleva su propia línea — callarse acá es el
+				// error que este proyecto ya pagó una vez con el selector de archivos.
+				toast.error('No se pudo poner la imagen: ese renglón ya no está.');
+				break;
+			}
 			await applyUpdates(plan.updates);
 			const result = await insertImageBlock({
 				noteId: note.id,
@@ -1498,22 +1504,15 @@
 		}
 		if (afterId === block.id) return; // no entró ninguna: el renglón queda como estaba
 		// El renglón vacío donde cayó la captura no queda de adorno — es lo mismo que
-		// hace pegar renglones. Nunca uno con hijos (dejaría la rama huérfana), nunca
-		// un separador, y NUNCA otra imagen: una imagen sin descripción tiene el
-		// contenido vacío y borrarla sería tirar la captura de al lado.
-		const origin = blocks.find((item) => item.id === block.id);
-		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
-		if (
-			origin &&
-			(origin.content ?? '') === '' &&
-			origin.type !== 'separator' &&
-			origin.type !== 'image' &&
-			!originHasChildren
-		) {
+		// hace pegar renglones, y con el mismo criterio, que ahora vive en un solo lado.
+		if (originIsDisposable(blocks, block.id)) {
 			cancelPending(`block:${block.id}`);
 			await softDeleteBlock(block.id);
 			blocks = blocks.filter((item) => item.id !== block.id);
 		}
+		// El cursor va a la descripción de la captura recién puesta: es el renglón
+		// nuevo y es lo próximo que uno quiere escribir. Sin esto no lo tiene NADIE,
+		// porque el renglón donde estaba el cursor acaba de borrarse.
 		focusBlockId = afterId;
 	}
 

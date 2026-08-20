@@ -36,7 +36,8 @@
 	import { sanitizeHtml, htmlToPlainText, normalizeForest, normalizeUrl } from '$lib/format';
 	import { openExternal } from '$lib/platform';
 	import { imageUrl } from '$lib/images/url.svelte';
-	import { imageFilesFrom } from '$lib/images/doors';
+	import { imageFilesFrom, IMAGE_INSERT_MESSAGES } from '$lib/images/doors';
+	import { toast } from 'svelte-sonner';
 	import { planNoteExit } from './note';
 	import { intentFromBeforeInput } from './mobileInput';
 	import { planSplit } from './split';
@@ -134,6 +135,10 @@
 	let el = $state();
 	let noteEl = $state();
 	let codeToggleEl = $state();
+	// La caja de la descripción de una imagen. Un renglón de imagen NO tiene `el`
+	// —no hay caja editable—, así que sin esto el foco que le manda el editor no
+	// tiene dónde aterrizar: se queda pegado y la persona teclea al vacío.
+	let captionEl = $state();
 
 	// Quiet Motion (spec 024, Stage 5). `ready` gates entry animations so they
 	// never fire on first render — a fresh row (note load / note switch) must
@@ -328,7 +333,8 @@
 	// at the end of the content.
 	function focusBlockSurface(caretToEnd = false) {
 		if (!el) {
-			codeToggleEl?.focus();
+			// Una imagen manda a su descripción; un código plegado, a su botón.
+			(captionEl ?? codeToggleEl)?.focus();
 			return;
 		}
 		el.focus();
@@ -451,7 +457,7 @@
 
 	$effect(() => {
 		if (!focused) return;
-		if (!el && !codeToggleEl) return;
+		if (!el && !codeToggleEl && !captionEl) return;
 		// focusCaret is a plain-text offset to land on (slash menu returns the
 		// caret to where the "/" was); without it, park the caret at the end.
 		if (focusCaret != null && el && block.type !== 'separator') {
@@ -744,16 +750,26 @@
 	// convertiría al renglón en destino de todo, y arrastrar texto de otra ventana
 	// —que hoy el navegador deja caer solo— dejaría de andar.
 	function handleDragOver(event) {
-		if (readOnly) return;
 		if (!event.dataTransfer?.types?.includes('Files')) return;
 		event.preventDefault();
 	}
 
+	// Frenar el `dragover` y NO frenar el `drop` es la receta para que el navegador
+	// haga lo suyo con el archivo — y en la ventana de escritorio, que no tiene
+	// barra de direcciones, "lo suyo" es irse de la app. Así que un arrastre con
+	// archivos se frena SIEMPRE, y si no había ninguna imagen adentro se dice.
 	function handleDrop(event) {
+		if (!event.dataTransfer?.types?.includes('Files')) return;
+		// Frenado ANTES del guardia de sólo lectura, a propósito: una nota ajena no
+		// acepta la captura, pero tampoco tiene por qué llevarse a la persona fuera
+		// de la app por no haber frenado el evento.
+		event.preventDefault();
 		if (readOnly) return;
 		const images = imageFilesFrom(event.dataTransfer);
-		if (images.length === 0) return;
-		event.preventDefault();
+		if (images.length === 0) {
+			toast.error(IMAGE_INSERT_MESSAGES['not-an-image']);
+			return;
+		}
 		onInsertImages?.(block, images);
 	}
 
@@ -998,6 +1014,7 @@
 				</div>
 			{/if}
 			<input
+				bind:this={captionEl}
 				class="text-muted-foreground placeholder:text-faint w-full border-0 bg-transparent p-0 text-sm focus:outline-none"
 				placeholder="Descripción (opcional)"
 				aria-label="Descripción de la imagen"

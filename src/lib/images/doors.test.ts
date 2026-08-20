@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { imageFilesFrom, IMAGE_INSERT_MESSAGES, roomIsTight } from './doors';
+import { imageFilesFrom, IMAGE_INSERT_MESSAGES } from './doors';
+
+// `roomIsTight` recuerda si ya pidió `persist()`, así que cada caso se lleva un
+// módulo recién cargado: sin esto el test del "una sola vez" sólo pasaba
+// mientras fuera el primero del archivo, y lo único que lo cuidaba era un
+// comentario.
+async function freshRoomIsTight() {
+	vi.resetModules();
+	return (await import('./doors')).roomIsTight;
+}
 
 const fake = (type, size = 1000) => ({ type, size });
 
@@ -72,6 +81,7 @@ describe('roomIsTight', () => {
 		vi.stubGlobal('navigator', {
 			storage: { persist, estimate: async () => ({ quota: 1e9, usage: 0 }) }
 		});
+		const roomIsTight = await freshRoomIsTight();
 
 		await roomIsTight(fake('image/png'));
 		await roomIsTight(fake('image/png'));
@@ -83,6 +93,7 @@ describe('roomIsTight', () => {
 		vi.stubGlobal('navigator', {
 			storage: { estimate: async () => ({ quota: 1000, usage: 900 }) }
 		});
+		const roomIsTight = await freshRoomIsTight();
 
 		expect(await roomIsTight(fake('image/png', 200))).toBe(true);
 	});
@@ -91,6 +102,7 @@ describe('roomIsTight', () => {
 		vi.stubGlobal('navigator', {
 			storage: { estimate: async () => ({ quota: 1e9, usage: 0 }) }
 		});
+		const roomIsTight = await freshRoomIsTight();
 
 		expect(await roomIsTight(fake('image/png', 200))).toBe(false);
 	});
@@ -99,9 +111,43 @@ describe('roomIsTight', () => {
 	// estimación es orientación, y sin ella se intenta igual.
 	it('sin estimación no dice nada', async () => {
 		vi.stubGlobal('navigator', {});
-		expect(await roomIsTight(fake('image/png', 200))).toBe(false);
+		expect(await (await freshRoomIsTight())(fake('image/png', 200))).toBe(false);
 
 		vi.stubGlobal('navigator', { storage: { estimate: async () => ({}) } });
-		expect(await roomIsTight(fake('image/png', 200))).toBe(false);
+		expect(await (await freshRoomIsTight())(fake('image/png', 200))).toBe(false);
+	});
+
+	// LO IMPORTANTE. Las dos pueden fallar de verdad —origen opaco, modo privado—
+	// y no sólo faltar. Un rechazo que salga por arriba se lleva puesta la
+	// inserción entera: la captura desaparece sin renglón y sin aviso.
+	it('un rechazo del aparato NO cancela nada: contesta que no y sigue', async () => {
+		vi.stubGlobal('navigator', {
+			storage: {
+				persist: async () => {
+					throw new TypeError('no se puede en este origen');
+				},
+				estimate: async () => {
+					throw new TypeError('no se puede en este origen');
+				}
+			}
+		});
+		const roomIsTight = await freshRoomIsTight();
+
+		await expect(roomIsTight(fake('image/png', 200))).resolves.toBe(false);
+	});
+
+	it('y tampoco cancela si la estimación explota en la segunda captura', async () => {
+		vi.stubGlobal('navigator', {
+			storage: {
+				persist: async () => true,
+				estimate: async () => {
+					throw new Error('SecurityError');
+				}
+			}
+		});
+		const roomIsTight = await freshRoomIsTight();
+
+		await expect(roomIsTight(fake('image/png', 200))).resolves.toBe(false);
+		await expect(roomIsTight(fake('image/png', 200))).resolves.toBe(false);
 	});
 });

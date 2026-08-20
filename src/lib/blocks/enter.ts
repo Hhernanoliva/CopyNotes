@@ -84,6 +84,26 @@ export function planPromoteChildren(blocks, id) {
 	return { updates };
 }
 
+// El renglón donde aterrizó lo que se pegó o se soltó: ¿se puede tirar? Sólo si
+// quedó vacío y no hay nada más puesto ahí. Las tres exclusiones costaron algo
+// cada una:
+//  - con sub-ítems, borrarlo dejaría la rama huérfana;
+//  - un separador tiene el contenido vacío SIEMPRE, y ese contenido es la línea
+//    que se ve;
+//  - una imagen sin descripción TAMBIÉN tiene el contenido vacío, y tirarla
+//    sería tirar la captura (spec 041). Soltar una captura encima de otra
+//    borraba la de abajo hasta que esto se escribió una sola vez.
+//
+// Vive acá y no en el editor porque había dos copias, y lo que las diferenciaba
+// era justo el renglón que faltaba.
+export function originIsDisposable(blocks, id) {
+	const origin = blocks.find((block) => block.id === id);
+	if (!origin) return false;
+	if ((origin.content ?? '') !== '') return false;
+	if (origin.type === 'separator' || origin.type === 'image') return false;
+	return !blocks.some((block) => (block.parentBlockId ?? null) === id);
+}
+
 export function canDeleteOnBackspace(blocks, id) {
 	if (blocks.length <= 1) return false;
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);

@@ -37,12 +37,21 @@ let persistAsked = false;
 // conviene avisar ANTES de intentar; después se intenta igual.
 //
 // Todo optativo porque ninguna de las dos existe en todos lados.
+// Y todo adentro de un `try`: los dos `?.` cubren que las funciones NO EXISTAN,
+// pero las dos pueden además FALLAR —origen opaco, modo privado, y cada motor a
+// su manera—. Sin esto, ese rechazo salía por arriba, tumbaba la inserción
+// entera y la captura desaparecía sin renglón, sin aviso y sin error: la peor
+// forma de fallar, y encima por una estimación que no manda nada.
 export async function roomIsTight(file) {
-	if (!persistAsked) {
-		persistAsked = true;
-		await globalThis.navigator?.storage?.persist?.();
+	try {
+		if (!persistAsked) {
+			persistAsked = true;
+			await globalThis.navigator?.storage?.persist?.();
+		}
+		const room = await globalThis.navigator?.storage?.estimate?.();
+		if (room?.quota == null || room?.usage == null) return false;
+		return room.quota - room.usage < file.size * 2;
+	} catch {
+		return false;
 	}
-	const room = await globalThis.navigator?.storage?.estimate?.();
-	if (room?.quota == null || room?.usage == null) return false;
-	return room.quota - room.usage < file.size * 2;
 }
