@@ -9,6 +9,8 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.2
 
+- **Los enlaces se pueden editar sin abrirlos por accidente.** El primer clic o toque muestra la dirección completa con **Abrir** y **Editar**; también podés corregir o borrar letras dentro del enlace como texto normal
+- **La manija ahora selecciona un renglón al tocarla y lo mueve al arrastrarla.** La selección sirve para copiar, borrar, anidar o mover una sola fila, y la manija sigue disponible en filas vacías e imágenes
 - **CopyNotes ahora tiene app de escritorio para Windows**, además de la de Mac. Es la misma app, con todo adentro: notas, nube y agentes. La primera vez que la abrís, Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar de todos modos"*
 - **La web vuelve a ofrecer la app de escritorio.** Ahora que hay una versión publicada para bajar, volvieron la tarjetita *"¿Usás agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**. Estaban ocultos porque llevaban a una página vacía
 

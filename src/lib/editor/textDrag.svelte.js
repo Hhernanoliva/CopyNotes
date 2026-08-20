@@ -102,6 +102,10 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 
 	return {
 		armFromSelection,
+		cancel: reset,
+		get engaged() {
+			return source !== null;
+		},
 		get active() {
 			return active;
 		},

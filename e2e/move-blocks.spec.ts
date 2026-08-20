@@ -113,6 +113,251 @@ async function seedABC(page) {
 	await expect.poll(() => blockTexts(page)).toEqual(['A', 'B', 'C']);
 }
 
+const gripFor = (row) =>
+	row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+
+test('soltar la manija selecciona un renglón y Enter o Escape vuelven a editar', async ({
+	page
+}) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const second = rows.nth(1);
+
+	await second.hover();
+	await gripFor(second).click();
+	await expect(gripFor(second)).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(second.locator('.block-editable')).toBeFocused();
+
+	const count = await rows.count();
+	await page.keyboard.press('Enter');
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+	await expect(rows).toHaveCount(count);
+	await expect(second.locator('.block-editable')).toBeFocused();
+
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+});
+
+test('arrastrar la misma manija mueve y no activa su clic de selección', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const firstBox = await rows.first().boundingBox();
+	const grip = gripFor(rows.nth(2));
+	await rows.nth(2).hover();
+	const gripBox = await grip.boundingBox();
+
+	await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2);
+	await page.mouse.down();
+	await page.mouse.move(firstBox.x + 8, firstBox.y + 2, { steps: 8 });
+	await page.mouse.up();
+
+	await expect.poll(() => blockTexts(page)).toEqual(['C', 'A', 'B']);
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+});
+
+test('una manija dentro de un grupo lo conserva; una de afuera lo reemplaza', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	await rows.nth(2).locator('.block-editable').click();
+	await page.keyboard.press('Shift+ArrowUp');
+	await page.keyboard.press('/');
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+	await expect(page.locator('#slash-menu')).toBeVisible();
+
+	await rows.nth(1).hover();
+	await gripFor(rows.nth(1)).click();
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+	await expect(page.locator('#slash-menu')).toBeVisible();
+
+	await rows.first().hover();
+	await gripFor(rows.first()).click();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(page.locator('#slash-menu')).toHaveCount(0);
+});
+
+test('una selección de uno usa Tab, Alt y Shift+flecha como un solo renglón', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const row = (text) => page.locator('main [data-block-id]', { hasText: text });
+
+	await row('B').hover();
+	await gripFor(row('B')).click();
+	await page.keyboard.press('Shift+ArrowDown');
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+	await page.keyboard.press('Shift+ArrowUp');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+
+	await page.keyboard.press('Tab');
+	await expect(row('B')).not.toHaveCSS('padding-left', '0px');
+	await expect(row('C')).toHaveCSS('padding-left', '0px');
+	await page.keyboard.press('Shift+Tab');
+	await expect(row('B')).toHaveCSS('padding-left', '0px');
+	await page.waitForTimeout(150);
+
+	await page.keyboard.press('Alt+ArrowDown');
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'C', 'B']);
+	await expect(rows).toHaveCount(3);
+});
+
+test('copiar uno excluye hijos; el botón con subniveles sí los incluye', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('Padre');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo');
+	await page.keyboard.press('Tab');
+
+	const parent = page.locator('main [data-block-id]', { hasText: 'Padre' });
+	await parent.hover();
+	await gripFor(parent).click();
+	await page.keyboard.press('ControlOrMeta+c');
+	await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('Padre');
+
+	await parent.getByRole('button', { name: 'Copiar con subniveles' }).click();
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.toContain('Hijo');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+});
+
+test('la fila vacía conserva a la vez la manija y el botón para agregar', async ({ page }) => {
+	await newNote(page);
+	const row = page.locator('main [data-block-id]').first();
+	const editable = row.locator('.block-editable');
+	await editable.click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.press('Backspace');
+
+	await expect(gripFor(row)).toBeAttached();
+	await expect(row.getByRole('button', { name: 'Agregar bloque' })).toBeAttached();
+	await gripFor(row).click();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(row.getByRole('button', { name: 'Agregar bloque' })).toBeAttached();
+});
+
+test('casilla, colapsar y menú no desarman una selección de un renglón', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/tarea');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('Padre');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+	await page.keyboard.type('Hijo');
+	await page.keyboard.press('Tab');
+
+	const parent = page.locator('main [data-block-id]', { hasText: 'Padre' });
+	await parent.hover();
+	await gripFor(parent).click();
+	await parent.getByRole('checkbox').click();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await parent.getByRole('button', { name: 'Colapsar bloque' }).click();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+
+	await parent.getByRole('button', { name: 'Más acciones' }).click();
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toHaveCount(0);
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+});
+
+test('la activación asistida de la manija selecciona exactamente un renglón', async ({ page }) => {
+	await seedABC(page);
+	const row = page.locator('main [data-block-id]').nth(1);
+	const grip = gripFor(row);
+	await grip.evaluate((button) => button.click());
+
+	await expect(grip).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(page.getByText('2 renglones seleccionados')).toHaveCount(0);
+});
+
+test('Escape cancela una manija armada antes de tocar el menú o la selección', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	await rows.nth(2).locator('.block-editable').click();
+	await page.keyboard.press('Shift+ArrowUp');
+	await page.keyboard.press('/');
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeVisible();
+
+	const grip = gripFor(rows.nth(1));
+	await rows.nth(1).hover();
+	const box = await grip.boundingBox();
+	await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+	await page.mouse.down();
+	await page.keyboard.press('Escape');
+	await page.mouse.up();
+
+	await expect(menu).toBeVisible();
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+	const count = await rows.count();
+	await rows.nth(1).getByRole('button', { name: 'Más acciones' }).click();
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toBeVisible();
+	await rows.nth(2).locator('.block-editable').focus();
+	await page.keyboard.press('Enter');
+	await expect(rows).toHaveCount(count);
+	await expect(page.locator('main [role="checkbox"]')).toHaveCount(0);
+	await page.keyboard.press('Escape');
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toHaveCount(0);
+	await expect(menu).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(menu).toHaveCount(0);
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+});
+
+test('una selección de renglón no secuestra las teclas del título', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const selected = rows.nth(1);
+	await selected.hover();
+	await gripFor(selected).click();
+
+	const title = page.getByRole('textbox', { name: 'Título de la nota' });
+	await title.fill('Título');
+	await title.press('End');
+	await title.press('Backspace');
+	await expect(title).toHaveValue('Títul');
+	await title.press('Shift+ArrowUp');
+	await expect(rows).toHaveCount(3);
+	await expect(page.getByText('2 renglones seleccionados')).toHaveCount(0);
+});
+
+test('abrir las acciones de otra fila cierra el menú anterior', async ({ page }) => {
+	await seedABC(page);
+	const rows = page.locator('main [data-block-id]');
+	const firstTrigger = rows.first().getByRole('button', { name: 'Más acciones' });
+	await firstTrigger.focus();
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toHaveCount(1);
+
+	const secondTrigger = rows.nth(1).getByRole('button', { name: 'Más acciones' });
+	await secondTrigger.focus();
+	await page.keyboard.press('Enter');
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toHaveCount(1);
+	await expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('Delete sobre un renglón seleccionado borra su bloque y Deshacer lo restaura', async ({ page }) => {
+	await seedABC(page);
+	const row = page.locator('main [data-block-id]', { hasText: 'B' });
+	await row.hover();
+	await gripFor(row).click();
+	await page.keyboard.press('Delete');
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'C']);
+
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect.poll(() => blockTexts(page)).toEqual(['A', 'B', 'C']);
+});
+
 test('drag a line to reorder it above the first', async ({ page }) => {
 	await seedABC(page);
 	const rows = page.locator('main [data-block-id]');
@@ -228,6 +473,8 @@ test('dragging a selected word moves the text to another line', async ({ page })
 		const second = els[1].getBoundingClientRect();
 		return { x: r.left + r.width / 2, y: r.top + r.height / 2, dropX: second.right - 2, dropY: second.top + second.height / 2 };
 	});
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await expect(toolbar).toBeVisible();
 
 	// Quick drag (no long hold) — the custom text drag takes over.
 	await page.mouse.move(coords.x, coords.y);
@@ -235,6 +482,7 @@ test('dragging a selected word moves the text to another line', async ({ page })
 	await page.mouse.move(coords.x + 10, coords.y + 6, { steps: 2 });
 	await page.mouse.move(coords.dropX, coords.dropY, { steps: 8 });
 	await page.mouse.up();
+	await expect(toolbar).toHaveCount(0);
 
 	await expect.poll(() => blockTexts(page)).toEqual(['hola ', 'otramundo']);
 

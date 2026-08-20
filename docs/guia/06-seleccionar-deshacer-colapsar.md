@@ -1,8 +1,21 @@
 # Seleccionar, deshacer, colapsar y tareas anidadas
 
-## Seleccionar varios renglones
+## Seleccionar uno o varios renglones
 
-Podés marcar varios renglones a la vez y actuar sobre todos juntos.
+Podés marcar un renglón entero como pieza, o varios a la vez, sin confundirlos con las palabras que selecciones adentro.
+
+### Un solo renglón
+
+- **Clic o toque en la manija** de puntitos de la izquierda selecciona el renglón entero. Si movés la manija en vez de soltarla, lo arrastrás.
+- También podés apretar **Escape** desde el texto cuando no hay ningún panel abierto. Otro Escape suelta la selección. Si hay un menú o panel, el primer Escape cierra eso y no cambia la selección.
+- **Ctrl/Cmd+C** copia ese renglón sin sus hijos. El botón **Copiar con subniveles** sí incluye todo lo que cuelga de él.
+- **Backspace o Delete** lo borra con sus hijos; **Enter** vuelve a poner el cursor sin crear una fila nueva.
+- **Shift+↑ / Shift+↓** extiende la selección a los vecinos. **Tab**, **Shift+Tab** y **Alt+↑/↓** siguen actuando como sobre un renglón individual.
+- **`/`** vuelve a escribir y abre el menú normal de ese renglón. El menú "Convertir N renglones" aparece sólo con dos o más.
+- Tocar el texto seleccionado suelta la selección y te deja editar justo ahí.
+- En una nota compartida de sólo lectura, esta selección sirve para **copiar**. Borrar, mover, anidar, convertir, Deshacer y Rehacer no cambian la nota de la otra persona.
+
+### Varios renglones
 
 - **Con el mouse:** clic en un renglón y **arrastrá** hacia arriba o hacia abajo sin soltar; se van pintando todos los que tocás. O hacé clic en uno y **Shift+clic** en **otro** para marcar el rango de una. Ojo: **Shift+clic dentro del mismo renglón donde está el cursor** no marca renglones, marca **texto** —lo de siempre—, aunque el cursor esté pegado al primer carácter.
 - **Con el teclado:** parado en un renglón, **Shift+↑ / Shift+↓** empieza a marcar hacia arriba o hacia abajo, y cada golpe suma (o quita) un renglón. Una flecha sola (sin Shift) deja la selección y mueve el cursor normal.
@@ -11,7 +24,7 @@ Podés marcar varios renglones a la vez y actuar sobre todos juntos.
 - **Mover** el grupo: **Alt+↑ / Alt+↓**. Mueve todos los seleccionados juntos entre sus vecinos (funciona cuando son hermanos seguidos).
 - **Convertir el grupo a otro tipo:** apretá **`/`** con los renglones marcados. Se abre el mismo menú de siempre, pero arriba dice "Convertir 5 renglones en…" y lo que elijas se aplica a todos: Texto, Título, Viñeta, **Tarea** o Código. Es la forma rápida de pasar a tareas una lista de viñetas que pegaste de otro lado. Los separadores que estén en el medio no se tocan. Si alguno ya era una tarea tildada, se queda tildado. **Escape** cierra el menú sin cambiar nada y la selección sigue marcada. Un solo **Ctrl/Cmd+Z** deshace la conversión entera. Y si venías escribiendo en uno de esos renglones justo antes de convertir, **ese texto se guarda igual**: antes se perdía —seguía en pantalla, pero al recargar volvía la versión de antes—.
 - **Anidar o desanidar** el grupo: **Tab** los mete a todos adentro del renglón que está justo arriba; **Shift+Tab** los saca a todos un nivel, y quedan juntos debajo del que era su padre. Se mueven en bloque, respetando el orden y llevándose sus hijos. Igual que al mover: funciona cuando los seleccionados son hermanos seguidos; si la selección mezcla niveles (por ejemplo un hijo y un renglón suelto de más abajo), Tab no hace nada, para no desarmarte la estructura. Un solo **Ctrl/Cmd+Z** deshace todo el movimiento.
-- **Salir de la selección:** **Escape**, o hacé clic o empezá a escribir en un renglón.
+- **Salir de la selección:** **Escape**, o hacé clic o empezá a escribir en un renglón. Si hay un menú o un arrastre activo, Escape cancela eso primero.
 
 ## Deshacer y rehacer
 

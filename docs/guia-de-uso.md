@@ -2,7 +2,7 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-19 (Nuevo: **CopyNotes también es para Windows**.
+Última actualización: 2026-08-20 (Nuevo: **los enlaces ya no te sacan de una nota mientras intentás editarlos**: el primer clic o toque muestra la dirección completa con **Abrir** y **Editar**, y **Ctrl/Cmd+K** entiende si querés enlazar texto, revisar un enlace o buscar. Además, **tocar la manija selecciona un renglón entero y arrastrarla lo mueve**, incluso si está vacío o es una imagen; ver los temas 3, 4, 6, 10 y 15). Antes: **CopyNotes también es para Windows**.
 La próxima descarga trae un instalador `.exe` además del de Mac; la primera vez
 Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar
 de todos modos"* (tema 19), y el comando de Claude Code se pega en **PowerShell**
@@ -85,7 +85,7 @@ dispositivo — antes se ofrecía siempre y no llevaba a ningún lado; ver el te
 3. [Escribir y organizar](guia/03-escribir-y-organizar.md) — anidar, mover, pegar varias líneas, pegar código, borrar renglones
 4. [Dar formato al texto](guia/04-formato-del-texto.md) — barra flotante, negrita, enlaces, colores, títulos
 5. [Comentario del renglón](guia/05-comentario.md) — la sub-línea gris estilo Workflowy (antes "nota gris")
-6. [Seleccionar, deshacer, colapsar](guia/06-seleccionar-deshacer-colapsar.md) — selección múltiple, deshacer/rehacer, colapsar, tareas anidadas
+6. [Seleccionar, deshacer, colapsar](guia/06-seleccionar-deshacer-colapsar.md) — seleccionar uno o varios renglones, deshacer/rehacer, colapsar, tareas anidadas
 7. [Copiar bloques](guia/07-copiar.md) — copiar un renglón o con subniveles, formatos
 8. [Snippets](guia/08-snippets.md) — guardar, biblioteca, insertar con /snippet, exportar
 9. [Etiquetas](guia/09-etiquetas.md) — etiquetar notas y renglones; administrar

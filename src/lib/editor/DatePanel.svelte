@@ -1,5 +1,5 @@
 <script>
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import { addDays, addMonths, monthGrid, monthLabel, resolveQuickOption, todayString } from '$lib/dates';
 	import { keyboardInset } from '$lib/actions/keyboardInset';
@@ -13,14 +13,15 @@
 	// Close when the user clicks anywhere outside the panel — otherwise a
 	// click that moves focus away leaves the panel orphaned with a dead
 	// Escape (its keydown only hears keys while focus is inside). Same
-	// pattern as TagPicker. The badge stops pointerdown propagation so its
-	// own click keeps toggling instead of close-then-reopen.
+	// pattern as TagPicker. The trigger is ignored so its own click can toggle
+	// the panel instead of closing and reopening it in the same gesture.
 	$effect(() => {
 		function handlePointerDown(event) {
-			if (panelEl && !panelEl.contains(event.target)) onClose();
+			if (event.target?.closest?.('[data-date-panel-trigger]')) return;
+			if (panelEl && !panelEl.contains(event.target)) onClose(false);
 		}
-		document.addEventListener('pointerdown', handlePointerDown);
-		return () => document.removeEventListener('pointerdown', handlePointerDown);
+		document.addEventListener('pointerdown', handlePointerDown, true);
+		return () => document.removeEventListener('pointerdown', handlePointerDown, true);
 	});
 
 	// El almanaque es nuestro, no el `<input type="date">` del sistema. El campo
@@ -31,7 +32,7 @@
 	// muestra un almanaque: era un contador de números.
 	const today = todayString();
 	let showCalendar = $state(false);
-	let month = $state(current ?? todayString());
+	let month = $state(untrack(() => current ?? todayString()));
 	const weeks = $derived(monthGrid(month));
 	// Un solo día del almanaque entra en el orden de Tab (el elegido, o hoy, o el
 	// primero del mes que se esté mirando): adentro se camina con las flechas.
@@ -44,7 +45,7 @@
 	async function openCalendar() {
 		showCalendar = true;
 		await tick();
-		panelEl.querySelector(`[data-day="${current ?? today}"]`)?.focus();
+		panelEl.querySelector(`[data-day="${current ?? today}"]`)?.focus({ preventScroll: true });
 	}
 
 	// Las flechas caminan el almanaque como se espera: ±1 día a los costados,
@@ -56,12 +57,20 @@
 			month = next;
 			await tick();
 		}
-		panelEl.querySelector(`[data-day="${next}"]`)?.focus();
+		panelEl.querySelector(`[data-day="${next}"]`)?.focus({ preventScroll: true });
 	}
 
 	function keydown(e) {
-		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
-		const day = document.activeElement?.dataset?.day;
+		if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(true); return; }
+		if (e.key === 'Tab') {
+			const focusable = [...panelEl.querySelectorAll('button:not([disabled]), input:not([disabled])')];
+			const atBoundary = e.shiftKey
+				? document.activeElement === focusable[0]
+				: document.activeElement === focusable[focusable.length - 1];
+			if (atBoundary) onClose(false);
+			return;
+		}
+		const day = document.activeElement?.getAttribute?.('data-day');
 		if (day) {
 			const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
 			if (delta === undefined) return;
@@ -84,6 +93,10 @@
 		items[(index + delta + items.length) % items.length]?.focus();
 	}
 
+	function handleFocusout(event) {
+		if (event.relatedTarget && !panelEl?.contains(event.relatedTarget)) onClose(false);
+	}
+
 	const restOptions = [
 		['tomorrow', 'Mañana'],
 		['next-week', 'Próxima semana']
@@ -95,7 +108,7 @@
 		return fullDay.format(new Date(y, m - 1, d));
 	}
 	const optionClass =
-		'hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none';
+		'cn-touch-row hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none';
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -104,10 +117,14 @@
 	use:keyboardInset
 	role="dialog"
 	aria-label="Fecha del renglón"
+	data-editor-transient
 	tabindex="-1"
 	onkeydown={keydown}
+	onfocusout={handleFocusout}
+	onpointerdown={(e) => e.stopPropagation()}
 	onmousedown={(e) => e.stopPropagation()}
-	class="cn-pop bg-popover border-border flex w-56 flex-col gap-0.5 rounded-md border p-1 shadow-lg max-md:w-[20.5rem]"
+	class="cn-date-panel cn-pop bg-popover border-border flex w-56 max-w-full flex-col gap-0.5 rounded-md border p-1 shadow-lg max-md:w-[20.5rem]"
+	class:cn-date-panel--calendar={showCalendar}
 >
 	{#if showCalendar}
 		<!-- El almanaque REEMPLAZA a los atajos en vez de sumarse: con los dos, el
@@ -119,7 +136,7 @@
 				type="button"
 				aria-label="Mes anterior"
 				onclick={() => (month = addMonths(month, -1))}
-				class="hover:bg-accent focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="cn-touch-control hover:bg-accent focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				<ChevronLeft size={16} aria-hidden="true" />
 			</button>
@@ -128,14 +145,14 @@
 				type="button"
 				aria-label="Mes siguiente"
 				onclick={() => (month = addMonths(month, 1))}
-				class="hover:bg-accent focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+				class="cn-touch-control hover:bg-accent focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
 				<ChevronRight size={16} aria-hidden="true" />
 			</button>
 		</div>
-		<div class="grid grid-cols-7 gap-0.5" role="group" aria-label="Elegir día">
+		<div class="cn-date-grid grid grid-cols-7 gap-0.5" role="group" aria-label="Elegir día">
 			{#each weekdays as weekday, index (index)}
-				<span class="text-faint flex size-7 items-center justify-center text-[0.625rem] max-md:h-6 max-md:w-11" aria-hidden="true">{weekday}</span>
+				<span class="cn-date-weekday text-faint flex size-7 items-center justify-center text-[0.625rem] max-md:h-6 max-md:w-11" aria-hidden="true">{weekday}</span>
 			{/each}
 			{#each weeks as week, weekIndex (weekIndex)}
 				{#each week as day (day)}
@@ -146,7 +163,7 @@
 						aria-current={day === current ? 'date' : undefined}
 						tabindex={day === tabDay ? 0 : -1}
 						onclick={() => onPick(day)}
-						class="focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm text-xs focus-visible:ring-2 focus-visible:outline-none max-md:size-11 max-md:text-sm {day ===
+						class="cn-date-day focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm text-xs focus-visible:ring-2 focus-visible:outline-none max-md:size-11 max-md:text-sm {day ===
 						current
 							? 'bg-primary text-primary-foreground'
 							: day === today
@@ -170,7 +187,7 @@
 		<button
 			type="button"
 			onclick={onRemove}
-			class="text-destructive hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-touch-row text-destructive hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1.5 text-left text-sm focus-visible:ring-2 focus-visible:outline-none"
 		>Quitar fecha</button>
 	{/if}
 </div>

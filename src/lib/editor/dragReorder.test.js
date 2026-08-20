@@ -34,21 +34,26 @@ function makeListEl() {
 	};
 }
 
-function pointer(type, clientX, clientY) {
-	return new MouseEvent(type, { clientX, clientY, bubbles: true });
+function pointer(type, clientX, clientY, pointerType = 'mouse') {
+	const event = new MouseEvent(type, { clientX, clientY, bubbles: true });
+	Object.defineProperty(event, 'pointerType', { value: pointerType });
+	return event;
 }
 
 describe('dragReorder — handle drag', () => {
 	let applied;
+	let handleClicks;
 	let reorder;
 
 	beforeEach(() => {
 		applied = [];
+		handleClicks = [];
 		reorder = createDragReorder({
 			getBlocks: makeBlocks,
 			getSelectedIds: () => [],
 			getListEl: makeListEl,
-			onApply: (plan) => applied.push(plan)
+			onApply: (plan) => applied.push(plan),
+			onHandleClick: (id, pointerType) => handleClicks.push({ id, pointerType })
 		});
 	});
 
@@ -59,10 +64,12 @@ describe('dragReorder — handle drag', () => {
 	it('arms immediately from a handle — a small move activates the drag with no hold wait', () => {
 		reorder.armFromHandle('a', pointer('pointerdown', ROW_LEFT, 10));
 		expect(reorder.active).toBe(false);
+		expect(reorder.engaged).toBe(true);
 
 		// Move past the threshold right away (no 350ms long-press).
 		window.dispatchEvent(pointer('pointermove', ROW_LEFT, 70));
 		expect(reorder.active).toBe(true);
+		expect(reorder.engaged).toBe(true);
 	});
 
 	it('applies the move on release over another gap', () => {
@@ -71,15 +78,28 @@ describe('dragReorder — handle drag', () => {
 		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 70));
 
 		expect(applied).toHaveLength(1);
+		expect(handleClicks).toHaveLength(0);
 		expect(applied[0].updates.length).toBeGreaterThan(0);
 	});
 
-	it('a handle press with no movement is a plain click — nothing applied', () => {
-		reorder.armFromHandle('a', pointer('pointerdown', ROW_LEFT, 10));
+	it('a handle press with no movement selects once and reports the pointer type', () => {
+		reorder.armFromHandle('a', pointer('pointerdown', ROW_LEFT, 10, 'touch'));
 		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 10));
 
 		expect(reorder.active).toBe(false);
+		expect(reorder.engaged).toBe(false);
 		expect(applied).toHaveLength(0);
+		expect(handleClicks).toEqual([{ id: 'a', pointerType: 'touch' }]);
+	});
+
+	it('cancel is idempotent and turns off a handle before it moves', () => {
+		reorder.armFromHandle('a', pointer('pointerdown', ROW_LEFT, 10));
+		expect(reorder.engaged).toBe(true);
+		reorder.cancel();
+		reorder.cancel();
+		expect(reorder.engaged).toBe(false);
+		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 10));
+		expect(handleClicks).toHaveLength(0);
 	});
 
 	it('does not arm a block move when a live text selection is being dragged', () => {
@@ -91,6 +111,7 @@ describe('dragReorder — handle drag', () => {
 			/** @type {any} */ ({ isCollapsed: false, rangeCount: 1, removeAllRanges() {} });
 		try {
 			reorder.armFromPointer('a', pointer('pointerdown', ROW_LEFT, 10));
+			expect(reorder.engaged).toBe(false);
 			vi.advanceTimersByTime(500); // well past the long-press window
 			expect(reorder.active).toBe(false);
 			window.dispatchEvent(pointer('pointerup', ROW_LEFT, 10));
@@ -190,11 +211,13 @@ describe('dragReorder — grabbing an existing selection', () => {
 	it('press on a selected row + move activates the drag with no long-press wait', () => {
 		armSelected(['a']);
 		reorder.armFromPointer('a', pointer('pointerdown', ROW_LEFT, 10));
+		expect(reorder.engaged).toBe(true);
 		window.dispatchEvent(pointer('pointermove', ROW_LEFT, 70));
 
 		expect(reorder.active).toBe(true);
 		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 70));
 		expect(applied).toHaveLength(1);
+		expect(reorder.engaged).toBe(false);
 		expect(clicks).toHaveLength(0); // a move is a drag, not a click
 	});
 
@@ -204,6 +227,7 @@ describe('dragReorder — grabbing an existing selection', () => {
 		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 10));
 
 		expect(reorder.active).toBe(false);
+		expect(reorder.engaged).toBe(false);
 		expect(applied).toHaveLength(0);
 		expect(clicks).toHaveLength(1);
 	});
@@ -211,9 +235,11 @@ describe('dragReorder — grabbing an existing selection', () => {
 	it('press on a NON-selected row keeps the long-press path — a quick move cancels, no click callback', () => {
 		armSelected([]); // nothing selected
 		reorder.armFromPointer('a', pointer('pointerdown', ROW_LEFT, 10));
+		expect(reorder.engaged).toBe(true);
 		window.dispatchEvent(pointer('pointermove', ROW_LEFT, 70)); // quick drag before hold
 
 		expect(reorder.active).toBe(false);
+		expect(reorder.engaged).toBe(false);
 		window.dispatchEvent(pointer('pointerup', ROW_LEFT, 70));
 		expect(applied).toHaveLength(0);
 		expect(clicks).toHaveLength(0);

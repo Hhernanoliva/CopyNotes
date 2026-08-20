@@ -22,7 +22,8 @@
 
 Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mouse o con el dedo:
 
-- **Con el mouse:** al pasar el mouse por un renglón aparece a la izquierda una **manija** (el ícono de puntitos ⠿). Agarrala y arrastrá: el renglón se mueve al instante, sin espera. Es la forma más cómoda cuando tenés **varios renglones seleccionados** — agarrás la manija de cualquiera de ellos y se mueven todos juntos, sin que se te vuelva a seleccionar el texto.
+- La **manija** de la izquierda (el ícono de puntitos ⠿) tiene dos usos claros: **clic o toque sin mover selecciona el renglón entero**; arrastrarla lo mueve. En una fila vacía o una imagen sigue estando disponible.
+- **Con el mouse:** al pasar el mouse por un renglón aparece la manija. Agarrala y arrastrá: el renglón se mueve al instante, sin espera. Es la forma más cómoda cuando tenés **varios renglones seleccionados** — agarrás la manija de cualquiera de ellos y se mueven todos juntos, sin que se te vuelva a seleccionar el texto.
 - **Con el dedo (o si preferís):** **mantené presionado** sobre el renglón un instante (hasta que se "despegue" y aparezca una etiqueta de que lo estás moviendo). Sin soltar, llevalo a donde quieras.
 - Una **línea fina** te va mostrando dónde va a caer.
 - Si lo movés **hacia la derecha**, queda **dentro** del renglón de arriba (como sub-punto). Hacia la **izquierda**, **sale** hacia afuera. Así podés anidar o desanidar sin usar Tab.
@@ -30,6 +31,7 @@ Además de Alt+↑/↓, podés **arrastrar** un renglón para moverlo, con el mo
 - **Con varios seleccionados también podés apretar directo sobre lo resaltado y arrastrar** (sin buscar la manija): la selección se conserva y se mueve entera. Un **clic simple** sobre lo resaltado (sin arrastrar) deja de seleccionar y pone el cursor en esa línea para editar.
 - Para **cancelar**, soltá fuera de la lista o apretá **Escape**: no se mueve nada.
 - Un **clic rápido** sigue sirviendo para poner el cursor y editar; solo se arrastra si mantenés presionado.
+- Si sólo querés copiar, borrar o mover **un renglón como pieza**, tocá la manija sin arrastrar. El tema 6 explica todas las teclas y acciones disponibles.
 ### Mover un texto seleccionado (una palabra o un trozo)
 
 Es distinto de mover el renglón entero: si seleccionás **solo una palabra o un trozo** dentro de un renglón y lo arrastrás, se mueve **solo ese texto**.
@@ -61,7 +63,7 @@ Cuando pegás un texto de varias líneas (desde otra app, un mail, una lista…)
 
 **Copiar y pegar dentro de CopyNotes conserva todo.** Si copiás renglones de CopyNotes y los pegás en otra parte de CopyNotes, se pegan **igualitos**: viñetas, tareas (con su tildado), **código**, **separadores**, **etiquetas** y el **anidado**. Cuando pegás en otra app, sale como texto normal.
 
-- **Copiar un solo renglón:** parado en él, **Cmd/Ctrl+C** lo copia entero (con su tipo y etiquetas). Si en cambio seleccionaste un pedazo de texto adentro del renglón, Cmd/Ctrl+C copia solo ese texto, como siempre.
+- **Copiar un solo renglón:** parado en él o seleccionado desde su manija, **Cmd/Ctrl+C** lo copia entero (con su tipo y etiquetas), pero no incluye sus hijos. Para llevar también los hijos usá **Copiar con subniveles**. Si en cambio seleccionaste un pedazo de texto adentro del renglón, Cmd/Ctrl+C copia solo ese texto, como siempre.
 - **Copiar varios:** seleccionalos (arrastrando o con Shift+↑/↓) y **Cmd/Ctrl+C**.
 
 ### Enter en medio del renglón

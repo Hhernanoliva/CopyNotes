@@ -29,6 +29,7 @@
 				type="button"
 				aria-label="Quitar etiqueta {tag.name}"
 				title="Quitar etiqueta"
+				onpointerdown={(event) => event.stopPropagation()}
 				onclick={() => onRemove(tag)}
 				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-4 shrink-0 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
 			>

@@ -32,6 +32,18 @@ async function selectRangeInBlock(page, editable, start, end) {
 	}, [start, end]);
 }
 
+async function linkWholeBlock(page, editable, text = 'sitio', url = 'https://ejemplo.com') {
+	await editable.click();
+	await page.keyboard.type(text, { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, editable);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill(url);
+	await page.keyboard.press('Enter');
+	await expect(editable.locator('a')).toHaveText(text);
+}
+
 test('selecting text shows the formatting toolbar', async ({ page }) => {
 	await newNote(page);
 	await title(page).fill('Formato E2E: toolbar');
@@ -152,10 +164,13 @@ test('regression guard: the copy block button still works after formatting chang
 	await selectAllInBlock(page, first);
 	await page.keyboard.press('ControlOrMeta+b');
 	await expect(first.locator('strong')).toHaveText('texto con formato');
+	const toolbar = page.getByRole('toolbar', { name: 'Formato de texto' });
+	await expect(toolbar).toBeVisible();
 
 	const row = page.locator('main .group').first();
 	await row.hover();
 	await row.getByRole('button', { name: 'Copiar bloque' }).click();
+	await expect(toolbar).toHaveCount(0);
 	await expect
 		.poll(async () => (await page.evaluate(() => navigator.clipboard.readText())).length)
 		.toBeGreaterThan(0);
@@ -269,8 +284,7 @@ test('deshacer restaura un enlace que se acababa de quitar', async ({ page }) =>
 
 	// Reabrir el popover MARCANDO el texto enlazado (así la barra detecta el href
 	// y muestra "Quitar") y quitarlo. Con el cursor solo la barra ya no se abre:
-	// aparecía sola al caminar el renglón. Y un clic sobre el enlace hoy se lo
-	// lleva al navegador, así que tampoco sirve para pararse encima.
+	// aparecía sola al caminar el renglón.
 	await page.waitForTimeout(650);
 	await selectAllInBlock(page, first);
 	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
@@ -300,6 +314,7 @@ test('Escape en el editor de enlace cierra el popover y devuelve el foco al reng
 	await page.keyboard.press('Escape');
 	await expect(page.getByLabel('URL del enlace')).toHaveCount(0);
 	await expect(first).toBeFocused();
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
 });
 
 test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020)', async ({ page }) => {
@@ -316,38 +331,245 @@ test('Escape cierra la barra de formato y devuelve el foco al renglón (spec 020
 	await page.keyboard.press('Escape');
 	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toHaveCount(0);
 	await expect(first).toBeFocused();
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
 });
 
-test('un clic sobre el enlace lo abre en una pestaña nueva, con o sin Ctrl/Cmd', async ({
+test('un clic sobre el enlace muestra acciones; Abrir y Ctrl/Cmd+clic navegan', async ({
 	page
 }) => {
 	await newNote(page);
 	await title(page).fill('Formato E2E: abrir enlace');
 
 	const first = page.locator('main [role="textbox"]').first();
-	await first.click();
-	await page.keyboard.type('sitio', { delay: 25 });
-	await page.waitForTimeout(650);
-	await selectAllInBlock(page, first);
-	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
-	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
-	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
-	await page.keyboard.press('Enter');
-	await expect(first.locator('a')).toHaveText('sitio');
+	await linkWholeBlock(page, first);
 
-	// Un clic pelado alcanza. Es el único camino que existe en celular, donde no
-	// hay Ctrl/Cmd para mantener apretado.
-	const [popup] = await Promise.all([page.waitForEvent('popup'), first.locator('a').click()]);
+	const pageCount = page.context().pages().length;
+	await first.locator('a').click();
+	await expect(page.context().pages()).toHaveLength(pageCount);
+	const actions = page.getByRole('dialog', { name: 'Acciones del enlace' });
+	await expect(actions).toBeVisible();
+	await expect(actions.getByRole('textbox', { name: 'Dirección del enlace' })).toHaveValue(
+		'https://ejemplo.com/'
+	);
+	await expect(first).toBeFocused();
+	await page.keyboard.press('End');
+	await expect(actions).toHaveCount(0);
+	await first.locator('a').click();
+	await expect(actions).toBeVisible();
+
+	const [popup] = await Promise.all([
+		page.waitForEvent('popup'),
+		actions.getByRole('button', { name: 'Abrir' }).click()
+	]);
 	expect(popup.url()).toContain('ejemplo.com');
 	await popup.close();
 
-	// Y Ctrl/Cmd+clic, que era la única forma antes, sigue funcionando.
 	const [modPopup] = await Promise.all([
 		page.waitForEvent('popup'),
 		first.locator('a').click({ modifiers: ['ControlOrMeta'] })
 	]);
 	expect(modPopup.url()).toContain('ejemplo.com');
 	await modPopup.close();
+});
+
+test('Editar desde las acciones selecciona el enlace y abre su dirección actual', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first, 'destino', 'https://viejo.com/ruta');
+
+	await first.locator('a').click();
+	await page.getByRole('dialog', { name: 'Acciones del enlace' }).getByRole('button', { name: 'Editar' }).click();
+
+	await expect(page.getByLabel('URL del enlace')).toBeFocused();
+	await expect(page.getByLabel('URL del enlace')).toHaveValue('https://viejo.com/ruta');
+});
+
+test('una activación asistida del enlace abre acciones con Abrir enfocado', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first);
+
+	await first.locator('a').evaluate((anchor) => anchor.click());
+	const actions = page.getByRole('dialog', { name: 'Acciones del enlace' });
+	await expect(actions).toBeVisible();
+	await expect(actions.getByRole('button', { name: 'Abrir' })).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(actions.getByRole('button', { name: 'Editar' })).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(actions).toHaveCount(0);
+	await expect(first).toBeFocused();
+});
+
+test('Ctrl/Cmd+K distingue enlace, texto marcado y búsqueda', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('sitio y texto', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 0, 5);
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+
+	await first.evaluate((el) => {
+		const text = el.querySelector('a').firstChild;
+		el.focus();
+		const range = document.createRange();
+		range.setStart(text, 2);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('ControlOrMeta+k');
+	const actions = page.getByRole('dialog', { name: 'Acciones del enlace' });
+	await expect(actions).toBeVisible();
+	await expect(actions.getByRole('button', { name: 'Abrir' })).toBeFocused();
+	await page.keyboard.press('Tab');
+	await expect(actions.getByRole('button', { name: 'Editar' })).toBeFocused();
+	await page.keyboard.press('Escape');
+	await expect(actions).toBeHidden();
+	await expect(first).toBeFocused();
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.selectNodeContents(anchor);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.getByLabel('URL del enlace')).toBeFocused();
+	await page.keyboard.press('Escape');
+	await page.keyboard.press('Escape');
+
+	await first.click();
+	await page.keyboard.press('End');
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.locator('dialog[aria-label="Buscar"]')).toBeVisible();
+});
+
+test('doble clic selecciona la palabra enlazada sin dejar acciones abiertas', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first);
+
+	await first.locator('a').dblclick();
+	await expect(page.getByRole('dialog', { name: 'Acciones del enlace' })).toBeHidden();
+	expect(await page.evaluate(() => window.getSelection()?.toString())).toBe('sitio');
+});
+
+test('editar caracteres dentro de un enlace conserva o elimina el ancla correctamente', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first);
+
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, 2);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.type('X');
+	await expect(first.locator('a')).toHaveText('siXtio');
+
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, anchor.textContent.length);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('Backspace');
+	await expect(first.locator('a')).toHaveText('siXti');
+	await page.waitForTimeout(700);
+	await page.reload();
+	const restored = page.locator('main [role="textbox"]').first();
+	await expect(restored.locator('a')).toHaveText('siXti');
+
+	await restored.evaluate((el) => {
+		const anchor = el.querySelector('a');
+		el.focus();
+		const range = document.createRange();
+		range.selectNodeContents(anchor);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('Backspace');
+	await expect(restored.locator('a')).toHaveCount(0);
+	await expect(restored).toBeEmpty();
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(restored.locator('a')).toHaveText('siXti');
+});
+
+test('borrar los bordes de un enlace no absorbe el texto vecino', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await first.click();
+	await page.keyboard.type('antes sitio despues', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectRangeInBlock(page, first, 6, 11);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, 0);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('Delete');
+	await expect(first.locator('a')).toHaveText('itio');
+
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, anchor.textContent.length);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('Backspace');
+	await expect(first).toHaveText('antes iti despues');
+	await expect(first.locator('a')).toHaveText('iti');
+	await expect(first.locator('a')).toHaveAttribute('href', 'https://ejemplo.com/');
+});
+
+test('borrar todo un enlace no deja un ancla invisible después de recargar', async ({ page }) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first);
+	await first.locator('a').evaluate((anchor) => {
+		anchor.parentElement.focus();
+		const range = document.createRange();
+		range.selectNodeContents(anchor);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('Backspace');
+	await expect(first.locator('a')).toHaveCount(0);
+	await page.waitForTimeout(700);
+	await page.reload();
+	const restored = page.locator('main [role="textbox"]').first();
+	await expect(restored.locator('a')).toHaveCount(0);
+	await expect(restored).toBeEmpty();
 });
 
 // Lo que reportó Hernan: la barra se abría sola al pararse sobre un enlace, sin

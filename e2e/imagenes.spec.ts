@@ -93,6 +93,47 @@ test('la captura se ve, se describe y se abre a tamaño real', async ({ page }) 
 	await expect(dialog).toHaveCount(0);
 });
 
+test('la manija selecciona la captura y Delete actúa sobre esa imagen', async ({ page }) => {
+	await newNote(page);
+	const row = page.locator('main [data-block-id]').first();
+	const blockId = await row.getAttribute('data-block-id');
+	await seedImage(page, blockId, 400, 200);
+
+	const imageRow = page.locator('main [data-block-id]').first();
+	await imageRow.hover();
+	const grip = imageRow.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+	await grip.click();
+	await expect(grip).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(page.getByRole('textbox', { name: 'Descripción de la imagen' })).toBeFocused();
+
+	await page.keyboard.press('Delete');
+	await expect(page.locator('main img')).toHaveCount(0);
+	await page.keyboard.press('ControlOrMeta+z');
+	await expect(page.locator('main img')).toBeVisible();
+});
+
+test('volver a la descripción suelta la selección antes de editar', async ({ page }) => {
+	await newNote(page);
+	const row = page.locator('main [data-block-id]').first();
+	const blockId = await row.getAttribute('data-block-id');
+	await seedImage(page, blockId, 400, 200);
+
+	const imageRow = page.locator('main [data-block-id]').first();
+	await imageRow.hover();
+	const grip = imageRow.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+	const caption = page.getByRole('textbox', { name: 'Descripción de la imagen' });
+	await grip.click();
+	await expect(grip).toHaveAttribute('aria-pressed', 'true');
+
+	await caption.click();
+	await expect(grip).toHaveAttribute('aria-pressed', 'false');
+	await caption.pressSequentially('detalle');
+	await page.keyboard.press('Delete');
+	await expect(page.locator('main img')).toBeVisible();
+	await expect(caption).toHaveValue('detalle');
+});
+
 test('una captura chica no se agranda, y sin descripción no aparece el +', async ({ page }) => {
 	await newNote(page);
 	const blockId = await page.locator('main [data-block-id]').first().getAttribute('data-block-id');
@@ -261,6 +302,9 @@ test('la lupa toma el foco al abrirse y lo devuelve al cerrarse', async ({ page 
 
 	await page.keyboard.press('Escape');
 	await expect(dialog).toHaveCount(0);
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
 	expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe(
 		'Ver la captura a tamaño real'
 	);

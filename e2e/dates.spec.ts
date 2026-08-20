@@ -30,6 +30,38 @@ test('slash date assigns a persistent badge', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Cambiar fecha' })).toHaveCount(0);
 });
 
+test('el botón de fecha vuelve a cerrar su panel', async ({ page }) => {
+	await newNote(page);
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	await page.getByRole('button', { name: 'Hoy' }).click();
+
+	const badge = page.getByRole('button', { name: 'Cambiar fecha' });
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await badge.click();
+	await expect(panel).toBeVisible();
+	await badge.click();
+	await expect(panel).toHaveCount(0);
+	await expect(first).toBeFocused();
+});
+
+test('Tab que sale de Fecha cierra el panel', async ({ page }) => {
+	await newNote(page);
+
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.type('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	const lastOption = panel.getByRole('button', { name: 'Elegir día…' });
+	await lastOption.focus();
+	await page.keyboard.press('Tab');
+	await expect(panel).toHaveCount(0);
+});
+
 // Spec 021 follow-up: the app open across midnight must roll date labels over
 // on its own, without a reload. Playwright's clock mock lets us cross midnight
 // deterministically: a block dated "tomorrow" must relabel to "today".

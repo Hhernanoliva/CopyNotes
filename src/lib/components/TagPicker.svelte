@@ -39,10 +39,11 @@
 	// Close when the user clicks anywhere outside the picker.
 	$effect(() => {
 		function handlePointerDown(event) {
+			if (event.target?.closest?.('[data-tag-picker-trigger]')) return;
 			if (rootEl && !rootEl.contains(event.target)) onClose();
 		}
-		document.addEventListener('pointerdown', handlePointerDown);
-		return () => document.removeEventListener('pointerdown', handlePointerDown);
+		document.addEventListener('pointerdown', handlePointerDown, true);
+		return () => document.removeEventListener('pointerdown', handlePointerDown, true);
 	});
 
 	function handleInput(event) {
@@ -79,9 +80,12 @@
 	}
 </script>
 
+<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={rootEl}
 	use:keyboardInset
+	data-editor-transient
+	onpointerdown={(event) => event.stopPropagation()}
 	class="cn-pop bg-popover border-border absolute top-full z-20 mt-1 w-60 rounded-md border p-1 shadow-md {align ===
 	'right'
 		? 'right-0'
@@ -99,7 +103,7 @@
 		aria-expanded="true"
 		aria-controls="tag-picker-list"
 		aria-activedescendant={options[index] ? `tag-option-${options[index].id}` : undefined}
-		class="placeholder:text-faint focus-visible:ring-ring mb-1 w-full rounded-sm bg-transparent px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
+		class="cn-touch-row placeholder:text-faint focus-visible:ring-ring mb-1 w-full rounded-sm bg-transparent px-2 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
 	/>
 	<div role="listbox" id="tag-picker-list" aria-label="Etiquetas" class="max-h-56 overflow-y-auto">
 		{#if options.length === 0}
@@ -117,7 +121,7 @@
 						index = 0;
 						inputEl.focus();
 					}}
-					class="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) {optionIndex ===
+					class="cn-touch-row flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) {optionIndex ===
 					index
 						? 'bg-accent text-foreground'
 						: 'text-muted-foreground hover:bg-accent hover:text-foreground'}"

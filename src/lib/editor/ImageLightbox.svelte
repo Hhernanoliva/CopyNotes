@@ -33,7 +33,9 @@
 	role="dialog"
 	aria-modal="true"
 	aria-label="Captura ampliada"
+	data-editor-transient
 	tabindex="-1"
+	onpointerdown={(event) => event.stopPropagation()}
 	onclick={onClose}
 >
 	<img src={url} {alt} class="mx-auto max-w-none" />

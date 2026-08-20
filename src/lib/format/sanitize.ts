@@ -93,6 +93,10 @@ function appendClean(node, target) {
 	}
 
 	for (const child of Array.from(node.childNodes)) appendClean(child, el);
+	if (tag === 'a' && el.textContent.length === 0) {
+		for (const child of Array.from(el.childNodes)) target.appendChild(child);
+		return;
+	}
 	target.appendChild(el);
 }
 

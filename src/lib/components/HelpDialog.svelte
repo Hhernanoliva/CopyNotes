@@ -35,12 +35,12 @@
 		{
 			title: 'Seleccionar y copiar',
 			items: [
-				{ keys: ['Shift', '↑ / ↓'], desc: 'Seleccionar varios renglones' },
+				{ keys: ['Esc'], desc: 'Sin panel abierto: seleccionar el renglón (otra vez: soltar)' },
+				{ keys: ['Shift', '↑ / ↓'], desc: 'Extender la selección a otros renglones' },
 				{ keys: ['Shift', 'clic'], desc: 'Seleccionar un rango (o arrastrando)' },
 				{ keys: [mod, 'C'], desc: 'Copiar la selección' },
 				{ keys: ['Tab'], desc: 'Anidar toda la selección (Shift+Tab la saca)' },
-				{ keys: ['Backspace'], desc: 'Borrar la selección' },
-				{ keys: ['Esc'], desc: 'Soltar la selección' }
+				{ keys: ['Backspace'], desc: 'Borrar la selección' }
 			]
 		},
 		{
@@ -49,7 +49,10 @@
 				{ keys: ['/'], desc: 'Menú de comandos' },
 				{ keys: ['- '], desc: 'Al empezar un renglón, lo convierte en viñeta' },
 				{ keys: ['#'], desc: 'Etiquetar' },
-				{ keys: [mod, 'K'], desc: 'Buscar' },
+				{
+					keys: [mod, 'K'],
+					desc: 'Buscar; con texto marcado edita enlace y dentro de uno muestra Abrir'
+				},
 				{ keys: [mod, 'F'], desc: 'Buscar (con el texto seleccionado)' },
 				{ keys: ['?'], desc: 'Abrir esta ayuda' }
 			]
@@ -112,7 +115,9 @@
 		{/each}
 
 		<p class="text-muted-foreground border-t pt-4 text-sm">
-			En cada renglón, pasá el mouse para ver el botón <span class="text-foreground font-medium"
+			La manija de cada renglón lo <span class="text-foreground font-medium">selecciona</span> al
+			tocarla y lo <span class="text-foreground font-medium">mueve</span> al arrastrarla. Pasá el
+			mouse para ver el botón <span class="text-foreground font-medium"
 				>Copiar</span
 			> (y <span class="text-foreground font-medium">Copiar con subniveles</span> si tiene hijos). El
 			menú <span class="text-foreground font-medium">⋯</span> lo guarda como snippet o le pone una

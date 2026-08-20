@@ -34,6 +34,10 @@ export function keyboardInset(node) {
 	if (!vv) return {}; // sin soporte: no-op
 
 	function reposition() {
+		// Components can cap their own scrollable height to the genuinely visible
+		// area. CSS viewport units still describe the layout viewport on iOS while
+		// the software keyboard is open.
+		node.style.setProperty('--visual-viewport-height', `${vv.height}px`);
 		// Medir sin el corrimiento anterior: getBoundingClientRect ya lo incluye,
 		// y encadenarlos haría que el menú se escapara hacia arriba solo.
 		node.style.translate = '';
@@ -63,6 +67,7 @@ export function keyboardInset(node) {
 			vv.removeEventListener('resize', reposition);
 			vv.removeEventListener('scroll', reposition);
 			observer.disconnect();
+			node.style.removeProperty('--visual-viewport-height');
 		}
 	};
 }

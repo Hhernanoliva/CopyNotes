@@ -47,6 +47,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 39. `039-restore-vs-cloud.md`
 40. `040-backup-compatibility-contract.md`
 41. `041-images-in-notes.md`
+42. `042-link-row-selection-ux.md`
 
 ## Pedido, sin spec todavía
 

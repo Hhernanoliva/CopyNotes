@@ -85,12 +85,14 @@ Con texto seleccionado, tocá el botón de enlace (ícono de cadena) o el atajo 
 
 - No hace falta escribir "https://" adelante: si ponés `ejemplo.com`, CopyNotes le agrega el `https://` solo.
 - Los enlaces siempre **abren en una pestaña nueva**, para no perder tu nota.
-- **Abrir** un enlace: **hacé clic encima** (o tocalo, en celular y tablet) y se abre en una pestaña nueva. Nada más: no hace falta mantener ninguna tecla apretada. El texto enlazado te muestra la manito del mouse para avisarte que ahí se puede clickear. **Ctrl/Cmd+clic** también lo abre, para quien ya lo tenía en el dedo.
-- **Editar** un enlace ya puesto: **seleccioná el texto enlazado** —arrastrando el mouse por encima, o manteniendo el dedo apretado en el celular— y tocá de nuevo el botón de enlace; el cuadrito aparece con la dirección actual lista para cambiar. Arrastrar sobre un enlace **lo marca, no lo abre**: sólo el clic seco te lleva a la dirección.
+- **Revisar un enlace mientras editás:** hacé clic o tocá el texto enlazado. El cursor queda ahí y aparece un panel chico con la dirección completa, **Abrir** y **Editar**; el primer gesto no te saca de la nota.
+- **Abrir** el destino: elegí **Abrir** en ese panel. En computadora, **Ctrl/Cmd+clic** lo abre directo. En una nota compartida de sólo lectura, donde no podés editar el texto, el clic o toque abre directo como antes.
+- **Editar** un enlace ya puesto: elegí **Editar** en el panel. También podés seleccionar el texto enlazado —arrastrando el mouse por encima o manteniendo el dedo apretado— y tocar de nuevo el botón de enlace; el cuadrito aparece con la dirección actual lista para cambiar.
+- **Editar sus letras:** podés poner el cursor dentro del enlace y escribir o borrar normalmente. Si borrás algunas letras, el resto sigue enlazado; si borrás todas, desaparece también el enlace invisible. Un solo **Ctrl/Cmd+Z** devuelve texto y enlace.
 - **Quitar** un enlace: mismo cuadrito, botón **Quitar**.
-- **Cerrar sin cambios:** **Escape** cierra el cuadrito del enlace (y también la barra de formato) y **te devuelve el cursor al texto**, así seguís escribiendo sin tener que volver a tocar el renglón.
+- **Cerrar sin cambios:** **Escape** cierra primero el panel o cuadrito del enlace (y también la barra de formato) y **te devuelve el cursor al texto**, así seguís escribiendo sin tener que volver a tocar el renglón.
 
-> Si tenés texto seleccionado adentro de un renglón, **Ctrl/Cmd+K** agrega el enlace ahí en vez de abrir el buscador general (ver "Buscar" más abajo).
+> **Ctrl/Cmd+K** mira el contexto: con texto seleccionado agrega o edita el enlace; con el cursor dentro de un enlace muestra **Abrir** y **Editar**; fuera de ambos abre el buscador general. En una nota compartida de sólo lectura siempre busca.
 
 ### Colores
 

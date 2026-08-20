@@ -4,7 +4,11 @@ CopyNotes está pensado también para el dedo, no solo para el mouse. En una pan
 
 ## Los controles aparecen en el renglón que tocás
 
-En la computadora, los botoncitos de cada renglón (la manija para arrastrar ⠿, el copiar y los tres puntitos) aparecen cuando ponés el mouse encima. En el teléfono o la tablet, **aparecen en el renglón que tocás**: al poner el cursor en una línea, esa línea muestra sus controles y las demás quedan limpias. Así la lista no se llena de íconos.
+En la computadora, los botoncitos de cada renglón (la manija ⠿, el copiar y los tres puntitos) aparecen cuando ponés el mouse encima. En el teléfono o la tablet, **aparecen en el renglón que tocás**: al poner el cursor en una línea, esa línea muestra sus controles y las demás quedan limpias. Así la lista no se llena de íconos. La manija sigue visible en esa fila aunque bajes el teclado, incluso si está vacía o contiene una imagen.
+
+## Tocar la manija selecciona; arrastrarla mueve
+
+La manija de puntitos tiene dos gestos separados: **tocá y soltá sin mover** para seleccionar el renglón entero, o **arrastrala** para cambiarlo de lugar. Seleccionarlo no abre el teclado: después podés copiarlo, borrarlo o usar sus controles. Si la fila está vacía, el botón **+** queda al lado y no reemplaza la manija.
 
 ## Botones más grandes para el dedo
 
@@ -60,9 +64,9 @@ Cuando un renglón ocupa varios renglones de pantalla y tiene una fecha 📅, la
 
 Al seleccionar texto en una pantalla angosta, la barra de formato **nunca se pasa del borde**: si no entra entera, su contenido se desliza para el costado dentro de la propia barra.
 
-## Los enlaces se abren con un toque
+## Los enlaces se revisan y se abren con dos toques
 
-**Tocá el texto enlazado y se abre**, en una pestaña nueva. Antes el enlace pedía mantener apretada la tecla Ctrl o Cmd, que en el teléfono no existe: quedaba marcado en azul pero no había forma de llegar a la dirección. Si lo que querés es **cambiarle la dirección**, mantené el dedo apretado para marcar el texto y tocá el botón de enlace en la barra de formato.
+Mientras editás, **el primer toque** sobre el texto enlazado deja el cursor ahí y muestra la dirección completa con **Abrir** y **Editar**. Tocá **Abrir** para ir a la dirección, o **Editar** para cambiarla. Así podés corregir letras dentro de un enlace sin salir de la nota por accidente y seguís teniendo una salida visible sin depender de Ctrl o Cmd. En una nota compartida de sólo lectura, el toque abre directo.
 
 ## El separador ocupa un solo renglón
 

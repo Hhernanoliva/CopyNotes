@@ -50,6 +50,17 @@ describe('sanitizeHtml', () => {
 			.toBe('<a href="https://example.com/" target="_blank" rel="noopener noreferrer">x</a>');
 	});
 
+	test('keeps a link while it still has characters', () => {
+		expect(sanitizeHtml('<a href="example.com">itio</a>'))
+			.toBe('<a href="https://example.com/" target="_blank" rel="noopener noreferrer">itio</a>');
+	});
+
+	test('unwraps an empty link without losing its line break', () => {
+		expect(sanitizeHtml('<a href="example.com"></a>')).toBe('');
+		expect(sanitizeHtml('<a href="example.com"><br></a>')).toBe('<br>');
+		expect(htmlToPlainText(sanitizeHtml('<a href="example.com"><br></a>'))).toBe('\n');
+	});
+
 	test('drops javascript: urls', () => {
 		expect(sanitizeHtml('<a href="javascript:alert(1)">x</a>')).toBe('x');
 	});

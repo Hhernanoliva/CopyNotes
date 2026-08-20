@@ -13,7 +13,7 @@
 	}
 </script>
 
-<div class="bg-popover border-border flex items-center gap-1 rounded-md border p-1 shadow-lg" role="dialog" aria-label="Editar enlace">
+<div class="bg-popover border-border flex w-[calc(100vw-1rem)] max-w-[22rem] items-center gap-1 rounded-md border p-1 shadow-lg" role="dialog" aria-label="Editar enlace">
 	<!-- svelte-ignore a11y_autofocus -->
 	<input
 		bind:this={input}
@@ -22,10 +22,10 @@
 		onmousedown={(e) => e.stopPropagation()}
 		placeholder="Pegá o escribí una URL"
 		aria-label="URL del enlace"
-		class="bg-background text-foreground h-8 w-56 rounded-sm px-2 text-sm outline-none"
+		class="cn-touch-row bg-background text-foreground focus-visible:ring-ring h-8 min-w-0 flex-1 rounded-sm px-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
 	/>
-	<button type="button" onmousedown={(e) => e.preventDefault()} onclick={submit} class="text-primary h-8 rounded-sm px-2 text-sm">Guardar</button>
+	<button type="button" onmousedown={(e) => e.preventDefault()} onclick={submit} class="cn-touch-row text-primary focus-visible:ring-ring h-8 rounded-sm px-2 text-sm focus-visible:ring-2 focus-visible:outline-none">Guardar</button>
 	{#if initialUrl}
-		<button type="button" onmousedown={(e) => e.preventDefault()} onclick={onRemove} class="text-destructive h-8 rounded-sm px-2 text-sm">Quitar</button>
+		<button type="button" onmousedown={(e) => e.preventDefault()} onclick={onRemove} class="cn-touch-row text-destructive focus-visible:ring-ring h-8 rounded-sm px-2 text-sm focus-visible:ring-2 focus-visible:outline-none">Quitar</button>
 	{/if}
 </div>
