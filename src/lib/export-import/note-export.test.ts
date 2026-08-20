@@ -276,3 +276,43 @@ describe('date suffix (spec 021)', () => {
 		expect(html).not.toContain(' — 📅');
 	});
 });
+
+describe('spec 041: una imagen se exporta como texto, nunca como blob:', () => {
+	// `buildForest` ubica la raíz filtrando `parentBlockId === null` (igualdad
+	// estricta): un bloque sin ese campo no entra al árbol y la nota exporta
+	// vacía. El texto del plan omite `parentBlockId` en estas dos pruebas —
+	// mismo defecto de forma que el de `toSharedPayload`, acá se corrige
+	// agregando el campo que YA llevan todos los demás fixtures de este
+	// archivo, sin tocar qué se está probando.
+	it('spec 041: una imagen se exporta como texto y se avisa', () => {
+		const blocks = [{ type: 'image', content: 'el error', imageId: 'a'.repeat(64), parentBlockId: null }];
+		expect(noteToMarkdown({ title: 'N' }, blocks)).toContain('[Imagen: el error]');
+		expect(noteToMarkdown({ title: 'N' }, blocks)).not.toContain('blob:');
+	});
+
+	it('spec 041: una imagen sin descripción sigue diciendo que hubo una imagen', () => {
+		const blocks = [{ type: 'image', content: '', imageId: 'a'.repeat(64), parentBlockId: null }];
+		expect(noteToMarkdown({ title: 'N' }, blocks)).toContain('[Imagen]');
+	});
+
+	it('el HTML también dice [Imagen: descripción] y nunca un blob:', () => {
+		const blocks = [{ type: 'image', content: 'el error', imageId: 'a'.repeat(64), parentBlockId: null }];
+		const html = noteToHtml({ title: 'N' }, blocks);
+		expect(html).toContain('[Imagen: el error]');
+		expect(html).not.toContain('blob:');
+	});
+
+	it('la descripción de una imagen se escapa en HTML', () => {
+		const blocks = [{ type: 'image', content: '<script>', imageId: 'a'.repeat(64), parentBlockId: null }];
+		expect(noteToHtml({ title: 'N' }, blocks)).not.toContain('<script>');
+	});
+
+	it('una imagen anidada bajo una lista también se avisa como texto', () => {
+		const blocks = [
+			{ id: 'a', type: 'bullet', content: 'Padre', parentBlockId: null, order: 0 },
+			{ id: 'b', type: 'image', content: 'captura', imageId: 'a'.repeat(64), parentBlockId: 'a', order: 0 }
+		];
+		expect(noteToMarkdown({ title: 'N' }, blocks)).toContain('[Imagen: captura]');
+		expect(noteToHtml({ title: 'N' }, blocks)).toContain('[Imagen: captura]');
+	});
+});

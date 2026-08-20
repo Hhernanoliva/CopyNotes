@@ -2253,7 +2253,16 @@
 	}
 
 	async function handleSaveSnippet(block) {
-		const fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
+		// `snippetFieldsFromBlocks` es la guardia (spec 041 §8): rechaza en voz
+		// alta si el bloque o alguno de sus hijos es una imagen. Acá sólo se
+		// muestra lo que ya dijo.
+		let fields;
+		try {
+			fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'No se pudo guardar el snippet.');
+			return;
+		}
 		await createSnippet(fields);
 		toast.success('Snippet guardado');
 		if (onSnippetsChanged) onSnippetsChanged();

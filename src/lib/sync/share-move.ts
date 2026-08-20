@@ -18,6 +18,7 @@
 import { db } from '../storage/db';
 import { setShareRole } from '../storage/shares';
 import { pushSharedNote } from './shared';
+import { listBlocksByNote } from '../storage/blocks';
 
 async function noteRows(noteId) {
 	const note = await db.table('notes').get(noteId);
@@ -41,7 +42,17 @@ async function restampForNewPipe(rows) {
 	}
 }
 
+// Spec 041 §8, criterio 16: se comprueba ACÁ, no sólo en el diálogo — el
+// diálogo es la cortesía, esto es la guardia. Antes de cualquier llamada al
+// servidor: abrir un `open_share` para cerrarlo después es peor que no
+// llamarlo. Sólo cuentan las imágenes vivas: un bloque de imagen borrado ya
+// no tiene picture bytes que no puedan viajar, sólo una lápida.
 export async function shareNote(client, noteId) {
+	const blocks = await listBlocksByNote(noteId);
+	if (blocks.some((block) => block.type === 'image')) {
+		throw new Error('No se pueden compartir notas con imágenes todavía.');
+	}
+
 	const { error } = await client.rpc('open_share', { p_note_id: noteId });
 	if (error) throw new Error(error.message);
 

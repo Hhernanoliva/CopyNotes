@@ -35,12 +35,22 @@ export function snapshotFromBlocks(blocks, rootId) {
 	return node(root);
 }
 
+// Spec 041 §8: un snippet vive fuera de su nota de origen, y su cuerpo se
+// exporta como referencia sin bytes — una imagen adentro sería una referencia
+// sin qué mostrar. Mira el árbol entero: la raíz o cualquier descendiente.
+function snapshotHasImage(node) {
+	return node.type === 'image' || node.children.some(snapshotHasImage);
+}
+
 // Everything createSnippet needs when saving a block (with children) as a
 // snippet. `content` is the plain-text rendering so snippets stay searchable
 // and usable even without their structured snapshot.
 export function snippetFieldsFromBlocks(blocks, rootId, noteId) {
 	const root = blocks.find((block) => block.id === rootId);
 	const snapshot = snapshotFromBlocks(blocks, rootId);
+	if (snapshotHasImage(snapshot)) {
+		throw new Error('Un atajo no puede tener imágenes todavía.');
+	}
 	return {
 		name: deriveName(root.content),
 		content: formatPlainText(buildCopyTree(blocks, rootId, true)),

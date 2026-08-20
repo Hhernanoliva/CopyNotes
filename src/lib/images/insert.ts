@@ -2,6 +2,7 @@
 // ninguno (spec 041 §4.2). Toda la preparación que puede fallar —firma, tope,
 // medidas, huella— ocurre ANTES, así que la transacción sólo escribe.
 import { createBlock } from '../storage/blocks';
+import { getNote } from '../storage/notes';
 import { putBody } from './bodies';
 import { prepareImage } from './ingest';
 
@@ -13,6 +14,14 @@ export async function insertImageBlock({
 	measure,
 	saveBody = putBody
 }) {
+	// Spec 041 §8, criterio 16: comprobado ACÁ, en el almacenamiento, no sólo en
+	// la pantalla — una nota compartida no toma una imagen porque sus bytes no
+	// pueden viajar por el caño compartido (spec/sync/shared-payload.ts). ANTES
+	// de tocar el archivo: procesar bytes que de entrada no van a entrar es
+	// trabajo tirado.
+	const note = await getNote(noteId);
+	if (note?.share) return { status: 'shared', block: null };
+
 	const prepared = await prepareImage(file, measure);
 	if (prepared.status !== 'ready') return { ...prepared, block: null };
 

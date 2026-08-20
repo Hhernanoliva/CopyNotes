@@ -53,6 +53,7 @@ describe('IMAGE_INSERT_MESSAGES', () => {
 		expect(Object.keys(IMAGE_INSERT_MESSAGES).sort()).toEqual([
 			'failed',
 			'not-an-image',
+			'shared',
 			'too-large',
 			'undecodable'
 		]);

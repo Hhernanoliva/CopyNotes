@@ -111,6 +111,30 @@ describe('una lápida no se lleva el texto puesto', () => {
 	});
 });
 
+// Spec 041 §8: una imagen es local y sin sincronizar. Mandarla a medias por
+// el caño compartido (sólo la descripción, sin el cuerpo) sería fingir que
+// viajó entera — mejor que el caño se frene ACÁ, en voz alta.
+describe('spec 041: el caño compartido no manda imágenes a medias', () => {
+	it('spec 041: el caño compartido RECHAZA una imagen, no la manda a medias', () => {
+		expect(() =>
+			toSharedPayload('blocks', { type: 'image', content: 'x', imageId: 'a'.repeat(64) })
+		).toThrow(/imagen/i);
+	});
+
+	it('una lápida de un bloque de imagen SÍ viaja: no lleva pixeles, sólo dice que ya no está', () => {
+		expect(() =>
+			toSharedPayload('blocks', {
+				id: 'b1',
+				noteId: 'n1',
+				type: 'image',
+				content: 'x',
+				imageId: 'a'.repeat(64),
+				deletedAt: '2026-08-20T00:00:00.000Z'
+			})
+		).not.toThrow();
+	});
+});
+
 describe('lo que llega se limpia, lo escribió quien lo escribió', () => {
 	it('desarma el marcado que no está en la lista blanca y deja el texto', () => {
 		const clean = cleanSharedPayload('blocks', {

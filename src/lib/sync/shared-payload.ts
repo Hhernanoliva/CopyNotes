@@ -53,7 +53,18 @@ const IDENTITY_FIELDS = {
 	activity: ['id', 'noteId', 'blockId', 'deletedAt']
 };
 
+// Spec 041 §8: una imagen es local, sin sincronizar — sus bytes no existen del
+// otro lado del caño. Mandar sólo la descripción y fingir que viajó entera es
+// justo la falla que este rechazo evita; se frena en voz alta, no a medias.
+// Una lápida (`deletedAt`) SÍ viaja: no lleva píxeles, dice nada más "esto ya
+// no está", y frenarla dejaría esa nota compartida sin forma de sincronizar
+// nunca más un borrado.
 export function toSharedPayload(table, row) {
+	if (table === 'blocks' && row.type === 'image' && !row.deletedAt) {
+		throw new Error(
+			'No se puede compartir un bloque de imagen: la imagen no viaja por el caño compartido.'
+		);
+	}
 	const fields = (row.deletedAt ? IDENTITY_FIELDS[table] : SHARED_FIELDS[table]) ?? [];
 	const payload = {};
 	for (const field of fields) {

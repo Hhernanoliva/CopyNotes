@@ -128,9 +128,15 @@
 				mimeType
 			});
 			if (result.status !== 'saved') return;
-			if (allSaved) toast.success('Nota exportada');
-			else
+			// Spec 041 §8: un `blob:` no existe fuera de CopyNotes, así que el
+			// archivo lleva `[Imagen: descripción]` en su lugar (note-export.ts) — y
+			// esto es lo único que puede avisarlo, porque el archivo ya se guardó.
+			const hasImages = blocks.some((block) => block.type === 'image');
+			if (!allSaved)
 				toast.warning('Nota exportada — un cambio reciente no se pudo guardar y puede faltar.');
+			else if (hasImages)
+				toast.warning('Nota exportada — las imágenes no se incluyeron, sólo su descripción.');
+			else toast.success('Nota exportada');
 		} catch {
 			toast.error('No se pudo exportar la nota. Tus datos siguen intactos.');
 		} finally {

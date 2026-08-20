@@ -32,8 +32,17 @@ const CONTEXT_TYPES = new Set(['text', 'bullet', 'heading1', 'heading2', 'headin
 
 function includeBlock(block) {
 	if (block.type === 'todo') return true; // pending AND completed — the Markdown view filters completed
+	if (block.type === 'image') return true; // se avisa igual sin descripción, como en el export a archivo
 	if (!CONTEXT_TYPES.has(block.type)) return false;
 	return (block.content ?? '').trim() !== '';
+}
+
+// Spec 041 §8: la autorización que Hernán dio es para texto y tareas, no para
+// una imagen — mostrarle una foto al agente es otro permiso, no una
+// consecuencia de `agentVisible`. Mismo texto que el export a archivo
+// (note-export.ts), sin bytes, sin medidas, sin ids de imagen.
+function imageExportText(block) {
+	return block.content ? `[Imagen: ${block.content}]` : '[Imagen]';
 }
 
 // Copies ONLY the allow-listed fields. `note` (the user's comment) and `html`
@@ -49,6 +58,9 @@ function projectBlock(block, depth, activity) {
 			createdBy: block.createdBy ?? 'user',
 			activity: activity ?? []
 		};
+	}
+	if (block.type === 'image') {
+		return { id: block.id, type: 'image', content: imageExportText(block), depth };
 	}
 	return { id: block.id, type: block.type, content: block.content, depth };
 }

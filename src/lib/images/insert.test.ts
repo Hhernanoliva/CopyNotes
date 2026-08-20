@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { db } from '../storage/db';
+import { createNote } from '../storage/notes';
 import { listBodyIds } from './bodies';
 import { insertImageBlock } from './insert';
 import * as blocksModule from '../storage/blocks';
@@ -12,7 +13,11 @@ const file = (bytes) => new File([bytes], 'image.png', { type: 'image/png' });
 
 describe('insertar una captura', () => {
 	beforeEach(async () => {
-		await Promise.all([db.table('blocks').clear(), db.table('imageBodies').clear()]);
+		await Promise.all([
+			db.table('blocks').clear(),
+			db.table('imageBodies').clear(),
+			db.table('notes').clear()
+		]);
 	});
 
 	it('deja un bloque de tipo image y su cuerpo', async () => {
@@ -58,5 +63,25 @@ describe('insertar una captura', () => {
 		expect(result.block).toBe(null);
 		expect(await db.table('blocks').count()).toBe(0);
 		spy.mockRestore();
+	});
+
+	// Spec 041 §8, criterio 16: comprobado en el almacenamiento, no sólo en la
+	// pantalla — una nota compartida no toma una imagen.
+	it('spec 041: una nota compartida no toma una imagen', async () => {
+		const note = await createNote({ title: 'compartida' });
+		await db.table('notes').update(note.id, { share: 'owner' });
+
+		const result = await insertImageBlock({ noteId: note.id, file: file(PNG), measure: measures });
+
+		expect(result.status).toBe('shared');
+		expect(result.block).toBe(null);
+		expect(await db.table('blocks').count()).toBe(0);
+		expect(await listBodyIds()).toEqual([]);
+	});
+
+	it('una nota SIN compartir sigue tomando la imagen como siempre', async () => {
+		const note = await createNote({ title: 'propia' });
+		const result = await insertImageBlock({ noteId: note.id, file: file(PNG), measure: measures });
+		expect(result.status).toBe('ready');
 	});
 });

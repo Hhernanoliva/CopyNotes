@@ -20,7 +20,11 @@ export const IMAGE_INSERT_MESSAGES = {
 	'too-large': 'Esa imagen pesa más de 5 MB. Probá con una captura más chica.',
 	'not-an-image': 'Ese archivo no es una imagen que CopyNotes pueda guardar.',
 	undecodable: 'No se pudo leer esa imagen.',
-	failed: 'No se pudo guardar la imagen. Puede que no haya espacio.'
+	failed: 'No se pudo guardar la imagen. Puede que no haya espacio.',
+	// Spec 041 §8: una nota compartida no toma una imagen — sus bytes no viajan
+	// por el caño compartido. `insertImageBlock` ya lo comprueba en el
+	// almacenamiento; esto es lo que ese rechazo dice en pantalla.
+	shared: 'Una nota compartida todavía no puede tener imágenes.'
 };
 
 let persistAsked = false;
