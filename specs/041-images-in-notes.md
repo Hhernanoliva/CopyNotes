@@ -245,8 +245,14 @@ never indexed.
 `changeSeq` hook, and it never appears in `records`. The server-side `table_name`
 check (`supabase/schema.sql:35`) already refuses it, and that refusal stays.
 
-The block and its body are written in **one Dexie transaction**: both or neither.
-All preparation in §3.3 happens before the transaction opens.
+**The bytes are written first, then the block.** All preparation in §3.3 — the
+one that can refuse — happens before either write. The order is the guarantee,
+and it is directional on purpose: an orphan body is invisible and recoverable,
+while a block pointing at bytes that do not exist is a broken picture on screen.
+A real Dexie transaction across the two tables was considered and dropped: it
+would have to nest `createBlock` (and its hooks, its ordering read and its
+`bumpAgentData`) inside an outer transaction, which buys nothing the ordering
+does not already buy.
 
 Every write still goes through `createBlock` / `putBlock` / `updateBlock` in
 `storage/blocks.ts`, all of which sit inside `trackPendingWrite`. A direct write
