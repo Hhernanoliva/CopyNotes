@@ -52,13 +52,21 @@ src/
     blocks/         block types, hierarchy, nesting, ordering, collapse, cascade
     editor/         editor UI, keyboard behavior, slash commands, selection, paste, history
     format/         inline formatting engine, sanitize/ingest gate, block types map
+    images/         capturas de pantalla (spec 041): el ingestor que puede decir
+                    que no, la ÚNICA puerta a la tabla `imageBodies`, el alta
+                    atómica bloque+bytes, y el texto `[Imagen: …]` con el que
+                    una imagen se proyecta a cualquier lado que no pueda llevar
+                    píxeles. Los bytes viven acá y en ningún otro lado
     storage/        Dexie setup, repositories, migrations — the ONLY data access
                     path — plus the cross-tab write signal (`tab-channel.js`)
     copy/           clipboard formatters and serialization
     snippets/       snippet creation, favorites, insertion
     tags/           tag creation, assignment, filtering
     search/         text + tag search engine (swappable behind one interface)
-    export-import/  JSON backup, Markdown/HTML export, import validation
+    export-import/  JSON backup, Markdown/HTML export, import validation, y el
+                    paquete `.copynotes` — un ZIP con el método STORE escrito a
+                    mano (sin librería: sin compresión, una bomba zip es
+                    imposible por construcción)
     theme/          dark/light, tokens, preference
     onboarding/     demo note, first-run
     pwa/            service worker, offline. NOT installability: the web build
@@ -128,6 +136,46 @@ Rules that keep agents safe here:
 - **Un camino que sólo existe con un diálogo del sistema de por medio no lo cubre ningún e2e, y "no pasa nada" nunca puede ser un resultado posible.** `platform/files.js` abría un `<input type=file>` y usaba el `focus` de la ventana para decidir que la persona había cancelado. Pero al cerrarse un diálogo nativo el foco vuelve **antes** de que llegue el archivo, así que la heurística le corría una carrera al sistema operativo: con 100 ms perdía en Chrome, con 1500 ms perdía en iOS (que copia el archivo desde iCloud antes de entregarlo). **Cualquier plazo es el plazo equivocado**; cancelar lo dice el navegador con su evento `cancel` y nadie más. Lo grave no fue la carrera sino su forma de fallar: cancelar es *no hacer nada*, indistinguible de "todavía está pensando". Y ningún test podía verlo — Playwright entrega el archivo con `setFiles`, sin diálogo nativo, así que la ventana nunca pierde el foco y ese código no se ejecuta; en la `.app` tampoco fallaba (otro motor, otro orden de eventos). Un camino así se prueba en jsdom despachando los eventos a mano (`platform/files.test.js`). Y todo tramo que pueda tirar una excepción entre "la persona apretó" y "la pantalla contestó" va envuelto: una excepción suelta ahí se va al vacío y la app se queda muda.
 - **La web puede quedarse en una versión vieja sin decir nada, y eso hace perseguir bugs ya arreglados.** El service worker usa `registerType: 'autoUpdate'`: el nuevo se activa y toma el control de la pestaña abierta, pero el JavaScript ya cargado sigue siendo el viejo hasta que la página arranque de nuevo. Una pestaña que no vuelve a cargar de verdad —en un celular, días— se queda atrás en silencio. Costó tres rondas de diagnóstico y dos arreglos publicados descubrir que el teléfono corría código de antes. Por eso el cambio de control **ofrece** un cartelito con *Actualizar* (`pwa/web-update.js`, con su guardia: el PRIMER control es la primera visita, no una versión nueva) y se pregunta una vez por hora, porque antes se preguntaba sólo al arrancar. No se recarga solo a propósito: cortar una frase a la mitad por una mejora que nadie pidió es peor que la versión vieja. **Antes de diagnosticar cualquier reporte de la web, descartar el código viejo**: comparar el hash del bundle servido contra `pnpm build`, o probar en una preview (otro origen, sin nada guardado).
 
+## Un tipo de bloque nuevo se rechaza en MÁS puertas de las que parece
+
+Un tipo que no puede viajar a todos lados —hoy `image`, cuyos bytes viven fuera de
+la fila— tiene que ser rechazado o degradado en **cada proyección**, y las
+proyecciones son más de las que uno lista de memoria. En la spec 041 se cerraron
+dos de las tres puertas de entrada y **cinco de las seis de salida**; lo que faltó
+no lo encontró ninguna revisión por tarea, porque cada una miraba su propio diff.
+
+**Las tres puertas de ENTRADA** (por donde nace una fila que este aparato no creó):
+
+| puerta | archivo | qué hace |
+|---|---|---|
+| portapapeles y atajos | `format/ingest.ts` | degrada a texto. **Cualquier página web puede escribir nuestro formato de portapapeles**, así que es una frontera de confianza, no una comodidad |
+| archivo de respaldo | `export-import/schema.ts` | rechaza el archivo entero |
+| lo que LLEGA de otra persona | `sync/shared-payload.ts` (`cleanSharedPayload`) | degrada a texto. **Ésta es la que se olvidó** |
+
+La de arriba se olvidó porque las otras dos se parecen entre sí y ésta no: la
+salida del caño compartido es una **lista blanca** de campos, pero la entrada es
+`{ ...payload }` — copia todo lo que mandó el otro. Una lista blanca que se olvida
+un campo pierde una función; una lista negra que se olvida un campo es un agujero.
+
+**Las seis proyecciones de SALIDA:** `copy/format.ts` (el portapapeles del sistema
+— **ésta también se olvidó**), `note-export.ts` (que tiene CUATRO ramas: markdown y
+html, cada una anidada y sin anidar), `bridge/export.ts` (el agente),
+`snippets/snapshot.ts`, `sync/shared-payload.ts` (`toSharedPayload`, que tira), y
+el respaldo. Escribí el texto de la proyección **en un solo módulo** y llamalo
+desde las seis: en la 041 se duplicó dos veces antes de extraerlo.
+
+Dos reglas más que costaron caro:
+
+- **La lápida tiene que poder viajar igual.** `toSharedPayload` tira si la fila es
+  una imagen viva, pero NO si está borrada: una lápida no lleva píxeles, y tirar
+  ahí traba esa nota para siempre sin salida desde la pantalla. Borrar el bloque es
+  justo lo que destraba.
+- **Un rechazo que tira necesita su paraguas por nota.** Lo que tiraba
+  `pushSharedNote` se escapaba del lazo y le caía a `syncNow`, que llama al caño
+  compartido ANTES del cifrado ⇒ **una sola fila envenenada abortaba el ciclo
+  entero, cada 30 segundos, para siempre**, con el aviso genérico y sin decir cuál
+  nota. Un `try`/`catch` por nota; el ciclo sigue.
+
 ## Un caño de sincronización nuevo le debe cinco cosas al respaldo
 
 Cada caño (la nube cifrada de la spec 030, el compartido de la 038, y lo que venga
@@ -149,6 +197,17 @@ Dos están mecanizadas y hay que dejarlas hacer su trabajo: `EXPORTED_FIELDS` (u
 clave no declarada rompe `storage/backup.test.ts`) y el respaldo mínimo de
 `export-import/schema.test.ts` (un campo obligatorio nuevo rompe la prueba). Las
 otras tres son prosa: leelas.
+
+**Y una excepción que parece un olvido y no lo es:** `imageBodies` (spec 041) no
+está ni en `SYNCED_TABLES` ni en `BACKUP_TABLES`, **a propósito y por motivos
+distintos**. Fuera de la sincronización porque `sync/records.ts` hace
+`JSON.stringify` y un `Blob` se convierte en `{}` sin error. Fuera del respaldo
+porque sus filas no son JSON — los bytes viajan en el paquete `.copynotes`, por su
+propio camino. Cada ausencia obliga algo: la primera, que la parte B suba los bytes
+aparte; la segunda, que "Reemplazar todo" limpie esa tabla **a mano**, porque el
+borrado recorre justamente `BACKUP_TABLES` (y esa limpieza va DENTRO de la misma
+transacción, o Dexie la rechaza por estar fuera de alcance). Agregarla a cualquiera
+de las dos listas parece un arreglo y no lo es.
 
 ## Una pantalla que sigue viva a través de un login tiene que SEGUIR la sesión
 
