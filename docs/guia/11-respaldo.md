@@ -31,6 +31,8 @@ Todo funciona sin internet.
 3. Antes de aplicar, te muestra un resumen: cuántas notas y bloques se van a agregar, qué ya tenés idéntico (se omite) y si algo cambió en los dos lados (se conservan ambas versiones).
 4. **Importar y conservar lo mío** suma lo del archivo a lo que ya tenés. Nunca pisa ni borra tus datos. Es la opción recomendada.
 
+Si el `.copynotes` que importás avisó al bajarse que le faltaba alguna imagen (o si le falta por cualquier otro motivo), esa captura en particular aparece como **"Imagen no disponible"** en el lugar donde iba; el resto de la nota entra igual, sin que le falte nada más.
+
 Importar tu propio respaldo sobre las mismas notas no las duplica: lo que ya tenés igual se omite y el resumen lo dice. Antes, las notas que habías creado arriba de todo en la lista volvían como copias; ya no pasa.
 
 Cuando una nota **sí** cambió en los dos lados, se conservan las dos versiones: la tuya queda como está y la del archivo entra como nota aparte. Esa copia viene **con todos sus renglones**, incluso los que son idénticos a los tuyos. Antes la copia llegaba vacía —solo el título— porque sus renglones se contaban como "ya lo tengo" y se quedaban en la nota original.

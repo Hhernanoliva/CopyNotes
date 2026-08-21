@@ -3,6 +3,13 @@
 Podés pegar una captura de pantalla adentro de un renglón, como una imagen más
 de la nota.
 
+## Por ahora, sólo en este aparato
+
+Antes que nada: una captura pegada hoy **se queda en el aparato donde la
+pegaste**, aunque tengas la nube encendida. Si abrís la misma nota en el
+celular o en otra computadora, todavía no la vas a ver ahí. Al final de este
+tema, en "Lo que todavía no hace", está el resto de lo que falta.
+
 ## Tres formas de agregar una
 
 - **Pegarla.** Sacás la captura (con lo de siempre: Cmd+Shift+4 en Mac, la
@@ -47,7 +54,8 @@ te avisa por qué:
   dañado.
 - **"No se pudo guardar la imagen. Puede que no haya espacio."**
 
-En los cuatro casos no queda nada a medio pegar: si falla, no pasa nada.
+En los cuatro casos no te queda un renglón a medio pegar: si falla, no aparece
+nada roto.
 
 ## La misma captura, dos veces
 
@@ -71,6 +79,11 @@ de `.json` es un `.copynotes`, que además del texto de siempre incluye las
 imágenes. Sigue siendo un archivo que se abre con doble clic y se importa
 igual que cualquier respaldo. Más detalles en el tema 11.
 
+Si al bajar el respaldo a alguna imagen le faltaban los datos, CopyNotes te lo
+avisó en ese momento (tema 11). Si igual lo importás más adelante, esa imagen
+en particular se muestra como **"Imagen no disponible"** en su lugar; el resto
+de la nota no se ve afectado.
+
 ## Lo que todavía no hace
 
 - **No viajan a tus otros dispositivos.** Por ahora una imagen se queda en el
@@ -79,4 +92,6 @@ igual que cualquier respaldo. Más detalles en el tema 11.
 - **Una nota con imágenes no se puede compartir** con otra persona.
 - **No se pueden guardar dentro de un snippet.**
 - **Exportar la nota a Markdown o a HTML no lleva la imagen**: en su lugar
-  queda el texto `[Imagen: la descripción que le pusiste]`.
+  queda el texto `[Imagen: ...]`, con la descripción que le pusiste en el
+  lugar de los puntos suspensivos — o `[Imagen]` sin nada más, si no le
+  pusiste ninguna.
