@@ -115,9 +115,9 @@ function decide(local, payload, uploadMark) {
 // No se puede arreglar ignorando `deletedAt` en la comparación: entre una fila
 // borrada acá y la misma viva allá, ignorarlo las haría "iguales" y el borrado
 // se aplicaría solo. Lo que no es un desacuerdo es que los DOS estén borrados.
-function nothingToDecide(local, remote) {
+function nothingToDecide(table, local, remote) {
 	if (isDeletion(local) && isDeletion(remote)) return true;
-	return sameToTheUser(local, remote);
+	return sameToTheUser(table, local, remote);
 }
 
 // The server column is `table_name`; the record's identity — which is bound into
@@ -183,7 +183,7 @@ export async function downloadOnce() {
 			// Mismo número sin confirmar: hay que abrir el sobre para saber si es mi
 			// propia versión volviendo o el cambio distinto del otro aparato.
 			const remote = await decryptPayload(key, payload);
-			if (nothingToDecide(local, remote)) {
+			if (nothingToDecide(payload.table_name, local, remote)) {
 				// Es lo mío. Nada que escribir, pero sí algo que anotar: el servidor
 				// demostrablemente tiene esta versión, y la próxima subida tiene que
 				// declarar sobre cuál se para o va a ser rechazada.
@@ -207,7 +207,7 @@ export async function downloadOnce() {
 			}
 		} else if (action === 'conflict') {
 			const remote = await decryptPayload(key, payload);
-			if (nothingToDecide(local, remote)) {
+			if (nothingToDecide(payload.table_name, local, remote)) {
 				// Dos escrituras distintas que dejan la fila IGUAL para quien la mira.
 				// Pasa cuando los dos aparatos llegan al mismo valor por su cuenta —el
 				// mismo lugar para el mismo renglón, el mismo tilde en la misma tarea—:

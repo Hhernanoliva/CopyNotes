@@ -770,6 +770,23 @@ describe('un archivo roto se explica en castellano (spec 040)', () => {
 	});
 });
 
+// Tarea 11 de spec 041: la regresión que más importa. Este plan tocó el
+// validador, la lista de forma y la comparación del merge — las tres cosas
+// que, si se desacuerdan, duplican en silencio la base de alguien (spec 040:
+// 1154 conflictos, 1147 renglones duplicados, con un archivo idéntico al que
+// el aparato ya tenía). Un `.json` de las versiones 1 a 5 tiene que seguir
+// entrando igual que antes de spec 041.
+describe('spec 041: los respaldos viejos siguen entrando', () => {
+	it('los respaldos de las versiones 1 a 5 siguen entrando', () => {
+		for (const formatVersion of [1, 2, 3, 4, 5]) {
+			const result = validateBackup(
+				makeBackup({ notes: [makeNote()], blocks: [makeBlock()] }, { formatVersion })
+			);
+			expect(result.ok, `versión ${formatVersion}`).toBe(true);
+		}
+	});
+});
+
 describe('spec 041: un bloque de imagen es un bloque válido', () => {
 	const imageBlock = (overrides = {}) => ({
 		...makeBlock(),
@@ -804,6 +821,25 @@ describe('spec 041: un bloque de imagen es un bloque válido', () => {
 	it('rechaza un imageType que no es uno de los cuatro MIME types permitidos', () => {
 		const invalid = validateBackup(
 			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageType: 'image/svg+xml' })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	// El mismo agujero que ya se cerró en el portapapeles (Tarea 7): `imageId` es
+	// `v.optional` en el esquema, así que `type: 'image'` sin él pasa la validación
+	// de forma sin quejarse y sólo lo cazaba, hasta ahora, nada. Un archivo así
+	// restaura un marco que nunca se llena, y atascaría la sincronización si esa
+	// nota se llegara a compartir.
+	it('rechaza un bloque de imagen sin imageId', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: undefined })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	it('rechaza un bloque de imagen con imageId en null', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: null })] })
 		);
 		expect(invalid.ok).toBe(false);
 	});

@@ -396,6 +396,13 @@ function referenceErrors(data, existing) {
 			noteOfBlock.get(block.parentBlockId) !== block.noteId
 		)
 			errors.push(`El bloque ${block.id} cuelga de un bloque de otra nota.`);
+		// Spec 041: la misma trampa que ya se cerró en el portapapeles (`format/
+		// ingest.ts`), reabierta por la puerta del import — un `imageId` es opcional
+		// en el esquema, así que `looseObject` deja pasar un bloque `type: 'image'`
+		// sin él. Sin este control entraría como un marco que nunca se llena, y si
+		// esa nota se compartiera alguna vez, atascaría su sincronización.
+		if (block.type === 'image' && !/^[0-9a-f]{64}$/.test(block.imageId))
+			errors.push(`El bloque ${block.id} dice ser una imagen pero no tiene un imageId válido.`);
 	}
 	// Un padre fuera del archivo (uno local) corta la cadena: no se puede seguir, y
 	// tampoco puede cerrar un círculo acá adentro.
