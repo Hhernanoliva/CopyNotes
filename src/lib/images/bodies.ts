@@ -18,7 +18,23 @@ export function putBody({ imageId, blob, type, bytes, width, height }) {
 	return trackPendingWrite(async () => {
 		// `put` y no `add`: la huella ES el contenido, así que volver a guardar la
 		// misma imagen escribe exactamente los mismos bytes. No es un conflicto.
-		await bodies().put(imageBodyRow({ imageId, blob, type, bytes, width, height }));
+		//
+		// Pero `imageBodyRow` estampa `uploadedFor: null` y un `createdAt` nuevo, y
+		// esos dos NO son el contenido: son la historia de la fila. Pegar dos veces
+		// la misma captura le borraba la marca de "ya subida" y la fecha en que
+		// entró. Hoy no cuesta nada —nadie lee `uploadedFor` todavía—; el día que
+		// la parte B enchufe la subida, es una subida repetida por cada pegado.
+		//
+		// El guardia va en la puerta única, no en cada llamador: el importador
+		// (`BackupDialog`) ya se había tenido que defender solo, y quien escriba el
+		// llamador siguiente no va a estar leyendo este archivo.
+		const previo = await bodies().get(imageId);
+		const fila = imageBodyRow({ imageId, blob, type, bytes, width, height });
+		if (previo) {
+			fila.createdAt = previo.createdAt;
+			fila.uploadedFor = previo.uploadedFor;
+		}
+		await bodies().put(fila);
 		return imageId;
 	});
 }

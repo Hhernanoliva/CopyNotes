@@ -32,6 +32,33 @@ describe('los cuerpos de las imágenes', () => {
 		expect((await getBody(ID)).uploadedFor).toBe(null);
 	});
 
+	// `imageBodyRow` estampa `uploadedFor: null` y un `createdAt` nuevo cada vez,
+	// y `putBody` hacía un `put` entero. Pegar dos veces la misma captura le
+	// borraba la marca de "ya subida": hoy no la lee nadie, pero el día que la
+	// parte B enchufe la subida es una subida repetida por cada pegado.
+	//
+	// El importador (`BackupDialog`) ya se había tenido que defender solo
+	// filtrando contra `listBodyIds()`; el guardia va en la puerta única.
+	it('volver a guardar la misma captura NO le borra la marca de subida', async () => {
+		await putBody({ imageId: ID, blob: bytes(), type: 'image/png', bytes: 4, width: 2, height: 2 });
+		await markBodyUploaded(ID, 'cuenta-1');
+
+		await putBody({ imageId: ID, blob: bytes(), type: 'image/png', bytes: 4, width: 2, height: 2 });
+
+		expect((await getBody(ID)).uploadedFor).toBe('cuenta-1');
+	});
+
+	it('ni le mueve la fecha en que entró', async () => {
+		await putBody({ imageId: ID, blob: bytes(), type: 'image/png', bytes: 4, width: 2, height: 2 });
+		const nacimiento = (await getBody(ID)).createdAt;
+		await db.table('imageBodies').update(ID, { createdAt: '2020-01-01T00:00:00.000Z' });
+
+		await putBody({ imageId: ID, blob: bytes(), type: 'image/png', bytes: 4, width: 2, height: 2 });
+
+		expect((await getBody(ID)).createdAt).toBe('2020-01-01T00:00:00.000Z');
+		expect((await getBody(ID)).createdAt).not.toBe(nacimiento);
+	});
+
 	it('NO es una tabla sincronizada, y eso es a propósito', () => {
 		expect(SYNCED_TABLES).not.toContain('imageBodies');
 	});
