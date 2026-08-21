@@ -95,3 +95,7 @@ de la nota no se ve afectado.
   queda el texto `[Imagen: ...]`, con la descripción que le pusiste en el
   lugar de los puntos suspensivos — o `[Imagen]` sin nada más, si no le
   pusiste ninguna.
+- **Copiar el renglón tampoco la lleva**: si copiás una imagen (con el botón
+  de copiar del renglón, o con Ctrl/Cmd+C) y la pegás en otro programa, ahí
+  aparece ese mismo texto `[Imagen: ...]`. La captura en sí se queda en
+  CopyNotes.

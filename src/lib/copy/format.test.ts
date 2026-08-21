@@ -294,3 +294,48 @@ describe('date suffix (spec 021)', () => {
 		expect(formatPlainText(tree)).toBe('pagar');
 	});
 });
+
+// Spec 041 §8. Una captura no puede ir al portapapeles del sistema —un `blob:`
+// no existe fuera de CopyNotes—, así que va su texto, el mismo que ya usan el
+// export a archivo (`note-export.ts`) y el agente (`bridge/export.ts`).
+//
+// Sin estas ramas el renglón caía al `else`: `block.content` de una captura sin
+// descripción es la cadena vacía, o sea que copiar la imagen ponía UNA LÍNEA EN
+// BLANCO en el portapapeles. Pegado en otra app, el renglón desaparecía; en una
+// copia de varios renglones, quedaba un hueco en el medio.
+describe('spec 041: copiar una imagen copia su texto, nunca un renglón vacío', () => {
+	const image = (extra = {}) =>
+		block('a', 'image', '', null, 0, { imageId: 'a'.repeat(64), html: '', ...extra });
+
+	it('texto plano: una captura sin descripción NO es una línea en blanco', () => {
+		expect(formatPlainText(buildCopyTree([image()], 'a', false))).toBe('[Imagen]');
+	});
+
+	it('texto plano: con descripción, la descripción viaja', () => {
+		expect(formatPlainText(buildCopyTree([image({ content: 'el error' })], 'a', false))).toBe(
+			'[Imagen: el error]'
+		);
+	});
+
+	it('texto plano: en el medio de una copia de varios renglones no deja un hueco', () => {
+		const blocks = [
+			block('p', 'bullet', 'padre'),
+			block('a', 'image', 'la captura', 'p', 0, { imageId: 'a'.repeat(64), html: '' }),
+			block('c', 'bullet', 'después', 'p', 1)
+		];
+		expect(formatPlainText(buildCopyTree(blocks, 'p', true))).toBe(
+			'- padre\n  [Imagen: la captura]\n  - después'
+		);
+	});
+
+	it('html: sale como un párrafo con su texto, no vacío', () => {
+		expect(formatHtml(buildCopyTree([image({ content: 'el error' })], 'a', false))).toBe(
+			'<p>[Imagen: el error]</p>'
+		);
+	});
+
+	it('html: la descripción se escapa, no se interpreta', () => {
+		const html = formatHtml(buildCopyTree([image({ content: '<b>x</b>' })], 'a', false));
+		expect(html).toBe('<p>[Imagen: &lt;b&gt;x&lt;/b&gt;]</p>');
+	});
+});

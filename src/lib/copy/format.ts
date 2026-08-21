@@ -6,6 +6,7 @@ import { sortByOrder } from '../blocks/ordering';
 import { HEADING_LEVELS } from '../format/blocktype';
 import { escapeHtml, plainTextToHtml } from '../format/sanitize';
 import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
+import { imageExportText } from '$lib/images/export-text';
 
 export function buildCopyTree(blocks, rootId, withChildren) {
 	const root = blocks.find((block) => block.id === rootId);
@@ -39,6 +40,12 @@ function plainLines(node, depth) {
 	else if (block.type === 'todo') lines = hangingLines(indent, `- ${todoMark(block)} `, block.content);
 	else if (HEADING_LEVELS[block.type])
 		lines = hangingLines(indent, '#'.repeat(HEADING_LEVELS[block.type]) + ' ', block.content);
+	// Spec 041 §8. Sin esta rama una captura caía al `else` y salía como
+	// `block.content`, que sin descripción es una línea VACÍA: el renglón
+	// desaparecía al pegar en otra app, o dejaba un hueco en el medio de una
+	// copia de varios renglones. Mismo texto y mismo motivo que el export a
+	// archivo (`note-export.ts`) y que el agente.
+	else if (block.type === 'image') lines = [indent + imageExportText(block)];
 	else lines = block.content.split('\n').map((line) => indent + line);
 	if (isValidDueDate(block.dueDate)) {
 		if (block.type === 'code') lines.push(indent + '📅 ' + exportLabel(block.dueDate));
@@ -82,6 +89,11 @@ function htmlContent(block) {
 		return '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
 	}
 	if (block.type === 'todo') return todoMark(block) + ' ' + inlineHtml(block) + date + noteHtml(block);
+	// `inlineHtml` de una imagen está vacío: `createBlock` le saca el html de su
+	// `content`, que es la descripción. `<p>` es su elemento natural, igual que
+	// para un texto suelto acá abajo y que en `note-export.ts`.
+	if (block.type === 'image')
+		return '<p>' + escapeHtml(imageExportText(block)) + date + noteHtml(block) + '</p>';
 	return inlineHtml(block) + date + noteHtml(block);
 }
 
