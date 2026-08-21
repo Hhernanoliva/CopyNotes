@@ -31,6 +31,10 @@ export const CURRENT_VERSION = 5;
 // llamador — precisamente para que este número no dependa de acordarse.
 export const PACKAGE_VERSION = 6;
 
+// Spec 041: un `imageId` ES la huella SHA-256 de sus bytes, en hexadecimal
+// minúscula. Una sola copia: estaba escrita tres veces en este archivo.
+const HUELLA = /^[0-9a-f]{64}$/;
+
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
 
@@ -59,7 +63,7 @@ const blockSchema = v.looseObject({
 	note: v.optional(v.string()),
 	// Spec 041. `looseObject` los dejaría pasar sin mirar; declararlos es lo que
 	// hace que un archivo con un `imageId` que no es una huella se rechace.
-	imageId: v.optional(v.nullable(v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)))),
+	imageId: v.optional(v.nullable(v.pipe(v.string(), v.regex(HUELLA)))),
 	imageType: v.optional(v.nullable(v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']))),
 	imageBytes: v.optional(v.nullable(v.number())),
 	imageWidth: v.optional(v.nullable(v.number())),
@@ -158,7 +162,7 @@ const settingSchema = v.looseObject({
 // a secas: este esquema es justo el portón contra un manifiesto ajeno, y
 // `-1` o `1.5` pasarían un `v.number()` sin quejarse.
 const imageMetaSchema = v.looseObject({
-	imageId: v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/)),
+	imageId: v.pipe(v.string(), v.regex(HUELLA)),
 	type: v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
 	bytes: v.pipe(v.number(), v.integer(), v.minValue(0)),
 	width: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -401,7 +405,10 @@ function referenceErrors(data, existing) {
 		// en el esquema, así que `looseObject` deja pasar un bloque `type: 'image'`
 		// sin él. Sin este control entraría como un marco que nunca se llena, y si
 		// esa nota se compartiera alguna vez, atascaría su sincronización.
-		if (block.type === 'image' && !/^[0-9a-f]{64}$/.test(block.imageId))
+		//
+		// Sólo "que esté": si está y no es una huella, `blockSchema` ya lo rechazó
+		// antes de llegar acá.
+		if (block.type === 'image' && !block.imageId)
 			errors.push(`El bloque ${block.id} dice ser una imagen pero no tiene un imageId válido.`);
 	}
 	// Un padre fuera del archivo (uno local) corta la cadena: no se puede seguir, y
