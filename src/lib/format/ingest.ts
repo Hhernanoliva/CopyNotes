@@ -11,14 +11,24 @@
 import { sanitizeHtml } from './sanitize';
 import { BLOCK_TYPES } from './blocktype';
 import { isValidDueDate } from '$lib/dates';
+import { imageExportText } from '../images/export-text';
 
 function normalizeNode(raw) {
 	if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-	const type = BLOCK_TYPES.includes(raw.type) ? raw.type : 'text';
+	const rawContent = typeof raw.content === 'string' ? raw.content : '';
+	// Spec 041 §8: un nodo `image` de afuera nunca trae `imageId` — ni
+	// copy/serialize.ts lo pone (copia sólo tipo, content, html...), ni una
+	// página hostil que escriba el formato a mano lo puede inventar con
+	// bytes reales. Sin esto, pegarlo dejaba un bloque de imagen sin
+	// imagen: un marco que nunca se llena, y que en una nota compartida
+	// frena el push en toSharedPayload para siempre. Se degrada a texto,
+	// nunca se rechaza — mismo aviso que el export a archivo y al agente.
+	const isImage = raw.type === 'image';
+	const type = isImage ? 'text' : BLOCK_TYPES.includes(raw.type) ? raw.type : 'text';
 	return {
 		type,
-		content: typeof raw.content === 'string' ? raw.content : '',
-		html: typeof raw.html === 'string' ? sanitizeHtml(raw.html) : '',
+		content: isImage ? imageExportText({ content: rawContent }) : rawContent,
+		html: isImage ? '' : typeof raw.html === 'string' ? sanitizeHtml(raw.html) : '',
 		checked: Boolean(raw.checked),
 		codeCollapsed: Boolean(raw.codeCollapsed),
 		// Separators never carry a date; everything else keeps a valid one.

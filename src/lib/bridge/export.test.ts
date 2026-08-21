@@ -62,6 +62,50 @@ describe('toAgentPayload v2 (proyección + gate de privacidad)', () => {
 		expect(flat).not.toContain('comentario privado');
 		expect(flat).not.toContain('<b>');
 	});
+
+	// Spec 041 §8: el permiso que dio Hernán es para texto y tareas, no para una
+	// foto. `export.json` dice que hubo una imagen, nunca la muestra.
+	it('spec 041: una imagen sale como [Imagen: descripción], sin bytes, medidas ni id', () => {
+		const notes = [{ id: 'n1', title: 'V', agentVisible: true, folderId: null }];
+		const blocksByNote = {
+			n1: [
+				{
+					id: 'img1',
+					parentBlockId: null,
+					order: 0,
+					type: 'image',
+					content: 'el error',
+					checked: false,
+					createdBy: 'user',
+					note: '',
+					imageId: 'a'.repeat(64),
+					imageType: 'image/png',
+					imageBytes: 123456,
+					imageWidth: 800,
+					imageHeight: 600
+				}
+			]
+		};
+		const payload = toAgentPayload(notes, blocksByNote, {}, {});
+		expect(payload.notes[0].blocks).toEqual([
+			{ id: 'img1', type: 'image', content: '[Imagen: el error]', depth: 0 }
+		]);
+		const flat = JSON.stringify(payload);
+		expect(flat).not.toContain('a'.repeat(64));
+		expect(flat).not.toContain('image/png');
+		expect(flat).not.toContain('123456');
+		expect(flat).not.toContain('800');
+		expect(flat).not.toContain('600');
+	});
+
+	it('spec 041: una imagen sin descripción sigue avisando que hubo una imagen', () => {
+		const notes = [{ id: 'n1', title: 'V', agentVisible: true, folderId: null }];
+		const blocksByNote = {
+			n1: [{ id: 'img1', parentBlockId: null, order: 0, type: 'image', content: '', checked: false, createdBy: 'user', note: '' }]
+		};
+		const payload = toAgentPayload(notes, blocksByNote, {}, {});
+		expect(payload.notes[0].blocks[0].content).toBe('[Imagen]');
+	});
 });
 
 // The deployed entry point (touches storage). Guards the defense-in-depth

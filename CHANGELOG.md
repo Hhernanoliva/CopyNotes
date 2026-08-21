@@ -9,8 +9,14 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.2
 
+- **Los enlaces se pueden editar sin abrirlos por accidente.** El primer clic o toque muestra la dirección completa con **Abrir** y **Editar**; también podés corregir o borrar letras dentro del enlace como texto normal
+- **La manija ahora selecciona un renglón al tocarla y lo mueve al arrastrarla.** La selección sirve para copiar, borrar, anidar o mover una sola fila, y la manija sigue disponible en filas vacías e imágenes
 - **CopyNotes ahora tiene app de escritorio para Windows**, además de la de Mac. Es la misma app, con todo adentro: notas, nube y agentes. La primera vez que la abrís, Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar de todos modos"*
 - **La web vuelve a ofrecer la app de escritorio.** Ahora que hay una versión publicada para bajar, volvieron la tarjetita *"¿Usás agentes de IA?"* abajo a la derecha y el enlace de **Configuración › Agentes**. Estaban ocultos porque llevaban a una página vacía
+- **Ahora podés pegar capturas de pantalla en las notas.** Pegándolas, arrastrando el archivo a un renglón, o escribiendo `/imagen`. Se ven al tamaño justo, sin saltos, y tocarlas las abre en pantalla completa (`Esc` para cerrar); debajo se les puede poner una descripción, opcional y buscable
+- **Hay un límite de 5 MB por imagen**, y CopyNotes avisa por qué la rechaza cuando no entra: pesa de más, no es una imagen que pueda guardar, está dañada, o no se pudo guardar por falta de espacio. Los archivos `.svg` no se aceptan, porque son código y no una foto
+- **El respaldo ahora puede incluir tus capturas.** Si una nota tiene una imagen, el archivo baja como `.copynotes` en vez de `.json`: es un ZIP común que se abre con doble clic, y los dos tipos de archivo se importan igual
+- **Todavía no:** las imágenes no viajan a tus otros dispositivos en esta versión, una nota con imágenes no se puede compartir ni guardar en un snippet, y exportarla a Markdown o HTML deja el lugar de la imagen en texto
 
 ## 0.2.1
 

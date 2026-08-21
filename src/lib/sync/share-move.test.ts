@@ -65,3 +65,32 @@ describe('la mudanza', () => {
 		expect(pending.some((entry) => entry.row.id === note.id)).toBe(true);
 	});
 });
+
+// Spec 041 §8, criterio 16: verificado acá, en el almacenamiento, no sólo en
+// el diálogo — el diálogo es la cortesía y esto es la guardia.
+describe('spec 041: una nota con imágenes no se comparte', () => {
+	it('rechaza ANTES de llamar al servidor, con el mismo mensaje que el diálogo', async () => {
+		const note = await createNote({ title: 'con captura' });
+		await createBlock({ noteId: note.id, type: 'image', content: 'error 500', imageId: 'a'.repeat(64) });
+		const client = fakeClient();
+
+		await expect(shareNote(client, note.id)).rejects.toThrow(
+			'No se pueden compartir notas con imágenes todavía.'
+		);
+		expect(client.rpc).not.toHaveBeenCalled();
+	});
+
+	it('una imagen ya borrada no frena: sólo cuentan las vivas', async () => {
+		const note = await createNote({ title: 'con captura borrada' });
+		const block = await createBlock({
+			noteId: note.id,
+			type: 'image',
+			content: 'error 500',
+			imageId: 'a'.repeat(64)
+		});
+		await db.table('blocks').update(block.id, { deletedAt: new Date().toISOString() });
+		const client = fakeClient();
+
+		await expect(shareNote(client, note.id)).resolves.toBeUndefined();
+	});
+});

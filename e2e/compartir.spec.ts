@@ -90,6 +90,33 @@ async function marcarComoAjena(page, rol = 'member') {
 	await expect(page.locator('main [data-block-id]').first()).toBeVisible();
 }
 
+async function bloquesPersistidos(page) {
+	return page.evaluate(
+		() =>
+			new Promise((resolve, reject) => {
+				const abrir = indexedDB.open('copynotes');
+				abrir.onerror = () => reject(abrir.error);
+				abrir.onsuccess = () => {
+					const tx = abrir.result.transaction('blocks', 'readonly');
+					tx.objectStore('blocks').getAll().onsuccess = (evento) =>
+						resolve(
+							evento.target.result
+								.map((row) => ({
+									id: row.id,
+									content: row.content,
+									html: row.html,
+									type: row.type,
+									parentBlockId: row.parentBlockId,
+									order: row.order,
+									deletedAt: row.deletedAt
+								}))
+								.sort((a, b) => a.id.localeCompare(b.id))
+						);
+				};
+			})
+	);
+}
+
 test('una nota que te comparten no se puede escribir', async ({ page }) => {
 	await openApp(page);
 	await marcarComoAjena(page);
@@ -98,6 +125,75 @@ test('una nota que te comparten no se puede escribir', async ({ page }) => {
 		'contenteditable',
 		'false'
 	);
+});
+
+test('en sólo lectura un enlace abre directo y Ctrl/Cmd+K busca', async ({ page }) => {
+	await openApp(page);
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.selectText();
+	await expect(page.getByRole('toolbar', { name: 'Formato de texto' })).toBeVisible();
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com/compartida');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(700);
+	await marcarComoAjena(page);
+
+	const readOnlyLine = page.locator('main [data-block-id] .block-editable').first();
+	const anchor = readOnlyLine.locator('a').first();
+	const [popup] = await Promise.all([page.waitForEvent('popup'), anchor.click()]);
+	expect(popup.url()).toContain('ejemplo.com/compartida');
+	await popup.close();
+	await expect(page.getByRole('dialog', { name: 'Acciones del enlace' })).toHaveCount(0);
+
+	await readOnlyLine.focus();
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.locator('dialog[aria-label="Buscar"]')).toBeVisible();
+	await expect(page.getByRole('dialog', { name: 'Acciones del enlace' })).toHaveCount(0);
+});
+
+test('la selección en sólo lectura copia pero teclas y arrastres no escriben', async ({ page }) => {
+	await openApp(page);
+	await marcarComoAjena(page);
+	const before = await bloquesPersistidos(page);
+	const rows = page.locator('main [data-block-id]');
+	const first = rows.first().locator('[data-block-surface]').first();
+
+	await expect(page.getByRole('button', { name: 'Seleccionar o arrastrar renglón' })).toHaveCount(0);
+	await first.focus();
+	await page.keyboard.press('Escape');
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await page.keyboard.press('ControlOrMeta+c');
+	await expect
+		.poll(() => page.evaluate(() => navigator.clipboard.readText()))
+		.not.toBe('');
+
+	await page.keyboard.press('Shift+ArrowDown');
+	await expect(page.getByText('2 renglones seleccionados')).toBeAttached();
+	for (const key of [
+		'/',
+		'Delete',
+		'Tab',
+		'Alt+ArrowDown',
+		'ControlOrMeta+z',
+		'ControlOrMeta+y',
+		'ControlOrMeta+Shift+z'
+	]) {
+		await page.keyboard.press(key);
+	}
+	await expect(page.locator('#slash-menu')).toHaveCount(0);
+
+	const firstBox = await rows.first().boundingBox();
+	const lastBox = await rows.last().boundingBox();
+	await page.mouse.move(firstBox.x + 80, firstBox.y + firstBox.height / 2);
+	await page.mouse.down();
+	await page.waitForTimeout(450);
+	await page.mouse.move(lastBox.x + 80, lastBox.y + lastBox.height / 2, { steps: 8 });
+	await page.mouse.up();
+	await page.waitForTimeout(800);
+
+	expect(await bloquesPersistidos(page)).toEqual(before);
+	await page.keyboard.press('Enter');
+	await expect(page.getByText(/renglón seleccionado|renglones seleccionados/)).toHaveCount(0);
 });
 
 // Los controles del renglón son `pointer-events-none` hasta que el puntero entra

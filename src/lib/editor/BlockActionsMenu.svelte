@@ -26,6 +26,8 @@
 		onSaveSnippet,
 		onTag,
 		onDismiss,
+		open = false,
+		onOpenChange,
 		pulseMenu = false,
 		contentActions = true,
 		// El invitado de una nota compartida (spec 038 §6): de las seis puertas de
@@ -34,7 +36,6 @@
 		noteOnly = false
 	} = $props();
 
-	let open = $state(false);
 	let rootEl = $state();
 
 	// Tocar "..." no es escribir. Con el teclado en pantalla quedan ~350px
@@ -48,40 +49,49 @@
 	// iOS sólo lo muestra para campos editables.
 	function toggleOpen(event) {
 		if (!open && virtualKeyboardOpen()) event.currentTarget.focus({ preventScroll: true });
-		open = !open;
+		if (!open) document.dispatchEvent(new CustomEvent('copynotes:block-actions-open'));
+		onOpenChange?.(!open);
 	}
 
 	$effect(() => {
 		if (!open) return;
 		function onPointerDown(event) {
 			if (rootEl && !rootEl.contains(event.target)) {
-				open = false;
+				onOpenChange?.(false);
 				onDismiss?.();
 			}
 		}
 		function onKeydown(event) {
 			if (event.key === 'Escape') {
-				open = false;
+				event.preventDefault();
+				event.stopPropagation();
+				onOpenChange?.(false);
 				onDismiss?.();
 			}
 		}
-		document.addEventListener('pointerdown', onPointerDown);
+		function onOtherMenu() {
+			onOpenChange?.(false);
+		}
+		document.addEventListener('pointerdown', onPointerDown, true);
 		document.addEventListener('keydown', onKeydown);
+		document.addEventListener('copynotes:block-actions-open', onOtherMenu);
 		return () => {
-			document.removeEventListener('pointerdown', onPointerDown);
+			document.removeEventListener('pointerdown', onPointerDown, true);
 			document.removeEventListener('keydown', onKeydown);
+			document.removeEventListener('copynotes:block-actions-open', onOtherMenu);
 		};
 	});
 
 	// restoreFocus false for actions that open another surface (tag picker).
 	function run(action, restoreFocus = true) {
-		open = false;
+		onOpenChange?.(false);
 		action();
 		if (restoreFocus) onDismiss?.();
 	}
 </script>
 
-<div bind:this={rootEl} class="relative">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div bind:this={rootEl} class="relative" onpointerdown={(event) => event.stopPropagation()}>
 	<button
 		type="button"
 		aria-label="Más acciones"
@@ -107,6 +117,7 @@
 			use:flipIntoView
 			role="menu"
 			aria-label="Acciones del bloque"
+			data-editor-transient
 			class="cn-pop bg-popover border-border absolute top-full right-0 z-20 mt-1 max-h-[70dvh] w-56 overflow-y-auto rounded-md border p-1 shadow-md"
 		>
 			{#if contentActions}
@@ -115,7 +126,7 @@
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
 					onclick={() => run(onAddNote, false)}
-					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+					class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
 					<StickyNote size={15} aria-hidden="true" />
 					<span class="flex-1">Agregar comentario</span>
@@ -129,7 +140,7 @@
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
 					onclick={() => run(onMoveUp)}
-					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+					class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
 					<ArrowUp size={15} aria-hidden="true" />
 					<span class="flex-1">Mover arriba</span>
@@ -139,7 +150,7 @@
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
 					onclick={() => run(onMoveDown)}
-					class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+					class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
 					<ArrowDown size={15} aria-hidden="true" />
 					<span class="flex-1">Mover abajo</span>
@@ -150,7 +161,7 @@
 						role="menuitem"
 						onmousedown={(event) => event.preventDefault()}
 						onclick={() => run(onSaveSnippet)}
-						class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+						class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 					>
 						<BookmarkPlus size={15} aria-hidden="true" />
 						<span class="flex-1">Guardar como snippet</span>
@@ -158,9 +169,10 @@
 					<button
 						type="button"
 						role="menuitem"
+						data-tag-picker-trigger
 						onmousedown={(event) => event.preventDefault()}
 						onclick={() => run(onTag, false)}
-						class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+						class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 					>
 						<Tag size={15} aria-hidden="true" />
 						<span class="flex-1">Etiquetar</span>
@@ -172,7 +184,7 @@
 					role="menuitem"
 					onmousedown={(event) => event.preventDefault()}
 					onclick={() => run(onDelete, false)}
-					class="text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				class="cn-touch-row text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
 				>
 					<Trash2 size={15} aria-hidden="true" />
 					<span class="flex-1">Eliminar</span>

@@ -16,6 +16,7 @@
 		requestFocus = 0,
 		onCommand,
 		onRestorePanelFocus = null,
+		onDismiss = null,
 		onClose
 	} = $props();
 
@@ -115,6 +116,15 @@
 		return () => window.removeEventListener('keydown', onKey);
 	});
 
+	$effect(() => {
+		if (!rect || !el) return;
+		function outside(event) {
+			if (el && !el.contains(event.target)) onDismiss?.(event.target);
+		}
+		document.addEventListener('pointerdown', outside, true);
+		return () => document.removeEventListener('pointerdown', outside, true);
+	});
+
 	const headings = $derived([
 		['h1', 'Título 1', active.h1],
 		['h2', 'Título 2', active.h2],
@@ -131,6 +141,7 @@
 		tabindex="0"
 		aria-label="Formato de texto"
 		data-copynotes-toolbar
+		data-editor-transient
 		style="position:absolute; top:{pos.top}px; left:{pos.left}px; z-index:50;"
 		onmousedown={(e) => e.preventDefault()}
 		onkeydown={navigate}
@@ -181,8 +192,8 @@
 			</div>
 		{:else if openPanel === 'more'}
 			<div class="cn-pop bg-popover border-border absolute left-0 top-full mt-1 flex flex-col rounded-md border p-1 shadow-lg" role="menu" tabindex="-1" data-cn-toolbar-group="panel">
-				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Quitar formato</button>
-				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="hover:bg-accent rounded-sm px-2 py-1 text-left text-sm">Copiar texto seleccionado</button>
+				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('clear'); openPanel = null; }} class="cn-touch-row hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1 text-left text-sm focus-visible:ring-2 focus-visible:outline-none">Quitar formato</button>
+				<button type="button" role="menuitem" onmousedown={(e) => e.preventDefault()} onclick={() => { onCommand('copyText'); openPanel = null; }} class="cn-touch-row hover:bg-accent focus-visible:ring-ring rounded-sm px-2 py-1 text-left text-sm focus-visible:ring-2 focus-visible:outline-none">Copiar texto seleccionado</button>
 			</div>
 		{/if}
 	</div>

@@ -89,3 +89,63 @@ export async function openTextFile({ accept = '' } = {}) {
 	if (file.size > MAX_TEXT_FILE_BYTES) return { status: 'too-large', fileName: file.name };
 	return { status: 'opened', fileName: file.name, content: await file.text() };
 }
+
+// El mismo diálogo que `openTextFile`, sin leer el archivo a texto: una captura
+// no es texto y `file.text()` la rompería. El tope lo pone el ingestor
+// (`images/ingest.ts`), que sabe cuál es el de una imagen.
+//
+// Devuelve una lista aunque el diálogo entregue un archivo solo: pegar y
+// arrastrar sí pueden traer varias, y las tres puertas comparten el mismo
+// camino de inserción.
+export async function openImageFiles() {
+	const file = await chooseFile('image/*');
+	if (!file) return { status: 'cancelled' };
+	return { status: 'opened', files: [file] };
+}
+
+// El gemelo de `saveTextFile` para bytes. Recibe el Blob ya armado porque quien
+// llama es el que sabe cómo se arma el paquete.
+export async function saveBinaryFile({ fileName, blob }) {
+	const url = URL.createObjectURL(blob);
+	const anchor = document.createElement('a');
+	anchor.href = url;
+	anchor.download = fileName;
+	anchor.hidden = true;
+	document.body.append(anchor);
+	anchor.click();
+	anchor.remove();
+	setTimeout(() => URL.revokeObjectURL(url), 0);
+	return { status: 'saved', fileName };
+}
+
+// Un paquete `.copynotes` lleva las capturas adentro, así que el techo del texto
+// no le sirve: la app misma puede escribir uno grande, y negarse a importar el
+// archivo que uno acaba de exportar es peor que el riesgo de memoria que ese
+// techo cuida. Pero SIN techo tampoco: una elección equivocada —un video— tiene
+// que poder rechazarse antes de leerla entera.
+//
+// ponytail: 1 GB es un tope de cordura, no una medida. A ~350 KB por captura de
+// verdad (spec 041 §2) son miles; si alguna vez estorba, se sube este número y
+// nada más.
+export const MAX_PACKAGE_FILE_BYTES = 1024 * 1024 * 1024;
+
+const ZIP_SIGNATURE = [0x50, 0x4b, 0x03, 0x04];
+
+// Cuatro bytes, no el archivo entero: `file.slice()` no lee nada de disco hasta
+// que se le pide el buffer, así que la firma sale gratis y de ella dependen las
+// dos cosas que siguen —cuánto se le permite pesar y por qué camino se lee—.
+//
+// Por los bytes y NO por el nombre: `buildZip` siempre escribe `PK\x03\x04`, así
+// que la firma ya caza todo paquete de verdad, mientras que mirar el nombre sólo
+// agrega una forma de rechazar un `.json` sano al que alguien renombró.
+export async function openBinaryFile({ accept = '' } = {}) {
+	const file = await chooseFile(accept);
+	if (!file) return { status: 'cancelled' };
+	const head = new Uint8Array(await file.slice(0, ZIP_SIGNATURE.length).arrayBuffer());
+	const packaged = ZIP_SIGNATURE.every((byte, index) => head[index] === byte);
+	const limit = packaged ? MAX_PACKAGE_FILE_BYTES : MAX_TEXT_FILE_BYTES;
+	// Sobre `file.size`, que el navegador ya tiene: nada grande entra a memoria
+	// para descubrir que era grande.
+	if (file.size > limit) return { status: 'too-large', fileName: file.name, packaged };
+	return { status: 'opened', fileName: file.name, packaged, bytes: await file.arrayBuffer() };
+}

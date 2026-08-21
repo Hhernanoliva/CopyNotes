@@ -194,10 +194,14 @@ export function planTypeChangeSelection(blocks, selectedIds, type) {
 		if (!set.has(id)) continue;
 		const block = blocks.find((row) => row.id === id);
 		if (!block || block.type === 'separator') continue;
+		// Spec 041: una imagen no se convierte en nada. `planBlockType` contesta
+		// `null` y esparcirlo dejaba `{ id }` — una escritura que no cambia nada.
+		const changes = planBlockType(block, type);
+		if (!changes) continue;
 		// A code row renders its content as plain text, so its html must not keep
 		// the old rich markup. Escaped, never raw: block.html is an innerHTML sink.
 		const codeHtml = type === 'code' ? { html: plainTextToHtml(block.content ?? '') } : {};
-		updates.push({ id, ...planBlockType(block, type), ...codeHtml });
+		updates.push({ id, ...changes, ...codeHtml });
 	}
 	return updates.length ? { updates } : null;
 }

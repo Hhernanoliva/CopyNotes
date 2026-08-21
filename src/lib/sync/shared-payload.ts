@@ -17,6 +17,7 @@
 import { sanitizeHtml } from '$lib/format';
 import { BLOCK_TYPES } from '$lib/format/blocktype';
 import { isValidDueDate } from '$lib/dates';
+import { imageExportText } from '$lib/images/export-text';
 
 export const SHARED_FIELDS = {
 	notes: ['id', 'title', 'updatedAt', 'deletedAt'],
@@ -53,7 +54,18 @@ const IDENTITY_FIELDS = {
 	activity: ['id', 'noteId', 'blockId', 'deletedAt']
 };
 
+// Spec 041 §8: una imagen es local, sin sincronizar — sus bytes no existen del
+// otro lado del caño. Mandar sólo la descripción y fingir que viajó entera es
+// justo la falla que este rechazo evita; se frena en voz alta, no a medias.
+// Una lápida (`deletedAt`) SÍ viaja: no lleva píxeles, dice nada más "esto ya
+// no está", y frenarla dejaría esa nota compartida sin forma de sincronizar
+// nunca más un borrado.
 export function toSharedPayload(table, row) {
+	if (table === 'blocks' && row.type === 'image' && !row.deletedAt) {
+		throw new Error(
+			'No se puede compartir un bloque de imagen: la imagen no viaja por el caño compartido.'
+		);
+	}
 	const fields = (row.deletedAt ? IDENTITY_FIELDS[table] : SHARED_FIELDS[table]) ?? [];
 	const payload = {};
 	for (const field of fields) {
@@ -73,6 +85,28 @@ export function cleanSharedPayload(table, payload) {
 		clean.type = BLOCK_TYPES.includes(payload.type) ? payload.type : 'text';
 	}
 	if (typeof payload.html === 'string') clean.html = sanitizeHtml(payload.html);
+	// Spec 041 §8, y la TERCERA puerta del mismo marco vacío: `format/ingest.ts`
+	// cierra la del portapapeles y `export-import/schema.ts` la del respaldo.
+	// Acá la entrada NO es lista blanca —`{ ...payload }` copia todo lo que
+	// mandó el otro cliente—, así que un bloque `type: 'image'` llega con su
+	// `imageId` y sin bytes: los bytes viven en `imageBodies`, que no viaja por
+	// ningún caño. Se degrada a texto, nunca se rechaza, igual que la ingesta.
+	//
+	// Cierra dos cosas de una: el marco que nunca se llena, y que esa misma fila
+	// después atasque la SUBIDA para siempre en `toSharedPayload`.
+	if (clean.type === 'image') {
+		clean.type = 'text';
+		clean.content = imageExportText({ content: payload.content ?? '' });
+		clean.html = '';
+		// Y sin sus cinco campos: un `imageWidth` ajeno termina interpolado en un
+		// atributo `style` (BlockRow.svelte), que con `style-src 'unsafe-inline'`
+		// es CSS que escribe el otro cliente.
+		clean.imageId = null;
+		clean.imageType = null;
+		clean.imageBytes = null;
+		clean.imageWidth = null;
+		clean.imageHeight = null;
+	}
 	// Un separador nunca lleva fecha, y una fecha con formato válido puede
 	// seguir siendo un día que no existe. Misma regla que `format/ingest.ts`.
 	if ('dueDate' in payload) {

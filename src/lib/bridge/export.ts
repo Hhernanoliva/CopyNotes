@@ -24,6 +24,7 @@ import {
 import { actorName } from '$lib/storage/share-names';
 import { myMemberActor } from '$lib/sync/identity';
 import { flattenTree } from '$lib/blocks/hierarchy';
+import { imageExportText } from '$lib/images/export-text';
 
 export const AGENT_EXPORT_FORMAT = 'copynotes.agent';
 export const AGENT_EXPORT_VERSION = 2;
@@ -32,6 +33,7 @@ const CONTEXT_TYPES = new Set(['text', 'bullet', 'heading1', 'heading2', 'headin
 
 function includeBlock(block) {
 	if (block.type === 'todo') return true; // pending AND completed — the Markdown view filters completed
+	if (block.type === 'image') return true; // se avisa igual sin descripción, como en el export a archivo
 	if (!CONTEXT_TYPES.has(block.type)) return false;
 	return (block.content ?? '').trim() !== '';
 }
@@ -49,6 +51,9 @@ function projectBlock(block, depth, activity) {
 			createdBy: block.createdBy ?? 'user',
 			activity: activity ?? []
 		};
+	}
+	if (block.type === 'image') {
+		return { id: block.id, type: 'image', content: imageExportText(block), depth };
 	}
 	return { id: block.id, type: block.type, content: block.content, depth };
 }

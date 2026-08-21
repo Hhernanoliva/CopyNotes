@@ -10,7 +10,7 @@ import { setShareRole } from './shares';
 import { appendActivity, listActivityByBlock } from './activity';
 import { setSetting, getSetting } from './settings';
 import { KEY } from './settings-registry';
-import { dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
+import { chooseBackupFormat, dumpAllTables, applyMergePlan, replaceAllTables } from './backup';
 import { trackPendingWrite } from './pending-writes';
 import { buildBackup } from '../export-import/backup';
 import { validateBackup, EXPORTED_FIELDS } from '../export-import/schema';
@@ -381,5 +381,67 @@ describe('lo que un respaldo puede llevar', () => {
 			const strays = keysOf(rows).filter((key) => !declared.has(key));
 			expect(strays, `claves no declaradas en ${table}`).toEqual([]);
 		}
+	});
+});
+
+describe('spec 041: el formato lo decide si hay imágenes', () => {
+	it('sin imágenes sigue siendo el .json de siempre', () => {
+		expect(chooseBackupFormat([{ type: 'text', imageId: null }])).toBe('json');
+	});
+
+	it('con una sola imagen pasa a .copynotes', () => {
+		expect(chooseBackupFormat([{ type: 'image', imageId: 'a'.repeat(64) }])).toBe('copynotes');
+	});
+
+	// Contra el volcado de verdad y no contra un bloque escrito a mano con un
+	// `deletedAt` de adorno: `chooseBackupFormat` no lee esa marca, así que la
+	// garantía —"una nota tirada a la papelera igual produce un `.copynotes`"— no
+	// vive acá sino en que `dumpAllTables` devuelve las filas borradas. Esta
+	// prueba se pone en rojo el día que un volcado empiece a filtrarlas.
+	it('una nota con captura tirada a la papelera igual pide un .copynotes', async () => {
+		const note = await createNote({ title: 'Con captura' });
+		await createBlock({
+			noteId: note.id,
+			type: 'image',
+			content: '',
+			order: 0,
+			imageId: 'a'.repeat(64)
+		});
+		await softDeleteNote(note.id);
+
+		const dump = await dumpAllTables();
+
+		expect(dump.blocks.every((block) => block.deletedAt !== null)).toBe(true);
+		expect(chooseBackupFormat(dump.blocks)).toBe('copynotes');
+	});
+});
+
+describe('spec 041: reemplazar todo y los cuerpos de imagen', () => {
+	// `imageBodies` no está en `BACKUP_TABLES` (sus filas no son JSON), y el
+	// borrado camina justo esa lista — así que sin un borrado explícito los
+	// cuerpos de la base ANTERIOR sobreviven al reemplazo.
+	it('limpia los cuerpos que había', async () => {
+		await db.table('imageBodies').put({ imageId: 'z'.repeat(64), uploadedFor: null });
+		await replaceAllTables({});
+		expect(await db.table('imageBodies').count()).toBe(0);
+	});
+
+	it('escribe los cuerpos que trae el paquete', async () => {
+		const imageId = 'a'.repeat(64);
+		await replaceAllTables({}, [
+			{
+				imageId,
+				blob: new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], { type: 'image/png' }),
+				type: 'image/png',
+				bytes: 4,
+				width: 2,
+				height: 2
+			}
+		]);
+		const row = await db.table('imageBodies').get(imageId);
+		expect(row.uploadedFor).toBe(null);
+		expect(new Uint8Array(await row.blob.arrayBuffer())).toEqual(
+			new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+		);
 	});
 });

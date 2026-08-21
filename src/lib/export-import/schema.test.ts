@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateBackup } from './schema';
+import { validateBackup, EXPORTED_FIELDS } from './schema';
 import { planMerge } from './merge';
 import { buildBackup } from './backup';
 import { missingShapeFields } from '../storage/shape';
@@ -767,5 +767,100 @@ describe('un archivo roto se explica en castellano (spec 040)', () => {
 		);
 
 		expect(validateBackup(backup).ok).toBe(true);
+	});
+});
+
+// Tarea 11 de spec 041: la regresión que más importa. Este plan tocó el
+// validador, la lista de forma y la comparación del merge — las tres cosas
+// que, si se desacuerdan, duplican en silencio la base de alguien (spec 040:
+// 1154 conflictos, 1147 renglones duplicados, con un archivo idéntico al que
+// el aparato ya tenía). Un `.json` de las versiones 1 a 5 tiene que seguir
+// entrando igual que antes de spec 041.
+describe('spec 041: los respaldos viejos siguen entrando', () => {
+	it('los respaldos de las versiones 1 a 5 siguen entrando', () => {
+		for (const formatVersion of [1, 2, 3, 4, 5]) {
+			const result = validateBackup(
+				makeBackup({ notes: [makeNote()], blocks: [makeBlock()] }, { formatVersion })
+			);
+			expect(result.ok, `versión ${formatVersion}`).toBe(true);
+		}
+	});
+});
+
+describe('spec 041: un bloque de imagen es un bloque válido', () => {
+	const imageBlock = (overrides = {}) => ({
+		...makeBlock(),
+		type: 'image',
+		content: 'el error de la consola',
+		imageId: 'a'.repeat(64),
+		imageType: 'image/png',
+		imageBytes: 332372,
+		imageWidth: 3018,
+		imageHeight: 1312,
+		...overrides
+	});
+
+	it('pasa la validación', () => {
+		const result = validateBackup(makeBackup({ notes: [makeNote()], blocks: [imageBlock()] }));
+		expect(result.ok).toBe(true);
+	});
+
+	it('y sus cinco campos llegan al archivo', () => {
+		for (const field of ['imageId', 'imageType', 'imageBytes', 'imageWidth', 'imageHeight']) {
+			expect(EXPORTED_FIELDS.blocks).toContain(field);
+		}
+	});
+
+	it('rechaza un imageId que no es una huella SHA-256 válida', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: 'no-es-una-huella' })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	it('rechaza un imageType que no es uno de los cuatro MIME types permitidos', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageType: 'image/svg+xml' })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	// El mismo agujero que ya se cerró en el portapapeles (Tarea 7): `imageId` es
+	// `v.optional` en el esquema, así que `type: 'image'` sin él pasa la validación
+	// de forma sin quejarse y sólo lo cazaba, hasta ahora, nada. Un archivo así
+	// restaura un marco que nunca se llena, y atascaría la sincronización si esa
+	// nota se llegara a compartir.
+	it('rechaza un bloque de imagen sin imageId', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: undefined })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+
+	it('rechaza un bloque de imagen con imageId en null', () => {
+		const invalid = validateBackup(
+			makeBackup({ notes: [makeNote()], blocks: [imageBlock({ imageId: null })] })
+		);
+		expect(invalid.ok).toBe(false);
+	});
+});
+
+describe('spec 041: la versión 6 sólo vale si el JSON dice que viene de un paquete', () => {
+	it('un .json suelto en v6 se rechaza igual que antes, pero explica por qué', () => {
+		const result = validateBackup(makeBackup({}, { formatVersion: 6 }));
+		expect(result.ok).toBe(false);
+		expect(result.errors[0]).toContain('6');
+		expect(result.errors[0]).toContain('.copynotes');
+	});
+
+	it('el mismo v6 pasa cuando el llamador dice que viene de un paquete', () => {
+		const result = validateBackup(makeBackup({}, { formatVersion: 6 }), undefined, { packaged: true });
+		expect(result.ok).toBe(true);
+	});
+
+	it('el manifiesto de imágenes rechaza bytes/width/height negativos o no enteros', () => {
+		const backup = makeBackup({}, { formatVersion: 6, images: [{ imageId: 'a'.repeat(64), type: 'image/png', bytes: -1, width: 2, height: 2 }] });
+		const result = validateBackup(backup, undefined, { packaged: true });
+		expect(result.ok).toBe(false);
 	});
 });

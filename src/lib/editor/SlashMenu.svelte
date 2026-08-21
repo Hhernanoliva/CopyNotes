@@ -21,8 +21,8 @@
 	// ancho completo con tope de alto.
 	const rowLayout = $derived(
 		isSnippets
-			? 'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11'
-			: 'flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11 max-md:w-auto max-md:shrink-0 max-md:px-3'
+			? 'cn-touch-row flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11'
+			: 'cn-touch-row flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm max-md:min-h-11 max-md:w-auto max-md:shrink-0 max-md:px-3'
 	);
 
 	// Escritorio: si el menú no entra abajo del renglón, sale ARRIBA. Sigue
@@ -155,6 +155,8 @@
 	tabindex="-1"
 	role="listbox"
 	id="slash-menu"
+	data-editor-transient
+	data-selection-menu={title ? '' : undefined}
 	aria-label={title || (isSnippets ? 'Snippets guardados' : 'Tipos de bloque')}
 	style={leftPx == null ? '' : `left:${leftPx}px`}
 	class="cn-pop bg-popover border-border absolute left-8 z-10 max-h-[min(24rem,70dvh)] w-52 overflow-y-auto overscroll-contain rounded-md border p-1 shadow-md {flipUp
@@ -192,7 +194,7 @@
 								{@render optionButton(
 									heading,
 									commands.indexOf(heading),
-									'flex h-8 min-w-8 items-center justify-center px-1 text-xs font-bold max-md:h-11 max-md:min-w-11',
+									'cn-touch-control flex h-8 min-w-8 items-center justify-center px-1 text-xs font-bold max-md:h-11 max-md:min-w-11',
 									headingBody
 								)}
 							{/each}

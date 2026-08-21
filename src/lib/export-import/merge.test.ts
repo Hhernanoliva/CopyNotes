@@ -367,6 +367,32 @@ describe('un campo ausente contra su valor por defecto no es un desacuerdo', () 
 		expect(plan.summary.conflicts).toBe(0);
 	});
 
+	// Tarea 11 de spec 041: el mismo agujero, con los cinco campos de imagen. La
+	// fila local de hoy los tiene en `null` (su valor de nacimiento); un
+	// respaldo de antes de spec 041 no los tiene siquiera declarados.
+	it('ni un bloque viejo al que le faltan los cinco campos de imagen', () => {
+		const local = {
+			...emptyTables(),
+			notes: [note('n1')],
+			blocks: [
+				block('b1', 'n1', {
+					imageId: null,
+					imageType: null,
+					imageBytes: null,
+					imageWidth: null,
+					imageHeight: null
+				})
+			]
+		};
+		const incoming = { ...emptyTables(), notes: [note('n1')], blocks: [block('b1', 'n1')] };
+
+		const plan = planMerge(local, incoming, { createId: () => 'nuevo' });
+
+		expect(plan.summary.blocks.added).toBe(0);
+		expect(plan.summary.blocks.skipped).toBe(1);
+		expect(plan.summary.conflicts).toBe(0);
+	});
+
 	it('ni una nota vieja sin agentVisible', () => {
 		const local = { ...emptyTables(), notes: [note('n1', { agentVisible: false, folderId: null })] };
 		const incoming = { ...emptyTables(), notes: [note('n1')] };

@@ -267,4 +267,10 @@ describe('empezar de nuevo la nube', () => {
 		expect(await hasVault()).toBe(true);
 		expect(await hasUploadConsent()).toBe(true);
 	});
+
+	it('spec 041: empezar de nuevo la nube olvida qué imágenes ya subió', async () => {
+		await db.table('imageBodies').put({ imageId: 'c'.repeat(64), uploadedFor: 'cuenta-vieja' });
+		await resetCloud();
+		expect((await db.table('imageBodies').get('c'.repeat(64))).uploadedFor).toBe(null);
+	});
 });

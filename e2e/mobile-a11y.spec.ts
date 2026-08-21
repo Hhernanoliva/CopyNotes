@@ -59,6 +59,23 @@ test('la barra de formato no supera el ancho de la pantalla', async ({ page }) =
 	const vw = page.viewportSize().width;
 	expect(box.x).toBeGreaterThanOrEqual(0);
 	expect(box.x + box.width).toBeLessThanOrEqual(vw);
+
+	const linkButton = toolbar.getByRole('button', { name: 'Enlace', exact: true });
+	const linkButtonBox = await linkButton.boundingBox();
+	expect(linkButtonBox.width).toBeGreaterThanOrEqual(44);
+	expect(linkButtonBox.height).toBeGreaterThanOrEqual(44);
+	await linkButton.click();
+	const urlInput = page.getByRole('textbox', { name: 'URL del enlace' });
+	const inputBox = await urlInput.boundingBox();
+	expect(inputBox.height).toBeGreaterThanOrEqual(44);
+	const saveBox = await page.getByRole('button', { name: 'Guardar' }).boundingBox();
+	expect(saveBox.height).toBeGreaterThanOrEqual(44);
+	await page.keyboard.press('Escape');
+
+	await toolbar.getByRole('button', { name: 'Color de texto' }).click();
+	const colorBox = await page.getByRole('menuitemradio').first().boundingBox();
+	expect(colorBox.width).toBeGreaterThanOrEqual(44);
+	expect(colorBox.height).toBeGreaterThanOrEqual(44);
 });
 
 test('al tacto, los controles aparecen solo en la fila activa', async ({ page }) => {
@@ -356,9 +373,9 @@ test('en celular el menú "/" es una barra apoyada al pie', async ({ page }) => 
 	expect(optionBox.height).toBeGreaterThanOrEqual(44);
 });
 
-// Al tacto no hay Ctrl/Cmd para mantener apretado, así que mientras el enlace
-// pidió modificador, en celular y tablet NO había ninguna forma de abrirlo.
-test('un toque abre el enlace, sin tecla que mantener apretada', async ({ page }) => {
+// En edición, el primer toque conserva el cursor y muestra una salida explícita:
+// el segundo toque en Abrir navega sin exigir una tecla que el teléfono no tiene.
+test('dos toques revisan y abren un enlace sin salir por accidente', async ({ page }) => {
 	await openApp(page);
 	await sinAvisosFlotantes(page);
 
@@ -372,9 +389,212 @@ test('un toque abre el enlace, sin tecla que mantener apretada', async ({ page }
 	await page.keyboard.press('Enter');
 	await expect(line.locator('a')).toHaveText('sitio');
 
-	const [popup] = await Promise.all([page.waitForEvent('popup'), line.locator('a').tap()]);
+	await line.locator('a').tap();
+	const panel = page.getByRole('dialog', { name: 'Acciones del enlace' });
+	await expect(panel).toBeVisible();
+	await expect(panel.getByRole('textbox', { name: 'Dirección del enlace' })).toHaveValue(
+		'https://ejemplo.com/'
+	);
+	const panelBox = await panel.boundingBox();
+	const viewport = page.viewportSize();
+	expect(panelBox.x).toBeGreaterThanOrEqual(0);
+	expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(viewport.width);
+	for (const name of ['Abrir', 'Editar']) {
+		const box = await panel.getByRole('button', { name }).boundingBox();
+		expect(box.height).toBeGreaterThanOrEqual(43.9);
+	}
+	const reachable = await panel.evaluate((el) => {
+		const box = el.getBoundingClientRect();
+		const inset = 3;
+		return [
+			[box.left + inset, box.top + inset],
+			[box.right - inset, box.top + inset],
+			[box.left + inset, box.bottom - inset],
+			[box.right - inset, box.bottom - inset]
+		].every(([x, y]) => el.contains(document.elementFromPoint(x, y)));
+	});
+	expect(reachable).toBe(true);
+
+	const [popup] = await Promise.all([
+		page.waitForEvent('popup'),
+		panel.getByRole('button', { name: 'Abrir' }).tap()
+	]);
 	expect(popup.url()).toContain('ejemplo.com');
 	await popup.close();
+});
+
+test('una dirección muy larga deja Abrir y Editar dentro de la pantalla', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(window, 'visualViewport', {
+			configurable: true,
+			value: {
+				offsetTop: 0,
+				offsetLeft: 0,
+				height: 350,
+				width: window.innerWidth,
+				addEventListener() {},
+				removeEventListener() {}
+			}
+		});
+	});
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	const longUrl = `https://ejemplo.com/${'carpeta-larga/'.repeat(70)}documento`;
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('sitio');
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill(longUrl);
+	await page.keyboard.press('Enter');
+	await line.locator('a').tap();
+
+	const panel = page.getByRole('dialog', { name: 'Acciones del enlace' });
+	const url = panel.getByRole('textbox', { name: 'Dirección del enlace' });
+	await expect(url).toHaveValue(longUrl);
+	const visibleHeight = await page.evaluate(() => window.visualViewport.height);
+	const panelBox = await panel.boundingBox();
+	expect(panelBox.height).toBeLessThanOrEqual(visibleHeight - 16);
+	for (const name of ['Abrir', 'Editar']) {
+		const box = await panel.getByRole('button', { name }).boundingBox();
+		expect(box.y).toBeGreaterThanOrEqual(0);
+		expect(box.y + box.height).toBeLessThanOrEqual(visibleHeight);
+	}
+	const urlScrolls = await url.evaluate((el) => el.scrollHeight > el.clientHeight);
+	expect(urlScrolls).toBe(true);
+});
+
+test('fecha, etiquetas y acciones conservan 44px en tablet', async ({ page }) => {
+	await page.setViewportSize({ width: 820, height: 780 });
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await line.pressSequentially('#');
+
+	const tagInput = page.getByRole('combobox', { name: 'Buscar o crear etiqueta' });
+	expect((await tagInput.boundingBox()).height).toBeGreaterThanOrEqual(44);
+	await tagInput.fill('tablet');
+	expect((await page.getByRole('option', { name: /Crear/ }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+	await page.keyboard.press('Escape');
+	await line.click();
+	const row = page.locator('main [data-block-id]').first();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+	const menuItem = page.getByRole('menuitem').first();
+	expect((await menuItem.boundingBox()).height).toBeGreaterThanOrEqual(44);
+	await page.keyboard.press('Escape');
+
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	expect((await panel.getByRole('button', { name: 'Hoy' }).boundingBox()).height).toBeGreaterThanOrEqual(44);
+	await panel.getByRole('button', { name: 'Elegir día…' }).click();
+	const previous = panel.getByRole('button', { name: 'Mes anterior' });
+	const day = panel.locator('[data-day]').first();
+	for (const control of [previous, day]) {
+		const controlBox = await control.boundingBox();
+		expect(controlBox.width).toBeGreaterThanOrEqual(44);
+		expect(controlBox.height).toBeGreaterThanOrEqual(44);
+	}
+
+	await page.setViewportSize({ width: 320, height: 700 });
+	const narrowPanel = await panel.boundingBox();
+	expect(narrowPanel.x).toBeGreaterThanOrEqual(0);
+	expect(narrowPanel.x + narrowPanel.width).toBeLessThanOrEqual(320);
+	expect((await day.boundingBox()).width).toBeGreaterThanOrEqual(44);
+});
+
+test('el almanaque queda completo al abrirse en 320px', async ({ page }) => {
+	await page.setViewportSize({ width: 320, height: 700 });
+	await openApp(page);
+	await sinAvisosFlotantes(page);
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await panel.getByRole('button', { name: 'Elegir día…' }).click();
+
+	const panelBox = await panel.boundingBox();
+	expect(panelBox.x).toBeGreaterThanOrEqual(0);
+	expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(320);
+	expect(panelBox.y).toBeGreaterThanOrEqual(0);
+	const dayBox = await panel.locator('[data-day]').first().boundingBox();
+	expect(dayBox.width).toBeGreaterThanOrEqual(44);
+	expect(dayBox.height).toBeGreaterThanOrEqual(44);
+});
+
+test('la manija táctil selecciona la fila activa sin levantar el teclado', async ({ page }) => {
+	await openApp(page);
+	const row = page.locator('main [data-block-id]').first();
+	const line = row.locator('.block-editable').first();
+	await line.tap();
+	await page.evaluate(() => document.activeElement?.blur());
+
+	const grip = row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+	await expect
+		.poll(() => grip.evaluate((el) => Number(getComputedStyle(el).opacity)))
+		.toBe(1);
+	const target = await grip.evaluate((el) => {
+		const style = getComputedStyle(el, '::after');
+		return { width: parseFloat(style.width), height: parseFloat(style.height) };
+	});
+	expect(target.width).toBeGreaterThanOrEqual(44);
+	expect(target.height).toBeGreaterThanOrEqual(44);
+
+	await grip.tap();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+	await expect(grip).toHaveAttribute('aria-pressed', 'true');
+	expect(await page.evaluate(() => document.activeElement?.classList.contains('block-editable'))).toBe(
+		false
+	);
+});
+
+test('manija y agregar no se pisan, y una manija invisible no recibe toques', async ({ page }) => {
+	await openApp(page);
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	await page.keyboard.press('ControlOrMeta+a');
+	await first.pressSequentially('Primero');
+	await page.keyboard.press('End');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(150);
+
+	const rows = page.locator('main [data-block-id]');
+	const inactiveGrip = rows.first().getByRole('button', {
+		name: 'Seleccionar o arrastrar renglón'
+	});
+	await expect(inactiveGrip).toHaveCSS('pointer-events', 'none');
+
+	const activeRow = rows.nth(1);
+	const grip = activeRow.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+	const add = activeRow.getByRole('button', { name: 'Agregar bloque' });
+	const gripBox = await grip.boundingBox();
+	const addBox = await add.boundingBox();
+	const distance = addBox.x + addBox.width / 2 - (gripBox.x + gripBox.width / 2);
+	expect(distance).toBeGreaterThanOrEqual(43.9);
+});
+
+test('Escape cierra la fecha y devuelve el foco al renglón', async ({ page }) => {
+	await openApp(page);
+	const line = page.locator('main [data-block-id] .block-editable').first();
+	await line.click();
+	await page.keyboard.press('ControlOrMeta+A');
+	await page.keyboard.press('Backspace');
+	await line.pressSequentially('/fecha');
+	await page.getByRole('option', { name: 'Fecha' }).click();
+	const panel = page.getByRole('dialog', { name: 'Fecha del renglón' });
+	await expect(panel).toBeVisible();
+	await page.keyboard.press('Escape');
+	await expect(panel).toHaveCount(0);
+	await expect(line).toBeFocused();
 });
 
 // El separador es ancho completo. Con el renglón en `flex-wrap` (solo mobile),

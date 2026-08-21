@@ -12,7 +12,7 @@
 	use:tooltip={tip}
 	onmousedown={(e) => e.preventDefault()}
 	onclick={onActivate}
-	class="cn-tap flex size-8 items-center justify-center rounded-md text-sm transition-colors
+	class="cn-tap cn-touch-control flex size-8 items-center justify-center rounded-md text-sm transition-colors
 		disabled:pointer-events-none disabled:opacity-40
 		{active
 			? 'bg-primary/20 text-primary font-semibold underline underline-offset-2'

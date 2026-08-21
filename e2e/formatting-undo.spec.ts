@@ -20,6 +20,16 @@ async function selectAllInBlock(page, editable) {
 	});
 }
 
+async function linkWholeBlock(page, editable) {
+	await editable.click();
+	await page.keyboard.type('sitio', { delay: 25 });
+	await page.waitForTimeout(650);
+	await selectAllInBlock(page, editable);
+	await page.getByRole('button', { name: 'Enlace', exact: true }).click();
+	await page.getByLabel('URL del enlace').fill('https://ejemplo.com');
+	await page.keyboard.press('Enter');
+}
+
 test('deshacer revierte solo el código en línea (guard cross-engine)', async ({ page }) => {
 	await newNote(page);
 	await title(page).fill('Formato E2E: guard código');
@@ -67,4 +77,30 @@ test('Ctrl/Cmd+Alt+1 y Ctrl/Cmd+Alt+F llegan a la app (guard cross-engine)', asy
 	// El buscador general vive siempre en el DOM: lo que importa es que esta
 	// tecla no lo ABRA (Ctrl/Cmd+F sin Alt sí es buscar).
 	await expect(page.locator('dialog[aria-label="Buscar"]')).toBeHidden();
+});
+
+test('el clic editable muestra acciones y Ctrl/Cmd+K enfoca Abrir (guard cross-engine)', async ({
+	page
+}) => {
+	await newNote(page);
+	const first = page.locator('main [role="textbox"]').first();
+	await linkWholeBlock(page, first);
+
+	await first.locator('a').click();
+	await expect(page.getByRole('dialog', { name: 'Acciones del enlace' })).toBeVisible();
+	await expect(first).toBeFocused();
+	await page.keyboard.press('Escape');
+
+	await first.evaluate((el) => {
+		const anchor = el.querySelector('a');
+		el.focus();
+		const range = document.createRange();
+		range.setStart(anchor.firstChild, 2);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+	});
+	await page.keyboard.press('ControlOrMeta+k');
+	await expect(page.getByRole('button', { name: 'Abrir' })).toBeFocused();
 });

@@ -34,8 +34,14 @@ export function planEnter(blocks, id) {
 // typed rows at root cancel their type, and everything else inserts as
 // usual. Separators keep inserting because Enter there means "give me a
 // row after the line".
+//
+// Una imagen sin descripción NO es un renglón vacío (spec 041 §3.5): su
+// contenido es la captura. Sin esta línea, Enter la "cancelaba" convirtiéndola
+// en texto —dejando los bytes colgados— o la desanidaba en vez de dar un
+// renglón nuevo. Va junto al separador y antes del desanidado, por lo mismo:
+// el renglón tiene algo puesto, no está esperando que escribas.
 export function enterOnEmptyAction(block) {
-	if (block.type === 'separator') return 'insert';
+	if (block.type === 'separator' || block.type === 'image') return 'insert';
 	if ((block.parentBlockId ?? null) !== null) return 'outdent';
 	if (block.type !== 'text') return 'convert';
 	return 'insert';
@@ -45,7 +51,12 @@ export function enterOnEmptyAction(block) {
 // become plain text on the same row, Workflowy-style); only a plain text
 // row or a separator is actually deleted.
 export function backspaceAction(block) {
-	return block.type === 'text' || block.type === 'separator' ? 'delete' : 'convert';
+	// La imagen va con el separador y no con los tipos que se cancelan: no hay un
+	// "texto normal" atrás al que volver, y convertirla dejaría los bytes
+	// colgados. Es el gemelo de la línea de `enterOnEmptyAction`.
+	return block.type === 'text' || block.type === 'separator' || block.type === 'image'
+		? 'delete'
+		: 'convert';
 }
 
 // Backspace on an EMPTY row that still has sub-items: instead of refusing (which
@@ -71,6 +82,26 @@ export function planPromoteChildren(blocks, id) {
 		}
 	}
 	return { updates };
+}
+
+// El renglón donde aterrizó lo que se pegó o se soltó: ¿se puede tirar? Sólo si
+// quedó vacío y no hay nada más puesto ahí. Las tres exclusiones costaron algo
+// cada una:
+//  - con sub-ítems, borrarlo dejaría la rama huérfana;
+//  - un separador tiene el contenido vacío SIEMPRE, y ese contenido es la línea
+//    que se ve;
+//  - una imagen sin descripción TAMBIÉN tiene el contenido vacío, y tirarla
+//    sería tirar la captura (spec 041). Soltar una captura encima de otra
+//    borraba la de abajo hasta que esto se escribió una sola vez.
+//
+// Vive acá y no en el editor porque había dos copias, y lo que las diferenciaba
+// era justo el renglón que faltaba.
+export function originIsDisposable(blocks, id) {
+	const origin = blocks.find((block) => block.id === id);
+	if (!origin) return false;
+	if ((origin.content ?? '') !== '') return false;
+	if (origin.type === 'separator' || origin.type === 'image') return false;
+	return !blocks.some((block) => (block.parentBlockId ?? null) === id);
 }
 
 export function canDeleteOnBackspace(blocks, id) {

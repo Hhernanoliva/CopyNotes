@@ -2,10 +2,11 @@
 
 ## Buscar
 
-Arriba, en la barra de la app, hay una **lupa** (atajos: **Cmd/Ctrl+K** o **Cmd/Ctrl+F**). Abre un panel de búsqueda que se superpone sobre todo, sin sacarte de donde estabas.
+Arriba, en la barra de la app, hay una **lupa**. También podés usar **Cmd/Ctrl+F**, que siempre abre un panel de búsqueda sin sacarte de donde estabas.
 
 - **Cmd/Ctrl+F** abre la búsqueda y, si tenías **texto seleccionado**, lo carga ya en el campo (como en Visual Studio Code). Reemplaza al buscador del navegador. Volver a apretar **Cmd/Ctrl+F** con el panel abierto lo cierra.
-- **Cmd/Ctrl+K** abre la búsqueda vacía — salvo que tengas texto seleccionado adentro de un renglón, en cuyo caso agrega un enlace ahí (ver "Negrita, cursiva, subrayado, tachado y enlaces" más arriba).
+- **Cmd/Ctrl+K** depende de dónde esté el cursor: con texto seleccionado abre el editor para agregar o cambiar su enlace; con el cursor dentro de un enlace muestra su dirección y los botones **Abrir** y **Editar**; fuera de esos dos casos abre la búsqueda vacía.
+- En una nota compartida de **sólo lectura**, **Cmd/Ctrl+K siempre busca**: nunca muestra herramientas para cambiar el enlace de otra persona.
 
 ### Cómo funciona
 

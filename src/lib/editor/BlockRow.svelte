@@ -19,8 +19,10 @@
 	import { diffWords } from '$lib/sync/diff';
 	import { MOTION, motionDuration } from '$lib/motion';
 	import SlashMenu from './SlashMenu.svelte';
+	import ImageLightbox from './ImageLightbox.svelte';
 	import DatePanel from './DatePanel.svelte';
 	import BlockActionsMenu from './BlockActionsMenu.svelte';
+	import LinkContextPopover from './LinkContextPopover.svelte';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -32,9 +34,19 @@
 		normalizeNewlines,
 		recallCopy
 	} from '$lib/copy/serialize';
-	import { sanitizeHtml, htmlToPlainText, normalizeForest, normalizeUrl } from '$lib/format';
+	import {
+		sanitizeHtml,
+		htmlToPlainText,
+		normalizeForest,
+		normalizeUrl,
+		anchorForRange
+	} from '$lib/format';
 	import { openExternal } from '$lib/platform';
+	import { imageUrl } from '$lib/images/url.svelte';
+	import { imageFilesFrom, IMAGE_INSERT_MESSAGES } from '$lib/images/doors';
+	import { toast } from 'svelte-sonner';
 	import { planNoteExit } from './note';
+	import { caretPointFromViewport } from './caret';
 	import { intentFromBeforeInput } from './mobileInput';
 	import { planSplit } from './split';
 	import { textOffset, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
@@ -65,6 +77,8 @@
 		active = false,
 		flash = false,
 		pulseMenu = false,
+		actionsMenuOpen = false,
+		onActionsMenuChange,
 		placeholder = '',
 		slashOpen = false,
 		slashCommands = [],
@@ -74,6 +88,11 @@
 		onInput,
 		onFormat,
 		onNoteInput,
+		// La descripción de una imagen: texto pelado, guardado en `content`. Va por
+		// una puerta propia y no por `onInput` porque no pasa por `block.html` ni por
+		// los gatillos de "/" y "#" — este renglón no tiene caja editable donde
+		// abrirlos (spec 041 §3.5).
+		onCaption,
 		onEnter,
 		onBackspaceEmpty,
 		onJoinPrevious,
@@ -95,6 +114,7 @@
 		onDragOver,
 		onDragHold,
 		onDragHandle,
+		onHandleSelect,
 		tags = [],
 		allTags = [],
 		tagPickerOpen = false,
@@ -110,6 +130,10 @@
 		onPasteLines,
 		onPasteBlocks,
 		onPasteCode,
+		// Una captura que entra por cualquiera de las tres puertas: pegar, soltarla
+		// encima o `/imagen` (spec 041 §3.4). Recibe la lista porque pegar y
+		// arrastrar pueden traer varias de una.
+		onInsertImages,
 		onRequestLink,
 		onRequestToolbarFocus,
 		datePanelOpen = false,
@@ -122,6 +146,14 @@
 	let el = $state();
 	let noteEl = $state();
 	let codeToggleEl = $state();
+	// La caja de la descripción de una imagen. Un renglón de imagen NO tiene `el`
+	// —no hay caja editable—, así que sin esto el foco que le manda el editor no
+	// tiene dónde aterrizar: se queda pegado y la persona teclea al vacío.
+	let captionEl = $state();
+	let imageButtonEl = $state();
+	let linkContext = $state(null); // { href, focusOnOpen }
+	let linkAnchor = null;
+	let linkRange = null;
 
 	// Quiet Motion (spec 024, Stage 5). `ready` gates entry animations so they
 	// never fire on first render — a fresh row (note load / note switch) must
@@ -160,7 +192,10 @@
 
 	// Headings/text/bullet/todo render sanitized rich HTML; code/separator stay
 	// literal plain text (code needs exact whitespace, separator has no content).
-	const isRich = $derived(block.type !== 'code' && block.type !== 'separator');
+	const isRich = $derived(
+		block.type !== 'code' && block.type !== 'separator' && block.type !== 'image'
+	);
+
 	const codeLines = $derived(
 		block.type === 'code' && (block.content ?? '') !== ''
 			? normalizeNewlines(block.content).split('\n')
@@ -171,10 +206,73 @@
 	const codeCollapsed = $derived(isLongCode && (block.codeCollapsed ?? false));
 	const codePreview = $derived(codeCollapsed ? codeLines.slice(0, 6).join('\n') : '');
 
+	// La captura y su descripción (spec 041). `picture` pide los bytes al
+	// aparato y revoca la URL temporal cuando el renglón se va; para un renglón
+	// que no es imagen `block.imageId` es `null` y no pide nada.
+	const picture = imageUrl(() => block.imageId);
+	let zoomed = $state(false);
+	// Dos pasos a propósito: el primer Backspace sobre una descripción vacía
+	// marca la imagen, el segundo borra el bloque. Y NUNCA se une con el renglón
+	// de arriba — unir un archivo con texto no significa nada.
+	let imageFocused = $state(false);
+
+	// El hueco tiene la forma exacta de la captura ANTES de que lleguen los bytes:
+	// sin esto la nota crece de golpe cuando el <img> aparece, que es justo el
+	// salto que `width`/`height` existen para evitar. El ancho explícito es lo que
+	// le da tamaño a una caja vacía; `max-width` lo baja a la columna y
+	// `aspect-ratio` saca el alto del ancho ya recortado. Sin medidas guardadas
+	// (un respaldo viejo) queda una caja chica en vez de colapsar a nada.
+	const placeholderStyle = $derived(
+		block.imageWidth && block.imageHeight
+			? `aspect-ratio: ${block.imageWidth} / ${block.imageHeight}; width: ${block.imageWidth}px; max-width: 100%`
+			: 'width: 12rem; min-height: 4rem; max-width: 100%'
+	);
+
+	function handleImageCaptionKeys(event) {
+		if (event.key === 'Enter') {
+			event.preventDefault();
+			// Sin corte ni tipo forzado: el renglón nuevo sale de la herencia de
+			// siempre, que para una imagen es texto normal. Que un Enter sobre una
+			// imagen sin descripción no la convierta en texto lo garantiza
+			// `enterOnEmptyAction`, no este llamador.
+			onEnter(block);
+			return;
+		}
+		// `event.repeat` es la tecla sola repitiéndose, no una segunda pulsación:
+		// borrar "pantallazo del error" manteniendo Backspace vacía el campo y
+		// sigue disparando cada ~60 ms, así que sin esto el mismo gesto que limpia
+		// la descripción se llevaba la captura dos repeticiones después.
+		const arming =
+			event.key === 'Backspace' &&
+			!event.repeat &&
+			event.currentTarget.selectionStart === 0 &&
+			(block.content ?? '') === '';
+		if (!arming) {
+			// Cualquier otra tecla desarma. Si no, el anillo quedaba prendido
+			// mientras se escribía la descripción nueva y el paso siguiente sobre un
+			// campo vacío borraba el bloque de una: dos pasos que eran uno.
+			imageFocused = false;
+			return;
+		}
+		event.preventDefault();
+		if (!imageFocused) {
+			imageFocused = true;
+			return;
+		}
+		onDelete(block);
+	}
+
 	// El botón + es una alternativa de mouse a tipear "/", pensada para quien
 	// no conoce el atajo (spec: docs/superpowers/specs/2026-07-30-plus-boton-linea-activa-design.md).
 	const showPlus = $derived(
-		active && block.content === '' && block.type !== 'code' && block.type !== 'separator'
+		!readOnly &&
+			active &&
+			block.content === '' &&
+			block.type !== 'code' &&
+			block.type !== 'separator' &&
+			// Una imagen sin descripción no es un renglón vacío: el + ahí invita a
+			// escribir sobre una captura que ya está puesta (spec 041 §3.5).
+			block.type !== 'image'
 	);
 
 	const today = $derived(currentDay());
@@ -251,7 +349,15 @@
 	// at the end of the content.
 	function focusBlockSurface(caretToEnd = false) {
 		if (!el) {
-			codeToggleEl?.focus();
+			// Una imagen editable manda a su descripción; en sólo lectura, al botón
+			// que la abre. Un código plegado usa su propio botón.
+			const surface =
+				block.type === 'image'
+					? readOnly
+						? imageButtonEl
+						: (captionEl ?? imageButtonEl)
+					: codeToggleEl;
+			surface?.focus();
 			return;
 		}
 		el.focus();
@@ -323,6 +429,10 @@
 	function handleBeforeInput(event) {
 		const intent = intentFromBeforeInput(event.inputType);
 		if (!intent) return;
+		if (readOnly) {
+			event.preventDefault();
+			return;
+		}
 		// Code blocks keep Enter as a literal newline handled by the browser.
 		if (block.type === 'code') return;
 		// On a virtual keyboard there is no reliable Shift+Enter, and the same
@@ -374,7 +484,7 @@
 
 	$effect(() => {
 		if (!focused) return;
-		if (!el && !codeToggleEl) return;
+		if (!el && !codeToggleEl && !captionEl && !imageButtonEl) return;
 		// focusCaret is a plain-text offset to land on (slash menu returns the
 		// caret to where the "/" was); without it, park the caret at the end.
 		if (focusCaret != null && el && block.type !== 'separator') {
@@ -390,6 +500,12 @@
 	});
 
 	function handleKeydown(event) {
+		if (linkContext && event.key === 'Escape') {
+			event.preventDefault();
+			event.stopPropagation();
+			closeLinkContext(true);
+			return;
+		}
 		if (slashOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(event.key)) {
 			event.preventDefault();
 			onSlashKey(event.key);
@@ -430,9 +546,8 @@
 				onFormat?.(block, cmd);
 				return;
 			}
-			if (key === 'k') {
+			if (key === 'k' && requestLinkFromKeyboard()) {
 				event.preventDefault();
-				onRequestLink?.(block);
 				return;
 			}
 		}
@@ -449,13 +564,20 @@
 		}
 		// Shift+Enter inserts a soft line break inside this block, not a new one.
 		// Code blocks already treat Enter/Shift+Enter as newlines via the browser.
-		if (event.key === 'Enter' && event.shiftKey && block.type !== 'separator' && block.type !== 'code') {
+		if (
+			!readOnly &&
+			event.key === 'Enter' &&
+			event.shiftKey &&
+			block.type !== 'separator' &&
+			block.type !== 'code'
+		) {
 			event.preventDefault();
 			document.execCommand('insertLineBreak');
 			handleInput();
 			return;
 		}
 		if (handleSurfaceKeys(event)) return;
+		if (readOnly) return;
 		if (event.key === 'Backspace' && (block.type === 'separator' || el.textContent === '')) {
 			event.preventDefault();
 			onBackspaceEmpty(block);
@@ -514,6 +636,14 @@
 	}
 
 	function handleSurfaceKeys(event) {
+		if (
+			readOnly &&
+			(event.key === 'Enter' ||
+				event.key === 'Tab' ||
+				(event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')))
+		) {
+			return false;
+		}
 		if (event.key === 'Enter' && !event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			event.preventDefault();
 			onEnter(block, undefined, caretSplit());
@@ -576,6 +706,7 @@
 	// adivinarlo comparando textos — cosa que en un celular sale mal (ver
 	// `typedByHand` en triggers.ts).
 	function handleInput(event) {
+		closeLinkContext(false);
 		const caret = caretPlainOffset();
 		const inputType = event?.inputType ?? null;
 		if (isRich) {
@@ -623,6 +754,19 @@
 			event.preventDefault();
 			return;
 		}
+		// Spec 041: un archivo de verdad en el portapapeles gana. Una dirección
+		// `<img src="https://...">` copiada de una página NO se descarga: sólo se
+		// acepta un archivo que el portapapeles entregue.
+		//
+		// Medido en Safari 26.5: una captura llega como `image.png`, `image/png`.
+		// Y un pegado puede venir SIN nada —ni archivos ni tipos—: eso cae al
+		// camino de texto de siempre, como antes.
+		const images = imageFilesFrom(event.clipboardData);
+		if (images.length > 0) {
+			event.preventDefault();
+			onInsertImages?.(block, images);
+			return;
+		}
 		const text = event.clipboardData?.getData('text/plain') ?? '';
 		if (block.type === 'code') {
 			if (text === '') return;
@@ -647,12 +791,167 @@
 		onPasteLines?.(block, text);
 	}
 
+	// La segunda puerta: soltar una captura encima del renglón. El mismo filtro y
+	// el mismo camino que pegar — una sola forma de entrar, dos maneras de pedirlo.
+	//
+	// `dragover` sólo se frena cuando el arrastre trae ARCHIVOS: frenarlo siempre
+	// convertiría al renglón en destino de todo, y arrastrar texto de otra ventana
+	// —que hoy el navegador deja caer solo— dejaría de andar.
+	function handleDragOver(event) {
+		if (!event.dataTransfer?.types?.includes('Files')) return;
+		event.preventDefault();
+	}
+
+	// Frenar el `dragover` y NO frenar el `drop` es la receta para que el navegador
+	// haga lo suyo con el archivo — y en la ventana de escritorio, que no tiene
+	// barra de direcciones, "lo suyo" es irse de la app. Así que un arrastre con
+	// archivos se frena SIEMPRE, y si no había ninguna imagen adentro se dice.
+	function handleDrop(event) {
+		if (!event.dataTransfer?.types?.includes('Files')) return;
+		// Frenado ANTES del guardia de sólo lectura, a propósito: una nota ajena no
+		// acepta la captura, pero tampoco tiene por qué llevarse a la persona fuera
+		// de la app por no haber frenado el evento.
+		event.preventDefault();
+		if (readOnly) return;
+		const images = imageFilesFrom(event.dataTransfer);
+		if (images.length === 0) {
+			toast.error(IMAGE_INSERT_MESSAGES['not-an-image']);
+			return;
+		}
+		onInsertImages?.(block, images);
+	}
+
+	function selectionInThisRow() {
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0 || !el) return null;
+		const range = selection.getRangeAt(0);
+		if (!el.contains(range.startContainer) || !el.contains(range.endContainer)) return null;
+		return { selection, range };
+	}
+
+	function openLinkContext(anchor, href, focusOnOpen) {
+		onActionsMenuChange?.(false);
+		const current = selectionInThisRow();
+		linkAnchor = anchor;
+		linkRange = current?.range.cloneRange() ?? null;
+		linkContext = { href, focusOnOpen };
+	}
+
+	function placeCaretFromPointer(event) {
+		const point = caretPointFromViewport(event.clientX, event.clientY);
+		if (!point || !el?.contains(point.node)) return;
+		el.focus({ preventScroll: true });
+		const range = document.createRange();
+		range.setStart(point.node, point.offset);
+		range.collapse(true);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+	}
+
+	function placeCaretInAnchor(anchor) {
+		el?.focus({ preventScroll: true });
+		const range = document.createRange();
+		range.selectNodeContents(anchor);
+		range.collapse(false);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+	}
+
+	function sameRange(left, right) {
+		return (
+			left &&
+			right &&
+			left.startContainer === right.startContainer &&
+			left.startOffset === right.startOffset &&
+			left.endContainer === right.endContainer &&
+			left.endOffset === right.endOffset
+		);
+	}
+
+	function closeLinkContext(restoreFocus) {
+		const saved = linkRange;
+		linkContext = null;
+		linkAnchor = null;
+		linkRange = null;
+		if (!restoreFocus || !saved || !el?.isConnected) return;
+		el.focus({ preventScroll: true });
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(saved);
+	}
+
+	function requestLinkFromKeyboard() {
+		if (readOnly || !isRich) return false;
+		const current = selectionInThisRow();
+		if (!current) return false;
+		if (!current.selection.isCollapsed) {
+			closeLinkContext(false);
+			onRequestLink?.(block);
+			return true;
+		}
+		const anchor = anchorForRange(current.range);
+		const href = anchor && el.contains(anchor) ? normalizeUrl(anchor.getAttribute('href')) : '';
+		if (!href) return false;
+		openLinkContext(anchor, href, true);
+		return true;
+	}
+
+	function openCurrentLink() {
+		const href = linkContext?.href;
+		closeLinkContext(false);
+		if (href) openExternal(href);
+	}
+
+	function editCurrentLink() {
+		const anchor = linkAnchor;
+		if (!anchor?.isConnected) {
+			closeLinkContext(false);
+			return;
+		}
+		const range = document.createRange();
+		range.selectNodeContents(anchor);
+		const selection = window.getSelection();
+		selection?.removeAllRanges();
+		selection?.addRange(range);
+		closeLinkContext(false);
+		onRequestLink?.(block);
+	}
+
+	$effect(() => {
+		if (!linkContext) return;
+		function selectionChanged() {
+			const selection = window.getSelection();
+			if (!selection || selection.rangeCount === 0) {
+				closeLinkContext(false);
+				return;
+			}
+			const range = selection.getRangeAt(0);
+			const panel = document.querySelector('[data-link-context]');
+			if (panel?.contains(range.commonAncestorContainer)) return;
+			if (
+				!el?.contains(range.startContainer) ||
+				!el.contains(range.endContainer) ||
+				!selection.isCollapsed ||
+				!sameRange(range, linkRange)
+			) {
+				closeLinkContext(false);
+			}
+		}
+		document.addEventListener('selectionchange', selectionChanged);
+		return () => document.removeEventListener('selectionchange', selectionChanged);
+	});
+
+	$effect(() => {
+		if (actionsMenuOpen && linkContext) closeLinkContext(false);
+	});
+
 	// Shift+click selects a block range instead of moving the caret; a plain
 	// mousedown starts a potential drag-select and clears any active selection.
 	// Inside a contenteditable a link NEVER navigates on its own: the browser
-	// parks the caret instead. So any click on one opens it, with or without
-	// Ctrl/Cmd. Pedir el modificador dejaba al celular sin ninguna forma de
-	// abrir un enlace, porque ahí no hay tecla que mantener apretada.
+	// parks the caret instead. In editing, a plain click keeps that caret and shows
+	// explicit actions; Ctrl/Cmd+click and read-only clicks open directly.
 	//
 	// Arrastrar de punta a punta del enlace también termina en un `click`, pero
 	// ahí el usuario marcó el texto para editarlo, no pidió ir a la dirección.
@@ -666,12 +965,30 @@
 	function handleEditableClick(event) {
 		const anchor = event.target?.closest?.('a[href]');
 		if (!anchor) return;
-		if (pressPoint && Math.hypot(event.clientX - pressPoint.x, event.clientY - pressPoint.y) > 4)
+		if (
+			event.detail > 0 &&
+			pressPoint &&
+			Math.hypot(event.clientX - pressPoint.x, event.clientY - pressPoint.y) > 4
+		) {
+			closeLinkContext(false);
 			return;
+		}
+		if (event.detail > 1) {
+			closeLinkContext(false);
+			return;
+		}
 		const href = normalizeUrl(anchor.getAttribute('href'));
 		if (!href) return;
 		event.preventDefault();
-		openExternal(href);
+		if (readOnly || event.metaKey || event.ctrlKey) {
+			closeLinkContext(false);
+			openExternal(href);
+			return;
+		}
+		const assisted = event.detail === 0;
+		if (assisted) placeCaretInAnchor(anchor);
+		else placeCaretFromPointer(event);
+		openLinkContext(anchor, href, assisted);
 	}
 
 	// Dónde empezó el apretón, para que handleEditableClick sepa si hubo arrastre.
@@ -696,7 +1013,15 @@
 		// handled by the drag controller (row pointerdown). Don't start a fresh
 		// drag-select here — that would wipe the selection before a move begins.
 		// The controller collapses the selection itself if it turns out a click.
-		if (selected) return;
+		if (selected) {
+			// The image caption is an actual input, so the row-level pointer handler
+			// intentionally ignores it. Clear structural selection here when the user
+			// explicitly returns to editing that caption.
+			if (readOnly || event.target?.closest?.('[data-image-caption]')) {
+				onPlainMousedown?.(block);
+			}
+			return;
+		}
 		// Pressing on a live text selection (a word) grabs it for a text move
 		// (spec 026) instead of starting a block drag-select. The editor decides
 		// if the press is really inside the selection and arms the drag.
@@ -711,6 +1036,13 @@
 	// Return the caret to this block after a transient menu closes.
 	function focusContent() {
 		focusBlockSurface(true);
+	}
+
+	function handleRowPointerdown(event) {
+		// Controls own their gesture. The row body may still arm its existing
+		// long-press move, but a checkbox, menu, image or panel never does so too.
+		if (event.target?.closest?.('button, input, textarea, select, [data-editor-transient]')) return;
+		onDragHold?.(block.id, event);
 	}
 
 	// Dispara el mismo evento `input` nativo que ya maneja handleInput cuando
@@ -734,54 +1066,54 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-block-id={block.id}
+	data-read-only={readOnly}
+	data-active={active}
 	class="cn-row group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
 		? 'bg-primary/10'
 		: ''} {flash ? 'cn-flash' : ''}"
 	style="padding-left: {depth * 1.5}rem"
 	onpointerenter={(event) => onDragOver?.(block, event.buttons)}
-	onpointerdown={(event) => onDragHold?.(block.id, event)}
+	onpointerdown={handleRowPointerdown}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
 >
-	<!-- Grip handle: grab to move this row (and any active selection). Shown on
-	     hover/focus. Not editable, so dragging never fights text selection.
-	     Keyboard users move rows with Alt+↑/↓, so this stays out of the tab order.
-	     On the active empty line it swaps for a "+" that opens the same menu as
-	     typing "/" — a mouse-first alternative for people who don't know the
-	     shortcut. -->
+	<!-- One handle, two outcomes: release without moving selects; movement drags.
+	     It stays in the first slot even on an empty or image row. -->
 	<div class="relative flex h-7 w-4 shrink-0 items-center justify-center">
-		{#if showPlus}
+		{#if !readOnly}
 			<button
 				type="button"
-				aria-label="Agregar bloque"
-				use:tooltip={'Agregar (o escribí "/")'}
-				onclick={insertSlashTrigger}
-				in:fade={{ duration: ready ? motionDuration(MOTION.fast) : 0 }}
-				out:fade={{ duration: motionDuration(MOTION.fast) }}
-				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring absolute flex h-7 w-4 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
-			>
-				<Plus size={14} aria-hidden="true" />
-			</button>
-		{:else if !readOnly}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				aria-hidden="true"
-				use:tooltip={'Arrastrar para mover'}
+				tabindex="-1"
+				aria-label="Seleccionar o arrastrar renglón"
+				aria-pressed={selected}
+				use:tooltip={'Seleccionar o arrastrar'}
 				onpointerdown={(event) => {
 					event.stopPropagation();
 					onDragHandle?.(block.id, event);
 				}}
+				onclick={(event) => {
+					if (event.detail === 0) onHandleSelect?.(block.id);
+				}}
 				in:fade={{ duration: ready ? motionDuration(MOTION.fast) : 0 }}
 				out:fade={{ duration: motionDuration(MOTION.fast) }}
-				class="cn-affordance cn-tap text-faint hover:text-foreground absolute flex h-7 w-4 cursor-grab touch-none items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
+				class="cn-row-handle cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring absolute flex h-7 w-4 cursor-grab touch-none items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none active:cursor-grabbing {selected
+					? 'opacity-100'
+					: 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'}"
 			>
 				<GripVertical size={14} aria-hidden="true" />
-			</div>
+			</button>
 		{/if}
 	</div>
-	<div class="flex h-7 w-5 shrink-0 items-center justify-center">
+	<div
+		class="flex h-7 w-5 shrink-0 items-center justify-center {hasChildren || showPlus
+			? 'cn-row-secondary-control'
+			: ''}"
+	>
 		{#if hasChildren}
 			<button
 				type="button"
 				onclick={() => onToggleCollapsed(block)}
+				onpointerdown={(event) => event.stopPropagation()}
 				aria-label={block.collapsed ? 'Expandir bloque' : 'Colapsar bloque'}
 				aria-expanded={!block.collapsed}
 				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm transition-opacity duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none {block.collapsed
@@ -793,6 +1125,19 @@
 					aria-hidden="true"
 					class="transition-transform duration-(--motion-fast) {block.collapsed ? '' : 'rotate-90'}"
 				/>
+			</button>
+		{:else if showPlus}
+			<button
+				type="button"
+				aria-label="Agregar bloque"
+				use:tooltip={'Agregar (o escribí "/")'}
+				onpointerdown={(event) => event.stopPropagation()}
+				onclick={insertSlashTrigger}
+				in:fade={{ duration: ready ? motionDuration(MOTION.fast) : 0 }}
+				out:fade={{ duration: motionDuration(MOTION.fast) }}
+				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<Plus size={14} aria-hidden="true" />
 			</button>
 		{/if}
 	</div>
@@ -809,6 +1154,7 @@
 			aria-checked={block.checked}
 			aria-label={block.checked ? 'Desmarcar tarea' : 'Marcar tarea'}
 			disabled={readOnly && !guest}
+			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => onToggleChecked(block)}
 			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>
@@ -842,6 +1188,69 @@
 			class="focus-visible:ring-ring flex h-7 min-w-0 flex-1 items-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
 			<hr class="border-border w-full" />
+		</div>
+	{:else if block.type === 'image'}
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			{#if picture.url}
+				<!-- Un `<button>` y no un `<img>` con onclick: abrir la captura es una
+				     acción, así que se llega con Tab y con Enter como a cualquier otra.
+				     `self-start` para que la columna no la estire — una captura chica se
+				     ve chica, nunca agrandada. El anillo marca el primer paso del
+				     borrado de dos tiempos (ver handleImageCaptionKeys). -->
+				<button
+					bind:this={imageButtonEl}
+					type="button"
+					data-block-surface
+					data-image-button
+					aria-label={block.content
+						? `Ver a tamaño real: ${block.content}`
+						: 'Ver la captura a tamaño real'}
+					onpointerdown={(event) => event.stopPropagation()}
+					onclick={() => (zoomed = true)}
+					onfocus={() => onActive(block)}
+					class="focus-visible:ring-ring max-w-full cursor-zoom-in self-start rounded-md focus-visible:ring-2 focus-visible:outline-none {imageFocused
+						? 'ring-ring ring-2'
+						: ''}"
+				>
+					<!-- `width`/`height` reservan el lugar exacto ANTES de que cargue, que es
+					     lo que impide que la nota salte. -->
+					<img
+						src={picture.url}
+						alt={block.content}
+						width={block.imageWidth}
+						height={block.imageHeight}
+						loading="lazy"
+						decoding="async"
+						class="h-auto max-w-full rounded-md"
+					/>
+				</button>
+			{:else}
+				<!-- El mismo hueco sirve para los dos momentos: mientras los bytes
+				     salen del aparato (un parpadeo) y cuando no están. "Imagen no
+				     disponible" en la parte A sólo pasa importando un paquete
+				     incompleto; en la B, mientras baja. -->
+				<div
+					class="bg-muted text-muted-foreground flex items-center justify-center self-start rounded-md px-3 text-center text-sm"
+					style={placeholderStyle}
+				>
+					{#if picture.missing}Imagen no disponible{/if}
+				</div>
+			{/if}
+			<input
+				bind:this={captionEl}
+				data-block-surface
+				data-image-caption
+				class="text-muted-foreground placeholder:text-faint w-full border-0 bg-transparent p-0 text-sm focus:outline-none"
+				placeholder="Descripción (opcional)"
+				aria-label="Descripción de la imagen"
+				value={block.content}
+				disabled={readOnly}
+				onmousedown={handleMousedown}
+				onfocus={() => onActive(block)}
+				onblur={() => (imageFocused = false)}
+				oninput={(event) => onCaption(block, event.currentTarget.value)}
+				onkeydown={handleImageCaptionKeys}
+			/>
 		</div>
 	{:else}
 		<div class="flex min-w-0 flex-1 flex-col">
@@ -895,6 +1304,7 @@
 					bind:this={codeToggleEl}
 					type="button"
 					data-block-surface
+					onpointerdown={(event) => event.stopPropagation()}
 					onclick={() => onToggleCodeCollapsed(block)}
 					onkeydown={handleSurfaceKeys}
 					onfocus={() => onActive(block)}
@@ -956,6 +1366,7 @@
 						type="button"
 						aria-label="Quedarme con esta versión, la de este dispositivo"
 						onmousedown={(event) => event.preventDefault()}
+						onpointerdown={(event) => event.stopPropagation()}
 						onclick={() => onConflictResolve?.(block, 'mine')}
 						class="cn-conflict-option"
 					>
@@ -975,6 +1386,7 @@
 							? 'Borrar este renglón, como se borró en el otro dispositivo'
 							: 'Traer esta versión, la del otro dispositivo'}
 						onmousedown={(event) => event.preventDefault()}
+						onpointerdown={(event) => event.stopPropagation()}
 						onclick={() => onConflictResolve?.(block, 'theirs')}
 						class="cn-conflict-option {remoteDeleted ? 'cn-conflict-option--danger' : ''}"
 					>
@@ -1026,13 +1438,18 @@
 		     que la línea, y se notaba como un chip caído. -->
 		<button
 			type="button"
+			data-date-panel-trigger
 			in:scale={{ start: 0.6, duration: ready ? motionDuration(MOTION.fast) : 0 }}
 			aria-label={readOnly ? `Vence ${dueLabel}` : 'Cambiar fecha'}
 			disabled={readOnly}
 			use:tooltip={'Cambiar o quitar fecha'}
 			onmousedown={(event) => event.preventDefault()}
 			onpointerdown={(event) => event.stopPropagation()}
-			onclick={() => onDateBadge(block)}
+			onclick={() => {
+				const closing = datePanelOpen;
+				onDateBadge(block);
+				if (closing) focusContent();
+			}}
 			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
 		>📅 {dueLabel}</button>
 	{/if}
@@ -1054,13 +1471,16 @@
 	     Hidden until hover/keyboard focus so the page stays quiet.
 	     mousedown+preventDefault keeps the caret in the block. -->
 	<div
-		class="cn-affordance cn-actions pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5"
+		class="cn-affordance cn-actions pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5 {selected
+			? 'z-10 pointer-events-auto opacity-100'
+			: ''}"
 	>
 		<button
 			type="button"
 			aria-label="Copiar bloque"
 			use:tooltip={copied ? 'Copiado' : 'Copiar bloque'}
 			onmousedown={(event) => event.preventDefault()}
+			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => confirmCopy(false)}
 			class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 		>
@@ -1078,6 +1498,7 @@
 				aria-label="Copiar con subniveles"
 				use:tooltip={copiedWithChildren ? 'Copiado' : 'Copiar con subniveles'}
 				onmousedown={(event) => event.preventDefault()}
+				onpointerdown={(event) => event.stopPropagation()}
 				onclick={() => confirmCopy(true)}
 				class="cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-7 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none"
 			>
@@ -1099,6 +1520,8 @@
 		{#if !readOnly || guest}
 			<BlockActionsMenu
 				{pulseMenu}
+				open={actionsMenuOpen}
+				onOpenChange={onActionsMenuChange}
 				noteOnly={guest}
 				contentActions={block.type !== 'separator'}
 				onAddNote={openNote}
@@ -1122,17 +1545,32 @@
 		/>
 	{/if}
 
+	{#if linkContext}
+		<div
+			use:flipIntoView
+			class="absolute top-full left-2 z-20 mt-1 w-[calc(100%-1rem)] max-w-[22rem]"
+		>
+			<LinkContextPopover
+				href={linkContext.href}
+				focusOnOpen={linkContext.focusOnOpen}
+				onOpen={openCurrentLink}
+				onEdit={editCurrentLink}
+				onClose={closeLinkContext}
+			/>
+		</div>
+	{/if}
+
 	{#if datePanelOpen}
 		<!-- El panel sale debajo del renglón salvo que no entre: ahí se da vuelta
 		     y sale arriba. En celular el piso es el borde del teclado, no el de la
 		     ventana (ver flipIntoView). -->
-		<div use:flipIntoView class="absolute top-full left-8 z-10 mt-1">
+		<div use:flipIntoView class="absolute top-full left-2 z-10 mt-1 max-w-[100vw]">
 			<DatePanel
 				hasDate={!!block.dueDate}
 				current={block.dueDate}
 				onPick={(day) => onDatePick(block, day)}
 				onRemove={() => onDateRemove(block)}
-				onClose={() => onDatePanelClose(block)}
+					onClose={(restoreFocus) => onDatePanelClose(block, restoreFocus)}
 			/>
 		</div>
 	{/if}
@@ -1145,6 +1583,10 @@
 			onClose={onTagPickerClose}
 			align="right"
 		/>
+	{/if}
+
+	{#if zoomed && picture.url}
+		<ImageLightbox url={picture.url} alt={block.content} onClose={() => (zoomed = false)} />
 	{/if}
 </div>
 

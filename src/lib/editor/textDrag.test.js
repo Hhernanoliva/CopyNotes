@@ -23,8 +23,10 @@ describe('createTextDrag', () => {
 
 	it('does not activate on a sub-threshold move', () => {
 		drag.armFromSelection('s', 1, 4, pointer('pointerdown', 100, 100));
+		expect(drag.engaged).toBe(true);
 		window.dispatchEvent(pointer('pointermove', 103, 100)); // 3px
 		expect(drag.active).toBe(false);
+		expect(drag.engaged).toBe(true);
 	});
 
 	it('activates past the threshold and applies the move on release', () => {
@@ -35,12 +37,14 @@ describe('createTextDrag', () => {
 
 		window.dispatchEvent(pointer('pointerup', 140, 200));
 		expect(applied).toEqual([{ sourceId: 's', start: 1, end: 4, targetId: 't', offset: 3 }]);
+		expect(drag.engaged).toBe(false);
 	});
 
 	it('a press with no drag applies nothing', () => {
 		drag.armFromSelection('s', 1, 4, pointer('pointerdown', 100, 100));
 		window.dispatchEvent(pointer('pointerup', 100, 100));
 		expect(drag.active).toBe(false);
+		expect(drag.engaged).toBe(false);
 		expect(applied).toHaveLength(0);
 	});
 
@@ -72,6 +76,16 @@ describe('createTextDrag', () => {
 		expect(drag.active).toBe(true);
 		window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 		expect(drag.active).toBe(false);
+		window.dispatchEvent(pointer('pointerup', 140, 200));
+		expect(applied).toHaveLength(0);
+	});
+
+	it('cancel is idempotent before the drag crosses its threshold', () => {
+		drag.armFromSelection('s', 1, 4, pointer('pointerdown', 100, 100));
+		expect(drag.engaged).toBe(true);
+		drag.cancel();
+		drag.cancel();
+		expect(drag.engaged).toBe(false);
 		window.dispatchEvent(pointer('pointerup', 140, 200));
 		expect(applied).toHaveLength(0);
 	});

@@ -37,7 +37,7 @@ import { countConflicts } from './conflicts';
 import { nudgePeers } from './live';
 import { getVaultKey, makeVaultProof, proofOpens } from './vault';
 import { ensureAccountMatches } from './leave';
-import { syncStatus, userFacing } from './status.svelte';
+import { syncStatus, userFacing, reportSyncFailure } from './status.svelte';
 import { now } from '../storage/ids';
 
 const BATCH = 200;
@@ -195,35 +195,9 @@ export async function cloudVaultProof() {
 
 // The one entry point. Safe to call from a timer, a button, or the "connection
 // came back" event: overlapping calls collapse into the one already running.
-// Qué se muestra cuando una pasada falla.
 //
-// El navegador tira "TypeError: Failed to fetch" —en inglés, con nombre de tipo
-// de dato— cuando no llegó al servidor: sin conexión, wifi caído, servidor sin
-// responder. Publicar ese texto tal cual era hablarle a la persona en el idioma
-// del navegador sobre un problema que no es suyo y que no puede arreglar; en
-// rojo, además, cuando quedarse sin conexión es una situación prevista y sin
-// consecuencias (todo está guardado en el dispositivo y el próximo tic
-// reintenta). Se separa en dos estados con significados distintos, y el detalle
-// técnico queda a mano —en el `title`— para cuando haya que reportar algo.
-const SIN_CONEXION = /failed to fetch|networkerror|network error|load failed|fetch/i;
-
-function reportSyncFailure(error) {
-	const detail = error instanceof Error ? error.message : String(error ?? '');
-	syncStatus.errorDetail = detail;
-	// Un fallo que ya sabe explicarse va tal cual, y antes que nada: no es un
-	// problema de red que el próximo tic vaya a resolver solo.
-	if (error?.userFacing) {
-		syncStatus.error = detail;
-		return;
-	}
-	const desconectado = typeof navigator !== 'undefined' && navigator.onLine === false;
-	if (desconectado || SIN_CONEXION.test(detail)) {
-		syncStatus.offline = true;
-		return;
-	}
-	syncStatus.error = 'No se pudo sincronizar. Lo tuyo está guardado en este dispositivo.';
-}
-
+// Cómo se cuenta una falla vive en `status.svelte.ts`: el caño compartido la
+// necesita igual, y una nota a la vez (ver `shared.ts`).
 export async function syncNow() {
 	if (syncStatus.uploading) return;
 	syncStatus.uploading = true;

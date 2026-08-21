@@ -10,6 +10,7 @@
 	import { toast } from 'svelte-sonner';
 	import { X, Share2 } from '@lucide/svelte';
 	import { getShareRole } from '$lib/storage/shares';
+	import { listBlocksByNote } from '$lib/storage/blocks';
 	import { shareNameOr } from '$lib/storage/share-names';
 	import { getSetting, setSetting } from '$lib/storage/settings';
 	import { KEY } from '$lib/storage/settings-registry';
@@ -25,6 +26,10 @@
 	// instante el botón de compartir, y ese instante alcanza para un clic.
 	let role = $state(undefined);
 	let working = $state(false);
+	// Spec 041 §8: una imagen no viaja por el caño compartido. Esto es la
+	// cortesía —apaga el botón antes de que la persona lo apriete—; la guardia
+	// de verdad es el rechazo dentro de `shareNote` (spec/sync/share-move.ts).
+	let hasImages = $state(false);
 
 	// Cómo firmás. Se escribe una vez y se recuerda: va en preferencias y no en la
 	// nota porque es tuyo, no de la nota.
@@ -52,9 +57,13 @@
 		if (!open || !noteId) return;
 		role = undefined;
 		link = '';
+		hasImages = false;
 		getShareRole(noteId).then((value) => (role = value));
 		getSetting(KEY.shareOwnerLabel).then((valor) => (ownerLabel = valor ?? ''));
 		shareNameOr(`owner:${noteId}`, 'otra persona').then((valor) => (ownerName = valor));
+		listBlocksByNote(noteId).then(
+			(blocks) => (hasImages = blocks.some((block) => block.type === 'image'))
+		);
 	});
 
 	// La lista de invitados sale del servidor, y sólo la puede pedir el dueño.
@@ -292,18 +301,22 @@
 				{working ? 'Saliendo…' : 'Salirme de esta nota'}
 			</button>
 		{:else if role === null}
-			<p class="text-sm leading-relaxed">
-				Mientras esté compartida, esta nota sale de la bóveda y deja de estar cifrada. El servidor
-				puede leerla. Vuelve a la bóveda cuando cierres la compartición.
-			</p>
-			<button
-				type="button"
-				onclick={() => run((client) => shareNote(client, noteId), 'La nota quedó compartida.')}
-				disabled={working}
-				class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
-			>
-				{working ? 'Compartiendo…' : 'Compartir esta nota'}
-			</button>
+			{#if hasImages}
+				<p class="text-sm leading-relaxed">No se pueden compartir notas con imágenes todavía.</p>
+			{:else}
+				<p class="text-sm leading-relaxed">
+					Mientras esté compartida, esta nota sale de la bóveda y deja de estar cifrada. El servidor
+					puede leerla. Vuelve a la bóveda cuando cierres la compartición.
+				</p>
+				<button
+					type="button"
+					onclick={() => run((client) => shareNote(client, noteId), 'La nota quedó compartida.')}
+					disabled={working}
+					class="bg-primary text-primary-foreground focus-visible:ring-ring flex min-h-(--touch-target) items-center justify-center rounded-md px-4 text-sm font-bold transition-opacity duration-(--motion-fast) hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:translate-y-px disabled:opacity-50"
+				>
+					{working ? 'Compartiendo…' : 'Compartir esta nota'}
+				</button>
+			{/if}
 		{/if}
 	</div>
 </dialog>

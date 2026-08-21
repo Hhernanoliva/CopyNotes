@@ -191,3 +191,46 @@ describe('normalizeSnapshotNode', () => {
 		expect(clean.html).toBe('<em>a</em>');
 	});
 });
+
+// Spec 041 §8, sexta vía: `copy/serialize.ts` copia `type: tree.block.type` tal
+// cual al portapapeles, sin ningún campo de imagen — y este gate acepta
+// cualquier tipo de la lista blanca (Task 1 metió 'image' ahí). Sin esto, pegar
+// una fila de imagen —o una página hostil escribiendo el formato a mano— crea
+// un bloque `type: 'image'` sin `imageId`: un marco que nunca se llena, y que
+// si la nota está compartida frena el push en `toSharedPayload` para siempre.
+// El gate limpia, no rechaza: se degrada a texto con el mismo aviso que ya usa
+// el export a archivo y el del agente.
+describe('spec 041: una imagen que llega de afuera se degrada a texto', () => {
+	it('un nodo image con descripción se degrada a texto [Imagen: descripción], sin su html', () => {
+		const clean = normalizeForest([
+			node({ type: 'image', content: 'el error', html: '<img src=x onerror="alert(1)">' })
+		]);
+		expect(clean[0].type).toBe('text');
+		expect(clean[0].content).toBe('[Imagen: el error]');
+		expect(clean[0].html).toBe('');
+	});
+
+	it('sin descripción igual avisa que hubo una imagen', () => {
+		const clean = normalizeForest([node({ type: 'image', content: '' })]);
+		expect(clean[0].type).toBe('text');
+		expect(clean[0].content).toBe('[Imagen]');
+	});
+
+	it('recorre: una imagen anidada como hijo también se degrada', () => {
+		const clean = normalizeForest([
+			node({
+				type: 'bullet',
+				content: 'Padre',
+				children: [node({ type: 'image', content: 'captura' })]
+			})
+		]);
+		expect(clean[0].children[0].type).toBe('text');
+		expect(clean[0].children[0].content).toBe('[Imagen: captura]');
+	});
+
+	it('ningún otro tipo cambia', () => {
+		const clean = normalizeForest([node({ type: 'todo', content: 'hacer', checked: true })]);
+		expect(clean[0].type).toBe('todo');
+		expect(clean[0].content).toBe('hacer');
+	});
+});

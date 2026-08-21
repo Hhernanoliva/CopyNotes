@@ -12,6 +12,7 @@
 // contents — only the bookkeeping stapled to it.
 
 import { db, SYNCED_TABLES } from '../storage/db';
+import { clearUploadMarks } from '../images/bodies';
 import { forgetSharePrefixes, getSetting, setSetting } from '../storage/settings';
 import { KEY } from '../storage/settings-registry';
 import { signOut, supabase } from './supabase';
@@ -113,4 +114,7 @@ async function resetCloudState() {
 	await db.table('notes').toCollection().modify({ share: undefined, fromCloud: true });
 	await db.table('shareMembers').clear();
 	await forgetSharePrefixes();
+
+	// Spec 041 §4.3: las marcas de subida son de la cuenta que se va.
+	await clearUploadMarks();
 }

@@ -40,3 +40,37 @@ export const syncStatus = $state({
 export function userFacing(message) {
 	return Object.assign(new Error(message), { userFacing: true });
 }
+
+// Qué se muestra cuando una pasada falla.
+//
+// El navegador tira "TypeError: Failed to fetch" —en inglés, con nombre de tipo
+// de dato— cuando no llegó al servidor: sin conexión, wifi caído, servidor sin
+// responder. Publicar ese texto tal cual era hablarle a la persona en el idioma
+// del navegador sobre un problema que no es suyo y que no puede arreglar; en
+// rojo, además, cuando quedarse sin conexión es una situación prevista y sin
+// consecuencias (todo está guardado en el dispositivo y el próximo tic
+// reintenta). Se separa en dos estados con significados distintos, y el detalle
+// técnico queda a mano —en el `title`— para cuando haya que reportar algo.
+const SIN_CONEXION = /failed to fetch|networkerror|network error|load failed|fetch/i;
+
+// Vive acá y no en `upload.ts` porque los DOS caños fallan: el cifrado, en el
+// `catch` de `syncNow`, y el compartido, una nota a la vez adentro de
+// `syncShared`. Importarla desde `upload.ts` armaba un ciclo (`upload` ya
+// importa `shared`), y una segunda copia se separa de la primera — que es
+// justo lo que le pasó a la campanita de `appliedVersion`.
+export function reportSyncFailure(error) {
+	const detail = error instanceof Error ? error.message : String(error ?? '');
+	syncStatus.errorDetail = detail;
+	// Un fallo que ya sabe explicarse va tal cual, y antes que nada: no es un
+	// problema de red que el próximo tic vaya a resolver solo.
+	if (error?.userFacing) {
+		syncStatus.error = detail;
+		return;
+	}
+	const desconectado = typeof navigator !== 'undefined' && navigator.onLine === false;
+	if (desconectado || SIN_CONEXION.test(detail)) {
+		syncStatus.offline = true;
+		return;
+	}
+	syncStatus.error = 'No se pudo sincronizar. Lo tuyo está guardado en este dispositivo.';
+}

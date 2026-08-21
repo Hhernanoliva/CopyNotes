@@ -14,7 +14,7 @@
 // Corre bajo jsdom: necesita `document` y eventos.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { openTextFile } from './files';
+import { MAX_PACKAGE_FILE_BYTES, MAX_TEXT_FILE_BYTES, openBinaryFile, openImageFiles, openTextFile } from './files';
 
 function fileInput() {
 	return document.querySelector('input[type="file"]');
@@ -83,5 +83,101 @@ describe('un archivo que tarda en llegar', () => {
 
 		vi.useRealTimers();
 		expect(await promise).toMatchObject({ status: 'opened', fileName: 'respaldo.json' });
+	});
+});
+
+// La puerta binaria (spec 041): el mismo diálogo, sin leer el archivo a texto.
+// El tope NO va acá — lo pone `images/ingest.ts`, que sabe cuál es el de una
+// imagen. Y cancelar sigue siendo lo que dice el navegador y nadie más.
+describe('elegir una imagen', () => {
+	it('devuelve el archivo tal cual, sin leerlo', async () => {
+		const promise = openImageFiles();
+		const input = fileInput();
+		expect(input.getAttribute('accept')).toBe('image/*');
+		pick(input, 'captura.png', 'no-importa');
+
+		const result = await promise;
+		expect(result.status).toBe('opened');
+		expect(result.files.map((file) => file.name)).toEqual(['captura.png']);
+	});
+
+	it('cerrar el diálogo sin elegir nada no inserta nada', async () => {
+		const promise = openImageFiles();
+		fileInput().dispatchEvent(new Event('cancel'));
+
+		expect(await promise).toEqual({ status: 'cancelled' });
+	});
+
+	// Una captura de 8 MB tiene que LLEGAR: el "pesa demasiado" se lo dice el
+	// ingestor con su propio mensaje, no este diálogo con silencio.
+	it('no le pone tope al peso: eso lo decide el ingestor', async () => {
+		const promise = openImageFiles();
+		pick(fileInput(), 'gigante.png', 'x'.repeat(2000));
+
+		expect(await promise).toMatchObject({ status: 'opened' });
+	});
+});
+
+// El importador del respaldo (spec 041 §5): un `.json` de siempre y un
+// `.copynotes` entran por el MISMO diálogo, y quién es cuál lo dicen los cuatro
+// primeros bytes. Mirarlo por el nombre es lo que rechazaba un respaldo sano al
+// que alguien le había cambiado la terminación.
+describe('elegir un respaldo', () => {
+	// Un archivo con la firma y el peso que se le quiera decir, sin fabricar
+	// megabytes de verdad.
+	function pickBytes(input, { name, head, size = null }) {
+		const file = new File([new Uint8Array(head)], name);
+		if (size !== null) Object.defineProperty(file, 'size', { value: size });
+		Object.defineProperty(input, 'files', { value: [file], configurable: true });
+		input.dispatchEvent(new Event('change'));
+	}
+
+	const ZIP = [0x50, 0x4b, 0x03, 0x04];
+	const JSON_HEAD = [0x7b, 0x22, 0x66, 0x6f];
+
+	it('un .json renombrado a .copynotes sigue yendo por el camino de texto', async () => {
+		const promise = openBinaryFile({ accept: '.json,.copynotes' });
+		pickBytes(fileInput(), { name: 'respaldo.copynotes', head: JSON_HEAD });
+
+		expect(await promise).toMatchObject({ status: 'opened', packaged: false });
+	});
+
+	it('un paquete renombrado a .json sigue siendo un paquete', async () => {
+		const promise = openBinaryFile({ accept: '.json,.copynotes' });
+		pickBytes(fileInput(), { name: 'respaldo.json', head: ZIP });
+
+		expect(await promise).toMatchObject({ status: 'opened', packaged: true });
+	});
+
+	it('un archivo de texto enorme se rechaza sin leerlo', async () => {
+		const promise = openBinaryFile({ accept: '.json,.copynotes' });
+		pickBytes(fileInput(), {
+			name: 'video.json',
+			head: JSON_HEAD,
+			size: MAX_TEXT_FILE_BYTES + 1
+		});
+
+		expect(await promise).toMatchObject({ status: 'too-large', packaged: false });
+	});
+
+	// Y el mismo peso, siendo un paquete, ENTRA: la app puede exportar un
+	// `.copynotes` de cientos de megas, y negarse a importar el archivo que uno
+	// mismo bajó es peor que cualquier riesgo de memoria.
+	it('un paquete del mismo peso entra igual: su techo es otro', async () => {
+		const promise = openBinaryFile({ accept: '.json,.copynotes' });
+		pickBytes(fileInput(), { name: 'respaldo.copynotes', head: ZIP, size: MAX_TEXT_FILE_BYTES + 1 });
+
+		expect(await promise).toMatchObject({ status: 'opened', packaged: true });
+	});
+
+	it('pero el paquete también tiene techo', async () => {
+		const promise = openBinaryFile({ accept: '.json,.copynotes' });
+		pickBytes(fileInput(), {
+			name: 'respaldo.copynotes',
+			head: ZIP,
+			size: MAX_PACKAGE_FILE_BYTES + 1
+		});
+
+		expect(await promise).toMatchObject({ status: 'too-large', packaged: true });
 	});
 });

@@ -8,6 +8,7 @@ import { HEADING_LEVELS } from '../format/blocktype';
 import { htmlInlineToMarkdown } from '../format/inline-markdown';
 import { escapeHtml, plainTextToHtml } from '../format/sanitize';
 import { dateSuffix, exportLabel, isValidDueDate } from '$lib/dates';
+import { imageExportText } from '../images/export-text';
 
 // Inline formatting (bold, links, colors) lives in block.html; blocks without
 // one (old data) fall back to their plain content. Markdown gets the html
@@ -58,7 +59,8 @@ function markdownListLines(node, depth) {
 	else if (block.type === 'code') {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, ...block.content.split('\n'), fence].map((line) => indent + line);
-	} else lines = inlineMarkdown(block).split('\n').map((line) => indent + line);
+	} else if (block.type === 'image') lines = [indent + imageExportText(block)];
+	else lines = inlineMarkdown(block).split('\n').map((line) => indent + line);
 	if (isValidDueDate(block.dueDate)) {
 		if (block.type === 'code') lines.push(indent + '📅 ' + exportLabel(block.dueDate));
 		else lines[lines.length - 1] += dateSuffix(block);
@@ -78,6 +80,7 @@ function markdownRootChunk(node) {
 		const fence = markdownCodeFence(block.content);
 		lines = [fence, block.content, fence];
 	}
+	else if (block.type === 'image') lines = [imageExportText(block)];
 	else lines = [inlineMarkdown(block)];
 	if (isValidDueDate(block.dueDate)) {
 		if (block.type === 'code') lines.push('📅 ' + exportLabel(block.dueDate));
@@ -137,6 +140,7 @@ function htmlListItem(node) {
 		content = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
 	}
 	else if (block.type === 'todo') content = todoMark(block) + ' ' + inlineHtml(block) + date + noteHtml(block);
+	else if (block.type === 'image') content = escapeHtml(imageExportText(block)) + date + noteHtml(block);
 	else content = inlineHtml(block) + date + noteHtml(block);
 	const children =
 		node.children.length > 0 ? '<ul>' + node.children.map(htmlListItem).join('') + '</ul>' : '';
@@ -154,6 +158,7 @@ function htmlRootChunk(node) {
 		const codeDate = isValidDueDate(block.dueDate) ? escapeHtml(' 📅 ' + exportLabel(block.dueDate)) : '';
 		element = '<pre><code>' + escapeHtml(block.content) + '</code></pre>' + codeDate + noteHtml(block);
 	}
+	else if (block.type === 'image') element = '<p>' + escapeHtml(imageExportText(block)) + date + noteHtml(block) + '</p>';
 	else element = '<p>' + inlineHtml(block) + date + noteHtml(block) + '</p>';
 	if (node.children.length > 0) {
 		element += '<ul>' + node.children.map(htmlListItem).join('') + '</ul>';

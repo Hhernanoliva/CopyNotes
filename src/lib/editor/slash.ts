@@ -13,6 +13,9 @@ export const SLASH_COMMANDS = [
 	{ id: 'todo', label: 'Tarea', keywords: ['todo', 'tarea', 'check', 'checkbox'] },
 	{ id: 'date', label: 'Fecha', keywords: ['fecha', 'date', 'agenda', 'hoy', 'vencimiento', 'recordatorio'] },
 	{ id: 'code', label: 'Código', keywords: ['code', 'codigo', 'código'] },
+	// Imagen es una ACCIÓN, no un tipo (spec 041 §3.4): abre el selector de
+	// archivos, y recién si vuelve uno se convierte en un renglón nuevo.
+	{ id: 'image', label: 'Imagen', keywords: ['imagen', 'image', 'captura', 'screenshot', 'foto', 'pantallazo'] },
 	{ id: 'separator', label: 'Separador', keywords: ['separator', 'separador', 'divider', 'linea', 'línea'] },
 	{ id: 'snippet', label: 'Snippet', keywords: ['snippet', 'plantilla', 'reutilizar'] }
 ];

@@ -21,7 +21,7 @@ import {
 	setShareRole
 } from '../storage/shares';
 import { rememberShareName } from '../storage/share-names';
-import { syncStatus } from './status.svelte';
+import { syncStatus, reportSyncFailure } from './status.svelte';
 // Import circular a propósito y sin consecuencia: `share-move.ts` importa
 // `pushSharedNote` de acá, pero las dos referencias se usan DENTRO de funciones,
 // nunca al evaluar el módulo, así que ninguna de las dos llega vacía. La
@@ -275,9 +275,22 @@ export async function syncShared(client) {
 		shares.delete(noteId);
 		applied++;
 	}
+	// Una nota por vuelta, y cada una con su propio paraguas.
+	//
+	// Sin esto, lo que tira `pushSharedNote` —una fila que no puede salir, un
+	// permiso que cambió, un corte de red en el medio— sale disparado de este
+	// lazo y de `syncShared` entera. Y `syncNow` la llama ANTES de `ready()`,
+	// `uploadBatch` y `downloadAll`, así que UNA nota atascada frenaba la
+	// pasada COMPLETA: las otras notas compartidas y el caño cifrado también,
+	// cada 30 segundos, para siempre. Una nota que no puede sincronizar es una
+	// línea de estado, no una app rota — igual que en `syncNow`.
 	for (const [noteId, role] of shares) {
-		await pushSharedNote(client, noteId, role);
-		applied += await pullSharedNote(client, noteId);
+		try {
+			await pushSharedNote(client, noteId, role);
+			applied += await pullSharedNote(client, noteId);
+		} catch (error) {
+			reportSyncFailure(error);
+		}
 	}
 	// Y la campanita se toca ACÁ, no en el llamador.
 	//

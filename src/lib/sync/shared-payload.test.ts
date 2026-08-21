@@ -111,6 +111,30 @@ describe('una lápida no se lleva el texto puesto', () => {
 	});
 });
 
+// Spec 041 §8: una imagen es local y sin sincronizar. Mandarla a medias por
+// el caño compartido (sólo la descripción, sin el cuerpo) sería fingir que
+// viajó entera — mejor que el caño se frene ACÁ, en voz alta.
+describe('spec 041: el caño compartido no manda imágenes a medias', () => {
+	it('spec 041: el caño compartido RECHAZA una imagen, no la manda a medias', () => {
+		expect(() =>
+			toSharedPayload('blocks', { type: 'image', content: 'x', imageId: 'a'.repeat(64) })
+		).toThrow(/imagen/i);
+	});
+
+	it('una lápida de un bloque de imagen SÍ viaja: no lleva pixeles, sólo dice que ya no está', () => {
+		expect(() =>
+			toSharedPayload('blocks', {
+				id: 'b1',
+				noteId: 'n1',
+				type: 'image',
+				content: 'x',
+				imageId: 'a'.repeat(64),
+				deletedAt: '2026-08-20T00:00:00.000Z'
+			})
+		).not.toThrow();
+	});
+});
+
 describe('lo que llega se limpia, lo escribió quien lo escribió', () => {
 	it('desarma el marcado que no está en la lista blanca y deja el texto', () => {
 		const clean = cleanSharedPayload('blocks', {
@@ -139,6 +163,49 @@ describe('lo que llega se limpia, lo escribió quien lo escribió', () => {
 
 		expect(clean.type).toBe('text');
 		expect(clean.dueDate).toBe(null);
+	});
+
+	// La TERCERA puerta del mismo marco vacío. `format/ingest.ts` cerró la del
+	// portapapeles y `export-import/schema.ts` la del respaldo; esta es la única
+	// de las tres donde el que escribe los campos es el cliente de OTRA cuenta —
+	// y la única que NO es lista blanca: `{ ...payload }` copia lo que venga.
+	it('spec 041: un bloque de imagen que LLEGA se degrada a texto, con sus cinco campos', () => {
+		const clean = cleanSharedPayload('blocks', {
+			id: 'b1',
+			noteId: 'n1',
+			type: 'image',
+			content: 'el error',
+			imageId: 'a'.repeat(64),
+			imageType: 'image/png',
+			imageBytes: 100,
+			imageWidth: 800,
+			imageHeight: 600
+		});
+
+		expect(clean.type).toBe('text');
+		expect(clean.content).toBe('[Imagen: el error]');
+		expect(clean.imageId).toBe(null);
+		expect(clean.imageType).toBe(null);
+		expect(clean.imageBytes).toBe(null);
+		expect(clean.imageWidth).toBe(null);
+		expect(clean.imageHeight).toBe(null);
+	});
+
+	// `BlockRow.svelte` interpola `imageWidth`/`imageHeight` DENTRO de un atributo
+	// `style`, y la CSP deja pasar el estilo en línea. Un ancho escrito por el
+	// otro cliente es CSS que escribe el otro cliente.
+	it('spec 041: un ancho ajeno nunca llega a un atributo style', () => {
+		const clean = cleanSharedPayload('blocks', {
+			id: 'b1',
+			noteId: 'n1',
+			type: 'image',
+			content: '',
+			imageWidth: '0; position:fixed; inset:0; z-index:9999',
+			imageHeight: 1
+		});
+
+		expect(clean.imageWidth).toBe(null);
+		expect(clean.content).toBe('[Imagen]');
 	});
 
 	it('no toca lo que no es un renglón', () => {

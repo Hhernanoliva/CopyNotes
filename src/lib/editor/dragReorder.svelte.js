@@ -21,6 +21,7 @@ export function createDragReorder({
 	getSelectedIds,
 	getListEl,
 	onApply,
+	onHandleClick = (..._args) => {},
 	onSelectionClick = () => {}
 }) {
 	let active = $state(false);
@@ -37,6 +38,8 @@ export function createDragReorder({
 	// text-selection to disambiguate from. Arm on pointerdown, activate on the
 	// first real move. A press with no move stays a plain click.
 	let handleArmed = false;
+	let handleBlockId = null;
+	let handlePointerType = null;
 	// True when this arm started on a row already in the multi-selection. Same
 	// no-long-press behaviour as the grip, but a plain release (no drag) calls
 	// onSelectionClick so the editor can collapse the selection to a caret.
@@ -60,6 +63,8 @@ export function createDragReorder({
 		draggedIds = [];
 		grabDepth = 0;
 		handleArmed = false;
+		handleBlockId = null;
+		handlePointerType = null;
 		armedOnSelection = false;
 	}
 
@@ -158,6 +163,8 @@ export function createDragReorder({
 		const ids = selected.includes(blockId) ? selected : [blockId];
 		draggedIds = orderedSelectionRoots(getBlocks(), ids);
 		handleArmed = true;
+		handleBlockId = blockId;
+		handlePointerType = event.pointerType || 'mouse';
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('keydown', onKey);
@@ -217,8 +224,11 @@ export function createDragReorder({
 	function onUp(event) {
 		if (!active) {
 			const wasSelectionClick = armedOnSelection;
+			const clickedHandle = handleBlockId;
+			const pointerType = handlePointerType;
 			reset();
-			if (wasSelectionClick) onSelectionClick?.();
+			if (clickedHandle) onHandleClick?.(clickedHandle, pointerType);
+			else if (wasSelectionClick) onSelectionClick?.();
 			return;
 		}
 		const { rows, originX, listTop } = measure();
@@ -237,6 +247,10 @@ export function createDragReorder({
 	return {
 		armFromPointer,
 		armFromHandle,
+		cancel: reset,
+		get engaged() {
+			return active || holdTimer !== null || handleArmed || armedOnSelection;
+		},
 		get active() {
 			return active;
 		},

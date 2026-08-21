@@ -366,6 +366,41 @@
 }
 
 @media (pointer: coarse) {
+	/* Full-size touch controls for panels and toolbars. Unlike `.cn-tap`, these
+	   sit next to other controls, so a real 44px box avoids overlapping invisible
+	   hit areas on tablets. */
+	.cn-touch-row {
+		min-height: var(--touch-target);
+	}
+	.cn-touch-control {
+		min-width: var(--touch-target);
+		min-height: var(--touch-target);
+	}
+	.cn-date-panel {
+		width: 20.5rem;
+	}
+	.cn-date-day,
+	.cn-date-weekday {
+		width: var(--touch-target);
+		height: var(--touch-target);
+	}
+
+	/* La manija y el control contiguo tienen objetivos de 44 px sin superponerse.
+	   El margen sólo aparece cuando ese segundo control existe. */
+	.cn-row-secondary-control {
+		margin-right: 0.5rem;
+		margin-left: 1.375rem;
+	}
+
+	/* La fila activa conserva su manija aunque el teclado ya se haya bajado. Así
+	   tocarla selecciona sin tener que reenfocar primero la caja de texto. */
+	.cn-row[data-active='true'] .cn-row-handle {
+		opacity: 1;
+	}
+	.cn-row[data-active='false'] .cn-row-handle:not([aria-pressed='true']) {
+		pointer-events: none;
+	}
+
 	/* En táctil no hay hover, y en iOS un <button> no siempre recibe :focus al
 	   tocarlo, así que group-focus-within / group-hover no alcanzan para mostrar
 	   los controles de la barra lateral (borrar nota/snippet/carpeta, etc.).
@@ -388,6 +423,22 @@
 		width: var(--touch-target);
 		height: var(--touch-target);
 		transform: translate(-50%, -50%);
+	}
+}
+
+@media (pointer: coarse) and (max-width: 21.5rem) {
+	/* At 320px, seven 44px days fit exactly in a 310px border box when the
+	   calendar drops its inner padding and column gaps. Quick options keep their
+	   ordinary inset. */
+	.cn-date-panel:not(.cn-date-panel--calendar) {
+		width: calc(100vw - 1rem);
+	}
+	.cn-date-panel.cn-date-panel--calendar {
+		width: 19.375rem;
+		padding: 0;
+	}
+	.cn-date-panel--calendar .cn-date-grid {
+		gap: 0;
 	}
 }
 
@@ -655,8 +706,11 @@
 	color: var(--fmt-color-blue);
 	text-decoration: underline;
 	text-underline-offset: 2px;
-	/* El renglón es editable, así que el resto del texto muestra el cursor de
-	   escribir. Sobre el enlace se cambia a la manito: un clic ahí lo abre. */
+	/* En edición el primer gesto pone el cursor y muestra acciones, no navega. */
+	cursor: text;
+}
+.cn-row[data-read-only='true'] .block-editable a {
+	/* Sin edición en competencia, tocar abre directamente. */
 	cursor: pointer;
 }
 .block-editable--h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.25; }

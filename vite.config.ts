@@ -61,7 +61,11 @@ export default defineConfig({
 					// third-party UI (sonner, shadcn). Inline styles cannot exfiltrate
 					// data on their own; inline scripts are the ones that matter.
 					'style-src': ['self', 'unsafe-inline'],
-					'img-src': ['self', 'data:'],
+					// `blob:` es cómo se pinta una captura guardada en el aparato
+					// (spec 041): `URL.createObjectURL` sobre el Blob local. No se
+					// agregan direcciones externas: la app nunca busca una imagen
+					// afuera.
+					'img-src': ['self', 'data:', 'blob:'],
 					'font-src': ['self'],
 					// `ipc:`/`ipc.localhost` is how the desktop app talks to its own Rust
 					// side (mailbox, agent status). The Supabase project — and only that

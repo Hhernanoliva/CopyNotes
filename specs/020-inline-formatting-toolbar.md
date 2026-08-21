@@ -2,6 +2,9 @@
 
 Created: 2026-07-11.
 
+Amended 2026-08-20 by spec 042: the toolbar only appears for a non-collapsed
+text selection, and link opening/editing now has a separate contextual panel.
+
 ## Objective
 
 Add a Workflowy-style **floating formatting toolbar** to the block editor, plus
@@ -55,9 +58,9 @@ Three options were considered:
   strikethrough (`<s>`), inline code (`<code>`), link (`<a>`), text color
   (`<span>` with a color class).
 - **Floating toolbar** components:
-  - `FloatingFormattingToolbar` — appears on text selection or when the caret is
-    inside already-formatted text; positioned above the selection (below when no
-    room); hides on selection loss / outside click; never shifts page content.
+  - `FloatingFormattingToolbar` — appears only on a non-collapsed text selection;
+    positioned above the selection (below when no room); hides on selection loss
+    / outside click; never shifts page content. A bare caret never opens it.
   - `FormattingButton` — reusable button with normal/hover/active/disabled
     states, `aria-label`, tooltip (name + shortcut), non-color-only active state.
   - `LinkEditorPopover` — add/edit/remove a URL; accepts URLs with or without
@@ -66,8 +69,10 @@ Three options were considered:
 - **Formatting engine** module (logic separated from the toolbar UI) exposing
   clear commands: `queryActiveFormats`, `applyFormat`, `removeFormat`,
   `setBlockType`, `createLink`, `editLink`, `removeLink`.
-- **Keyboard shortcuts**: Ctrl/Cmd+B, +I, +U, +Shift+S, +K — active even when
-  the toolbar is not visible.
+- **Keyboard shortcuts**: Ctrl/Cmd+B, +I, +U, +Shift+S — active even when the
+  toolbar is not visible. `Ctrl/Cmd+K` is contextual after spec 042: selected
+  text opens the URL editor; a caret inside an existing link opens link actions;
+  otherwise the event reaches app search. In read-only notes it always searches.
 - **"More options" (⋯)** menu: `Quitar formato` (clear formatting) and
   `Copiar texto seleccionado`. Built so more options can be added later.
 - Guide (`docs/guia-de-uso.md`) updated in the same commit(s), with date bump.
@@ -126,13 +131,14 @@ following the token convention in `CLAUDE.md` (no raw hex in components).
 - User selects text within a block → toolbar appears above the selection.
 - User clicks Bold (or Ctrl/Cmd+B) → selection toggles bold; button shows active
   when the caret/selection is bold.
-- User places the caret inside already-bold text (no selection) → toolbar shows
-  with Bold active.
+- User places the caret inside already-formatted text without selecting anything
+  → no toolbar appears. Keyboard shortcuts still act directly when applicable.
 - User clicks H2 → the current block becomes a level-2 heading (no new block, no
   duplicate). "Texto normal" converts a heading back to a paragraph.
-- User clicks Link (or Ctrl/Cmd+K) → popover to enter/paste a URL; if the
-  selection already has a link, popover lets them edit or remove it. `example.com`
-  is saved as `https://example.com`. Link opens in a new tab.
+- User selects text and clicks Link (or presses Ctrl/Cmd+K) → popover to
+  enter/paste a URL; if the selection already has a link, it can be edited or
+  removed. `example.com` is saved as `https://example.com`. With a bare caret
+  inside an existing link, Ctrl/Cmd+K opens the actions from spec 042 instead.
 - User clicks Color → small palette; picks a color or "Por defecto" to clear it.
 - User clicks ⋯ → `Quitar formato` or `Copiar texto seleccionado`.
 - Selection spanning multiple blocks → unsafe buttons (block type, inline code)
@@ -157,8 +163,8 @@ following the token convention in `CLAUDE.md` (no raw hex in components).
   (above, or below when there is no room).
 - All primary formats work: H1/H2/H3, normal text, bold, underline, italic,
   strikethrough, inline code, link, text color.
-- Buttons reflect the active format at the caret/selection (bold+italic → both
-  active; caret in an H2 → H2 active).
+- Buttons reflect the active format of the visible selection (bold+italic → both
+  active; a selection in an H2 → H2 active).
 - The text selection is not lost when using the toolbar; the caret does not jump
   unexpectedly; no duplicate blocks are created.
 - Keyboard shortcuts work, including when the toolbar is hidden.
@@ -193,8 +199,8 @@ Engine / pure logic (unit):
 
 Behavior:
 
-- Toolbar appears on selection and on caret-in-formatted-text; hides on blur /
-  outside click.
+- Toolbar appears only on a non-collapsed selection; a caret in formatted text
+  does not open it. It hides on selection loss / outside click.
 - Buttons reflect active format.
 - Selection preserved after clicking a toolbar button.
 - Format persists across a reload.
@@ -221,6 +227,9 @@ Behavior:
   following the `CLAUDE.md` token convention.
 - Cross-block selection stays block-level (spec 019); inline formatting is
   within a single block only.
+- Spec 042 supersedes this spec only for link click/tap, contextual Ctrl/Cmd+K
+  and the caret-does-not-open-toolbar rule. The formatting engine and URL editor
+  remain the same seams.
 - This spec extends specs 003 and 019; it does not override spec 015's
   documented rich-editor escape hatch — it is a lightweight in-house alternative,
   not the TipTap/Lexical migration.

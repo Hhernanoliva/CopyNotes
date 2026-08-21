@@ -13,8 +13,27 @@ export const SUPPORTED_FORMAT = 'copynotes.backup';
 // sortOrder/folderId organization fields; version 5 (spec 030 phase 0) added
 // the activity table so the task bitácora survives a backup round-trip.
 // Shapes are otherwise identical, so older versions import with no migration.
+//
+// Version 6 (spec 041) is deliberately NOT in this list. It means the file is
+// a `.copynotes` package (`export-import/package.ts`) rather than a bare
+// `.json` — the bytes of every image live alongside it as `images/<id>.<ext>`
+// entries, which `validateBackup` alone has no way to see. A bare `.json`
+// claiming formatVersion 6 is lying about its own shape and must be rejected
+// (spec §5.3); that is exactly what leaving 6 out of this list does, for
+// free, at the version check above the schema. `images` (below) is still
+// declared, because `readPackage`'s own JSON.parse does not validate shape —
+// whoever wires the package import through `validateBackup` next will need
+// it and should not have to remember to add it.
 export const SUPPORTED_VERSIONS = [1, 2, 3, 4, 5];
 export const CURRENT_VERSION = 5;
+// La versión que SÓLO existe adentro de un paquete `.copynotes`
+// (`export-import/package.ts`). `buildPackage` es quien la estampa — nunca el
+// llamador — precisamente para que este número no dependa de acordarse.
+export const PACKAGE_VERSION = 6;
+
+// Spec 041: un `imageId` ES la huella SHA-256 de sus bytes, en hexadecimal
+// minúscula. Una sola copia: estaba escrita tres veces en este archivo.
+const HUELLA = /^[0-9a-f]{64}$/;
 
 const isoTimestamp = v.pipe(v.string(), v.isoTimestamp());
 const nullableTimestamp = v.nullable(isoTimestamp);
@@ -42,6 +61,13 @@ const blockSchema = v.looseObject({
 	checked: v.boolean(),
 	dueDate: v.optional(v.nullable(v.pipe(v.string(), v.isoDate()))),
 	note: v.optional(v.string()),
+	// Spec 041. `looseObject` los dejaría pasar sin mirar; declararlos es lo que
+	// hace que un archivo con un `imageId` que no es una huella se rechace.
+	imageId: v.optional(v.nullable(v.pipe(v.string(), v.regex(HUELLA)))),
+	imageType: v.optional(v.nullable(v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']))),
+	imageBytes: v.optional(v.nullable(v.number())),
+	imageWidth: v.optional(v.nullable(v.number())),
+	imageHeight: v.optional(v.nullable(v.number())),
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	deletedAt: nullableTimestamp
@@ -128,6 +154,21 @@ const settingSchema = v.looseObject({
 	updatedAt: isoTimestamp
 });
 
+// El manifiesto de un paquete `.copynotes` (spec 041 §5.1): una fila por
+// captura, aparte de `data.blocks` — es lo que `export-import/package.ts` usa
+// para saber qué archivo de `images/` corresponde a cada bloque, sin tener
+// que abrir cada uno para adivinar el tipo o el tamaño.
+// `bytes`/`width`/`height` con `v.integer()` + `v.minValue(0)`, no `v.number()`
+// a secas: este esquema es justo el portón contra un manifiesto ajeno, y
+// `-1` o `1.5` pasarían un `v.number()` sin quejarse.
+const imageMetaSchema = v.looseObject({
+	imageId: v.pipe(v.string(), v.regex(HUELLA)),
+	type: v.picklist(['image/png', 'image/jpeg', 'image/webp', 'image/gif']),
+	bytes: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	width: v.pipe(v.number(), v.integer(), v.minValue(0)),
+	height: v.pipe(v.number(), v.integer(), v.minValue(0))
+});
+
 const backupSchema = v.looseObject({
 	format: v.literal(SUPPORTED_FORMAT),
 	formatVersion: v.number(),
@@ -137,6 +178,9 @@ const backupSchema = v.looseObject({
 	// tiene bajados no traen el campo y todos son completos. Al revés, "Reemplazar
 	// todo" desaparecería de golpe de cada uno de ellos.
 	complete: v.optional(v.boolean(), true),
+	// Sólo lo lleva un paquete formatVersion 6; un `.json` de siempre no tiene
+	// capturas y por lo tanto no tiene nada que declarar acá.
+	images: v.optional(v.array(imageMetaSchema), []),
 	data: v.looseObject({
 		notes: v.array(noteSchema),
 		blocks: v.array(blockSchema),
@@ -262,6 +306,11 @@ export const EXPORTED_FIELDS = {
 		'dueDate',
 		'html',
 		'id',
+		'imageBytes',
+		'imageHeight',
+		'imageId',
+		'imageType',
+		'imageWidth',
 		'note',
 		'noteId',
 		'order',
@@ -351,6 +400,16 @@ function referenceErrors(data, existing) {
 			noteOfBlock.get(block.parentBlockId) !== block.noteId
 		)
 			errors.push(`El bloque ${block.id} cuelga de un bloque de otra nota.`);
+		// Spec 041: la misma trampa que ya se cerró en el portapapeles (`format/
+		// ingest.ts`), reabierta por la puerta del import — un `imageId` es opcional
+		// en el esquema, así que `looseObject` deja pasar un bloque `type: 'image'`
+		// sin él. Sin este control entraría como un marco que nunca se llena, y si
+		// esa nota se compartiera alguna vez, atascaría su sincronización.
+		//
+		// Sólo "que esté": si está y no es una huella, `blockSchema` ya lo rechazó
+		// antes de llegar acá.
+		if (block.type === 'image' && !block.imageId)
+			errors.push(`El bloque ${block.id} dice ser una imagen pero no tiene un imageId válido.`);
 	}
 	// Un padre fuera del archivo (uno local) corta la cadena: no se puede seguir, y
 	// tampoco puede cerrar un círculo acá adentro.
@@ -444,7 +503,13 @@ function fillFromIssues(raw, issues) {
 
 // Returns { ok, backup?, errors, warnings }. Counts that disagree with the
 // actual arrays are a warning, not an error: the arrays are the truth.
-export function validateBackup(raw, existingIds = undefined) {
+//
+// `packaged` es lo único que distingue un `.json` suelto de un
+// `backup.json` que `readPackage` ya sacó de un `.copynotes`: la MISMA fila
+// puede ser una mentira en un archivo y la verdad en el otro, así que la
+// regla no puede vivir en la lista de versiones sola — necesita saber de
+// dónde vino el JSON.
+export function validateBackup(raw, existingIds = undefined, { packaged = false } = {}) {
 	const existing = {
 		existingNoteIds: existingIds?.existingNoteIds ?? [],
 		existingBlockIds: existingIds?.existingBlockIds ?? [],
@@ -467,15 +532,18 @@ export function validateBackup(raw, existingIds = undefined) {
 			warnings: []
 		};
 	}
-	if (!SUPPORTED_VERSIONS.includes(raw.formatVersion)) {
-		return {
-			ok: false,
-			errors: [
-				`Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`
-			],
-			details: [],
-			warnings: []
-		};
+	const supportedVersions = packaged ? [...SUPPORTED_VERSIONS, PACKAGE_VERSION] : SUPPORTED_VERSIONS;
+	if (!supportedVersions.includes(raw.formatVersion)) {
+		// La versión de paquete pedida sin paquete no es "una versión futura que
+		// todavía no entendemos" — la app la entiende perfectamente, sólo que
+		// esos bytes no pueden vivir sueltos en un `.json` (spec §5.3). Decir
+		// "no se puede leer" ahí es falso y manda a la gente a resignarse a un
+		// respaldo que en realidad puede abrir con el archivo correcto.
+		const message =
+			raw.formatVersion === PACKAGE_VERSION && !packaged
+				? `Este archivo dice ser la versión ${PACKAGE_VERSION} de un respaldo, pero la versión ${PACKAGE_VERSION} sólo existe adentro de un paquete .copynotes — elegí ese archivo (termina en .copynotes) en vez de este .json.`
+				: `Este respaldo usa una versión (${raw.formatVersion}) que esta versión de CopyNotes no puede leer.`;
+		return { ok: false, errors: [message], details: [], warnings: [] };
 	}
 	let parsed = v.safeParse(backupSchema, raw);
 	let filled = false;

@@ -99,6 +99,17 @@ test('the tag shortcut keeps # on cancel and consumes it after assigning a tag',
 	await expect(first).toHaveText('#');
 });
 
+test('el botón de etiquetas de la nota vuelve a cerrar el selector', async ({ page }) => {
+	await newNote(page);
+
+	const trigger = page.getByRole('button', { name: 'Etiquetar nota' });
+	const picker = page.getByRole('combobox', { name: 'Buscar o crear etiqueta' });
+	await trigger.click();
+	await expect(picker).toBeVisible();
+	await trigger.click();
+	await expect(picker).toHaveCount(0);
+});
+
 test('the tag shortcut works mid-sentence and ignores a # glued to a word', async ({ page }) => {
 	await newNote(page);
 

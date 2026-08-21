@@ -18,6 +18,17 @@ describe('planIndent', () => {
 		expect(plan.updates).toContainEqual({ id: 'b', parentBlockId: 'a', order: 1 });
 	});
 
+	it('appends after fractional and gapped child orders without reusing a position', () => {
+		const blocks = [
+			block('a', null, 0),
+			block('a1', 'a', -2),
+			block('a2', 'a', 4.5),
+			block('b', null, 1)
+		];
+		const plan = planIndent(blocks, 'b');
+		expect(plan.updates).toContainEqual({ id: 'b', parentBlockId: 'a', order: 5.5 });
+	});
+
 	it('closes the gap left among old siblings', () => {
 		const blocks = [block('a', null, 0), block('b', null, 1), block('c', null, 2)];
 		const plan = planIndent(blocks, 'b');

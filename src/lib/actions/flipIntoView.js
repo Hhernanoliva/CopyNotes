@@ -23,14 +23,38 @@ export function flipIntoView(node) {
 		node.style.marginBottom = '';
 	}
 
+	function mantenerDentroDeVista() {
+		node.style.translate = '';
+		const box = node.getBoundingClientRect();
+		const left = vv?.offsetLeft ?? 0;
+		const right = left + (vv?.width ?? window.innerWidth);
+		const top = vv?.offsetTop ?? 0;
+		const bottom = top + (vv?.height ?? window.innerHeight);
+		const viewportWidth = right - left;
+		const horizontalMargin = Math.min(8, Math.max((viewportWidth - box.width) / 2, 0));
+		const verticalMargin = Math.min(8, Math.max((bottom - top - box.height) / 2, 0));
+		let x = 0;
+		let y = 0;
+		if (box.left < left + horizontalMargin) x = left + horizontalMargin - box.left;
+		else if (box.right > right - horizontalMargin) x = right - horizontalMargin - box.right;
+		if (box.top < top + verticalMargin) y = top + verticalMargin - box.top;
+		else if (box.bottom > bottom - verticalMargin) y = bottom - verticalMargin - box.bottom;
+		if (x || y) node.style.translate = `${x}px ${y}px`;
+	}
+
 	function check() {
+		node.style.translate = '';
 		const anchor = node.offsetParent;
 		// Sin ancla no hay de qué colgarse. Es el caso de la hoja al pie en
 		// celular: el navegador devuelve null para lo que está fijo a la pantalla.
 		// Hay que BORRAR lo escrito antes, no sólo irse: si el panel se dio vuelta
 		// y después la pantalla cambió de tamaño, ese `bottom:100%` en línea le
 		// gana a las clases y manda la hoja fuera de la vista.
-		if (!anchor) return anclarAbajo();
+		if (!anchor) {
+			anclarAbajo();
+			mantenerDentroDeVista();
+			return;
+		}
 		// Medir siempre en la posición de abajo: la altura no cambia, pero el rect
 		// del ancla sí, y encadenar estados dejaba el panel dado vuelta para
 		// siempre una vez que se daba vuelta la primera vez.
@@ -48,6 +72,7 @@ export function flipIntoView(node) {
 		} else {
 			anclarAbajo();
 		}
+		mantenerDentroDeVista();
 	}
 
 	check();
@@ -68,6 +93,7 @@ export function flipIntoView(node) {
 			vv?.removeEventListener('resize', check);
 			vv?.removeEventListener('scroll', check);
 			observer.disconnect();
+			node.style.translate = '';
 		}
 	};
 }

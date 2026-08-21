@@ -4,6 +4,7 @@ import {
 	canDeleteFromMenu,
 	canDeleteOnBackspace,
 	enterOnEmptyAction,
+	originIsDisposable,
 	planEnter,
 	planJoinWithPrevious,
 	planPromoteChildren,
@@ -79,6 +80,13 @@ describe('enterOnEmptyAction', () => {
 		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: null })).toBe('insert');
 		expect(enterOnEmptyAction({ type: 'separator', parentBlockId: 'p' })).toBe('insert');
 	});
+
+	// Spec 041: una imagen sin descripción tiene la captura puesta. Enter da un
+	// renglón nuevo — nunca la convierte en texto ni la desanida.
+	it('inserts after an image with no description, nested or not', () => {
+		expect(enterOnEmptyAction({ type: 'image', parentBlockId: null })).toBe('insert');
+		expect(enterOnEmptyAction({ type: 'image', parentBlockId: 'p' })).toBe('insert');
+	});
 });
 
 describe('backspaceAction', () => {
@@ -91,6 +99,12 @@ describe('backspaceAction', () => {
 	it('deletes plain text rows and separators', () => {
 		expect(backspaceAction({ type: 'text' })).toBe('delete');
 		expect(backspaceAction({ type: 'separator' })).toBe('delete');
+	});
+
+	// Spec 041: una imagen no se "cancela" volviendo a texto — no hay texto atrás
+	// y la conversión dejaría los bytes colgados. El gemelo de enterOnEmptyAction.
+	it('deletes an image instead of converting it to text', () => {
+		expect(backspaceAction({ type: 'image' })).toBe('delete');
 	});
 });
 
@@ -246,5 +260,47 @@ describe('planJoinWithPrevious', () => {
 	it('refuses when the row carries a gray note, which would be lost', () => {
 		const blocks = [row('a', { order: 0 }), row('b', { order: 1, note: 'recordar esto' })];
 		expect(planJoinWithPrevious(blocks, 'b')).toBe(null);
+	});
+});
+
+// Pegar renglones y soltar una captura aterrizan sobre un renglón que muchas
+// veces está vacío; si lo está, se va, para que lo pegado no quede con una línea
+// en blanco arriba. Lo que NO se puede tirar es lo caro.
+describe('originIsDisposable', () => {
+	const row = (id, extra = {}) => ({
+		id,
+		parentBlockId: null,
+		order: 0,
+		type: 'text',
+		content: '',
+		...extra
+	});
+
+	it('un renglón de texto vacío y sin hijos se va', () => {
+		expect(originIsDisposable([row('a'), row('b')], 'a')).toBe(true);
+	});
+
+	it('con texto escrito se queda', () => {
+		expect(originIsDisposable([row('a', { content: 'hola' })], 'a')).toBe(false);
+	});
+
+	it('con sub-ítems se queda: borrarlo dejaría la rama huérfana', () => {
+		const blocks = [row('a'), row('hijo', { parentBlockId: 'a' })];
+		expect(originIsDisposable(blocks, 'a')).toBe(false);
+	});
+
+	it('un separador se queda aunque su contenido esté vacío', () => {
+		expect(originIsDisposable([row('a', { type: 'separator' })], 'a')).toBe(false);
+	});
+
+	// El bug de spec 041: soltar una captura encima de otra borraba la de abajo,
+	// porque una imagen sin descripción tiene el contenido vacío.
+	it('una imagen sin descripción se queda: su contenido es la captura', () => {
+		const image = row('a', { type: 'image', imageId: 'abc', content: '' });
+		expect(originIsDisposable([image], 'a')).toBe(false);
+	});
+
+	it('un renglón que ya no está no se puede tirar', () => {
+		expect(originIsDisposable([row('b')], 'a')).toBe(false);
 	});
 });

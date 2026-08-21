@@ -66,7 +66,7 @@ export function reconcileBlocks(current, incoming, protectedIds) {
 		next.length !== beforeById.size ||
 		next.some((row) => {
 			const before = beforeById.get(row.id);
-			return !before || (row !== before && !sameToTheUser(before, row));
+			return !before || (row !== before && !sameToTheUser('blocks', before, row));
 		});
 
 	return { blocks: next, deferred, historyStale };

@@ -39,6 +39,16 @@ const BIRTH_DEFAULTS = {
 		note: '',
 		dueDate: null,
 		createdBy: 'user',
+		// Spec 041. Ausente y `null` significan lo mismo acá, y por eso NO hay
+		// migración que las rellene: escribir ~1127 filas no compra nada, y
+		// `sameToTheUser` ya perdona "ausente contra su valor de nacimiento".
+		// Sin esta declaración, en cambio, cada bloque viejo se vuelve un
+		// conflicto — la spec 040 lo midió: 1154.
+		imageId: null,
+		imageType: null,
+		imageBytes: null,
+		imageWidth: null,
+		imageHeight: null,
 		deletedAt: null
 	},
 	// De una línea de bitácora que llega ya borrada no se sabe quién la escribió ni

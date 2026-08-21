@@ -41,12 +41,15 @@
 	import { reconcileBlocks } from './reconcile';
 	import { conflictsByBlock, keepLocal, takeRemote, undoDecision } from '$lib/sync/conflicts';
 	import { bumpAgentData, bumpAgentDataUrgent } from '$lib/bridge/signal.svelte';
+	import { insertImageBlock } from '$lib/images/insert';
+	import { measureImage } from '$lib/images/ingest';
+	import { IMAGE_INSERT_MESSAGES, roomIsTight } from '$lib/images/doors';
 	import { detectTrigger } from './triggers';
 	import TagPicker from '$lib/components/TagPicker.svelte';
 	import TagChips from '$lib/components/TagChips.svelte';
 	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
-	import { isTauriRuntime } from '$lib/platform';
+	import { isTauriRuntime, openImageFiles } from '$lib/platform';
 	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
@@ -55,6 +58,7 @@
 		canDeleteFromMenu,
 		canDeleteOnBackspace,
 		enterOnEmptyAction,
+		originIsDisposable,
 		planEnter,
 		planJoinWithPrevious,
 		planPromoteChildren,
@@ -272,8 +276,11 @@
 	let noteTags = $state([]);
 	let blockTagsMap = $state({});
 	let tagPickerFor = $state(null);
-	// Multi-block selection: anchor+focus block ids. selectedIds is the visible
-	// range between them; a real selection is 2+ blocks.
+	// One owner for every row's “…” menu. Keeping this in Editor prevents a
+	// keyboard or assistive click from opening a second menu beside the first.
+	let actionsMenuFor = $state(null);
+	// Structural block selection: anchor+focus ids. The range may contain one or
+	// more rows; only two or more unlock the group-only planners and slash menu.
 	let selection = $state(null);
 	// Drag-select: the block where the mouse went down, and whether a drag has
 	// actually crossed into another block (so a plain click stays a click).
@@ -282,7 +289,8 @@
 	const selectedIds = $derived(
 		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
 	);
-	const hasSelection = $derived(selectedIds.length > 1);
+	const blockSelectionActive = $derived(selectedIds.length > 0);
+	const multiBlockSelection = $derived(selectedIds.length > 1);
 	// El menú de grupo (spec 031): "/" con varios renglones marcados. Estado
 	// aparte del "/" tipeado en un renglón — ahí el carácter vive dentro del
 	// texto hasta confirmar, y acá nunca entra en ningún renglón.
@@ -290,7 +298,9 @@
 	// El menú de grupo solo existe mientras la selección existe: si se encoge a un
 	// renglón (Shift+↑ de más) o se cambia de nota, el menú se va con ella — si no,
 	// queda un menú fantasma que además tapa al "/" de un solo renglón.
-	const groupMenu = $derived(hasSelection ? selectionMenu : null);
+	const groupMenu = $derived(
+		multiBlockSelection && !readOnly && !actionsMenuFor ? selectionMenu : null
+	);
 	// Solo cambios de tipo: Fecha abriría un panel por renglón, Separador
 	// borraría el texto de todos y Snippet no es un tipo.
 	const SELECTION_TYPE_IDS = ['text', 'heading1', 'heading2', 'heading3', 'bullet', 'todo', 'code'];
@@ -302,12 +312,14 @@
 	let listEl = $state();
 	const reorder = createDragReorder({
 		getBlocks: () => blocks,
-		getSelectedIds: () => (hasSelection ? selectedIds : []),
+		getSelectedIds: () => (blockSelectionActive ? selectedIds : []),
 		getListEl: () => listEl,
 		onApply: async (plan) => {
+			if (readOnly) return;
 			recordSnapshot();
 			await applyUpdates(plan.updates);
 		},
+		onHandleClick: selectBlockFromHandle,
 		// A plain click on an already-selected row (no drag) collapses the
 		// selection; the caret lands there via the browser's own mousedown.
 		onSelectionClick: () => clearSelection()
@@ -348,6 +360,7 @@
 	}
 
 	async function applyTextMove({ sourceId, start, end, targetId, offset }) {
+		if (readOnly) return;
 		const source = blocks.find((b) => b.id === sourceId);
 		const target = blocks.find((b) => b.id === targetId);
 		if (!source || !target) return;
@@ -403,10 +416,14 @@
 		return false;
 	}
 
-	const selectedSet = $derived(new Set(hasSelection ? selectedIds : []));
+	const selectedSet = $derived(new Set(blockSelectionActive ? selectedIds : []));
 	// The block highlight is visual only; announce the count for screen readers.
 	const selectionAnnouncement = $derived(
-		hasSelection ? `${selectedIds.length} renglones seleccionados` : ''
+		blockSelectionActive
+			? selectedIds.length === 1
+				? '1 renglón seleccionado'
+				: `${selectedIds.length} renglones seleccionados`
+			: ''
 	);
 	// Un choque no lo pide nadie: aparece solo, mientras escribís, cuando llega un
 	// cambio del otro dispositivo. Se ve en el renglón, y sin esto quien usa lector
@@ -739,6 +756,9 @@
 	}
 
 	function handleBlockInput(block, payload) {
+		// Typing means the row has reclaimed the interaction. Any open “…” menu is
+		// replaced before slash/tag triggers can open their own surface.
+		actionsMenuFor = null;
 		const text = payload.content;
 		const html = payload.html;
 		// Ignorar el evento `input` incidental que un comando de formato puede
@@ -807,7 +827,9 @@
 	// Convert a block to a different type (e.g. heading) via the format engine's
 	// planner, which decides which fields change.
 	async function setBlockType(block, nextType) {
+		// `null` = la conversión no existe (spec 041: ni desde ni hacia una imagen).
 		const changes = planBlockType(block, nextType);
+		if (!changes) return;
 		Object.assign(block, changes);
 		if (nextType === 'todo') {
 			// Convertir a tarea nace por la capa (bitácora 'created').
@@ -831,6 +853,7 @@
 	// sense for the current selection. Rebuilt from scratch on every selection
 	// change so the toolbar's own $derived state reacts to it.
 	let toolbar = $state(null); // { rect, active, enabled, blockId, color, linkUrl }
+	let dismissedToolbarRange = null;
 	// Sequence counter to make repeated Ctrl/Cmd+K requests unique (Svelte 5 $effect
 	// reactive dependency must change for the effect to re-run on the second press).
 	let linkRequestSeq = 0;
@@ -861,7 +884,11 @@
 			return;
 		}
 		const sel = window.getSelection();
-		if (!sel || sel.rangeCount === 0) { toolbar = null; return; }
+		if (!sel || sel.rangeCount === 0) {
+			dismissedToolbarRange = null;
+			toolbar = null;
+			return;
+		}
 		const range = sel.getRangeAt(0);
 		const startEditable = editableFor(range.startContainer);
 		const endEditable = editableFor(range.endContainer);
@@ -880,7 +907,25 @@
 		// barra, y el enlace no se podía ni crear con el cursor solo — applyLink
 		// devuelve false sin un rango.
 		const marks = activeFormatsFor(range.startContainer, startEditable);
-		if (sel.isCollapsed) { toolbar = null; return; }
+		if (sel.isCollapsed) {
+			dismissedToolbarRange = null;
+			toolbar = null;
+			return;
+		}
+		if (dismissedToolbarRange) {
+			try {
+				if (
+					range.compareBoundaryPoints(Range.START_TO_START, dismissedToolbarRange) === 0 &&
+					range.compareBoundaryPoints(Range.END_TO_END, dismissedToolbarRange) === 0
+				) {
+					toolbar = null;
+					return;
+				}
+			} catch {
+				// A DOM edit detached the old range; the next selection is new.
+			}
+			dismissedToolbarRange = null;
+		}
 
 		const row = startEditable.closest('[data-block-id]');
 		const block = blocks.find((b) => b.id === row?.dataset.blockId);
@@ -915,6 +960,7 @@
 	// usable selection/caret in a rich block (toolbar stays null), do nothing —
 	// a link needs something to attach it to.
 	function handleRequestLink() {
+		dismissedToolbarRange = null;
 		refreshToolbar();
 		if (toolbar) {
 			linkRequestSeq += 1;
@@ -928,6 +974,7 @@
 	// petición, como en el pedido de enlace.
 	let toolbarFocusSeq = 0;
 	function handleRequestToolbarFocus() {
+		dismissedToolbarRange = null;
 		refreshToolbar();
 		if (toolbar) {
 			toolbarFocusSeq += 1;
@@ -1080,6 +1127,17 @@
 			sel.addRange(caret);
 		}
 		if (blockId) focusBlockEditable(blockId);
+	}
+
+	// A pointer pressed outside owns the next focus target. Remember this exact
+	// range so a control that preserves selection cannot reopen the toolbar, but
+	// leave the range alive for native text dragging.
+	function dismissToolbar(target) {
+		dismissedToolbarRange = toolbar?.savedRange?.cloneRange() ?? null;
+		toolbar = null;
+		if (target instanceof Element && target.closest('[data-block-surface]')) {
+			requestAnimationFrame(() => (dismissedToolbarRange = null));
+		}
 	}
 
 	// Única puerta de formato, venga de la barra o del teclado. Dueña del paso
@@ -1239,6 +1297,17 @@
 			id: block.id,
 			changes: { note: text }
 		});
+	}
+
+	// La descripción de una imagen (spec 041 §3.5): texto pelado que vive en
+	// `content`, hace de `alt` y entra en la búsqueda. No pasa por
+	// `handleBlockInput` a propósito — ese escribe también `block.html` y corre los
+	// gatillos de "/" y "#", que en un renglón sin caja editable no tienen dónde
+	// abrirse.
+	function handleCaption(block, text) {
+		recordTextSnapshot(block.id);
+		block.content = text;
+		writeBlock(block.id, { content: text }, 500);
 	}
 
 	// A new block keeps list-like types going; code and separators hand
@@ -1432,13 +1501,70 @@
 			await refreshTags();
 			if (onTagsChanged) onTagsChanged();
 		}
-		const origin = blocks.find((item) => item.id === block.id);
-		const originHasChildren = blocks.some((item) => (item.parentBlockId ?? null) === block.id);
-		if (origin && (origin.content ?? '') === '' && origin.type !== 'separator' && !originHasChildren) {
+		if (originIsDisposable(blocks, block.id)) {
 			cancelPending(`block:${block.id}`);
 			await softDeleteBlock(block.id);
 			blocks = blocks.filter((item) => item.id !== block.id);
 		}
+		focusBlockId = afterId;
+	}
+
+	// Donde terminan las tres puertas (spec 041 §3.4): pegar, soltar encima y
+	// `/imagen`. Las capturas entran DE A UNA y esperando a la anterior — dos
+	// inserciones a la vez le preguntarían a `planEnter` por el mismo lugar y una
+	// se pondría encima de la otra, así que el orden en que las soltaste dejaría
+	// de ser el orden en pantalla.
+	async function handleInsertImages(block, files) {
+		if (!files || files.length === 0) return;
+		recordSnapshot();
+		let afterId = block.id;
+		let warned = false;
+		for (const file of files) {
+			// Aviso, no permiso: la estimación orienta y nada más. Se intenta igual, y
+			// la última palabra la tiene el aparato con su `QuotaExceededError`, que
+			// vuelve como 'failed'. Una sola vez por tanda: cinco capturas grandes no
+			// son cinco avisos.
+			if (!warned && (await roomIsTight(file))) {
+				warned = true;
+				toast.warning('Queda poco espacio en este aparato. Puede que la imagen no entre.');
+			}
+			const plan = planEnter(blocks, afterId);
+			if (!plan) {
+				// El renglón destino ya no está: lo borraron mientras el diálogo estaba
+				// abierto (una baja que llegó de la nube). No es ninguno de los finales de
+				// `insertImageBlock`, así que lleva su propia línea — callarse acá es el
+				// error que este proyecto ya pagó una vez con el selector de archivos.
+				toast.error('No se pudo poner la imagen: ese renglón ya no está.');
+				break;
+			}
+			await applyUpdates(plan.updates);
+			const result = await insertImageBlock({
+				noteId: note.id,
+				parentBlockId: plan.parentBlockId,
+				order: plan.order,
+				file,
+				// La única parte que necesita un navegador de verdad entra inyectada
+				// desde acá: `createImageBitmap` no existe en node ni en jsdom.
+				measure: measureImage
+			});
+			if (result.status !== 'ready') {
+				toast.error(IMAGE_INSERT_MESSAGES[result.status] ?? IMAGE_INSERT_MESSAGES.failed);
+				continue;
+			}
+			blocks = [...blocks, result.block];
+			afterId = result.block.id;
+		}
+		if (afterId === block.id) return; // no entró ninguna: el renglón queda como estaba
+		// El renglón vacío donde cayó la captura no queda de adorno — es lo mismo que
+		// hace pegar renglones, y con el mismo criterio, que ahora vive en un solo lado.
+		if (originIsDisposable(blocks, block.id)) {
+			cancelPending(`block:${block.id}`);
+			await softDeleteBlock(block.id);
+			blocks = blocks.filter((item) => item.id !== block.id);
+		}
+		// El cursor va a la descripción de la captura recién puesta: es el renglón
+		// nuevo y es lo próximo que uno quiere escribir. Sin esto no lo tiene NADIE,
+		// porque el renglón donde estaba el cursor acaba de borrarse.
 		focusBlockId = afterId;
 	}
 
@@ -1616,7 +1742,7 @@
 		}
 	}
 
-	// --- Multi-block selection ---
+	// --- Structural block selection ---
 
 	function shiftSelect(block) {
 		const anchor = selection?.anchorId ?? activeBlockId ?? block.id;
@@ -1630,6 +1756,33 @@
 	function clearSelection() {
 		selection = null;
 		selectionMenu = null;
+	}
+
+	function setActionsMenu(blockId, open) {
+		actionsMenuFor = open ? blockId : null;
+		if (!open) return;
+		// A newly opened row menu replaces any other transient surface owned here.
+		slash = null;
+		tagPickerFor = null;
+		datePanelFor = null;
+		toolbar = null;
+	}
+
+	function selectBlockFromHandle(id, pointerType = 'mouse') {
+		activeBlockId = id;
+		// Releasing a handle that belongs to an existing group keeps that group and
+		// its menu. A handle outside it replaces the group with exactly one row.
+		if (!(multiBlockSelection && selectedIds.includes(id))) {
+			selection = { anchorId: id, focusId: id };
+			selectionMenu = null;
+		}
+		window.getSelection()?.removeAllRanges();
+		// A touch must not summon the virtual keyboard. Mouse and assisted clicks
+		// keep keyboard commands tied to the row that was just selected.
+		if (pointerType === 'mouse' || pointerType === 'assistive') {
+			focusBlockId = id;
+			focusCaret = null;
+		}
 	}
 
 	// A plain mousedown clears any selection and arms a drag from this block.
@@ -1693,7 +1846,7 @@
 	// wrapped block. Places the caret directly (no focusBlockId) so BlockRow's
 	// focus effect does not yank the caret to the block's end.
 	function handleVerticalArrow(block, direction) {
-		if (hasSelection) return false;
+		if (blockSelectionActive) return false;
 		if (!caretAtBlockEdge(direction)) return false;
 		const neighborId = neighborVisibleId(blocks, block.id, direction);
 		if (!neighborId) return false;
@@ -1715,7 +1868,7 @@
 	// focused block when the caret is at that block's edge. Returns false to let
 	// the browser do normal in-line text selection.
 	function extendSelection(direction) {
-		if (hasSelection) {
+		if (blockSelectionActive) {
 			const focus = neighborVisibleId(blocks, selection.focusId, direction);
 			if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
 			selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
@@ -1745,6 +1898,7 @@
 	}
 
 	async function deleteSelection() {
+		if (readOnly) return;
 		recordSnapshot();
 		const ids = planDeleteSelection(blocks, selectedIds);
 		const last = selectedIds[selectedIds.length - 1];
@@ -1752,6 +1906,7 @@
 		const focusTarget =
 			neighborVisibleId(blocks, last, 1) ?? neighborVisibleId(blocks, first, -1);
 		selection = null;
+		selectionMenu = null;
 		await softDeleteBlocks(ids);
 		const removed = new Set(ids);
 		blocks = blocks.filter((block) => !removed.has(block.id));
@@ -1769,6 +1924,7 @@
 	// Tab / Shift+Tab over a multi-block selection: the whole group moves a level,
 	// not just the focused row. direction 1 = indent, -1 = outdent.
 	async function indentSelectedBlocks(direction) {
+		if (readOnly) return;
 		const plan =
 			direction > 0
 				? planIndentSelection(blocks, selectedIds)
@@ -1795,6 +1951,7 @@
 	// de mutar `row`, porque Object.assign ya lo pisa. Un solo recordSnapshot:
 	// un Ctrl/Cmd+Z deshace la conversión entera.
 	async function applySelectionType(type) {
+		if (readOnly) return;
 		const plan = planTypeChangeSelection(blocks, selectedIds, type);
 		selectionMenu = null;
 		if (!plan) return;
@@ -1821,6 +1978,7 @@
 	}
 
 	async function moveSelectedBlocks(direction) {
+		if (readOnly) return;
 		const plan = planMoveSelection(blocks, selectedIds, direction);
 		if (!plan) return;
 		recordSnapshot();
@@ -1848,32 +2006,57 @@
 			(target.isContentEditable || target.hasAttribute('data-block-surface'))
 		);
 	}
+	function selectionSurfaceId(target) {
+		if (!(target instanceof Element)) return null;
+		const surface = target.closest('[data-block-surface]');
+		return surface?.closest('[data-block-id]')?.getAttribute('data-block-id') ?? null;
+	}
+	function editorTransientOpen(ignoreSelectionMenu = false) {
+		return [...document.querySelectorAll('[data-editor-transient]')].some(
+			(transient) => !ignoreSelectionMenu || !transient.hasAttribute('data-selection-menu')
+		);
+	}
 	function handleSelectionKeys(event) {
+		// A gesture owns Escape from the moment it is armed, before its movement
+		// threshold. Cancel it here so the same key cannot also change selection.
+		if (event.key === 'Escape' && (reorder.engaged || textDrag.engaged)) {
+			claim(event);
+			reorder.cancel();
+			textDrag.cancel();
+			return;
+		}
 		// Undo/redo win over everything inside a block or its collapsed-code
 		// control. The note title is a plain <input> and keeps native undo.
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && isBlockKeyboardTarget(event.target)) {
 			claim(event);
+			if (readOnly) return;
 			if (event.shiftKey) restore(history.redo(currentSnapshot()));
 			else restore(history.undo(currentSnapshot()));
 			return;
 		}
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y' && isBlockKeyboardTarget(event.target)) {
 			claim(event);
+			if (readOnly) return;
 			restore(history.redo(currentSnapshot()));
 			return;
 		}
-		if (event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+		if (
+			event.shiftKey &&
+			(event.key === 'ArrowUp' || event.key === 'ArrowDown') &&
+			selectionSurfaceId(event.target) &&
+			!editorTransientOpen(Boolean(selectionMenu))
+		) {
 			if (extendSelection(event.key === 'ArrowDown' ? 1 : -1)) claim(event);
 			return;
 		}
-		// Cmd/Ctrl+C with no multi-selection and a collapsed caret inside a block:
+		// Cmd/Ctrl+C with no structural selection and a collapsed caret inside a block:
 		// copy that whole block richly (custom format) so code, separators and
 		// tags survive a paste. A real in-block text selection falls through to
 		// the browser's native copy of just that text.
 		if (
 			(event.metaKey || event.ctrlKey) &&
 			event.key.toLowerCase() === 'c' &&
-			!hasSelection &&
+			!blockSelectionActive &&
 			isBlockKeyboardTarget(event.target)
 		) {
 			const sel = window.getSelection();
@@ -1886,7 +2069,31 @@
 			}
 			return;
 		}
-		if (!hasSelection) return;
+		if (!blockSelectionActive) {
+			if (event.key !== 'Escape') return;
+			const id = selectionSurfaceId(event.target);
+			// Menus and panels close themselves first. Their marker is global because
+			// several keep focus on the row that opened them.
+			if (!id || editorTransientOpen()) return;
+			claim(event);
+			activeBlockId = id;
+			selection = { anchorId: id, focusId: id };
+			selectionMenu = null;
+			window.getSelection()?.removeAllRanges();
+			return;
+		}
+		// Structural commands belong only to a row surface. The note title, guest
+		// comment fields and controls inside panels keep their own keys even while a
+		// row remains selected in the background.
+		if (!selectionSurfaceId(event.target)) return;
+		// The group slash menu is handled below; every newer surface sits above it
+		// and owns the keyboard until it closes.
+		if (editorTransientOpen(Boolean(selectionMenu))) {
+			// Escape bubbles to the surface owner. Other structural keys are stopped
+			// here so they cannot edit a selected row behind the visible panel.
+			if (event.key !== 'Escape') claim(event);
+			return;
+		}
 		// Menú de grupo abierto: se queda con sus teclas antes que cualquier otra
 		// rama, o Tab anidaría y Escape soltaría la selección con el menú abierto.
 		if (selectionMenu) {
@@ -1902,7 +2109,7 @@
 			}
 			if (event.key === 'Enter' || event.key === 'Tab') {
 				claim(event);
-				applySelectionType(SELECTION_TYPE_COMMANDS[selectionMenu.index].id);
+				if (!readOnly) applySelectionType(SELECTION_TYPE_COMMANDS[selectionMenu.index].id);
 				return;
 			}
 			if (event.key === 'Escape') {
@@ -1914,38 +2121,76 @@
 			// Cualquier otra tecla cierra el menú y sigue su curso normal.
 			selectionMenu = null;
 		}
-		// "/" con varios renglones marcados abre el menú para todo el grupo. El
-		// carácter no entra en ningún renglón: la tecla se consume acá.
-		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+		if (event.key === 'Escape') {
+			const id = selectionSurfaceId(event.target);
+			if (!id || editorTransientOpen()) return;
 			claim(event);
-			selectionMenu = { index: 0 };
+			const focusId = selection.focusId;
+			clearSelection();
+			focusBlockId = focusId;
+			focusCaret = null;
+			return;
+		}
+		if (
+			event.key === 'Enter' &&
+			!event.shiftKey &&
+			!event.metaKey &&
+			!event.ctrlKey &&
+			!event.altKey
+		) {
+			claim(event);
+			const focusId = selection.focusId;
+			clearSelection();
+			focusBlockId = focusId;
+			focusCaret = null;
+			return;
+		}
+		const singleBlock =
+			selectedIds.length === 1 ? blocks.find((block) => block.id === selectedIds[0]) : null;
+		// "/" with a group opens the group menu. With one textual row it drops
+		// structural selection and continues to the row's ordinary slash flow.
+		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			if (multiBlockSelection) {
+				claim(event);
+				if (!readOnly) selectionMenu = { index: 0 };
+				return;
+			}
+			if (readOnly || !singleBlock || singleBlock.type === 'image' || singleBlock.type === 'separator') {
+				claim(event);
+				return;
+			}
+			clearSelection();
 			return;
 		}
 		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
 			claim(event);
-			copySelection();
+			if (multiBlockSelection) copySelection();
+			else if (singleBlock) handleCopy(singleBlock, false);
 			return;
 		}
 		if (event.key === 'Backspace' || event.key === 'Delete') {
 			claim(event);
-			deleteSelection();
+			if (!readOnly) deleteSelection();
 			return;
 		}
 		if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
 			claim(event);
-			moveSelectedBlocks(event.key === 'ArrowDown' ? 1 : -1);
+			if (readOnly) return;
+			if (multiBlockSelection) moveSelectedBlocks(event.key === 'ArrowDown' ? 1 : -1);
+			else if (singleBlock) {
+				if (event.key === 'ArrowDown') handleMoveDown(singleBlock);
+				else handleMoveUp(singleBlock);
+			}
 			return;
 		}
 		if (event.key === 'Tab') {
 			claim(event);
-			indentSelectedBlocks(event.shiftKey ? -1 : 1);
-			return;
-		}
-		if (event.key === 'Escape') {
-			claim(event);
-			const anchor = selection.focusId;
-			clearSelection();
-			focusBlockId = anchor;
+			if (readOnly) return;
+			if (multiBlockSelection) indentSelectedBlocks(event.shiftKey ? -1 : 1);
+			else if (singleBlock) {
+				if (event.shiftKey) handleOutdent(singleBlock);
+				else handleIndent(singleBlock);
+			}
 			return;
 		}
 		// A bare arrow drops the selection and lets the caret move normally.
@@ -1955,6 +2200,10 @@
 		}
 		// A plain keystroke drops the selection and resumes normal editing.
 		if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.length === 1) {
+			if (readOnly) {
+				claim(event);
+				return;
+			}
 			clearSelection();
 		}
 	}
@@ -2179,7 +2428,16 @@
 	}
 
 	async function handleSaveSnippet(block) {
-		const fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
+		// `snippetFieldsFromBlocks` es la guardia (spec 041 §8): rechaza en voz
+		// alta si el bloque o alguno de sus hijos es una imagen. Acá sólo se
+		// muestra lo que ya dijo.
+		let fields;
+		try {
+			fields = snippetFieldsFromBlocks($state.snapshot(blocks), block.id, note.id);
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'No se pudo guardar el snippet.');
+			return;
+		}
 		await createSnippet(fields);
 		toast.success('Snippet guardado');
 		if (onSnippetsChanged) onSnippetsChanged();
@@ -2212,6 +2470,33 @@
 			focusBlockId = row.id;
 			focusCaret = anchor + 1;
 			await writeBlock(row.id, { content: kept.content, html: kept.html });
+			return;
+		}
+		if (command.id === 'image') {
+			// `/imagen` es una ACCIÓN, no un cambio de tipo: abre el selector y recién
+			// cuando VUELVE un archivo se come el "/imagen" que la persona escribió.
+			// Cancelar no consume NADA — ni el "/", ni el tipo del renglón, ni el
+			// lugar del cursor.
+			//
+			// Ese "nada" hay que escribirlo: `cancelPending` de arriba ya tiró el
+			// guardado con retraso de ese texto, así que sin esta escritura el
+			// "/imagen" se vería en pantalla y desaparecería al recargar. Y el cursor
+			// se vuelve a poner donde estaba porque el diálogo del sistema se lo lleva
+			// al abrirse.
+			const query = slash.query;
+			slash = null;
+			const chosen = await openImageFiles();
+			if (chosen.status !== 'opened') {
+				focusBlockId = row.id;
+				focusCaret = anchor + 1 + query.length;
+				await writeBlock(row.id, { content: row.content ?? '', html: row.html ?? '' });
+				return;
+			}
+			const kept = strippedSlashFields(row, anchor, query);
+			row.content = kept.content;
+			row.html = kept.html;
+			await writeBlock(row.id, { content: kept.content, html: kept.html });
+			await handleInsertImages(row, chosen.files);
 			return;
 		}
 		// Strip the "/query" span; whatever the user had typed around it stays,
@@ -2255,6 +2540,7 @@
 		if (HEADING_TYPES.includes(command.id)) {
 			// Headings are a type change, not an insert, so no new block is created.
 			const changes = planBlockType(row, command.id);
+			if (!changes) return;
 			Object.assign(row, changes);
 			focusBlockId = row.id;
 			focusCaret = anchor;
@@ -2296,6 +2582,15 @@
 		onDatesChanged?.(); // let an open Agenda refresh live
 		focusBlockId = block.id;
 		focusCaret = datePanelCaret;
+		datePanelCaret = null;
+	}
+
+	function handleDatePanelClose(block, restoreFocus = false) {
+		datePanelFor = null;
+		if (restoreFocus) {
+			focusBlockId = block.id;
+			focusCaret = datePanelCaret;
+		}
 		datePanelCaret = null;
 	}
 
@@ -2361,6 +2656,7 @@
 			<div class="relative shrink-0">
 				<button
 					type="button"
+					data-tag-picker-trigger
 					aria-label="Etiquetar nota"
 					use:tooltip={'Etiquetar nota'}
 					onclick={() =>
@@ -2417,6 +2713,8 @@
 					active={activeBlockId === row.block.id}
 					flash={flashBlockIds.has(row.block.id)}
 					pulseMenu={pulseMenuBlockId === row.block.id}
+					actionsMenuOpen={actionsMenuFor === row.block.id}
+					onActionsMenuChange={(open) => setActionsMenu(row.block.id, open)}
 					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
 					slashOpen={groupMenu
 						? selection?.focusId === row.block.id
@@ -2427,6 +2725,7 @@
 					onInput={handleBlockInput}
 					onFormat={handleKeyboardFormat}
 					onNoteInput={handleNoteInput}
+					onCaption={handleCaption}
 					onComment={handleComment}
 					onEnter={handleEnter}
 					onBackspaceEmpty={handleBackspaceEmpty}
@@ -2445,10 +2744,11 @@
 					selected={selectedSet.has(row.block.id)}
 					onShiftSelect={shiftSelect}
 					onPlainMousedown={startDrag}
-					onTextSelectionMousedown={textSelectionMousedown}
+					onTextSelectionMousedown={readOnly ? null : textSelectionMousedown}
 					onDragOver={dragOver}
-					onDragHold={(id, event) => reorder.armFromPointer(id, event)}
-					onDragHandle={(id, event) => reorder.armFromHandle(id, event)}
+					onDragHold={readOnly ? null : (id, event) => reorder.armFromPointer(id, event)}
+					onDragHandle={readOnly ? null : (id, event) => reorder.armFromHandle(id, event)}
+					onHandleSelect={(id) => selectBlockFromHandle(id, 'assistive')}
 					tags={blockTagsMap[row.block.id] ?? []}
 					{allTags}
 					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
@@ -2466,6 +2766,7 @@
 					onVerticalArrow={handleVerticalArrow}
 					onPasteLines={handlePasteLines}
 					onPasteBlocks={handlePasteBlocks}
+					onInsertImages={handleInsertImages}
 					onPasteCode={handlePasteCode}
 					onRequestLink={handleRequestLink}
 					onRequestToolbarFocus={handleRequestToolbarFocus}
@@ -2477,14 +2778,17 @@
 					datePanelOpen={datePanelFor === row.block.id}
 					onDateBadge={(block) => {
 						datePanelCaret = null;
-						datePanelFor = datePanelFor === block.id ? null : block.id;
+						if (datePanelFor === block.id) {
+							handleDatePanelClose(block, true);
+						} else {
+							actionsMenuFor = null;
+							datePanelFor = block.id;
+						}
 					}}
 					onDatePick={handleDatePick}
 					onDateRemove={handleDateRemove}
-					onDatePanelClose={() => {
-						datePanelFor = null;
-						datePanelCaret = null;
-					}}
+					onDatePanelClose={(block, restoreFocus) =>
+						handleDatePanelClose(block, restoreFocus)}
 					slashEmptyLabel={slash?.mode === 'snippets'
 						? 'Todavía no guardaste snippets.'
 						: 'Sin resultados'}
@@ -2510,6 +2814,7 @@
 			requestFocus={toolbar.requestFocus ?? 0}
 			onCommand={handleToolbarCommand}
 			onRestorePanelFocus={restoreToolbarFocus}
+			onDismiss={dismissToolbar}
 			onClose={closeToolbar}
 		/>
 	{/if}

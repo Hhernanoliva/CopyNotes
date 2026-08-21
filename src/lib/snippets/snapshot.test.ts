@@ -99,6 +99,30 @@ describe('snippetFieldsFromBlocks', () => {
 		const fields = snippetFieldsFromBlocks(blocks, 'root', 'note-1');
 		expect(fields.name).toHaveLength(60);
 	});
+
+	// Spec 041 §8: un snippet vive fuera de su nota, y su export sería una
+	// referencia sin bytes que mostrar — se rechaza en voz alta.
+	it('spec 041: un atajo no puede tener una imagen de raíz', () => {
+		const blocks = [block({ id: 'root', type: 'image', content: 'captura' })];
+		expect(() => snippetFieldsFromBlocks(blocks, 'root', 'note-1')).toThrow(
+			'Un atajo no puede tener imágenes todavía.'
+		);
+	});
+
+	it('spec 041: tampoco si la imagen está adentro, no en la raíz', () => {
+		const blocks = [
+			block({ id: 'root', type: 'bullet', content: 'Padre' }),
+			block({ id: 'c1', parentBlockId: 'root', type: 'image', content: 'captura', order: 0 })
+		];
+		expect(() => snippetFieldsFromBlocks(blocks, 'root', 'note-1')).toThrow(
+			'Un atajo no puede tener imágenes todavía.'
+		);
+	});
+
+	it('spec 041: una selección sin imágenes se guarda igual que siempre', () => {
+		const blocks = [block({ id: 'root', type: 'text', content: 'sin imagen' })];
+		expect(() => snippetFieldsFromBlocks(blocks, 'root', 'note-1')).not.toThrow();
+	});
 });
 
 describe('snippetFieldsFromText', () => {

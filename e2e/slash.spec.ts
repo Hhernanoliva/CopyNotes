@@ -87,6 +87,38 @@ test('the "+" button opens the same menu as typing "/"', async ({ page }) => {
 	await expect(page.locator('main [role="checkbox"]').first()).toBeVisible();
 });
 
+test('escribir "/" reemplaza el menú de acciones abierto', async ({ page }) => {
+	await newNote(page);
+	const row = page.locator('main [data-block-id]').first();
+	const first = row.locator('.block-editable');
+	await first.click();
+	await row.hover();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toBeVisible();
+
+	await page.keyboard.type('/');
+	await expect(page.getByRole('menu', { name: 'Acciones del bloque' })).toHaveCount(0);
+	await expect(page.locator('#slash-menu')).toBeVisible();
+});
+
+test('"/" sobre un solo renglón seleccionado abre el menú ordinario', async ({ page }) => {
+	await newNote(page);
+	const row = page.locator('main [data-block-id]').first();
+	const editable = row.locator('.block-editable');
+	await editable.click();
+	await page.keyboard.type('Texto');
+	await row.hover();
+	await row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' }).click();
+	await expect(page.getByText('1 renglón seleccionado')).toBeAttached();
+
+	await page.keyboard.press('/');
+	const menu = page.locator('#slash-menu');
+	await expect(menu).toBeVisible();
+	await expect(menu).toHaveAttribute('aria-label', 'Tipos de bloque');
+	await expect(menu).not.toContainText('renglones');
+	await expect(page.getByText('1 renglón seleccionado')).toHaveCount(0);
+});
+
 test('the slash menu works mid-text and strips only the "/query" span', async ({ page }) => {
 	await newNote(page);
 
