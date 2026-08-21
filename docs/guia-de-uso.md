@@ -2,7 +2,8 @@
 
 Todo lo que podés hacer en CopyNotes hoy, organizado por tema en `docs/guia/`. Cada archivo se actualiza cuando cambia su tema.
 
-Última actualización: 2026-08-20 (Nuevo: **los enlaces ya no te sacan de una nota mientras intentás editarlos**: el primer clic o toque muestra la dirección completa con **Abrir** y **Editar**, y **Ctrl/Cmd+K** entiende si querés enlazar texto, revisar un enlace o buscar. Además, **tocar la manija selecciona un renglón entero y arrastrarla lo mueve**, incluso si está vacío o es una imagen; ver los temas 3, 4, 6, 10 y 15). Antes: **CopyNotes también es para Windows**.
+Última actualización: 2026-08-21 (Nuevo: **ya podés pegar una captura de pantalla dentro de una nota**: pegándola, arrastrando el archivo a un renglón, o escribiendo `/imagen` y eligiéndolo del selector. Se ve al tamaño justo sin saltos mientras carga, y tocándola se abre grande en toda la pantalla (`Esc` la cierra). Debajo podés escribirle una descripción, opcional y buscable, y si la pegaste el cursor ya te está esperando ahí. El límite es de 5 MB por imagen, con un aviso claro si es muy pesada, no es una imagen, está dañada o no se pudo guardar; los `.svg` no se aceptan porque son código, no una foto. Viajan en el respaldo, pero ⚠️ todavía se quedan solo en el aparato donde las pegaste: no llegan a tus otros dispositivos, no se pueden compartir ni guardar en un snippet, y exportar a Markdown o HTML deja el lugar de la imagen en texto; ver el tema 21). Antes: **los enlaces ya no te sacan de una nota mientras intentás editarlos**: el primer clic o toque muestra la dirección completa con **Abrir** y **Editar**, y **Ctrl/Cmd+K** entiende si querés enlazar texto, revisar un enlace o buscar. Además, **tocar la manija selecciona un renglón entero y arrastrarla lo mueve**, incluso si está vacío o es una imagen; ver los temas 3, 4, 6, 10 y 15.
+Antes: **CopyNotes también es para Windows**.
 La próxima descarga trae un instalador `.exe` además del de Mac; la primera vez
 Windows muestra una pantalla azul que se pasa con *"Más información" → "Ejecutar
 de todos modos"* (tema 19), y el comando de Claude Code se pega en **PowerShell**
@@ -100,6 +101,7 @@ dispositivo — antes se ofrecía siempre y no llevaba a ningún lado; ver el te
 18. [La nube](guia/18-nube.md) — crear cuenta, sumar un aparato, dar el permiso, qué se sube y qué ve el servidor (beta)
 19. [Actualizaciones](guia/19-actualizaciones.md) — el puntito del engranaje, qué trae la versión nueva y qué trajo la tuya, y qué pasa al instalar (solo app de escritorio)
 20. [Compartir una nota](guia/20-compartir-una-nota.md) — sacar una nota de la bóveda para que otra persona la lea, invitarla con un link, qué puede contestarte (tildar, comentar, "Listo"), quién hizo cada cosa, qué viaja y qué se queda, quitar el acceso y cerrarla
+21. [Imágenes](guia/21-imagenes.md) — pegar, arrastrar o `/imagen` una captura de pantalla, verla grande, la descripción opcional, el límite de 5 MB, cómo viaja en el respaldo y qué todavía no hace
 
 ## Regla para el equipo
 
