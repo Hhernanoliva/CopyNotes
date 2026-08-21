@@ -183,12 +183,18 @@
 			// Spec 041 §8: un `blob:` no existe fuera de CopyNotes, así que el
 			// archivo lleva `[Imagen: descripción]` en su lugar (note-export.ts) — y
 			// esto es lo único que puede avisarlo, porque el archivo ya se guardó.
-			const hasImages = blocks.some((block) => block.type === 'image');
+			//
+			// Y en una lista, no en una cadena de `else if`, por lo mismo que el
+			// respaldo de acá arriba: los dos problemas son DISTINTOS y pasan juntos
+			// —una nota con capturas cuyo último cambio no aterrizó—, y encadenados
+			// se contaba el primero y se callaba el otro.
+			const problems = [];
 			if (!allSaved)
-				toast.warning('Nota exportada — un cambio reciente no se pudo guardar y puede faltar.');
-			else if (hasImages)
-				toast.warning('Nota exportada — las imágenes no se incluyeron, sólo su descripción.');
-			else toast.success('Nota exportada');
+				problems.push('Nota exportada — un cambio reciente no se pudo guardar y puede faltar.');
+			if (blocks.some((block) => block.type === 'image'))
+				problems.push('Nota exportada — las imágenes no se incluyeron, sólo su descripción.');
+			if (problems.length === 0) toast.success('Nota exportada');
+			else for (const problem of problems) toast.warning(problem);
 		} catch {
 			toast.error('No se pudo exportar la nota. Tus datos siguen intactos.');
 		} finally {
@@ -331,7 +337,12 @@
 		const declared = new Map(result.backup.images.map((meta) => [meta.imageId, meta]));
 		pendingBodies = [...(imageBytes ?? [])].map(([imageId, data]) => {
 			const meta = declared.get(imageId);
-			const type = detectImageType(data) ?? meta?.type ?? '';
+			// Los bytes y nada más: `readPackage` ya rechazó el paquete entero si la
+			// firma real de alguna entrada no era la que decía ser, así que acá el
+			// olfato SIEMPRE contesta. Cayendo al tipo del manifiesto —el que
+			// escribió quien armó el archivo— eran bytes cualesquiera etiquetados
+			// `image/png`, que es justo lo que la firma existe para impedir.
+			const type = detectImageType(data) ?? '';
 			return {
 				imageId,
 				blob: new Blob([data], { type }),

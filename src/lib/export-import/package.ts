@@ -3,7 +3,7 @@
 // Se arma acá; Task 10 lo cuelga de los botones de exportar/importar.
 
 import { buildZip, readZip } from './zip';
-import { sha256Hex, MAX_IMAGE_BYTES } from '../images/ingest';
+import { sha256Hex, detectImageType, MAX_IMAGE_BYTES } from '../images/ingest';
 import { backupFileName } from './backup';
 import { PACKAGE_VERSION } from './schema';
 
@@ -165,10 +165,18 @@ export async function readPackage(bytes) {
 	// Huérfana (nada la referencia) o el nombre dice un tipo que el
 	// manifiesto contradice — ambas son la misma clase de mentira que el
 	// chequeo de huella, sólo que en el nombre en vez de en el contenido.
+	//
+	// Y el tipo REAL sale de los primeros bytes, nunca del nombre ni del
+	// manifiesto: "los formatos aceptados, por firma de verdad — el SVG se
+	// rechaza" (spec §3) es la regla de `prepareImage`, y un cuerpo que entra
+	// por un paquete NO pasa por ahí. Este es el único lugar donde esos bytes
+	// se miran, así que si acá no se miran, no se miran nunca.
 	for (const entry of imageEntries) {
 		if (!referenced.has(entry.imageId)) return { status: 'orphan-entry' };
 		const meta = declaredById.get(entry.imageId);
 		if (meta && EXTENSION_BY_TYPE[meta.type] !== entry.ext) return { status: 'type-mismatch' };
+		const real = detectImageType(entry.data);
+		if (!real || EXTENSION_BY_TYPE[real] !== entry.ext) return { status: 'type-mismatch' };
 	}
 
 	// (d) — el nombre lo puso quien armó el archivo; la huella real la dicen

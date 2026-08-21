@@ -96,18 +96,24 @@ describe('leer el paquete: lo que rechaza antes de tocar nada', () => {
 		const { buildZip } = await import('./zip');
 		// El manifiesto declara la imagen correctamente (cuenta, peso, tipo) para
 		// que el fallo que se prueba acá sea la huella — no uno de los gates
-		// baratos de la sección de abajo, que ya tienen su propia prueba.
+		// baratos de la sección de abajo, que ya tienen su propia prueba. Los
+		// bytes tienen que ser un PNG DE VERDAD por lo mismo: desde que la firma
+		// se comprueba, cuatro bytes cualesquiera los frenaba el gate de firma y
+		// esta prueba dejaba de probar la huella.
 		const zip = await buildZip([
 			{
 				name: 'backup.json',
 				blob: new Blob([
 					JSON.stringify({
 						...backupWith([{ type: 'image', imageId: ID }]),
-						images: [{ imageId: ID, type: 'image/png', bytes: 4, width: 1, height: 1 }]
+						images: [{ imageId: ID, type: 'image/png', bytes: 5, width: 1, height: 1 }]
 					})
 				])
 			},
-			{ name: `images/${ID}.png`, blob: new Blob([new Uint8Array([1, 2, 3, 4])]) }
+			{
+				name: `images/${ID}.png`,
+				blob: new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00])])
+			}
 		]);
 		expect((await readPackage(new Uint8Array(await zip.arrayBuffer()))).status).toBe('hash-mismatch');
 	});
@@ -210,6 +216,36 @@ describe('leer el paquete: lo barato antes de lo caro (§5.3/§5.4)', () => {
 				])
 			},
 			{ name: `images/${ID}.png`, blob: png() }
+		]);
+		expect((await readPackage(new Uint8Array(await zip.arrayBuffer()))).status).toBe('type-mismatch');
+	});
+
+	// La regla del plan ("los formatos aceptados, por firma de verdad — el SVG se
+	// rechaza; nunca confiar en `file.type` ni en el nombre") la aplicaba sólo
+	// `prepareImage`, y un cuerpo que llega adentro de un paquete NO pasa por
+	// ahí: `readPackage` es la única puerta que esos bytes cruzan.
+	//
+	// Todo lo demás del paquete está BIEN a propósito —el nombre es la huella
+	// real del contenido, el manifiesto declara el peso justo y un bloque lo
+	// referencia—, así que sin el control de firma este paquete entra como 'ok'
+	// y siembra un SVG en `imageBodies` etiquetado `image/png`.
+	it('los bytes no son del tipo que dicen ser (un SVG disfrazado de PNG): type-mismatch', async () => {
+		const { buildZip } = await import('./zip');
+		const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
+		const SVG_ID = '900fbe934249ad120004bd24adf66aad8817d89586273c0cc50e187bddebb601';
+		const zip = await buildZip([
+			{
+				name: 'backup.json',
+				blob: new Blob([
+					manifestWith({
+						blocks: [{ type: 'image', imageId: SVG_ID }],
+						images: [
+							{ imageId: SVG_ID, type: 'image/png', bytes: svg.length, width: 2, height: 2 }
+						]
+					})
+				])
+			},
+			{ name: `images/${SVG_ID}.png`, blob: new Blob([svg]) }
 		]);
 		expect((await readPackage(new Uint8Array(await zip.arrayBuffer()))).status).toBe('type-mismatch');
 	});
