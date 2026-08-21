@@ -504,6 +504,59 @@ describe('el lazo entero', () => {
 		expect(syncStatus.appliedVersion).toBe(antes + 1);
 	});
 
+	// Una fila que no puede salir frenaba TODA la pasada, no esa nota.
+	//
+	// `pushSharedNote` tira, y ese tiro salía del lazo, de `syncShared` y le caía
+	// a `syncNow` — que llama al caño compartido ANTES de `ready()`,
+	// `uploadBatch` y `downloadAll`. O sea: una nota compartida con una captura
+	// adentro (borrar la imagen, compartir, Ctrl+Z alcanza) dejaba sin
+	// sincronizar las OTRAS notas compartidas y el caño cifrado entero, cada 30
+	// segundos, para siempre.
+	it('una nota que no puede sincronizar no se lleva puestas a las demás', async () => {
+		const rota = await createNote({ title: 'con una captura adentro' });
+		await createBlock({ noteId: rota.id, type: 'image', imageId: 'a'.repeat(64) });
+		await setShareRole(rota.id, 'owner');
+		const sana = await createNote({ title: 'la de al lado' });
+		await createBlock({ noteId: sana.id, content: 'texto' });
+		await setShareRole(sana.id, 'owner');
+		const empujadas = [];
+		const client = {
+			...conMiembros(),
+			rpc: vi.fn(async (name, args) => {
+				if (name === 'push_shared_rows') empujadas.push(args.p_note_id);
+				return name === 'list_shares'
+					? {
+							data: [
+								{ note_id: rota.id, role: 'owner' },
+								{ note_id: sana.id, role: 'owner' }
+							],
+							error: null
+						}
+					: { data: [], error: null };
+			})
+		};
+
+		// Sin el try/catch por nota, ESTA línea tira y la prueba se pone roja.
+		await syncShared(client);
+
+		expect(empujadas).toContain(sana.id);
+		expect(empujadas).not.toContain(rota.id);
+	});
+
+	it('y la falla se cuenta, no se traga en silencio', async () => {
+		const rota = await createNote({ title: 'con una captura adentro' });
+		await createBlock({ noteId: rota.id, type: 'image', imageId: 'a'.repeat(64) });
+		await setShareRole(rota.id, 'owner');
+		syncStatus.error = null;
+
+		await syncShared(clientWith([{ note_id: rota.id, role: 'owner' }]));
+
+		// Sin el `reportSyncFailure(error)` del catch, ESTA línea recibe null.
+		expect(syncStatus.error).toBe(
+			'No se pudo sincronizar. Lo tuyo está guardado en este dispositivo.'
+		);
+	});
+
 	// El cierre automático (decidido al cerrar el gate de B1, 2026-08-17). El
 	// servidor sólo MARCA que la compartición se quedó sin nadie; cerrarla de
 	// verdad —resellar las filas para el caño cifrado y recién ahí borrarla— es
