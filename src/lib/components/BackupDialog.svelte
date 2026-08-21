@@ -17,7 +17,9 @@
 		referencedImageIds,
 		validateBackup
 	} from '$lib/export-import';
-	import { getBody, putBody } from '$lib/images/bodies';
+	import { getBody, listBodyIds, putBody } from '$lib/images/bodies';
+	import { detectImageType } from '$lib/images/ingest';
+	import { roomIsTight } from '$lib/images/doors';
 	import { sanitizeBackupData } from '$lib/format';
 	// The version stamped into every backup file, read from package.json instead
 	// of typed here: it used to say 0.0.1 while Tauri, Cargo and the MCP package
@@ -59,8 +61,7 @@
 		if (!dialogEl) return;
 		if (open && !dialogEl.open) {
 			step = 'idle';
-			review = null;
-			pendingBodies = [];
+			dropReview();
 			dialogEl.showModal();
 			// showModal() auto-focuses the first tabbable element (the X), which
 			// reads as if the close button were pre-pressed. Park focus on the
@@ -71,8 +72,26 @@
 		}
 	});
 
+	// Un solo lugar que suelta la revisión, porque son DOS cosas que hay que soltar
+	// juntas: `pendingBodies` son Blobs y quedarse con ellos mantiene vivas las
+	// capturas del archivo hasta la próxima importación.
+	function dropReview() {
+		review = null;
+		pendingBodies = [];
+	}
+
 	function closeDialog() {
-		if (!importing) open = false;
+		if (!importing) {
+			dropReview();
+			open = false;
+		}
+	}
+
+	// `QuotaExceededError` llega envuelto por Dexie, así que se mira el nombre acá
+	// y en la causa. Es lo único que la persona puede accionar de todos los
+	// motivos por los que una importación puede fallar.
+	function outOfRoom(error) {
+		return error?.name === 'QuotaExceededError' || error?.inner?.name === 'QuotaExceededError';
 	}
 
 	async function exportBackup() {
@@ -104,7 +123,7 @@
 			// `.copynotes` con los bytes adentro. Sin capturas no cambia una coma.
 			let result;
 			let complete = true;
-			if (chooseBackupFormat(backup.data.blocks).extension === 'copynotes') {
+			if (chooseBackupFormat(backup.data.blocks) === 'copynotes') {
 				const ids = [...referencedImageIds(backup.data.blocks)];
 				const bodies = (await Promise.all(ids.map(getBody))).filter(Boolean);
 				// `complete` lo decide `buildPackage` comprobando cada huella, nunca
@@ -123,18 +142,20 @@
 				});
 			}
 			if (result.status !== 'saved') return;
+			// Los tres son problemas DISTINTOS y pueden pasar juntos: una cadena de
+			// `else if` contaba el primero y se callaba los otros. Un respaldo al que
+			// le falta una captura y lo dice vale más que uno que se declara entero
+			// (spec §5.4), y lo mismo vale para cada uno de los tres.
+			const problems = [];
 			if (!selfCheck.ok)
-				toast.warning(
+				problems.push(
 					'Respaldo descargado, pero al revisarlo le encontramos un problema. Guardalo igual y avisanos.'
 				);
-			// Un respaldo al que le falta una captura y lo dice vale más que uno que
-			// se declara entero (spec §5.4).
-			else if (!complete) toast.warning('Se guardó el respaldo, pero le falta alguna imagen.');
-			else if (allSaved) toast.success('Respaldo descargado');
-			else
-				toast.warning(
-					'Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar.'
-				);
+			if (!complete) problems.push('Se guardó el respaldo, pero le falta alguna imagen.');
+			if (!allSaved)
+				problems.push('Respaldo descargado — un cambio reciente no se pudo guardar y puede faltar.');
+			if (problems.length === 0) toast.success('Respaldo descargado');
+			else for (const problem of problems) toast.warning(problem);
 		} catch {
 			toast.error('No se pudo guardar el respaldo. Tus datos siguen intactos.');
 		} finally {
@@ -180,30 +201,31 @@
 		try {
 			// Se lee en bytes y no en texto porque un `.copynotes` es un ZIP:
 			// `file.text()` lo decodificaría como UTF-8 y perdería los bytes de las
-			// capturas sin decir nada. El tope de 64 MB que tenía el camino de texto
-			// no se muda acá a propósito: un paquete que la propia app acaba de
-			// exportar puede pasarlo con veinte capturas, y negarse a importar el
-			// archivo que uno mismo bajó es peor que el riesgo de memoria que ese
-			// tope cuidaba.
+			// capturas sin decir nada. Quién es cuál lo decide la firma del archivo
+			// —no su nombre— adentro de `openBinaryFile`, que además le pone a cada
+			// uno su techo de peso.
 			opened = await openBinaryFile({ accept: '.json,.copynotes' });
 		} catch {
 			toast.error('Ese archivo no se puede leer como respaldo de CopyNotes.');
 			return;
 		}
 		if (opened.status === 'cancelled') return;
+		if (opened.status === 'too-large') {
+			toast.error(
+				opened.packaged
+					? 'Ese paquete pesa más de 1 GB. Un respaldo de CopyNotes pesa muchísimo menos.'
+					: 'Ese archivo pesa más de 64 MB. Un respaldo de CopyNotes pesa muchísimo menos.'
+			);
+			return;
+		}
+		const packaged = opened.packaged;
 		const raw = new Uint8Array(opened.bytes);
-		// Por el nombre Y por los bytes: la gente renombra archivos, y `PK\x03\x04`
-		// es la firma con la que arranca todo ZIP.
-		const packaged =
-			opened.fileName.toLowerCase().endsWith('.copynotes') ||
-			(raw[0] === 0x50 && raw[1] === 0x4b && raw[2] === 0x03 && raw[3] === 0x04);
 		let parsed;
 		let imageBytes = null;
 		if (packaged) {
 			// Todo lo que puede rechazar un paquete corre acá, antes de tocar un solo
 			// renglón de la base (spec §5.3/§5.5): nombres, cuenta, tamaños y la
-			// huella de cada captura. Los motivos son muchos y la salida es una
-			// sola, porque no hay nada distinto que hacer con ninguno.
+			// huella de cada captura.
 			let read;
 			try {
 				read = await readPackage(raw);
@@ -211,8 +233,15 @@
 				read = { status: 'not-a-package' };
 			}
 			if (read.status !== 'ok') {
+				// Ocho de los nueve rechazos comparten una sola salida porque no hay
+				// nada distinto que hacer con ninguno. `compressed-entry` no: significa
+				// que alguien descomprimió el paquete, le agregó algo y lo volvió a
+				// comprimir, y eso sí tiene arreglo — volver a exportar. Decirle
+				// "dañado" lo manda a buscar un problema que no existe.
 				toast.error(
-					'Ese paquete .copynotes está dañado o no es un respaldo de CopyNotes. No se importó nada.'
+					read.status === 'compressed-entry'
+						? 'Ese paquete se volvió a comprimir con otro programa y CopyNotes ya no puede abrirlo. Usá el archivo tal como lo bajaste, o exportá uno nuevo.'
+						: 'Ese paquete .copynotes está dañado o no es un respaldo de CopyNotes. No se importó nada.'
 				);
 				return;
 			}
@@ -289,26 +318,28 @@
 		// regla 6). Ausente = completo, así que los archivos de siempre no cambian.
 		const complete = standalone.ok && standalone.backup.complete === true;
 		const replaceData = complete ? sanitizeBackupData(standalone.backup.data) : null;
-		// Fuera de `$state` a propósito: son Blobs, la pantalla no los mira, y un
+		// Se camina lo que el paquete TRAE, no lo que su manifiesto declara. Al
+		// revés, una captura que `readPackage` ya comprobó —nombre, huella y un
+		// bloque que la referencia— pero que no figura en `images` se tiraba en
+		// silencio, y tirar algo en silencio es el error que este proyecto ya pagó
+		// más de una vez. El manifiesto queda sólo para el alto y el ancho.
+		//
+		// El tipo y el peso salen de los bytes: la huella comprobada es de ellos.
+		// Fuera de `$state` a propósito: la pantalla no los mira, son Blobs, y un
 		// proxy de Svelte no se puede clonar hacia IndexedDB. Se pisa entero en cada
 		// elección de archivo, así que no puede quedar viejo.
-		pendingBodies = result.backup.images.flatMap((meta) => {
-			const data = imageBytes?.get(meta.imageId);
-			// Declarada en el manifiesto pero sin archivo: es el `complete: false`
-			// del que salió el paquete (spec §5.4), no algo para reparar acá.
-			if (!data) return [];
-			// El largo real y no el declarado: la huella —que `readPackage` sí
-			// comprobó— es de estos bytes, así que ellos son la verdad.
-			return [
-				{
-					imageId: meta.imageId,
-					blob: new Blob([data], { type: meta.type }),
-					type: meta.type,
-					bytes: data.length,
-					width: meta.width,
-					height: meta.height
-				}
-			];
+		const declared = new Map(result.backup.images.map((meta) => [meta.imageId, meta]));
+		pendingBodies = [...(imageBytes ?? [])].map(([imageId, data]) => {
+			const meta = declared.get(imageId);
+			const type = detectImageType(data) ?? meta?.type ?? '';
+			return {
+				imageId,
+				blob: new Blob([data], { type }),
+				type,
+				bytes: data.length,
+				width: meta?.width ?? null,
+				height: meta?.height ?? null
+			};
 		});
 		review = {
 			fileName: opened.fileName,
@@ -326,7 +357,15 @@
 			// Los bytes primero y los bloques después (spec §5.5). Un cuerpo huérfano
 			// no se ve y se puede recuperar; un bloque que apunta a bytes que no
 			// están es una imagen rota en pantalla.
-			for (const body of pendingBodies) await putBody(body);
+			//
+			// Los que este aparato ya tiene NO se reescriben: la huella ES el
+			// contenido, así que no habría nada nuevo que guardar, y `imageBodyRow`
+			// pone `uploadedFor: null` — reimportar tu propio respaldo marcaría cada
+			// captura ya subida como pendiente de subir de nuevo.
+			const known = new Set(await listBodyIds());
+			for (const body of pendingBodies) {
+				if (!known.has(body.imageId)) await putBody(body);
+			}
 			// $state proxies can't be structured-cloned into IndexedDB.
 			await applyMergePlan($state.snapshot(review.plan));
 			const refreshed = await finishImport();
@@ -335,8 +374,12 @@
 			} else {
 				toast.success('Respaldo importado. Tus datos actuales quedaron intactos.');
 			}
-		} catch {
-			toast.error('No se pudo importar. Tus datos no cambiaron.');
+		} catch (error) {
+			toast.error(
+				outOfRoom(error)
+					? 'No hay espacio en este aparato para todo lo que trae el respaldo. No se importó.'
+					: 'No se pudo importar. Tus datos no cambiaron.'
+			);
 		} finally {
 			importing = false;
 		}
@@ -346,6 +389,14 @@
 		importing = true;
 		try {
 			const data = $state.snapshot(review.replaceData);
+			// Aviso, NO permiso (spec §3.6): la estimación orienta y nunca cancela; la
+			// última palabra la tiene el aparato con su `QuotaExceededError`. Es el
+			// mismo `roomIsTight` y el mismo criterio que al pegar una captura.
+			// Importar un `.copynotes` es la escritura más grande que hace la app, y
+			// §5.5 pide mirar el espacio antes de borrar nada.
+			const weight = pendingBodies.reduce((total, body) => total + body.bytes, 0);
+			if (weight > 0 && (await roomIsTight({ size: weight })))
+				toast.warning('Queda poco espacio en este aparato. Puede que alguna imagen no entre.');
 			// Los cuerpos viajan adentro de la misma transacción que las filas: ahí
 			// se borran los de la base anterior —`imageBodies` no está en
 			// `BACKUP_TABLES`— y se escriben estos antes que los bloques (spec §5.5).
@@ -353,8 +404,12 @@
 				{ ...data, settings: filterSafeSettings(data.settings) },
 				pendingBodies
 			);
-		} catch {
-			toast.error('No se pudo restaurar. Tus datos no cambiaron.');
+		} catch (error) {
+			toast.error(
+				outOfRoom(error)
+					? 'No hay espacio en este aparato para todo lo que trae el respaldo. Tus datos no cambiaron.'
+					: 'No se pudo restaurar. Tus datos no cambiaron.'
+			);
 			importing = false;
 			return;
 		}
@@ -386,10 +441,7 @@
 	async function finishImport() {
 		const refreshed = await onDataChanged();
 		step = 'idle';
-		review = null;
-		// Son Blobs: dejarlos acá mantiene vivas las capturas del archivo hasta la
-		// próxima importación.
-		pendingBodies = [];
+		dropReview();
 		open = false;
 		return refreshed;
 	}
@@ -423,7 +475,10 @@
 		if (importing) event.preventDefault();
 	}}
 	onclose={() => {
-		if (!importing) open = false;
+		if (!importing) {
+			dropReview();
+			open = false;
+		}
 	}}
 	aria-labelledby="backup-title"
 	class="cn-dialog bg-background text-foreground border-border m-auto max-h-[85svh] w-[calc(100%-2rem)] max-w-md overflow-y-auto overscroll-contain rounded-lg border p-0 shadow-lg backdrop:bg-(--overlay)"
@@ -557,7 +612,7 @@
 						type="button"
 						onclick={() => {
 							step = 'idle';
-							review = null;
+							dropReview();
 						}}
 						disabled={importing}
 						class="border-border hover:bg-accent focus-visible:ring-ring flex min-h-(--touch-target) flex-1 items-center justify-center rounded-md border text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50"

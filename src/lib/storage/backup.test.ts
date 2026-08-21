@@ -385,23 +385,34 @@ describe('lo que un respaldo puede llevar', () => {
 });
 
 describe('spec 041: el formato lo decide si hay imágenes', () => {
-	it('sin imágenes sigue siendo el .json de siempre, versión 5', () => {
-		const chosen = chooseBackupFormat([{ type: 'text', imageId: null }]);
-		expect(chosen.extension).toBe('json');
-		expect(chosen.formatVersion).toBe(5);
+	it('sin imágenes sigue siendo el .json de siempre', () => {
+		expect(chooseBackupFormat([{ type: 'text', imageId: null }])).toBe('json');
 	});
 
-	it('con una sola imagen pasa a .copynotes versión 6', () => {
-		const chosen = chooseBackupFormat([{ type: 'image', imageId: 'a'.repeat(64) }]);
-		expect(chosen.extension).toBe('copynotes');
-		expect(chosen.formatVersion).toBe(6);
+	it('con una sola imagen pasa a .copynotes', () => {
+		expect(chooseBackupFormat([{ type: 'image', imageId: 'a'.repeat(64) }])).toBe('copynotes');
 	});
 
-	it('una imagen en la papelera también cuenta', () => {
-		const chosen = chooseBackupFormat([
-			{ type: 'image', imageId: 'a'.repeat(64), deletedAt: '2026-08-01T00:00:00.000Z' }
-		]);
-		expect(chosen.extension).toBe('copynotes');
+	// Contra el volcado de verdad y no contra un bloque escrito a mano con un
+	// `deletedAt` de adorno: `chooseBackupFormat` no lee esa marca, así que la
+	// garantía —"una nota tirada a la papelera igual produce un `.copynotes`"— no
+	// vive acá sino en que `dumpAllTables` devuelve las filas borradas. Esta
+	// prueba se pone en rojo el día que un volcado empiece a filtrarlas.
+	it('una nota con captura tirada a la papelera igual pide un .copynotes', async () => {
+		const note = await createNote({ title: 'Con captura' });
+		await createBlock({
+			noteId: note.id,
+			type: 'image',
+			content: '',
+			order: 0,
+			imageId: 'a'.repeat(64)
+		});
+		await softDeleteNote(note.id);
+
+		const dump = await dumpAllTables();
+
+		expect(dump.blocks.every((block) => block.deletedAt !== null)).toBe(true);
+		expect(chooseBackupFormat(dump.blocks)).toBe('copynotes');
 	});
 });
 

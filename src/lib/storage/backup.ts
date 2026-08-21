@@ -6,12 +6,7 @@
 import { db } from './db';
 import { settlePendingWrites, trackPendingWrite } from './pending-writes';
 import { normalizeSidebarOrder } from './organize';
-import {
-	BACKUP_TABLES,
-	CURRENT_VERSION,
-	LOCAL_ONLY_FIELDS,
-	PACKAGE_VERSION
-} from '../export-import/schema';
+import { BACKUP_TABLES, LOCAL_ONLY_FIELDS } from '../export-import/schema';
 import { referencedImageIds } from '../export-import/package';
 import { imageBodyRow } from '../images/bodies';
 import { isBackupSafe } from './settings-registry';
@@ -19,12 +14,14 @@ import { isBackupSafe } from './settings-registry';
 // Spec 041 §5.1: el formato lo decide el contenido del respaldo, no una
 // preferencia ni una casilla. Sin un solo `imageId` referenciado —papelera
 // incluida, porque un bloque borrado sigue apuntando a su imagen— el archivo
-// es exactamente el `.json` versión 5 de siempre, que cualquier CopyNotes
-// anterior sigue importando.
+// es exactamente el `.json` de siempre, que cualquier CopyNotes anterior sigue
+// importando.
+//
+// Devuelve la terminación y nada más. El número de versión NO se decide acá:
+// lo estampa quien arma el archivo —`buildBackup` el 5, `buildPackage` el 6—
+// justamente para que no dependa de que alguien se acuerde de pasarlo.
 export function chooseBackupFormat(blocks) {
-	return referencedImageIds(blocks).size === 0
-		? { extension: 'json', formatVersion: CURRENT_VERSION }
-		: { extension: 'copynotes', formatVersion: PACKAGE_VERSION };
+	return referencedImageIds(blocks).size === 0 ? 'json' : 'copynotes';
 }
 
 // The change counter (spec 030 phase 1) is per-device bookkeeping and never
