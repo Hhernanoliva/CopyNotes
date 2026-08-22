@@ -49,8 +49,14 @@ src/
     actions/        Svelte actions shared across components: keyboard-inset
                     positioning, flip-into-view (anchor above when it does not
                     fit below), tooltips, tap-to-select (pick on pointerup)
-    blocks/         block types, hierarchy, nesting, ordering, collapse, cascade
-    editor/         editor UI, keyboard behavior, slash commands, selection, paste, history
+    blocks/         block types, hierarchy, nesting, ordering, collapse, cascade.
+                    Toda función que camina la lista visible recibe `rootId` con
+                    valor por defecto `null` (= la nota entera); ver la regla de
+                    la lista visible más abajo y la spec `043`
+    editor/         editor UI, keyboard behavior, slash commands, selection, paste,
+                    history, y `zoomBlockId`: entrar en un renglón es una LENTE,
+                    no un dato — el editor sigue cargando la nota entera y lo
+                    único que cambia es desde qué renglón dibuja (spec `043`)
     format/         inline formatting engine, sanitize/ingest gate, block types map
     images/         capturas de pantalla (spec 041): el ingestor que puede decir
                     que no, la ÚNICA puerta a la tabla `imageBodies`, el alta
@@ -409,6 +415,30 @@ aunque esté. La comprobación que sirve es reproducir el entorno del runner
 (`mv .env` aparte, variables sólo en el entorno, build, mirar la salida).
 
 Detalle completo en `docs/arquitectura-publicacion.md`.
+
+## Una función que camina la lista visible necesita saber desde dónde
+
+Desde la spec `043` la nota se puede mirar **desde un renglón**, no siempre desde la
+raíz. El editor no carga menos datos: `blocks` sigue siendo la nota entera y lo único
+que cambia es **desde dónde se dibuja**. Por eso toda función pura que recorre la
+jerarquía lleva `rootId` con valor por defecto `null` — `buildVisibleList`,
+`previousVisibleId`, `neighborVisibleId`, `selectionRange`, `planJoinWithPrevious`,
+`canDeleteOnBackspace`, `planOutdent`, `planDrop`, `orderedSelectionRoots`,
+`planTypeChangeSelection`.
+
+**El default `null` es la mitad del truco**: con él, cada llamador y cada prueba que
+ya existían siguen significando exactamente lo mismo, y el diff se lee como "se agregó
+un caso" en vez de "se tocó todo".
+
+La spec original decía que `planDrop` "no se toca" y que sólo `visibleIds` necesitaba
+la raíz. **Las dos eran falsas por la misma razón**: esas funciones llaman a otras que
+caminan la lista. Entrando en un renglón **colapsado** —caso legal— la lista sale
+vacía, y arrastrar, seleccionar de a varios y el menú de grupo se mueren **en
+silencio**.
+
+La regla, entonces: **si una función camina la lista visible, necesita la raíz, aunque
+la spec no la nombre.** Y el síntoma de olvidarse una es siempre el mismo — *un renglón
+que desaparece de la pantalla* —, que no pierde nada pero se lee como pérdida de datos.
 
 ## Quality Bar
 

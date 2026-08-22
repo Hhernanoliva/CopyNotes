@@ -54,6 +54,27 @@ La mayoría ya los protege Playwright; solo hacé a mano los marcados **manual**
 - [ ] En un celular real, tocá un renglón: aparecen manija, copiar y ⋯ sin necesidad de mouse.
 - [ ] Botones chicos (casilla de tarea, copiar, contraer) tienen buen área de toque.
 - [ ] La barra de formato no se sale de la pantalla angosta.
+- [ ] **Entrar en un renglón (spec `043`)**: el menú ⋯ tiene *Entrar acá* y entra; las
+      migas de arriba se pueden tocar y desplazar de costado; **no** aparece ningún
+      control nuevo en la fila (el doble clic en la manija es sólo de escritorio).
+
+### Entrar en un renglón, en la app empaquetada (spec `043`, PENDIENTE)
+
+Se probó entero en el navegador el 2026-08-22 (12 de 12 pasos). **Falta en la `.app`**,
+y estos cuatro son los que el navegador no puede contestar. Van antes de la próxima
+release de escritorio.
+
+- [ ] Entrar con doble clic en la manija, con el ⋯ y con `Alt+→`; salir con la miga y
+      con `Alt+←`. (`Alt+→` pisa el "mover el cursor palabra por palabra" de macOS: es
+      el costo aceptado, comprobá que se sienta bien en la app de verdad.)
+- [ ] Estando adentro, escribir en el renglón-título, cerrar la app **con ⌘Q** y
+      reabrir: el texto está y se sigue adentro (el diario de escrituras se cierra en
+      el `pagehide` del webview — es el camino que sólo existe empaquetado).
+- [ ] Salir desde una rama que estaba abajo en una nota larga: el renglón donde estabas
+      queda a la vista sin buscarlo.
+- [ ] Con dos aparatos (o la web + la app), borrar desde el otro lado el renglón donde
+      estás parado: aparece *"El renglón donde estabas ya no existe."* y vuelve la nota
+      entera.
 
 ### Datos
 
