@@ -1711,6 +1711,15 @@
 	// que se protege es dejar el editor sin bloques.
 	async function handleDeleteBlock(block) {
 		if (!canDeleteFromMenu(blocks, block.id)) return;
+		// Borrar el renglón donde se está parado: primero se sale un nivel (a su
+		// padre, o a la nota entera), y recién después se borra. Al revés, la vista
+		// se queda un instante apoyada en un renglón que ya no existe y salta el
+		// aviso de "se fue desde afuera" por algo que hizo esta misma persona
+		// (spec 043).
+		if (block.id === zoomRoot) {
+			const chain = ancestorIds(blocks, block.id);
+			await setZoomRoot(chain.length > 0 ? chain[chain.length - 1] : null);
+		}
 		recordSnapshot();
 		const prevId = previousVisibleId(blocks, block.id, zoomRoot);
 		const ids = [block.id, ...listDescendantIds(blocks, block.id)];
@@ -1726,7 +1735,15 @@
 			focusBlockId = created.id;
 			return;
 		}
-		focusBlockId = prevId ?? blocks[0]?.id ?? null;
+		// Lo mismo, mirado desde la vista: adentro de una rama la nota entera hace
+		// de testigo y el guardia de arriba nunca se dispara, pero la VISTA sí
+		// puede quedar sin un solo renglón donde escribir.
+		if (zoomRoot && buildVisibleList(blocks, zoomRoot).length === 0) {
+			await createFirstChild(zoomRoot);
+			return;
+		}
+		// `blocks[0]` podía ser un renglón de otra rama, o sea fuera de la vista.
+		focusBlockId = prevId ?? buildVisibleList(blocks, zoomRoot)[0]?.block.id ?? null;
 	}
 
 	async function handleIndent(block) {
@@ -2084,6 +2101,10 @@
 			const created = await createBlock({ noteId: note.id, type: 'text' });
 			blocks = [created];
 			focusBlockId = created.id;
+		} else if (zoomRoot && buildVisibleList(blocks, zoomRoot).length === 0) {
+			// La misma red que en handleDeleteBlock: la nota tiene renglones de
+			// sobra, pero la vista se quedó sin ninguno donde escribir (spec 043).
+			await createFirstChild(zoomRoot);
 		} else if (focusTarget && blocks.some((block) => block.id === focusTarget)) {
 			focusBlockId = focusTarget;
 		} else {

@@ -232,3 +232,54 @@ test('buscar y saltar a un renglón de otra rama muestra la nota entera', async 
 	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
 	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
 });
+
+async function borrarDesdeElMenu(page, texto) {
+	const row = page.locator(LIST_ROW, { hasText: texto }).first();
+	await row.hover();
+	await row.getByRole('button', { name: 'Más acciones' }).click();
+	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
+}
+
+test('borrar el renglón donde estás parado sale un nivel primero', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+
+	const titulo = page.locator('[data-zoom-title]');
+	await titulo.hover();
+	await titulo.getByRole('button', { name: 'Más acciones' }).click();
+
+	// La espera se arma ANTES del clic y a propósito: el aviso dura 1,8 s, así que
+	// preguntar "¿está?" después de borrar puede llegar tarde y pasar en falso.
+	// Se pone en rojo si se borra la salida previa de `handleDeleteBlock`: sin
+	// ella el renglón desaparece con la vista todavía apoyada en él, y la red del
+	// "se fue desde afuera" avisa de algo que hizo esta misma persona.
+	const aviso = page
+		.getByText('El renglón donde estabas ya no existe.')
+		.waitFor({ state: 'visible', timeout: 2500 })
+		.then(() => true)
+		.catch(() => false);
+
+	await page.getByRole('menuitem', { name: 'Eliminar' }).click();
+	await page.waitForTimeout(300);
+
+	// Se salió a la nota entera y Padre (con su rama) ya no está.
+	await expect.poll(() => blockTexts(page)).toEqual(['Suelto']);
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
+	expect(await aviso).toBe(false);
+});
+
+test('borrar el último renglón de la vista deja uno vacío enfocado', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+
+	await borrarDesdeElMenu(page, 'Hijo 2');
+	await page.waitForTimeout(250);
+	await borrarDesdeElMenu(page, 'Hijo 1');
+	await page.waitForTimeout(250);
+
+	// Sigue adentro, con un renglón vacío listo para escribir.
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toBeVisible();
+	await expect.poll(() => blockTexts(page)).toEqual(['']);
+	await page.keyboard.type('De nuevo');
+	await expect.poll(() => blockTexts(page)).toEqual(['De nuevo']);
+});
