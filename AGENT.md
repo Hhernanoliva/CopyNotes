@@ -440,6 +440,45 @@ La regla, entonces: **si una función camina la lista visible, necesita la raíz
 la spec no la nombre.** Y el síntoma de olvidarse una es siempre el mismo — *un renglón
 que desaparece de la pantalla* —, que no pierde nada pero se lee como pérdida de datos.
 
+## Sacar un renglón de un nivel no renumera a nadie
+
+Las posiciones (`order`) **no son 0,1,2,3**. Desde que un Enter en el medio inserta en
+el punto medio —para no renumerar a media nota y no pelearse con la nube—, un nivel
+puede ser `0, 1, 1.5, 2`. Cualquier código que "cierre el hueco" restando o sumando 1 a
+los de abajo está asumiendo la numeración vieja, y lo que produce es un **empate**: dos
+renglones con la misma posición. El empate se desempata por id, que es al azar, así que
+**la lista se da vuelta la mitad de las veces** y sólo en algunos renglones. Fue
+exactamente el bug del Tab: anidar un renglón lo mandaba una posición hacia abajo.
+
+La regla: **cuando un renglón se va de un nivel, los que quedan no se tocan** — su orden
+relativo entre ellos ya es correcto, y los huecos no molestan porque nadie cuenta
+posiciones. Para entrar en un lugar nuevo, dos herramientas y ninguna otra:
+`nextFreeOrder(hermanos)` para el final de una lista (nunca `hermanos.length`, que con
+huecos no dice dónde termina) y `planInsertAfter(hermanos, id)` para meterse entre dos.
+
+Corolario que ya costó caro: **intercambiar dos posiciones iguales no mueve nada**. Los
+empates que dejó el bug viejo siguen guardados en las notas de la gente, y ahí Alt+↑/↓
+quedaba mudo — `planSwap` los detecta y renumera ese nivel una vez.
+
+## Chrome y WebKit no contestan lo mismo, y la app de escritorio es WebKit
+
+La `.app` de macOS y el iPhone corren **WebKit**; el `pnpm test:e2e` por defecto corre
+**Chromium**. En todo lo que es gesto —puntero, arrastre, scroll— los dos motores
+difieren, y la diferencia siempre se ve igual: *en el navegador anda, en la app está a
+medias*. Medido en el auto-scroll de los arrastres:
+
+- Chrome dispara `pointerenter` en los elementos que aparecen al correr el contenido
+  bajo un puntero **quieto**; WebKit **no**.
+- Chrome sigue desplazando solo durante un arrastre de texto aunque el gesto nativo
+  esté frenado con `preventDefault`; WebKit **no**.
+
+Las dos veces, la prueba en Chromium pasaba con nuestro código **apagado**, o sea que
+no probaba nada, y borrar "lo redundante" habría roto justo la app. La regla: **una
+funcionalidad de gesto no está terminada hasta correrla en WebKit**
+(`pnpm test:e2e:webkit`), y **la única prueba de que una prueba prueba algo es apagar
+la pieza y verla en rojo** — en los dos motores por separado, porque el veredicto puede
+ser distinto en cada uno.
+
 ## Quality Bar
 
 A feature is not done until: the app runs without errors; risky logic has Vitest tests; critical flows have a Playwright check (convention: NO component-test layer — pure Vitest + Playwright only, spec 013); relevant docs/specs updated (user guide per `docs/guia/` rule in CLAUDE.md); nothing unrelated broke; data-loss risk was considered. Extra care in high-risk areas: persistence, import/export/backup restore, nested hierarchy, reordering, copy formatting, tags/search.
