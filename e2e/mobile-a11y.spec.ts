@@ -504,6 +504,10 @@ test('fecha, etiquetas y acciones conservan 44px en tablet', async ({ page }) =>
 	}
 
 	await page.setViewportSize({ width: 320, height: 700 });
+	// Achicar la ventana no reubica el panel en el mismo instante: `flipIntoView`
+	// lo reacomoda en el `resize`. Medir sin esperar leía la posición vieja, y
+	// pasaba sólo mientras el panel entrara igual sin reacomodar.
+	await page.waitForTimeout(400);
 	const narrowPanel = await panel.boundingBox();
 	expect(narrowPanel.x).toBeGreaterThanOrEqual(0);
 	expect(narrowPanel.x + narrowPanel.width).toBeLessThanOrEqual(320);
