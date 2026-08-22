@@ -25,7 +25,8 @@ describe('settings registry', () => {
 				'syncUploadedThrough',
 				'syncDownloadedThrough',
 				'syncAccountId',
-				'shareOwnerLabel'
+				'shareOwnerLabel',
+				'zoomRootByNote'
 			].sort()
 		);
 	});

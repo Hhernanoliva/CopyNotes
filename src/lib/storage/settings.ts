@@ -98,6 +98,16 @@ export function setEditorTextScale(value) {
 	return setSetting(KEY.editorTextScale, value);
 }
 
+// Un objeto { [noteId]: blockId }: en qué renglón está parada esta persona en
+// cada nota (spec 043). Se poda al escribir con `rememberZoomRoot`.
+export function getZoomRoots() {
+	return getSetting(KEY.zoomRootByNote);
+}
+
+export function setZoomRoots(value) {
+	return setSetting(KEY.zoomRootByNote, value);
+}
+
 export function getSidebarWidth() {
 	return getSetting(KEY.sidebarWidth);
 }

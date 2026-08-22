@@ -21,6 +21,7 @@ export const KEY = {
 	agendaHideCompleted: 'agendaHideCompleted',
 	editorTextScale: 'editorTextScale',
 	sidebarWidth: 'sidebarWidth',
+	zoomRootByNote: 'zoomRootByNote',
 	connectedAgent: 'connectedAgent',
 	agentsPaused: 'agentsPaused',
 	processedChanges: 'processedChanges',
@@ -39,6 +40,7 @@ export const SETTINGS = {
 	[KEY.agendaHideCompleted]: { backupSafe: true },
 	[KEY.editorTextScale]: { backupSafe: true },
 	[KEY.sidebarWidth]: { backupSafe: true },
+	[KEY.zoomRootByNote]: { backupSafe: false }, // Dónde quedó parada ESTA persona dentro de cada nota, en ESTE aparato (spec 043). No es un dato de la nota: restaurar un respaldo no debe mover a nadie de lugar, y un aparato nuevo arranca viendo las notas enteras.
 	[KEY.connectedAgent]: { backupSafe: false }, // Local MCP connection identity — device-only, never leaves in a backup (cloud is spec 029).
 	[KEY.agentsPaused]: { backupSafe: false }, // The master agent kill switch. NOT backup-safe on purpose: import only writes safe keys, so restoring a file can never un-pause a device the user paused.
 	[KEY.processedChanges]: { backupSafe: false }, // Local agent-change dedupe ledger — device-only, never leaves in a backup (cloud is spec 029).
