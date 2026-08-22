@@ -346,6 +346,7 @@
 		getBlocks: () => blocks,
 		getSelectedIds: () => (blockSelectionActive ? selectedIds : []),
 		getListEl: () => listEl,
+		getRootId: () => zoomRoot,
 		onApply: async (plan) => {
 			if (readOnly) return;
 			recordSnapshot();

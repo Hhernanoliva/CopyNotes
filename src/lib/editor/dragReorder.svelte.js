@@ -21,6 +21,8 @@ export function createDragReorder({
 	getSelectedIds,
 	getListEl,
 	onApply,
+	// Desde qué renglón se está dibujando (spec 043). `null` es la nota entera.
+	getRootId = () => null,
 	onHandleClick = (..._args) => {},
 	onSelectionClick = () => {}
 }) {
@@ -70,7 +72,7 @@ export function createDragReorder({
 
 	// Depth of a block in the current visible list, or 0 if not found.
 	function depthOf(blockId) {
-		for (const { block, depth } of buildVisibleList(getBlocks())) {
+		for (const { block, depth } of buildVisibleList(getBlocks(), getRootId())) {
 			if (block.id === blockId) return depth;
 		}
 		return 0;
@@ -92,7 +94,7 @@ export function createDragReorder({
 		const listTop = listEl.getBoundingClientRect().top;
 		const draggedSet = new Set(draggedIds);
 		const rows = [];
-		for (const { block, depth, hasChildren } of buildVisibleList(getBlocks())) {
+		for (const { block, depth, hasChildren } of buildVisibleList(getBlocks(), getRootId())) {
 			if (draggedSet.has(block.id)) continue;
 			const el = listEl.querySelector(`[data-block-id="${block.id}"]`);
 			if (!el) continue;
@@ -126,7 +128,7 @@ export function createDragReorder({
 		startY = event.clientY;
 		grabDepth = depthOf(blockId);
 		const ids = onSelection ? selected : [blockId];
-		draggedIds = orderedSelectionRoots(getBlocks(), ids);
+		draggedIds = orderedSelectionRoots(getBlocks(), ids, getRootId());
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('keydown', onKey);
@@ -161,7 +163,7 @@ export function createDragReorder({
 		grabDepth = depthOf(blockId);
 		const selected = getSelectedIds();
 		const ids = selected.includes(blockId) ? selected : [blockId];
-		draggedIds = orderedSelectionRoots(getBlocks(), ids);
+		draggedIds = orderedSelectionRoots(getBlocks(), ids, getRootId());
 		handleArmed = true;
 		handleBlockId = blockId;
 		handlePointerType = event.pointerType || 'mouse';
@@ -236,7 +238,16 @@ export function createDragReorder({
 		const ids = draggedIds;
 		reset();
 		if (!target) return;
-		const plan = planDrop(getBlocks(), ids, target.newParentId, target.insertIndex);
+		const rootId = getRootId();
+		// Profundidad 0 dentro de la vista es "colgando de la raíz de la vista",
+		// nunca del primer nivel de la nota: eso sacaría el renglón de la pantalla.
+		const plan = planDrop(
+			getBlocks(),
+			ids,
+			target.newParentId ?? rootId,
+			target.insertIndex,
+			rootId
+		);
 		if (plan && plan.updates.length > 0) onApply(plan);
 	}
 

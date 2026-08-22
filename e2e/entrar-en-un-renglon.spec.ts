@@ -174,3 +174,32 @@ test('con dos renglones seleccionados, Alt+←/→ se consumen y no hacen nada',
 	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
 	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
 });
+
+test('arrastrar al margen izquierdo cuelga de la raíz de la vista, no de la nota', async ({
+	page
+}) => {
+	await notaConRama(page);
+
+	// Anidar Hijo 2 debajo de Hijo 1 para tener algo que sacar de nivel adentro.
+	await page.getByText('Hijo 2', { exact: true }).click();
+	await page.keyboard.press('Tab');
+	await page.waitForTimeout(200);
+
+	await entrarDesdeElMenu(page, 'Padre');
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+
+	const origen = page.locator(LIST_ROW, { hasText: 'Hijo 2' }).first();
+	const handle = origen.getByRole('button', { name: 'Seleccionar o arrastrar renglón' });
+	const caja = await origen.boundingBox();
+	await handle.hover();
+	await page.mouse.down();
+	await page.mouse.move(caja.x - 80, caja.y + caja.height / 2, { steps: 12 });
+	await page.mouse.up();
+	await page.waitForTimeout(300);
+
+	// Sigue adentro y sigue viéndose: si colgara del primer nivel de la NOTA,
+	// se iría de la pantalla.
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+	const fila = page.locator(LIST_ROW, { hasText: 'Hijo 2' }).first();
+	await expect(fila).toHaveCSS('padding-left', '0px');
+});
