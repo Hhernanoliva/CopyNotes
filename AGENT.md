@@ -464,6 +464,8 @@ mal la URL que le pasaste a alguien.
 | Restoring a backup when the cloud is on (measured: 1 conflict per row) | `039` |
 | The backup contract: a file the app produced always imports | `040` |
 | Screenshots in notes: paste, local bytes, `.copynotes` package, encrypted upload | `041` |
+| Editable links + single-row selection | `042` |
+| Entering a row (zoom): the view has a root, and every edge rule follows it | `043` |
 
 Sin spec numerada, pero con documento propio:
 

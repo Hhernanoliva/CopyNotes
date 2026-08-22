@@ -48,6 +48,7 @@ Agents should read `AGENT.md` first, then the relevant spec before meaningful im
 40. `040-backup-compatibility-contract.md`
 41. `041-images-in-notes.md`
 42. `042-link-row-selection-ux.md`
+43. `043-zoom-into-row.md`
 
 ## Pedido, sin spec todavía
 
