@@ -172,9 +172,26 @@ describe('planIndentSelection', () => {
 		expect(plan.updates).toContainEqual({ id: 'y', parentBlockId: 'a', order: 1 });
 	});
 
-	it('closes the gap left among the old siblings', () => {
+	// Igual que el Tab de un solo renglón: irse de un nivel no renumera a nadie.
+	it('no toca a los renglones que quedan abajo', () => {
 		const plan = planIndentSelection(flat, ['x', 'y']);
-		expect(plan.updates).toContainEqual({ id: 'z', order: 1 });
+		expect(plan.updates.some((update) => update.id === 'z')).toBe(false);
+	});
+
+	// Contar hijos no dice dónde termina la lista cuando hay posiciones
+	// intermedias: con un hijo en 0.5, el 'base = cantidad' pisaba posiciones
+	// existentes y el grupo aterrizaba en el medio de los hijos del padre nuevo.
+	it('aterriza después de hijos con posiciones intermedias, sin pisar ninguna', () => {
+		const fraccionado = [
+			b('a', null, 0),
+			b('a1', 'a', 0),
+			b('a2', 'a', 0.5),
+			b('x', null, 1),
+			b('y', null, 2)
+		];
+		const plan = planIndentSelection(fraccionado, ['x', 'y']);
+		expect(plan.updates).toContainEqual({ id: 'x', parentBlockId: 'a', order: 1.5 });
+		expect(plan.updates).toContainEqual({ id: 'y', parentBlockId: 'a', order: 2.5 });
 	});
 
 	it('leaves the descendants alone: they follow their parent', () => {

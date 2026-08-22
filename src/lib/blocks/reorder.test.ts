@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { planMoveDown, planMoveUp } from './reorder';
+import { sortByOrder } from './ordering';
 
 function block(id, parentBlockId = null, order = 0) {
 	return { id, parentBlockId, order };
@@ -30,8 +31,22 @@ describe('planMoveUp', () => {
 		// The parent and everything after it at that level shift down…
 		expect(plan.updates).toContainEqual({ id: 'a', order: 1 });
 		expect(plan.updates).toContainEqual({ id: 'b', order: 2 });
-		// …and the remaining child is renumbered gapless.
-		expect(plan.updates).toContainEqual({ id: 'a2', order: 0 });
+		// …y el hijo que queda adentro no se toca: renumerarlo empataba posiciones
+		// cuando había intermedias, y la lista se daba vuelta sola.
+		expect(plan.updates.some((update) => update.id === 'a2')).toBe(false);
+	});
+
+	// Restos del bug del Tab: notas donde dos renglones quedaron con la MISMA
+	// posición. Intercambiar dos números iguales no mueve nada, así que la fila
+	// quedaba clavada. Rojo si vuelve el intercambio pelado: 'b' no sube.
+	it('mueve la fila aunque su vecino tenga la misma posición guardada', () => {
+		const blocks = [block('a', null, 1), block('b', null, 1), block('c', null, 2)];
+		const plan = planMoveUp(blocks, 'b');
+		const after = blocks.map((row) => ({
+			...row,
+			...(plan.updates.find((update) => update.id === row.id) ?? {})
+		}));
+		expect(sortByOrder(after).map((row) => row.id)).toEqual(['b', 'a', 'c']);
 	});
 
 	it('escapes a nested parent one level at a time', () => {

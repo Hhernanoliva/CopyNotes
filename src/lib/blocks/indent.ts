@@ -2,7 +2,7 @@
 // the editor applies to state and storage in one pass. Children of the moved
 // block follow it implicitly because they point at its id.
 
-import { nextFreeOrder, sortByOrder } from './ordering';
+import { nextFreeOrder, planInsertAfter, sortByOrder } from './ordering';
 
 function siblingsOf(blocks, parentBlockId) {
 	const parent = parentBlockId ?? null;
@@ -21,9 +21,11 @@ export function planIndent(blocks, id) {
 	// Al final de los hijos del nuevo padre: el siguiente número libre, no la
 	// cantidad de hijos — desde que hay huecos, contar no dice dónde termina.
 	updates.push({ id, parentBlockId: newParent.id, order: nextFreeOrder(newSiblings) });
-	for (const later of siblings.slice(index + 1)) {
-		updates.push({ id: later.id, order: later.order - 1 });
-	}
+	// A los de abajo no se les toca el número. Antes se les restaba 1 para "cerrar
+	// el hueco", y con posiciones intermedias (las que deja un Enter en el medio)
+	// esa resta empataba al primero de abajo con el padre nuevo; el desempate por
+	// id decidía quién iba antes, así que el renglón recién indentado se veía
+	// caer debajo del siguiente. El hueco no molesta: nadie cuenta posiciones.
 	return { updates };
 }
 
@@ -34,17 +36,9 @@ export function planOutdent(blocks, id, rootId = null) {
 	if (!target || (target.parentBlockId ?? null) === (rootId ?? null)) return null;
 	const parent = blocks.find((block) => block.id === target.parentBlockId);
 	if (!parent) return null;
-	const oldSiblings = siblingsOf(blocks, parent.id);
-	const index = oldSiblings.findIndex((block) => block.id === id);
 	const parentSiblings = siblingsOf(blocks, parent.parentBlockId);
-	const parentIndex = parentSiblings.findIndex((block) => block.id === parent.id);
-	const updates = [];
-	updates.push({ id, parentBlockId: parent.parentBlockId ?? null, order: parent.order + 1 });
-	for (const later of parentSiblings.slice(parentIndex + 1)) {
-		updates.push({ id: later.id, order: later.order + 1 });
-	}
-	for (const later of oldSiblings.slice(index + 1)) {
-		updates.push({ id: later.id, order: later.order - 1 });
-	}
-	return { updates };
+	// Entra justo después del padre por el punto medio, igual que un Enter: nadie
+	// más cambia de número, ni los que quedan adentro del padre ni los de abajo.
+	const { order } = planInsertAfter(parentSiblings, parent.id);
+	return { updates: [{ id, parentBlockId: parent.parentBlockId ?? null, order }] };
 }

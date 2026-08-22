@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.3
 
+- **Anidar un renglón con Tab ya no lo corre de lugar.** En listas que crecieron apretando Enter en el medio, algunos renglones se iban una posición hacia abajo al anidarlos. Ahora se quedan donde estaban. Vale igual para Shift+Tab y para mover filas con Alt+↑/↓
 - **Ahora podés entrar en un renglón y trabajar ahí adentro**, como si fuera una nota aparte: sus sub-ítems ocupan la pantalla y arriba queda un camino (`Mi nota › Casa ›`) para volver. Se entra de tres maneras: **doble clic en la manija** del renglón (los seis puntitos de la izquierda; un clic solo lo sigue seleccionando y arrastrarla lo sigue moviendo), el menú **⋯** con *Entrar acá* (la única en celular), o `Alt+→` con el cursor puesto — `Alt+←` sale un nivel
 - **CopyNotes te devuelve a donde estabas.** Si cerrás la app estando dentro de un renglón, al volver a esa nota seguís ahí; y si ese renglón se borró desde otro aparato, te avisa y te muestra la nota entera
 - **Buscar un renglón ahora te deja el cursor en él**, y si estabas dentro de otro renglón te devuelve la nota entera, para que lo que buscaste se vea aunque esté en otra rama

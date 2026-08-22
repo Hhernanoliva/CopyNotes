@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { planIndent, planOutdent } from './indent';
+import { buildVisibleList } from './hierarchy';
 
 function block(id, parentBlockId = null, order = 0) {
 	return { id, parentBlockId, order };
@@ -29,10 +30,38 @@ describe('planIndent', () => {
 		expect(plan.updates).toContainEqual({ id: 'b', parentBlockId: 'a', order: 5.5 });
 	});
 
-	it('closes the gap left among old siblings', () => {
+	// Irse de un nivel no obliga a renumerar a nadie: los que quedan ya están en
+	// el orden correcto entre ellos. Restarles 1 era lo que rompía la lista.
+	it('no toca a los renglones de abajo', () => {
 		const blocks = [block('a', null, 0), block('b', null, 1), block('c', null, 2)];
 		const plan = planIndent(blocks, 'b');
-		expect(plan.updates).toContainEqual({ id: 'c', order: 1 });
+		expect(plan.updates).toEqual([{ id: 'b', parentBlockId: 'a', order: 0 }]);
+	});
+
+	// El bug que reportó Hernán: con un vecino de posición intermedia (lo que deja
+	// un Enter en el medio de la lista), restar 1 empataba dos posiciones y el
+	// desempate por id trepaba al de abajo — el renglón indentado se veía caer.
+	// Rojo si vuelve el renumerado: 'disnivelado' se dibuja ANTES de 'Rediseñar'.
+	it('mantiene el renglón en su lugar aunque el vecino tenga posición intermedia', () => {
+		const blocks = [
+			{ id: 'r1', parentBlockId: null, order: 0, content: 'Tiene q aparecer' },
+			{ id: 'r2', parentBlockId: null, order: 1, content: 'Rediseñar' },
+			{ id: 'r3', parentBlockId: null, order: 1.5, content: 'El check vacio' },
+			{ id: 'a9', parentBlockId: null, order: 2, content: 'El chek disnivelado' },
+			{ id: 'b2', parentBlockId: null, order: 3, content: 'El puntito' }
+		];
+		const plan = planIndent(blocks, 'r3');
+		const after = blocks.map((row) => ({
+			...row,
+			...(plan.updates.find((update) => update.id === row.id) ?? {})
+		}));
+		expect(buildVisibleList(after).map(({ block: row, depth }) => [row.id, depth])).toEqual([
+			['r1', 0],
+			['r2', 0],
+			['r3', 1],
+			['a9', 0],
+			['b2', 0]
+		]);
 	});
 
 	it('returns null for the first sibling (nothing to indent under)', () => {
@@ -49,11 +78,12 @@ describe('planIndent', () => {
 });
 
 describe('planOutdent', () => {
+	// Cae en el punto medio entre el padre y el que sigue, igual que un Enter:
+	// entra entre los dos sin correr a nadie.
 	it('moves the block after its old parent under the grandparent', () => {
 		const blocks = [block('a', null, 0), block('a1', 'a', 0), block('z', null, 1)];
 		const plan = planOutdent(blocks, 'a1');
-		expect(plan.updates).toContainEqual({ id: 'a1', parentBlockId: null, order: 1 });
-		expect(plan.updates).toContainEqual({ id: 'z', order: 2 });
+		expect(plan.updates).toEqual([{ id: 'a1', parentBlockId: null, order: 0.5 }]);
 	});
 
 	it('supports nested levels (grandparent is another block)', () => {
@@ -62,7 +92,7 @@ describe('planOutdent', () => {
 		expect(plan.updates).toContainEqual({ id: 'a1x', parentBlockId: 'a', order: 1 });
 	});
 
-	it('closes the gap among old siblings', () => {
+	it('no toca a los hermanos que quedan adentro del padre', () => {
 		const blocks = [
 			block('a', null, 0),
 			block('a1', 'a', 0),
@@ -70,8 +100,29 @@ describe('planOutdent', () => {
 			block('a3', 'a', 2)
 		];
 		const plan = planOutdent(blocks, 'a1');
-		expect(plan.updates).toContainEqual({ id: 'a2', order: 0 });
-		expect(plan.updates).toContainEqual({ id: 'a3', order: 1 });
+		expect(plan.updates.some((update) => update.id === 'a2' || update.id === 'a3')).toBe(false);
+	});
+
+	// Mismo bug que en planIndent, del otro lado: con un vecino intermedio abajo,
+	// el renglón que sale del padre tiene que quedar ENTRE el padre y ese vecino.
+	it('sale del padre sin saltar por encima de un vecino con posición intermedia', () => {
+		const blocks = [
+			block('a', null, 0),
+			block('a1', 'a', 0),
+			block('mitad', null, 0.5),
+			block('z', null, 1)
+		];
+		const plan = planOutdent(blocks, 'a1');
+		const after = blocks.map((row) => ({
+			...row,
+			...(plan.updates.find((update) => update.id === row.id) ?? {})
+		}));
+		expect(buildVisibleList(after).map(({ block: row }) => row.id)).toEqual([
+			'a',
+			'a1',
+			'mitad',
+			'z'
+		]);
 	});
 
 	it('returns null for a root block', () => {

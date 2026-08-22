@@ -19,8 +19,6 @@ function planEscape(blocks, target, offset) {
 	if (parentId === null) return null;
 	const parent = blocks.find((block) => block.id === parentId);
 	if (!parent) return null;
-	const oldSiblings = siblingsOf(blocks, parentId);
-	const index = oldSiblings.findIndex((block) => block.id === target.id);
 	const parentSiblings = siblingsOf(blocks, parent.parentBlockId);
 	const parentIndex = parentSiblings.findIndex((block) => block.id === parent.id);
 	const updates = [];
@@ -39,10 +37,9 @@ function planEscape(blocks, target, offset) {
 			updates.push({ id: later.id, order: later.order + 1 });
 		}
 	}
-	// Renumber the siblings left behind so the sequence stays gapless.
-	for (const later of oldSiblings.slice(index + 1)) {
-		updates.push({ id: later.id, order: later.order - 1 });
-	}
+	// Los hermanos que quedan adentro del padre no se renumeran: restarles 1 para
+	// "cerrar el hueco" empataba posiciones apenas había una intermedia, y el
+	// desempate por id daba vuelta la lista (mismo bug que el Tab).
 	return { updates };
 }
 
@@ -54,6 +51,16 @@ function planSwap(blocks, id, offset) {
 	const index = siblings.findIndex((block) => block.id === id);
 	const other = siblings[index + offset];
 	if (!other) return planEscape(blocks, target, offset);
+	// Dos posiciones iguales no se pueden intercambiar: el intercambio las deja
+	// igual y la fila queda clavada. Los empates existen en notas viejas, de
+	// cuando el Tab renumeraba a los de abajo. Ahí se renumera el nivel entero
+	// de una vez — cuesta una escritura por fila, pero el empate se va.
+	if (other.order === target.order) {
+		const reordered = [...siblings];
+		reordered[index] = other;
+		reordered[index + offset] = target;
+		return { updates: reordered.map((block, position) => ({ id: block.id, order: position })) };
+	}
 	return {
 		updates: [
 			{ id, order: other.order },

@@ -2,7 +2,7 @@
 // and move over a selection can be tested without the editor and can never
 // silently corrupt the parent-child hierarchy.
 
-import { sortByOrder } from './ordering';
+import { nextFreeOrder, sortByOrder } from './ordering';
 import { buildVisibleList, listDescendantIds } from './hierarchy';
 import { planBlockType } from '$lib/format/blocktype';
 import { plainTextToHtml } from '$lib/format/sanitize';
@@ -164,15 +164,15 @@ export function planIndentSelection(blocks, selectedIds) {
 	const run = selectionRun(blocks, selectedIds);
 	if (!run || run.first === 0) return null;
 	const newParent = run.siblings[run.first - 1];
-	const base = siblingsOf(blocks, newParent.id).length;
+	// El siguiente número libre, no la cantidad de hijos: con posiciones
+	// intermedias, contar no dice dónde termina la lista (mismo motivo que en
+	// planIndent). Y a los de abajo no se les toca el número: restarles empataba
+	// posiciones y la lista se daba vuelta sola.
+	const base = nextFreeOrder(siblingsOf(blocks, newParent.id));
 	const updates = [];
 	run.group.forEach((block, k) => {
 		updates.push({ id: block.id, parentBlockId: newParent.id, order: base + k });
 	});
-	// Close the gap the run leaves behind among its old siblings.
-	for (const later of run.siblings.slice(run.last + 1)) {
-		updates.push({ id: later.id, order: later.order - run.group.length });
-	}
 	return { updates };
 }
 
