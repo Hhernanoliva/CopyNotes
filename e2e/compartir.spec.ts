@@ -215,19 +215,30 @@ async function abrirMenuDelRenglon(page) {
 // del botón que lo abre, así que daba verde con el candado puesto y sin poner.
 // Contar los ítems en la nota propia ANTES es lo que impide que vuelva a pasar:
 // un menú que no se renderiza por cualquier motivo daría "un solo ítem" también.
-test('en una nota que te comparten el menú del renglón queda en un solo ítem', async ({
+// De las siete puertas de este menú, al invitado le quedan DOS: comentar, que es
+// lo único que puede escribir (spec 038 §6), y entrar en el renglón, que no
+// escribe nada — mirar una rama de cerca no es editarla (spec 043).
+//
+// Se nombran las cinco que NO pueden estar en vez de sólo contarlas: contar deja
+// pasar un cambio que quita una y agrega otra, y acá cada una es una puerta de
+// escritura.
+test('en una nota que te comparten el menú del renglón queda en dos ítems', async ({
 	page
 }) => {
 	await openApp(page);
 	await abrirMenuDelRenglon(page);
-	expect(await page.getByRole('menuitem').count()).toBe(6);
+	expect(await page.getByRole('menuitem').count()).toBe(7);
 	await page.keyboard.press('Escape');
 
 	await marcarComoAjena(page);
 
 	await abrirMenuDelRenglon(page);
-	await expect(page.getByRole('menuitem')).toHaveCount(1);
-	await expect(page.getByRole('menuitem')).toHaveText(/Agregar comentario/);
+	await expect(page.getByRole('menuitem')).toHaveCount(2);
+	await expect(page.getByRole('menuitem', { name: /Agregar comentario/ })).toBeVisible();
+	await expect(page.getByRole('menuitem', { name: /Entrar acá/ })).toBeVisible();
+	for (const prohibida of ['Mover arriba', 'Mover abajo', 'Guardar como snippet', 'Etiquetar', 'Eliminar']) {
+		await expect(page.getByRole('menuitem', { name: prohibida })).toHaveCount(0);
+	}
 });
 
 // Y lo que el invitado escribe ahí aparece bajo la tarea, con su recuadro de

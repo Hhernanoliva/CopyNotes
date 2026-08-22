@@ -294,7 +294,8 @@ test('cada acción del menú llega al área táctil de 44px', async ({ page }) =
 	await row.getByRole('button', { name: 'Más acciones' }).click();
 
 	const items = page.getByRole('menu', { name: 'Acciones del bloque' }).getByRole('menuitem');
-	await expect(items).toHaveCount(6);
+	// 7 desde la spec 043: se sumó "Entrar acá".
+	await expect(items).toHaveCount(7);
 	for (const item of await items.all()) {
 		const caja = await item.boundingBox();
 		// La medida pedida son 44px. El navegador a veces devuelve 43.99997 por
