@@ -84,3 +84,37 @@ test.describe('con movimiento reducido', () => {
 		expect(await scaleVar(page)).toBe('1.1');
 	});
 });
+
+// La marca del renglón (la casilla de tarea, la viñeta) se centra en la PRIMERA
+// LÍNEA del texto, y esa línea crece con el tamaño elegido acá. La separación
+// era fija: quedaba centrada al 100% y 6,5px corrida al 160%. Se mide el centro
+// de la caja contra el centro de la línea; si vuelve a atarse a un valor fijo,
+// la segunda medición (al 140%) se corre varios píxeles y esto falla.
+function markerOffsetPx(page) {
+	return page.evaluate(() => {
+		const box = document.querySelector('main [role="checkbox"] span');
+		const text = box.closest('.cn-row').querySelector('.block-editable');
+		const range = document.createRange();
+		range.selectNodeContents(text);
+		const line = range.getClientRects()[0];
+		const rect = box.getBoundingClientRect();
+		return rect.top + rect.height / 2 - (line.top + line.height / 2);
+	});
+}
+
+test('la casilla de tarea queda centrada en su renglón en cualquier tamaño', async ({ page }) => {
+	await openApp(page);
+	await page.locator('main [role="checkbox"]').first().waitFor();
+	expect(Math.abs(await markerOffsetPx(page))).toBeLessThan(1.5);
+
+	await page.getByRole('button', { name: 'Configuración' }).click();
+	const grow = page.getByRole('button', { name: 'Agrandar texto' });
+	// 100 → 110 → 125 → 140. El diálogo queda abierto a propósito: el texto de
+	// atrás ya creció y se puede medir sin esperar a que se cierre.
+	await grow.click();
+	await grow.click();
+	await grow.click();
+	expect(await scaleVar(page)).toBe('1.4');
+
+	expect(Math.abs(await markerOffsetPx(page))).toBeLessThan(1.5);
+});

@@ -1186,8 +1186,9 @@
 	{/if}
 
 	{#if block.type === 'bullet'}
-		<span aria-hidden="true" class="text-faint mt-[0.65rem] shrink-0 select-none text-[0.6rem] leading-none"
-			>●</span
+		<span
+			aria-hidden="true"
+			class="cn-row-marker text-faint shrink-0 select-none text-[0.6rem] leading-none">●</span
 		>
 	{:else if block.type === 'todo'}
 		<!-- Padded wrapper widens the tap target beyond the visible 16px box. -->
@@ -1199,7 +1200,7 @@
 			disabled={readOnly && !guest}
 			onpointerdown={(event) => event.stopPropagation()}
 			onclick={() => onToggleChecked(block)}
-			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
+			class="cn-row-marker cn-tap focus-visible:ring-ring w-6 shrink-0 justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>
 			<!-- El borde de la casilla vacía va en `text-faint` y no en `border`: ese
 			     token es para líneas divisorias y da 1,25:1 contra el fondo claro, muy
