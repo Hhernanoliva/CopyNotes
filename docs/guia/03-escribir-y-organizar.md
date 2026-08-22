@@ -13,6 +13,8 @@
 | **Shift+Tab** | Lo saca un nivel de anidado |
 | **↑ / ↓** | Mueve el cursor entre renglones; mantiene la columna (la posición horizontal) al saltar. Los renglones vacíos también se cruzan, en los dos sentidos |
 | **Alt+↑ / Alt+↓** | Mueve el renglón (con todos sus hijos) arriba o abajo. Al llegar al borde de su padre, **sale del padre** y sigue al nivel de arriba; el límite real es el principio o el final de la nota. Funciona igual con varios renglones seleccionados |
+| **Alt+→** | **Entra** en el renglón: lo abre como si fuera la nota entera (ver el tema 22) |
+| **Alt+←** | **Sale** un nivel |
 | **Backspace** al principio del renglón | Lo une con el de arriba (ver abajo) |
 | **Backspace** en renglón vacío | Ver "Borrar renglones" abajo |
 

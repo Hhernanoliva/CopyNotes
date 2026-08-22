@@ -22,7 +22,9 @@
 				{ keys: ['Tab'], desc: 'Anidar el renglón' },
 				{ keys: ['Shift', 'Tab'], desc: 'Sacar un nivel' },
 				{ keys: ['Alt', '↑ / ↓'], desc: 'Mover el renglón arriba o abajo' },
-				{ keys: ['Backspace'], desc: 'En un renglón vacío: vuelve a texto o lo borra' }
+				{ keys: ['Backspace'], desc: 'En un renglón vacío: vuelve a texto o lo borra' },
+				{ keys: ['Alt', '→'], desc: 'Entrar en el renglón (verlo como si fuera la nota)' },
+				{ keys: ['Alt', '←'], desc: 'Salir un nivel' }
 			]
 		},
 		{

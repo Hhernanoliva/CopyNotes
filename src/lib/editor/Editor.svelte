@@ -1857,6 +1857,19 @@
 		}
 	}
 
+	// Entrar y salir con el teclado deja el cursor puesto: al entrar, en el
+	// renglón-título de arriba; al salir, en el renglón del que se salió (que
+	// `setZoomRoot` ya dejó a la vista). Sin esto el foco se queda en el <body>
+	// —el renglón que lo tenía dejó de existir en la lista— y la tecla de vuelta
+	// no encuentra ningún renglón: `selectionSurfaceId` devuelve null y la rama
+	// entera se saltea.
+	async function zoomFromKeyboard(next, landing) {
+		await setZoomRoot(next);
+		// Entrar en un renglón sin hijos ya dejó el cursor en el hijo recién
+		// creado. Eso gana: es donde se puede escribir.
+		if (focusBlockId === null) focusBlockId = landing;
+	}
+
 	function setActionsMenu(blockId, open) {
 		actionsMenuFor = open ? blockId : null;
 		if (!open) return;
@@ -2137,6 +2150,34 @@
 			claim(event);
 			if (readOnly) return;
 			restore(history.redo(currentSnapshot()));
+			return;
+		}
+		// Entrar y salir de un renglón (spec 043). `Alt+→` entra en el del cursor,
+		// `Alt+←` sale un nivel: al padre de la raíz, o a la nota entera.
+		//
+		// Con dos o más renglones marcados AMBAS se consumen y no hacen nada. Es
+		// obligatorio, no una omisión: una tecla de bloque sin rama acá cae al
+		// renglón enfocado y actúa sobre UNO en silencio (AGENT.md; así fue como
+		// Tab indentaba sólo el primero de varios).
+		//
+		// Costo aceptado: en macOS, Option+flecha mueve el cursor palabra por
+		// palabra y se lo pisa. Es la convención de Workflowy y ⌘+flecha sigue libre.
+		if (
+			event.altKey &&
+			(event.key === 'ArrowRight' || event.key === 'ArrowLeft') &&
+			selectionSurfaceId(event.target)
+		) {
+			claim(event);
+			if (multiBlockSelection) return;
+			if (event.key === 'ArrowLeft') {
+				const chain = zoomRoot ? ancestorIds(blocks, zoomRoot) : [];
+				zoomFromKeyboard(chain.length > 0 ? chain[chain.length - 1] : null, zoomRoot);
+			} else {
+				const id = selectionSurfaceId(event.target);
+				const target = blocks.find((block) => block.id === id);
+				if (target && target.type !== 'separator' && target.type !== 'image')
+					zoomFromKeyboard(id, id);
+			}
 			return;
 		}
 		if (

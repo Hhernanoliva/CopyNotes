@@ -149,3 +149,28 @@ test('el separador no tiene por dónde entrar', async ({ page }) => {
 	await separador.hover();
 	await expect(separador.getByRole('button', { name: 'Entrar en el renglón' })).toHaveCount(0);
 });
+
+test('Alt+→ entra en el renglón del cursor y Alt+← sale un nivel', async ({ page }) => {
+	await notaConRama(page);
+
+	await page.getByText('Padre', { exact: true }).click();
+	await page.keyboard.press('Alt+ArrowRight');
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+
+	await page.keyboard.press('Alt+ArrowLeft');
+	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
+});
+
+test('con dos renglones seleccionados, Alt+←/→ se consumen y no hacen nada', async ({ page }) => {
+	await notaConRama(page);
+
+	await page.getByText('Hijo 1', { exact: true }).click();
+	await page.keyboard.press('Escape');
+	await page.keyboard.press('Shift+ArrowDown');
+	await page.keyboard.press('Alt+ArrowRight');
+	await page.waitForTimeout(200);
+	// Sin la rama explícita, la tecla cae al renglón enfocado y entra en UNO en
+	// silencio — así fue como Tab indentaba sólo el primero de varios (AGENT.md).
+	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
+});
