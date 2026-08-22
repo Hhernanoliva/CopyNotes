@@ -730,6 +730,16 @@
    van más chicos y pegados al renglón, para que no se lean como otra línea. */
 .cn-editor .block-editable--note,
 .cn-editor .agent-note { font-size: calc(0.8125rem * var(--cn-editor-scale, 1)); }
+/* El renglón donde entraste se lee como el título de la nota, sin importar el
+   tipo del bloque (spec 043). Va acá y no como clase de Tailwind porque
+   `.cn-editor .block-editable` gana por especificidad y le pisaría el tamaño.
+   Sigue el ajuste de Tamaño de texto como todos los demás. */
+.cn-editor .block-editable--zoom-title {
+	font-size: calc(1.75rem * var(--cn-editor-scale, 1));
+	font-weight: 700;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+}
 .cn-editor .block-editable--h1 { font-size: calc(1.5rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h2 { font-size: calc(1.25rem * var(--cn-editor-scale, 1)); }
 .cn-editor .block-editable--h3 { font-size: calc(1.1rem * var(--cn-editor-scale, 1)); }

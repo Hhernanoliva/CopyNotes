@@ -80,3 +80,45 @@ test('entrar con el menú "/" abierto lo cierra y no deja nada flotando', async 
 	await expect(page.locator('#slash-menu')).toBeHidden();
 	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
 });
+
+test('el renglón-título se edita arriba y lo escrito sobrevive al salir', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+
+	const titulo = page.locator('[data-zoom-title] .block-editable');
+	await expect(titulo).toHaveText('Padre');
+	await titulo.click();
+	await page.keyboard.press('End');
+	await page.keyboard.type(' remodelado');
+	await page.waitForTimeout(700); // el guardado del tipeo va con retraso
+
+	await page.getByRole('navigation', { name: 'Dónde estás' }).getByRole('button').first().click();
+	await expect
+		.poll(() => blockTexts(page))
+		.toEqual(['Padre remodelado', 'Hijo 1', 'Hijo 2', 'Suelto']);
+});
+
+test('Enter en el renglón-título baja al primer hijo en vez de partirlo', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+
+	const titulo = page.locator('[data-zoom-title] .block-editable');
+	await titulo.click();
+	await page.keyboard.press('Home');
+	await page.keyboard.press('Enter');
+	await page.waitForTimeout(200);
+	// Partirlo crearía un hermano de la raíz: un renglón fuera de la vista.
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+	await expect(titulo).toHaveText('Padre');
+	await page.keyboard.type('!');
+	await expect.poll(() => blockTexts(page)).toEqual(['!Hijo 1', 'Hijo 2']);
+});
+
+test('entrar en un renglón sin hijos crea el primero y deja el cursor ahí', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Suelto');
+
+	await expect(page.locator('[data-zoom-title] .block-editable')).toHaveText('Suelto');
+	await page.keyboard.type('Primero');
+	await expect.poll(() => blockTexts(page)).toEqual(['Primero']);
+});

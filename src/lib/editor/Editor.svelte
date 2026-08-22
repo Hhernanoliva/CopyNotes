@@ -2715,6 +2715,109 @@
 	}
 </script>
 
+{#snippet blockRow(item, index, zoomTitle)}
+				<BlockRow
+					block={item.block}
+					{readOnly}
+					guest={isMember}
+					depth={item.depth}
+					hasChildren={item.hasChildren}
+					agentNotes={agentNotes[item.block.id] ?? []}
+					conflict={conflicts[item.block.id] ?? null}
+					onConflictResolve={(block, choice) => resolveConflict(block.id, choice)}
+					focused={focusBlockId === item.block.id}
+					active={activeBlockId === item.block.id}
+					flash={flashBlockIds.has(item.block.id)}
+					pulseMenu={pulseMenuBlockId === item.block.id}
+					actionsMenuOpen={actionsMenuFor === item.block.id}
+					onActionsMenuChange={(open) => setActionsMenu(item.block.id, open)}
+					placeholder={zoomTitle
+						? ''
+						: index === 0 && visible.length === 1
+							? 'Escribí algo, o "/" para elegir tipo…'
+							: ''}
+					slashOpen={groupMenu
+						? selection?.focusId === item.block.id
+						: slash !== null && slash.blockId === item.block.id}
+					slashCommands={groupMenu ? SELECTION_TYPE_COMMANDS : slashCommands}
+					slashIndex={groupMenu ? groupMenu.index : slash ? slash.index : 0}
+					slashTitle={groupMenu ? `Convertir ${selectedIds.length} renglones en…` : ''}
+					onInput={handleBlockInput}
+					onFormat={handleKeyboardFormat}
+					onNoteInput={handleNoteInput}
+					onCaption={handleCaption}
+					onComment={handleComment}
+					onEnter={handleEnter}
+					onBackspaceEmpty={handleBackspaceEmpty}
+					onJoinPrevious={handleJoinPrevious}
+					onIndent={handleIndent}
+					onOutdent={handleOutdent}
+					onMoveUp={handleMoveUp}
+					onMoveDown={handleMoveDown}
+					onDelete={handleDeleteBlock}
+					onToggleCollapsed={handleToggleCollapsed}
+					onToggleCodeCollapsed={handleToggleCodeCollapsed}
+					onToggleChecked={handleToggleChecked}
+					onCopy={handleCopy}
+					onSaveSnippet={handleSaveSnippet}
+					onZoomIn={(block) => setZoomRoot(block.id)}
+					{zoomTitle}
+					onZoomTitleEnter={focusFirstChildOfRoot}
+					onActive={(row) => (activeBlockId = row.id)}
+					selected={selectedSet.has(item.block.id)}
+					onShiftSelect={shiftSelect}
+					onPlainMousedown={startDrag}
+					onTextSelectionMousedown={readOnly ? null : textSelectionMousedown}
+					onDragOver={dragOver}
+					onDragHold={readOnly ? null : (id, event) => reorder.armFromPointer(id, event)}
+					onDragHandle={readOnly ? null : (id, event) => reorder.armFromHandle(id, event)}
+					onHandleSelect={(id) => selectBlockFromHandle(id, 'assistive')}
+					tags={blockTagsMap[item.block.id] ?? []}
+					{allTags}
+					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === item.block.id}
+					onTag={(block) =>
+						(tagPickerFor =
+							tagPickerFor?.type === 'block' && tagPickerFor.id === block.id
+								? null
+								: { type: 'block', id: block.id })}
+					onUntag={(block, tag) => removeTag('block', block.id, tag)}
+					onTagPick={handleTagPick}
+					onTagPickerClose={closeTagPicker}
+					onSlashKey={handleSlashKey}
+					onSlashSelect={(command) =>
+						groupMenu ? applySelectionType(command.id) : applySlashCommand(command)}
+					onVerticalArrow={handleVerticalArrow}
+					onPasteLines={handlePasteLines}
+					onPasteBlocks={handlePasteBlocks}
+					onInsertImages={handleInsertImages}
+					onPasteCode={handlePasteCode}
+					onRequestLink={handleRequestLink}
+					onRequestToolbarFocus={handleRequestToolbarFocus}
+					focusCaret={focusBlockId === item.block.id ? focusCaret : null}
+					onFocusHandled={() => {
+						focusBlockId = null;
+						focusCaret = null;
+					}}
+					datePanelOpen={datePanelFor === item.block.id}
+					onDateBadge={(block) => {
+						datePanelCaret = null;
+						if (datePanelFor === block.id) {
+							handleDatePanelClose(block, true);
+						} else {
+							actionsMenuFor = null;
+							datePanelFor = block.id;
+						}
+					}}
+					onDatePick={handleDatePick}
+					onDateRemove={handleDateRemove}
+					onDatePanelClose={(block, restoreFocus) =>
+						handleDatePanelClose(block, restoreFocus)}
+					slashEmptyLabel={slash?.mode === 'snippets'
+						? 'Todavía no guardaste snippets.'
+						: 'Sin resultados'}
+				/>
+{/snippet}
+
 {#if note}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
@@ -2787,6 +2890,14 @@
 		{#if zoomCrumbs.length > 0}
 			<ZoomBreadcrumbs crumbs={zoomCrumbs} onGo={(id) => setZoomRoot(id)} />
 		{/if}
+		{#if zoomRootBlock}
+			<!-- Fuera de `listEl` a propósito: `dragReorder` mide los renglones de la
+			     lista con `listEl.querySelector`, y el título no se arrastra ni se
+			     suelta. -->
+			<div class="mt-4">
+				{@render blockRow({ block: zoomRootBlock, depth: 0, hasChildren: false }, 0, true)}
+			</div>
+		{/if}
 		<!-- focusin/focusout en la lista entera: moverse de un renglón a otro
 		     dispara los dos en el mismo tick, así que el escudo no parpadea. -->
 		<div
@@ -2802,100 +2913,7 @@
 				></div>
 			{/if}
 			{#each visible as row, index (row.block.id)}
-				<BlockRow
-					block={row.block}
-					{readOnly}
-					guest={isMember}
-					depth={row.depth}
-					hasChildren={row.hasChildren}
-					agentNotes={agentNotes[row.block.id] ?? []}
-					conflict={conflicts[row.block.id] ?? null}
-					onConflictResolve={(block, choice) => resolveConflict(block.id, choice)}
-					focused={focusBlockId === row.block.id}
-					active={activeBlockId === row.block.id}
-					flash={flashBlockIds.has(row.block.id)}
-					pulseMenu={pulseMenuBlockId === row.block.id}
-					actionsMenuOpen={actionsMenuFor === row.block.id}
-					onActionsMenuChange={(open) => setActionsMenu(row.block.id, open)}
-					placeholder={index === 0 && visible.length === 1 ? 'Escribí algo, o "/" para elegir tipo…' : ''}
-					slashOpen={groupMenu
-						? selection?.focusId === row.block.id
-						: slash !== null && slash.blockId === row.block.id}
-					slashCommands={groupMenu ? SELECTION_TYPE_COMMANDS : slashCommands}
-					slashIndex={groupMenu ? groupMenu.index : slash ? slash.index : 0}
-					slashTitle={groupMenu ? `Convertir ${selectedIds.length} renglones en…` : ''}
-					onInput={handleBlockInput}
-					onFormat={handleKeyboardFormat}
-					onNoteInput={handleNoteInput}
-					onCaption={handleCaption}
-					onComment={handleComment}
-					onEnter={handleEnter}
-					onBackspaceEmpty={handleBackspaceEmpty}
-					onJoinPrevious={handleJoinPrevious}
-					onIndent={handleIndent}
-					onOutdent={handleOutdent}
-					onMoveUp={handleMoveUp}
-					onMoveDown={handleMoveDown}
-					onDelete={handleDeleteBlock}
-					onToggleCollapsed={handleToggleCollapsed}
-					onToggleCodeCollapsed={handleToggleCodeCollapsed}
-					onToggleChecked={handleToggleChecked}
-					onCopy={handleCopy}
-					onSaveSnippet={handleSaveSnippet}
-					onZoomIn={(block) => setZoomRoot(block.id)}
-					onActive={(row) => (activeBlockId = row.id)}
-					selected={selectedSet.has(row.block.id)}
-					onShiftSelect={shiftSelect}
-					onPlainMousedown={startDrag}
-					onTextSelectionMousedown={readOnly ? null : textSelectionMousedown}
-					onDragOver={dragOver}
-					onDragHold={readOnly ? null : (id, event) => reorder.armFromPointer(id, event)}
-					onDragHandle={readOnly ? null : (id, event) => reorder.armFromHandle(id, event)}
-					onHandleSelect={(id) => selectBlockFromHandle(id, 'assistive')}
-					tags={blockTagsMap[row.block.id] ?? []}
-					{allTags}
-					tagPickerOpen={tagPickerFor?.type === 'block' && tagPickerFor.id === row.block.id}
-					onTag={(block) =>
-						(tagPickerFor =
-							tagPickerFor?.type === 'block' && tagPickerFor.id === block.id
-								? null
-								: { type: 'block', id: block.id })}
-					onUntag={(block, tag) => removeTag('block', block.id, tag)}
-					onTagPick={handleTagPick}
-					onTagPickerClose={closeTagPicker}
-					onSlashKey={handleSlashKey}
-					onSlashSelect={(command) =>
-						groupMenu ? applySelectionType(command.id) : applySlashCommand(command)}
-					onVerticalArrow={handleVerticalArrow}
-					onPasteLines={handlePasteLines}
-					onPasteBlocks={handlePasteBlocks}
-					onInsertImages={handleInsertImages}
-					onPasteCode={handlePasteCode}
-					onRequestLink={handleRequestLink}
-					onRequestToolbarFocus={handleRequestToolbarFocus}
-					focusCaret={focusBlockId === row.block.id ? focusCaret : null}
-					onFocusHandled={() => {
-						focusBlockId = null;
-						focusCaret = null;
-					}}
-					datePanelOpen={datePanelFor === row.block.id}
-					onDateBadge={(block) => {
-						datePanelCaret = null;
-						if (datePanelFor === block.id) {
-							handleDatePanelClose(block, true);
-						} else {
-							actionsMenuFor = null;
-							datePanelFor = block.id;
-						}
-					}}
-					onDatePick={handleDatePick}
-					onDateRemove={handleDateRemove}
-					onDatePanelClose={(block, restoreFocus) =>
-						handleDatePanelClose(block, restoreFocus)}
-					slashEmptyLabel={slash?.mode === 'snippets'
-						? 'Todavía no guardaste snippets.'
-						: 'Sin resultados'}
-				/>
+				{@render blockRow(row, index, false)}
 			{/each}
 		</div>
 		<!-- El pie de una nota compartida: el botón "Listo" del invitado y el

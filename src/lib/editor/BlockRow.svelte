@@ -111,6 +111,9 @@
 		onZoomIn,
 		// El renglón-título de la vista: se dibuja arriba y NO está en la lista.
 		zoomTitle = false,
+		// El renglón-título llama acá en vez de partirse: partirlo crearía un
+		// hermano de la raíz, o sea un renglón fuera de la vista (spec 043).
+		onZoomTitleEnter,
 		onActive,
 		selected = false,
 		onShiftSelect,
@@ -281,6 +284,22 @@
 	);
 
 	const canZoom = $derived(!zoomTitle && block.type !== 'separator' && block.type !== 'image');
+
+	// El renglón-título se lee como el título de la nota SIEMPRE, sin importar el
+	// tipo del bloque: es "dónde estoy parado" y tiene que leerse igual siempre.
+	// El tipo se conserva en los datos y vuelve a verse al salir (spec 043).
+	const editableTypeClass = $derived(
+		zoomTitle
+			? 'block-editable--zoom-title'
+			: block.type === 'code'
+				? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-6 ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
+				: 'text-base'
+	);
+	const editableHeadingClass = $derived(
+		zoomTitle
+			? ''
+			: `${block.type === 'heading1' ? 'block-editable--h1' : ''} ${block.type === 'heading2' ? 'block-editable--h2' : ''} ${block.type === 'heading3' ? 'block-editable--h3' : ''}`
+	);
 
 	const today = $derived(currentDay());
 	const dueLabel = $derived(block.dueDate ? badgeLabel(block.dueDate, today) : '');
@@ -643,6 +662,13 @@
 	}
 
 	function handleSurfaceKeys(event) {
+		// El renglón-título no está en una lista: no se parte, no se anida y no se
+		// saca de nivel. Las tres crearían un renglón fuera de la vista (spec 043).
+		if (zoomTitle && (event.key === 'Enter' || event.key === 'Tab')) {
+			event.preventDefault();
+			if (event.key === 'Enter' && !event.shiftKey) onZoomTitleEnter?.(block);
+			return true;
+		}
 		if (
 			readOnly &&
 			(event.key === 'Enter' ||
@@ -1073,6 +1099,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-block-id={block.id}
+	data-zoom-title={zoomTitle ? '' : undefined}
 	data-read-only={readOnly}
 	data-active={active}
 	class="cn-row group relative flex flex-wrap items-start gap-1 rounded-md py-0.5 pr-10 md:flex-nowrap md:pr-2 {selected
@@ -1084,6 +1111,10 @@
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
 >
+	<!-- El renglón-título no está en una lista: sin manija, sin flechita de
+	     colapsar y sin ícono de entrar. Los tres son gestos sobre un renglón que
+	     está en una lista, y éste no lo está (spec 043). -->
+	{#if !zoomTitle}
 	<!-- One handle, two outcomes: release without moving selects; movement drags.
 	     It stays in the first slot even on an empty or image row. -->
 	<div class="relative flex h-7 w-4 shrink-0 items-center justify-center">
@@ -1148,6 +1179,7 @@
 			</button>
 		{/if}
 	</div>
+	{/if}
 
 	{#if block.type === 'bullet'}
 		<span aria-hidden="true" class="text-faint mt-[0.65rem] shrink-0 select-none text-[0.6rem] leading-none"
@@ -1296,14 +1328,9 @@
 					onfocus={() => onActive(block)}
 					class="block-editable min-h-7 w-full min-w-0 leading-relaxed break-words whitespace-pre-wrap outline-none {readOnly
 					? 'cursor-default'
-					: ''} {block.type ===
-					'code'
-						? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-6 ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
-						: 'text-base'} {block.type === 'todo' && block.checked
+					: ''} {editableTypeClass} {block.type === 'todo' && block.checked
 						? 'text-muted-foreground line-through'
-						: ''} {block.type === 'heading1' ? 'block-editable--h1' : ''} {block.type === 'heading2'
-						? 'block-editable--h2'
-						: ''} {block.type === 'heading3' ? 'block-editable--h3' : ''}"
+						: ''} {editableHeadingClass}"
 				></div>
 			{/if}
 			{#if isLongCode}

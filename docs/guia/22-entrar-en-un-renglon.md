@@ -21,6 +21,8 @@ que buscarlo.
 - Escribís, anidás, arrastrás y borrás igual que siempre. **Nada de lo que
   hagas puede sacar un renglón de la pantalla sin que vos lo pidas**: por
   ejemplo, sacar de nivel el primer renglón de la vista no hace nada.
+- El renglón en el que entraste se ve arriba, grande, y **se puede editar ahí
+  mismo**. `Enter` ahí no lo parte en dos: te lleva al primer sub-ítem.
 - Si entrás en un renglón que todavía no tiene nada adentro, CopyNotes le crea
   el primer sub-ítem y te deja el cursor listo para escribir.
 - Entrar en un renglón **colapsado** te muestra igual lo que tiene adentro;
