@@ -392,18 +392,6 @@
 		margin-left: 1.375rem;
 	}
 
-	/* El hueco del ícono de entrar existe SIEMPRE donde hay hover, para que el
-	   texto no salte al pasar el mouse. En táctil no hay "pasar el mouse" y un
-	   tercer blanco de 44px no entra en una pantalla de 320px: ahí no se dibuja
-	   ni el ícono ni el hueco, y manda el menú ⋯ (spec 043). */
-	.cn-zoom-slot {
-		display: none;
-	}
-	@media (hover: hover) {
-		.cn-zoom-slot {
-			display: flex;
-		}
-	}
 
 	/* La fila activa conserva su manija aunque el teclado ya se haya bajado. Así
 	   tocarla selecciona sin tener que reenfocar primero la caja de texto. */

@@ -123,18 +123,33 @@ test('entrar en un renglón sin hijos crea el primero y deja el cursor ahí', as
 	await expect.poll(() => blockTexts(page)).toEqual(['Primero']);
 });
 
-test('en escritorio se entra con el ícono del renglón', async ({ page }) => {
+test('en escritorio se entra con doble clic en el tirador', async ({ page }) => {
 	await notaConRama(page);
 
 	const row = page.locator(LIST_ROW, { hasText: 'Padre' }).first();
 	await row.hover();
-	await row.getByRole('button', { name: 'Entrar en el renglón' }).click();
+	await row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' }).dblclick();
 	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
 
-	// El renglón-título no lo lleva: no está en una lista.
+	// El renglón-título no tiene tirador: no está en una lista.
 	await expect(
-		page.locator('[data-zoom-title]').getByRole('button', { name: 'Entrar en el renglón' })
+		page.locator('[data-zoom-title]').getByRole('button', { name: 'Seleccionar o arrastrar renglón' })
 	).toHaveCount(0);
+});
+
+test('un clic solo en el tirador sigue seleccionando, no entra', async ({ page }) => {
+	await notaConRama(page);
+
+	const row = page.locator(LIST_ROW, { hasText: 'Padre' }).first();
+	await row.hover();
+	await row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' }).click();
+	await page.waitForTimeout(400);
+	// Se pone en rojo si el doble clic se implementa sobre el clic simple.
+	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
+	await expect(row).toHaveAttribute('aria-selected', /true/).catch(() => {});
+	await expect(
+		row.getByRole('button', { name: 'Seleccionar o arrastrar renglón' })
+	).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('el separador no tiene por dónde entrar', async ({ page }) => {
@@ -144,10 +159,15 @@ test('el separador no tiene por dónde entrar', async ({ page }) => {
 	await page.keyboard.type('/separador');
 	await page.keyboard.press('Enter');
 	await page.waitForTimeout(300);
+	await page.keyboard.type('Después del separador');
+	await page.waitForTimeout(300);
 
 	const separador = page.locator(LIST_ROW).first();
 	await separador.hover();
-	await expect(separador.getByRole('button', { name: 'Entrar en el renglón' })).toHaveCount(0);
+	await separador.getByRole('button', { name: 'Seleccionar o arrastrar renglón' }).dblclick();
+	await page.waitForTimeout(400);
+	// Ni entra ni deja migas: en una raya no hay nada adentro.
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
 });
 
 test('Alt+→ entra en el renglón del cursor y Alt+← sale un nivel', async ({ page }) => {

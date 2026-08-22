@@ -8,16 +8,17 @@ resto de la nota se queda esperando, intacto.
 
 - **En cualquier aparato:** abrí el menú **⋯** del renglón y elegí
   **Entrar acá**.
-- **En la computadora:** pasá el mouse por el renglón y tocá la flechita doble
-  **»** que aparece a la izquierda.
+- **En la computadora:** **doble clic en la manija** del renglón (los seis
+  puntitos `⠿` que aparecen a la izquierda al pasar el mouse). Un clic solo
+  sigue seleccionando el renglón, y arrastrarla sigue moviéndolo.
 
 - **Con el teclado:** `Alt+→` entra en el renglón donde está el cursor y
   `Alt+←` sale un nivel. En Mac, esa combinación deja de mover el cursor
   palabra por palabra mientras estás en una nota; `⌘+←/→` sigue funcionando
   para ir al principio o al final de la línea.
 
-En celular y tablet la flechita no aparece —no hay "pasar el dedo por encima"—:
-ahí se entra siempre desde el menú **⋯**.
+En celular y tablet no hay "pasar el dedo por encima" ni doble clic: ahí se
+entra siempre desde el menú **⋯**.
 
 ## Cómo se sale
 

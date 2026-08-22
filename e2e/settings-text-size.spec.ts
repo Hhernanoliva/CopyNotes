@@ -66,8 +66,8 @@ test('la sección Nube avisa que no hay nube configurada y no pide nada', async 
 
 	await expect(page.getByRole('heading', { name: 'Nube' })).toBeVisible();
 	await expect(page.getByText('no tiene una nube configurada')).toBeVisible();
-	// `exact` a propósito: el botón de la nube se llama justo "Entrar", y sin esto
-	// también contaría el "Entrar en el renglón" de cada fila (spec 043).
+	// `exact` a propósito: el botón de la nube se llama justo "Entrar", y sin él
+	// cuenta cualquier botón cuyo nombre EMPIECE así.
 	await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toHaveCount(0);
 	// El diálogo sigue vivo debajo: la sección no tapó ni rompió el resto.
 	await expect(page.getByRole('heading', { name: 'Agentes' })).toBeVisible();
