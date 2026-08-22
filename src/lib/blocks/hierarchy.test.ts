@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildVisibleList, listDescendantIds, flattenTree } from './hierarchy';
+import { buildVisibleList, listDescendantIds, flattenTree, ancestorIds } from './hierarchy';
 
 function block(id, parentBlockId = null, order = 0, collapsed = false) {
 	return { id, parentBlockId, order, collapsed };
@@ -54,6 +54,61 @@ describe('buildVisibleList', () => {
 		];
 		const visible = buildVisibleList(blocks);
 		expect(visible.map((row) => row.block.id)).toEqual(['a', 'a1', 'a2']);
+	});
+
+	// Se pone en rojo si `walk(rootId ?? null, 0)` vuelve a decir `walk(null, 0)`:
+	// sin la raíz, la lista trae también 'a', 'b' y sus hermanos.
+	it('con una raíz lista solo sus descendientes, con la profundidad desde ahi', () => {
+		const blocks = [
+			block('a', null, 0),
+			block('a1', 'a', 0),
+			block('a1x', 'a1', 0),
+			block('b', null, 1)
+		];
+		const visible = buildVisibleList(blocks, 'a');
+		expect(visible.map((row) => row.block.id)).toEqual(['a1', 'a1x']);
+		expect(visible.map((row) => row.depth)).toEqual([0, 1]);
+	});
+
+	// Colapsar es "aca no me lo muestres"; entrar es "quiero estar adentro".
+	// Rojo si la caminata arranca en la raiz en vez de en sus hijos.
+	it('ignora el collapsed de la propia raiz y respeta el de adentro', () => {
+		const blocks = [
+			block('a', null, 0, true),
+			block('a1', 'a', 0, true),
+			block('a1x', 'a1', 0),
+			block('a2', 'a', 1)
+		];
+		const visible = buildVisibleList(blocks, 'a');
+		expect(visible.map((row) => row.block.id)).toEqual(['a1', 'a2']);
+	});
+
+	// El control de la firma nueva: sin `rootId` nada cambio.
+	it('sin rootId da exactamente la lista de siempre', () => {
+		const blocks = [block('a', null, 0), block('a1', 'a', 0), block('b', null, 1)];
+		expect(buildVisibleList(blocks).map((row) => row.block.id)).toEqual(['a', 'a1', 'b']);
+	});
+});
+
+describe('ancestorIds', () => {
+	// Rojo si la cadena se devuelve al reves o si incluye al propio renglon: las
+	// migas la dibujan en ese orden y el renglon raiz no se repite ahi.
+	it('devuelve los antepasados del mas lejano al mas cercano, sin el propio', () => {
+		const blocks = [block('a', null, 0), block('a1', 'a', 0), block('a1x', 'a1', 0)];
+		expect(ancestorIds(blocks, 'a1x')).toEqual(['a', 'a1']);
+	});
+
+	it('un renglon de primer nivel no tiene antepasados', () => {
+		expect(ancestorIds([block('a', null, 0)], 'a')).toEqual([]);
+	});
+
+	// Rojo si se saca el `seen`: un dato roto colgaria la pantalla en un bucle.
+	it('corta si los padres se muerden la cola', () => {
+		const blocks = [
+			{ id: 'a', parentBlockId: 'b', order: 0 },
+			{ id: 'b', parentBlockId: 'a', order: 0 }
+		];
+		expect(ancestorIds(blocks, 'a').length).toBeLessThanOrEqual(2);
 	});
 });
 

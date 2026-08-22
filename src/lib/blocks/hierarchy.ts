@@ -19,7 +19,16 @@ function childrenByParent(blocks) {
 
 // Flatten the tree into the list the editor renders: parents before children,
 // siblings by order, skipping descendants of collapsed blocks.
-export function buildVisibleList(blocks) {
+//
+// `rootId` es desde dónde se dibuja (spec 043, "entrar en un renglón"): `null`
+// es la nota entera y un id es "estoy parado adentro de ese renglón". El valor
+// por defecto deja intactos a todos los llamadores y pruebas de antes, así que
+// el cambio se lee como "se agregó un caso" y no como "se reescribió la jerarquía".
+//
+// La caminata arranca en los HIJOS de la raíz, así que el `collapsed` de la
+// propia raíz no se mira: colapsar es "acá no me lo muestres", entrar es "quiero
+// estar adentro", y son dos cosas distintas.
+export function buildVisibleList(blocks, rootId = null) {
 	const byParent = childrenByParent(blocks);
 	const visible = [];
 	function walk(parentId, depth) {
@@ -28,8 +37,29 @@ export function buildVisibleList(blocks) {
 			if (!block.collapsed) walk(block.id, depth + 1);
 		}
 	}
-	walk(null, 0);
+	walk(rootId ?? null, 0);
 	return visible;
+}
+
+// La cadena de antepasados de un renglón, del más lejano al más cercano y sin
+// incluirlo. Las migas la dibujan (spec 043) y salir un nivel lee su último
+// eslabón. El `seen` corta un dato roto donde los padres se muerden la cola: sin
+// él la pantalla se cuelga, que es peor que una miga de menos.
+export function ancestorIds(blocks, id) {
+	const byId = new Map(blocks.map((block) => [block.id, block]));
+	const chain = [];
+	const seen = new Set();
+	let current = byId.get(id);
+	while (current) {
+		const parentId = current.parentBlockId ?? null;
+		if (parentId === null || seen.has(parentId)) break;
+		seen.add(parentId);
+		const parent = byId.get(parentId);
+		if (!parent) break;
+		chain.unshift(parentId);
+		current = parent;
+	}
+	return chain;
 }
 
 // Orden de documento COMPLETO (para el export al agente): igual que
