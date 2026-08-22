@@ -85,27 +85,45 @@ test.describe('con movimiento reducido', () => {
 	});
 });
 
-// La marca del renglón (la casilla de tarea, la viñeta) se centra en la PRIMERA
-// LÍNEA del texto, y esa línea crece con el tamaño elegido acá. La separación
-// era fija: quedaba centrada al 100% y 6,5px corrida al 160%. Se mide el centro
-// de la caja contra el centro de la línea; si vuelve a atarse a un valor fijo,
-// la segunda medición (al 140%) se corre varios píxeles y esto falla.
-function markerOffsetPx(page) {
+// Todo lo que se alinea con un renglón —la casilla, la manija, y el clúster
+// Copiar/⋯— se centra en la PRIMERA LÍNEA del texto, y esa línea crece con el
+// tamaño elegido acá. Las alturas eran fijas (`h-7`, `mt-0.5`): quedaban
+// centradas al 100% y 6,5px corridas al 160%. Se mide el centro de cada control
+// contra el centro de la línea; si alguno vuelve a atarse a un valor fijo, la
+// segunda medición (al 140%) se corre varios píxeles y esto falla. La manija
+// está en opacity-0 hasta el hover, pero ocupa su lugar igual y se puede medir.
+function controlOffsetsPx(page) {
 	return page.evaluate(() => {
-		const box = document.querySelector('main [role="checkbox"] span');
-		const text = box.closest('.cn-row').querySelector('.block-editable');
+		const row = document.querySelector('main [role="checkbox"]').closest('.cn-row');
 		const range = document.createRange();
-		range.selectNodeContents(text);
+		range.selectNodeContents(row.querySelector('.block-editable'));
 		const line = range.getClientRects()[0];
-		const rect = box.getBoundingClientRect();
-		return rect.top + rect.height / 2 - (line.top + line.height / 2);
+		const lineCenter = line.top + line.height / 2;
+		const offset = (selector) => {
+			const rect = row.querySelector(selector).getBoundingClientRect();
+			return rect.top + rect.height / 2 - lineCenter;
+		};
+		return {
+			casilla: offset('[role="checkbox"] span'),
+			manija: offset('.cn-row-handle'),
+			acciones: offset('.cn-actions')
+		};
 	});
 }
 
-test('la casilla de tarea queda centrada en su renglón en cualquier tamaño', async ({ page }) => {
+async function expectCentered(page, tamaño) {
+	const offsets = await controlOffsetsPx(page);
+	for (const [control, px] of Object.entries(offsets)) {
+		expect(Math.abs(px), `${control} al ${tamaño}`).toBeLessThan(1.5);
+	}
+}
+
+test('los controles del renglón quedan centrados en el texto en cualquier tamaño', async ({
+	page
+}) => {
 	await openApp(page);
 	await page.locator('main [role="checkbox"]').first().waitFor();
-	expect(Math.abs(await markerOffsetPx(page))).toBeLessThan(1.5);
+	await expectCentered(page, '100%');
 
 	await page.getByRole('button', { name: 'Configuración' }).click();
 	const grow = page.getByRole('button', { name: 'Agrandar texto' });
@@ -116,5 +134,5 @@ test('la casilla de tarea queda centrada en su renglón en cualquier tamaño', a
 	await grow.click();
 	expect(await scaleVar(page)).toBe('1.4');
 
-	expect(Math.abs(await markerOffsetPx(page))).toBeLessThan(1.5);
+	await expectCentered(page, '140%');
 });

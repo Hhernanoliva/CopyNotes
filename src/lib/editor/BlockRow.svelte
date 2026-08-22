@@ -292,7 +292,7 @@
 		zoomTitle
 			? 'block-editable--zoom-title'
 			: block.type === 'code'
-				? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-6 ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
+				? `block-editable--code bg-muted px-3 py-2 font-mono text-sm leading-[1.7] ${isLongCode ? 'rounded-t-md' : 'rounded-md'}`
 				: 'text-base'
 	);
 	const editableHeadingClass = $derived(
@@ -1118,7 +1118,7 @@
 	{#if !zoomTitle}
 	<!-- One handle, two outcomes: release without moving selects; movement drags.
 	     It stays in the first slot even on an empty or image row. -->
-	<div class="relative flex h-7 w-4 shrink-0 items-center justify-center">
+	<div class="cn-row-marker relative w-4 shrink-0 justify-center">
 		{#if !readOnly}
 			<button
 				type="button"
@@ -1147,7 +1147,7 @@
 		{/if}
 	</div>
 	<div
-		class="flex h-7 w-5 shrink-0 items-center justify-center {hasChildren || showPlus
+		class="cn-row-marker w-5 shrink-0 justify-center {hasChildren || showPlus
 			? 'cn-row-secondary-control'
 			: ''}"
 	>
@@ -1309,7 +1309,7 @@
 					id={`code-content-${block.id}`}
 					aria-label="Vista previa de código"
 					translate="no"
-					class="block-editable--code bg-muted min-h-7 w-full min-w-0 overflow-hidden rounded-t-md px-3 py-2 font-mono text-sm leading-6"
+					class="block-editable--code bg-muted min-h-7 w-full min-w-0 overflow-hidden rounded-t-md px-3 py-2 font-mono text-sm leading-[1.7]"
 				>{codePreview}</pre>
 			{:else}
 				<div
@@ -1477,10 +1477,10 @@
 	{/if}
 
 	{#if block.dueDate && block.type !== 'separator'}
-		<!-- Sin margen arriba: el chip mide lo mismo (h-7) que la manija y el resto
-		     de los controles del renglón, así que sin margen queda centrado sobre
-		     el primer renglón del texto. El mt-1 que tenía lo dejaba 5px más abajo
-		     que la línea, y se notaba como un chip caído. -->
+		<!-- Sin margen arriba: el chip mide lo mismo (--cn-row-line) que la manija y
+		     el resto de los controles del renglón, así que sin margen queda centrado
+		     sobre el primer renglón del texto. El mt-1 que tenía lo dejaba 5px más
+		     abajo que la línea, y se notaba como un chip caído. -->
 		<button
 			type="button"
 			data-date-panel-trigger
@@ -1495,7 +1495,7 @@
 				onDateBadge(block);
 				if (closing) focusContent();
 			}}
-			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-7 shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
+			class="cn-tap {overdue ? 'text-destructive' : 'text-muted-foreground'} hover:text-foreground focus-visible:ring-ring flex h-(--cn-row-line) shrink-0 items-center gap-1 self-start rounded-sm px-1.5 text-xs whitespace-nowrap focus-visible:ring-2 focus-visible:outline-none"
 		>📅 {dueLabel}</button>
 	{/if}
 
@@ -1516,7 +1516,7 @@
 	     Hidden until hover/keyboard focus so the page stays quiet.
 	     mousedown+preventDefault keeps the caret in the block. -->
 	<div
-		class="cn-affordance cn-actions pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5 {selected
+		class="cn-affordance cn-actions pointer-events-none absolute top-0.5 right-1 flex shrink-0 flex-col items-center opacity-0 md:h-(--cn-row-line) transition-opacity duration-(--motion-fast) group-focus-within:z-10 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:z-10 group-hover:pointer-events-auto group-hover:opacity-100 md:static md:flex-row md:gap-0.5 {selected
 			? 'z-10 pointer-events-auto opacity-100'
 			: ''}"
 	>
