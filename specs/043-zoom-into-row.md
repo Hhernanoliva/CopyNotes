@@ -194,6 +194,33 @@ ven:
   menú grupal → selección) y un quinto lo vuelve impredecible.
 - `HelpDialog` suma las dos filas al grupo *Escribir*.
 
+## Motion (spec 024)
+
+Quiet Motion manda acá también, y su respuesta es **casi nada de movimiento**:
+
+- **La lista de renglones cambia instantáneamente** al entrar, salir o saltar a
+  una miga. La `024` prohíbe por nombre los efectos de transición al cambiar de
+  nota, y cambiar de raíz es el mismo evento: la pantalla cambia de contenido
+  entera. Deslizarla de costado sería un efecto de página.
+- **El renglón-título no se anima nunca.** Es un `contenteditable` y la `024` lo
+  prohíbe sin excepciones: transformarlo mueve el cursor con él.
+- **El ícono de entrar aparece y desaparece con un fundido de 150ms**
+  (`MOTION.fast`), exactamente el mismo que ya usan la manija y el `⋯` en el
+  mismo renglón. Es el único lugar donde el motion es visible a diario.
+- **Las migas aparecen con un fundido de 150ms, sin viaje.** El espacio que
+  ocupan aparece de una: animar alto o margen es animar el layout, que empuja el
+  texto y es de las cosas que la `024` prohíbe.
+- Todo pasa por `motionDuration()`, así que con "reducir movimiento" prendido
+  queda instantáneo y no se pierde ninguna función.
+- **No** hay destello en el renglón-título al entrar. Sería un fundido ambiental
+  legal (color, sin viaje), pero entrar es un acto deliberado y la pantalla ya
+  cambió entera: el destello sería ruido, no una respuesta.
+
+Una cosa que no es motion pero se le parece y hace falta: **al salir, el renglón
+donde se estaba parado queda a la vista** (`scrollIntoView` centrado, **sin
+suavizado**). Sin eso, salir de una rama que estaba abajo en una nota larga
+devuelve la nota desde arriba y hay que buscar a mano dónde se estaba.
+
 ## Read-Only And Guest Notes
 
 Entrar es mirar: funciona igual en una nota compartida, con o sin permiso de
@@ -245,6 +272,9 @@ botón que sí funciona no es un botón inerte.
   otra nota muestra la nota entera sin error.
 - Un aparato que restaura un respaldo no hereda dónde estaba parado otro.
 - El agente, el respaldo, el paquete `.copynotes` y la nube no cambian en nada.
+- Al salir, el renglón donde se estaba parado queda a la vista sin buscarlo.
+- Con "reducir movimiento" prendido no se pierde ninguna función; la lista de
+  renglones no se anima nunca, ni con la preferencia apagada.
 - En reposo la nota se ve igual que antes de esta spec, salvo el hueco reservado.
 - Ayuda, guía y changelog describen lo entregado.
 
@@ -284,6 +314,8 @@ prueba nada (`docs`/memoria: los 4 tests huecos de la spec 041).
 - Buscar y saltar a un renglón de otra rama: aparece la nota entera.
 - `Alt+→` / `Alt+←` con el cursor; con dos renglones seleccionados no pasa nada.
 - Entrar con el menú `/` abierto lo cierra y no deja nada flotando.
+- Salir desde una rama que estaba abajo en una nota larga deja ese renglón dentro
+  de la parte visible de la pantalla.
 
 **Táctil (proyecto móvil existente):** el ítem *Entrar acá* alcanza y funciona; el
 ícono de entrar no se dibuja; las migas se pueden tocar y desplazar.
