@@ -20,12 +20,18 @@ agente, compartir, etiquetas y fechas no se enteran de que esto existe.
 - Estado `zoomBlockId` en el editor: `null` es la nota entera, un id es "estoy
   parado adentro de ese renglón". Vive en memoria, no en la fila.
 - Tres caminos para entrar, cada uno donde sirve:
-  - **Escritorio**: un ícono al lado de la flechita de colapsar, que aparece al
-    pasar el mouse por el renglón (nunca por el ícono mismo), con el hueco
-    reservado siempre para que el texto no se mueva. Es un hueco **propio**, no
-    el de la flechita: ese ya se reparte entre colapsar (con hijos) y `+` (sin
-    hijos), y los tres tienen que poder convivir. No lo llevan el separador ni la
-    imagen, que no tienen texto que pueda hacer de título.
+  - **Escritorio**: **doble clic en la manija `⠿`** del renglón. Un clic solo
+    sigue seleccionando el renglón y arrastrarla sigue moviéndolo: el doble clic
+    era el único gesto de la manija que estaba libre. No entra en el separador ni
+    en la imagen, que no tienen texto que pueda hacer de título.
+
+    > Corrección del 2026-08-22, después de verlo construido. Esta spec pedía un
+    > ícono propio al lado de la flechita, y se descartó la manija porque "ya
+    > estaba ocupada" — pero eso era cierto del clic **simple**, no del doble. El
+    > ícono costaba ~20px de hueco reservado en **todos** los renglones (el texto
+    > salta si el hueco no está siempre), y ése era el único punto en que la nota
+    > en reposo dejaba de verse como antes. Con el doble clic el hueco no existe,
+    > y se van también el botón y su CSS.
   - **Tacto**: ítem *Entrar acá* en el menú `⋯` que cada renglón ya tiene.
   - **Teclado**: `Alt+→` entra en el renglón del cursor, `Alt+←` sale un nivel.
 - Camino de migas arriba de la nota: `Título de la nota › antepasado › …`, cada
@@ -57,10 +63,10 @@ agente, compartir, etiquetas y fechas no se enteran de que esto existe.
   completa: Deshacer trabaja con fotos de la nota entera y `reconcile.ts` compara
   contra la nota entera; cargar de a ramas rompe las dos cosas a cambio de una
   velocidad que a este tamaño de notas no se nota.
-- No cambia el aspecto de los renglones en reposo. El ícono de entrar sólo se
-  dibuja al pasar el mouse, igual que hoy aparecen la manija y el `⋯`.
-- No hay ícono de entrar en punteros táctiles (no existe "pasar el mouse", y un
-  tercer blanco de 44px no entra en una pantalla de 320px). Ahí manda el `⋯`.
+- No cambia el aspecto de los renglones en reposo: el gesto de entrar no agrega
+  ni un pixel a la fila, va montado en la manija que ya existía.
+- No hay gesto de entrar en punteros táctiles (no existe "pasar el mouse" ni el
+  doble clic). Ahí manda el `⋯`.
 
 ## Model Of Data Affected
 
@@ -136,8 +142,9 @@ ahí está —, pero se lee como pérdida de datos.
 El renglón raíz se dibuja arriba con el mismo `BlockRow` que los demás, en una
 variante:
 
-- **Sin manija, sin flechita de colapsar y sin ícono de entrar** — los tres son
-  gestos sobre un renglón que está en una lista, y éste no lo está.
+- **Sin manija y sin flechita de colapsar** — son gestos sobre un renglón que
+  está en una lista, y éste no lo está. Con la manija se va también el doble clic
+  para entrar, que vive en ella.
 - **Con `⋯`**: sus acciones siguen sirviendo. *Subir/Bajar* lo mueven entre sus
   hermanos sin cambiar lo que se ve (correcto). *Borrar* aplica la regla de borde.
 - Tamaño y peso de título de nota, **sin importar el tipo del bloque**: es "dónde
@@ -204,9 +211,8 @@ Quiet Motion manda acá también, y su respuesta es **casi nada de movimiento**:
   entera. Deslizarla de costado sería un efecto de página.
 - **El renglón-título no se anima nunca.** Es un `contenteditable` y la `024` lo
   prohíbe sin excepciones: transformarlo mueve el cursor con él.
-- **El ícono de entrar aparece y desaparece con un fundido de 150ms**
-  (`MOTION.fast`), exactamente el mismo que ya usan la manija y el `⋯` en el
-  mismo renglón. Es el único lugar donde el motion es visible a diario.
+- **El gesto de entrar no agrega motion propio**: vive en la manija, que ya
+  aparece y desaparece con su fundido de 150ms (`MOTION.fast`).
 - **Las migas aparecen con un fundido de 150ms, sin viaje.** El espacio que
   ocupan aparece de una: animar alto o margen es animar el layout, que empuja el
   texto y es de las cosas que la `024` prohíbe.
@@ -225,8 +231,8 @@ devuelve la nota desde arriba y hay que buscar a mano dónde se estaba.
 
 Entrar es mirar: funciona igual en una nota compartida, con o sin permiso de
 escritura. El renglón-título hereda `readOnly` como cualquier otro renglón, así
-que el candado de la spec `038` no necesita una puerta nueva. El ícono de entrar
-y el ítem del menú **se muestran igual en sólo lectura**, porque no escriben nada
+que el candado de la spec `038` no necesita una puerta nueva. El doble clic en la
+manija y el ítem del menú **funcionan igual en sólo lectura**, porque no escriben nada
 — y una barra que aparece con botones inertes es peor que no tenerla, pero un
 botón que sí funciona no es un botón inerte.
 
@@ -234,9 +240,9 @@ botón que sí funciona no es un botón inerte.
 
 ### Entrar y trabajar
 
-1. La persona pasa el mouse por un renglón con hijos y aparece el ícono de entrar.
-2. Clic: las migas muestran `Proyectos › Casa ›`, el renglón sube como título, y
-   abajo quedan sólo sus hijos.
+1. La persona pasa el mouse por un renglón con hijos y aparece su manija `⠿`.
+2. Doble clic en la manija: las migas muestran `Proyectos › Casa ›`, el renglón
+   sube como título, y abajo quedan sólo sus hijos.
 3. Escribe, anida, arrastra y borra como en cualquier nota. Nada de lo que hace
    puede sacar un renglón de la vista sin que ella lo pida.
 4. Clic en `Proyectos`: vuelve la nota entera, con todo intacto.
@@ -260,7 +266,8 @@ botón que sí funciona no es un botón inerte.
 
 ## Acceptance Criteria
 
-- Entrar se puede desde el ícono (escritorio), el menú `⋯` (siempre) y `Alt+→`.
+- Entrar se puede con doble clic en la manija (escritorio), el menú `⋯` (siempre)
+  y `Alt+→`.
 - Estando adentro se ven **exactamente** los descendientes de ese renglón, con sus
   colapsados respetados y el colapsado de la raíz ignorado.
 - El renglón raíz se edita arriba y lo escrito sobrevive a recargar.
@@ -317,8 +324,8 @@ prueba nada (`docs`/memoria: los 4 tests huecos de la spec 041).
 - Salir desde una rama que estaba abajo en una nota larga deja ese renglón dentro
   de la parte visible de la pantalla.
 
-**Táctil (proyecto móvil existente):** el ítem *Entrar acá* alcanza y funciona; el
-ícono de entrar no se dibuja; las migas se pueden tocar y desplazar.
+**Táctil (proyecto móvil existente):** el ítem *Entrar acá* alcanza y funciona; no
+hay doble clic ni nada nuevo que tocar; las migas se pueden tocar y desplazar.
 
 ## Agent Notes
 
