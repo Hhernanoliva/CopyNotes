@@ -2,7 +2,7 @@
 // what the user sees: Enter on an expanded parent inserts a first child,
 // otherwise a sibling right below.
 
-import { buildVisibleList } from './hierarchy';
+import { buildVisibleList, listDescendantIds } from './hierarchy';
 import { planInsertAfter } from './ordering';
 import { sortByOrder } from './ordering';
 
@@ -104,8 +104,15 @@ export function originIsDisposable(blocks, id) {
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);
 }
 
-export function canDeleteOnBackspace(blocks, id) {
-	if (blocks.length <= 1) return false;
+// `rootId` es desde dónde se está mirando (spec 043). Con el valor por defecto
+// —la nota entera— esto significa exactamente lo de siempre.
+export function canDeleteOnBackspace(blocks, id, rootId = null) {
+	// Cuenta los renglones DE LA VISTA, no los de la nota: adentro de un renglón
+	// con un solo hijo, Backspace no puede dejar la vista sin dónde escribir.
+	// `listDescendantIds(blocks, null)` son todos los bloques, así que sin raíz
+	// esto es el viejo `blocks.length` (y además no cuenta huérfanos, que no se
+	// dibujan en ningún lado).
+	if (listDescendantIds(blocks, rootId).length <= 1) return false;
 	return !blocks.some((block) => (block.parentBlockId ?? null) === id);
 }
 
@@ -115,8 +122,8 @@ export function canDeleteFromMenu(blocks, id) {
 	return blocks.length > 1;
 }
 
-export function previousVisibleId(blocks, id) {
-	const visible = buildVisibleList(blocks);
+export function previousVisibleId(blocks, id, rootId = null) {
+	const visible = buildVisibleList(blocks, rootId);
 	const index = visible.findIndex((row) => row.block.id === id);
 	if (index <= 0) return null;
 	return visible[index - 1].block.id;
@@ -129,12 +136,14 @@ export function previousVisibleId(blocks, id) {
 // del renglón que se va, un separador o un bloque de código de cualquiera de
 // los dos lados (su texto no se mezcla con el de al lado), y el renglón de
 // arriba colapsado, donde el texto aterrizaría sobre hijos que no se ven.
-export function planJoinWithPrevious(blocks, id) {
+export function planJoinWithPrevious(blocks, id, rootId = null) {
 	const target = blocks.find((block) => block.id === id);
 	if (!target) return null;
 	if (!joinable(target) || target.note) return null;
 	if (siblingsOf(blocks, id).length > 0) return null;
-	const prevId = previousVisibleId(blocks, id);
+	// Con raíz, `index <= 0` cae en el PRIMER renglón de la vista: unir ahí
+	// subiría el texto al renglón-título, que es un renglón fuera de la lista.
+	const prevId = previousVisibleId(blocks, id, rootId);
 	const previous = prevId ? blocks.find((block) => block.id === prevId) : null;
 	if (!previous || !joinable(previous)) return null;
 	if (previous.collapsed && siblingsOf(blocks, prevId).length > 0) return null;

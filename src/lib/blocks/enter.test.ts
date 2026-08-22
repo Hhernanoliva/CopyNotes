@@ -304,3 +304,42 @@ describe('originIsDisposable', () => {
 		expect(originIsDisposable([row('b')], 'a')).toBe(false);
 	});
 });
+
+describe('la vista con raíz (spec 043)', () => {
+	const rama = () => [
+		{ id: 'r', parentBlockId: null, order: 0, type: 'text', content: 'Raíz' },
+		{ id: 'c1', parentBlockId: 'r', order: 0, type: 'text', content: 'Uno' },
+		{ id: 'c2', parentBlockId: 'r', order: 1, type: 'text', content: 'Dos' }
+	];
+
+	// Rojo si `previousVisibleId` sigue caminando la nota entera: ahí el anterior
+	// de 'c1' es 'r', que está FUERA de la vista y es el renglón-título.
+	it('previousVisibleId no cruza hacia arriba de la raíz', () => {
+		expect(previousVisibleId(rama(), 'c1', 'r')).toBe(null);
+		expect(previousVisibleId(rama(), 'c2', 'r')).toBe('c1');
+	});
+
+	// Rojo si `planJoinWithPrevious` no recibe la raíz: uniría el primer renglón
+	// de la vista con el título, que es el síntoma que estas reglas evitan.
+	it('planJoinWithPrevious devuelve null en el primero de la vista y une en el segundo', () => {
+		expect(planJoinWithPrevious(rama(), 'c1', 'r')).toBe(null);
+		expect(planJoinWithPrevious(rama(), 'c2', 'r')).toEqual({ intoId: 'c1' });
+	});
+
+	// Rojo si el conteo vuelve a ser `blocks.length`: ahí hay 2 bloques y
+	// Backspace borraría el único renglón de la vista, dejándola sin dónde escribir.
+	it('canDeleteOnBackspace cuenta los renglones de la vista', () => {
+		const uno = [
+			{ id: 'r', parentBlockId: null, order: 0, type: 'text', content: 'Raíz' },
+			{ id: 'c1', parentBlockId: 'r', order: 0, type: 'text', content: '' }
+		];
+		expect(canDeleteOnBackspace(uno, 'c1', 'r')).toBe(false);
+		expect(canDeleteOnBackspace(rama(), 'c2', 'r')).toBe(true);
+	});
+
+	// El control de la firma nueva: sin raíz, lo de siempre.
+	it('sin rootId se comporta igual que antes', () => {
+		expect(previousVisibleId(rama(), 'c1')).toBe('r');
+		expect(canDeleteOnBackspace(rama(), 'c2')).toBe(true);
+	});
+});
