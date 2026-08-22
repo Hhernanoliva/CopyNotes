@@ -26,6 +26,7 @@ Adentro está todo junto:
 - **Mover arriba** / **Mover abajo** — cambia el renglón de lugar sin arrastrar.
 - **Guardar como snippet** y **Etiquetar** — como siempre.
 - **Eliminar** — borra el renglón (y, si tiene sub-renglones, también esos). No te deja borrar el único renglón que queda.
+- **Entrar acá** — abre ese renglón como si fuera una nota aparte (ver el tema 22).
 
 El **separador** (la raya) también tiene su menú ⋯: tocá la raya y aparece a la derecha, con **Mover arriba**, **Mover abajo** y **Eliminar**. Antes no lo tenía, y como en una raya no se puede escribir, en el teléfono no había forma de sacarla una vez puesta. Comentario, snippet y etiqueta no salen ahí: una raya no tiene texto al que engancharlos.
 

@@ -8,6 +8,11 @@ resto de la nota se queda esperando, intacto.
 
 - **En cualquier aparato:** abrí el menú **⋯** del renglón y elegí
   **Entrar acá**.
+- **En la computadora:** pasá el mouse por el renglón y tocá la flechita doble
+  **»** que aparece a la izquierda.
+
+En celular y tablet la flechita no aparece —no hay "pasar el dedo por encima"—:
+ahí se entra siempre desde el menú **⋯**.
 
 ## Cómo se sale
 

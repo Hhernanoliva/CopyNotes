@@ -8,6 +8,7 @@
 	import { fade, scale } from 'svelte/transition';
 	import {
 		ChevronRight,
+		ChevronsRight,
 		Check,
 		Copy,
 		CopyPlus,
@@ -1179,6 +1180,28 @@
 			</button>
 		{/if}
 	</div>
+	<!-- Entrar en el renglón (spec 043). Hueco PROPIO, no el de la flechita: ese
+	     ya se reparte entre colapsar (con hijos) y "+" (sin hijos), y los tres
+	     tienen que poder convivir. El hueco existe aunque el ícono no se vea, o
+	     el texto salta al pasar el mouse.
+	     El fundido de 150ms es el mismo `transition-opacity duration-(--motion-fast)`
+	     que ya usan la manija y el ⋯, y el CSS global lo pone en cero con
+	     "reducir movimiento" (spec 024). -->
+	{#if canZoom}
+		<div class="cn-zoom-slot h-7 w-5 shrink-0 items-center justify-center">
+			<button
+				type="button"
+				tabindex="-1"
+				aria-label="Entrar en el renglón"
+				use:tooltip={'Entrar acá'}
+				onpointerdown={(event) => event.stopPropagation()}
+				onclick={() => onZoomIn?.(block)}
+				class="cn-affordance cn-tap text-faint hover:text-foreground focus-visible:ring-ring flex size-5 items-center justify-center rounded-sm opacity-0 transition-opacity duration-(--motion-fast) group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none"
+			>
+				<ChevronsRight size={14} aria-hidden="true" />
+			</button>
+		</div>
+	{/if}
 	{/if}
 
 	{#if block.type === 'bullet'}
