@@ -27,9 +27,11 @@ export function planIndent(blocks, id) {
 	return { updates };
 }
 
-export function planOutdent(blocks, id) {
+// `rootId` es desde dónde se está mirando (spec 043): el primer nivel de la
+// vista es el borde, igual que el primer nivel de la nota cuando no hay raíz.
+export function planOutdent(blocks, id, rootId = null) {
 	const target = blocks.find((block) => block.id === id);
-	if (!target || (target.parentBlockId ?? null) === null) return null;
+	if (!target || (target.parentBlockId ?? null) === (rootId ?? null)) return null;
 	const parent = blocks.find((block) => block.id === target.parentBlockId);
 	if (!parent) return null;
 	const oldSiblings = siblingsOf(blocks, parent.id);

@@ -78,4 +78,18 @@ describe('planOutdent', () => {
 		const blocks = [block('a', null, 0)];
 		expect(planOutdent(blocks, 'a')).toBeNull();
 	});
+
+	// Rojo si la comparación vuelve a ser contra `null`: sin esto, Shift+Tab en el
+	// primer nivel de la vista manda el renglón afuera de la vista, que es el
+	// síntoma peor de esta app — se lee como pérdida de datos (spec 043).
+	it('devuelve null cuando el padre del renglón ES la raíz de la vista', () => {
+		const blocks = [block('r', null, 0), block('c', 'r', 0)];
+		expect(planOutdent(blocks, 'c', 'r')).toBe(null);
+	});
+
+	it('sigue sacando un nivel cuando el padre no es la raíz', () => {
+		const blocks = [block('r', null, 0), block('c', 'r', 0), block('n', 'c', 0)];
+		const plan = planOutdent(blocks, 'n', 'r');
+		expect(plan.updates).toContainEqual({ id: 'n', parentBlockId: 'r', order: 1 });
+	});
 });
