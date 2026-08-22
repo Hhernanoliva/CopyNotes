@@ -7,6 +7,10 @@ Reglas: una sección `## X.Y.Z` por versión, la más nueva arriba, una viñeta 
 cambio, en castellano y sin jerga técnica. Se escribe **en el mismo commit que
 la funcionalidad**, no al publicar.
 
+## 0.2.3
+
+- **Ahora podés entrar en un renglón y trabajar ahí adentro**, como si fuera una nota aparte: sus sub-ítems ocupan la pantalla y arriba queda un camino (`Mi nota › Casa ›`) para volver. Se entra desde el menú **⋯** del renglón, con *Entrar acá*
+
 ## 0.2.2
 
 - **Los enlaces se pueden editar sin abrirlos por accidente.** El primer clic o toque muestra la dirección completa con **Abrir** y **Editar**; también podés corregir o borrar letras dentro del enlace como texto normal

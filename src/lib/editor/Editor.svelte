@@ -50,7 +50,7 @@
 	import { Tag, Bot } from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
 	import { isTauriRuntime, openImageFiles } from '$lib/platform';
-	import { buildVisibleList, listDescendantIds } from '$lib/blocks/hierarchy';
+	import { buildVisibleList, listDescendantIds, ancestorIds } from '$lib/blocks/hierarchy';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
 	import {
@@ -68,6 +68,7 @@
 	import { treeToNode, flattenNode, serializeForest } from '$lib/copy/serialize';
 	import { writePlainTextToClipboard, writeToClipboard } from '$lib/copy/clipboard';
 	import { toast } from 'svelte-sonner';
+	import { tick } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { MOTION, motionDuration, prefersReducedMotion } from '$lib/motion';
 	import { SLASH_COMMANDS, filterCommands, moveSelection, nextSlashState } from './slash';
@@ -76,6 +77,7 @@
 	import { createHistory, diffBlocks } from './history';
 	import { planJoin } from './split';
 	import BlockRow from './BlockRow.svelte';
+	import ZoomBreadcrumbs from './ZoomBreadcrumbs.svelte';
 	import { createDragReorder } from './dragReorder.svelte.js';
 	import { createTextDrag } from './textDrag.svelte.js';
 	import { planTextMove } from './text-move';
@@ -286,8 +288,38 @@
 	// actually crossed into another block (so a plain click stays a click).
 	let dragAnchorId = $state(null);
 	let dragging = $state(false);
+	// Entrar en un renglón (spec 043): `null` es la nota entera, un id es "estoy
+	// parado adentro de ese renglón". Es una LENTE, no un dato: no hay campo en
+	// ninguna fila, el editor sigue cargando la nota completa, y Deshacer, el
+	// respaldo, la nube, el agente y compartir no se enteran de que esto existe.
+	let zoomBlockId = $state(null);
+	// La raíz que de verdad se dibuja. Un id que ya no está en `blocks` —lo borró
+	// otro aparato, o la preferencia quedó vieja— vale como nota entera. Es un
+	// derivado y no un efecto a propósito: la pantalla nunca puede quedar
+	// esperando a que un efecto la rescate.
+	//
+	// `blocks` son los renglones VIVOS de ESTA nota, así que este `some` contesta
+	// de una las tres preguntas de la spec: existe, no está borrado, y es de acá.
+	const zoomRoot = $derived(
+		zoomBlockId && blocks.some((block) => block.id === zoomBlockId) ? zoomBlockId : null
+	);
+	const zoomRootBlock = $derived(
+		zoomRoot ? (blocks.find((block) => block.id === zoomRoot) ?? null) : null
+	);
+	const zoomCrumbs = $derived.by(() => {
+		if (!zoomRoot || !note) return [];
+		const byId = new Map(blocks.map((block) => [block.id, block]));
+		return [
+			{ id: null, label: note.title || 'Sin título' },
+			...ancestorIds(blocks, zoomRoot).map((id) => ({
+				id,
+				label: byId.get(id)?.content || 'Sin texto'
+			}))
+		];
+	});
+
 	const selectedIds = $derived(
-		selection ? selectionRange(blocks, selection.anchorId, selection.focusId) : []
+		selection ? selectionRange(blocks, selection.anchorId, selection.focusId, zoomRoot) : []
 	);
 	const blockSelectionActive = $derived(selectedIds.length > 0);
 	const multiBlockSelection = $derived(selectedIds.length > 1);
@@ -436,7 +468,7 @@
 			: `${count} renglones tienen otra versión esperando que elijas cuál queda`;
 	});
 
-	const visible = $derived(buildVisibleList(blocks));
+	const visible = $derived(buildVisibleList(blocks, zoomRoot));
 
 	// El puente con los agentes es solo de escritorio. El botón se queda igual en
 	// el navegador porque la marca SÍ sirve ahí: se guarda y viaja por la nube, o
@@ -1583,16 +1615,16 @@
 		const promote = planPromoteChildren(blocks, block.id);
 		if (promote) {
 			recordSnapshot();
-			const prevId = previousVisibleId(blocks, block.id);
+			const prevId = previousVisibleId(blocks, block.id, zoomRoot);
 			await applyUpdates(promote.updates);
 			await softDeleteBlock(block.id);
 			blocks = blocks.filter((row) => row.id !== block.id);
 			if (prevId) focusBlockId = prevId;
 			return;
 		}
-		if (!canDeleteOnBackspace(blocks, block.id)) return;
+		if (!canDeleteOnBackspace(blocks, block.id, zoomRoot)) return;
 		recordSnapshot();
-		const prevId = previousVisibleId(blocks, block.id);
+		const prevId = previousVisibleId(blocks, block.id, zoomRoot);
 		await softDeleteBlock(block.id);
 		blocks = blocks.filter((row) => row.id !== block.id);
 		if (prevId) focusBlockId = prevId;
@@ -1604,7 +1636,7 @@
 	// arriba se lee del estado, que el tipeo actualiza al instante (sólo el
 	// guardado tiene retraso).
 	async function handleJoinPrevious(block, html) {
-		const plan = planJoinWithPrevious(blocks, block.id);
+		const plan = planJoinWithPrevious(blocks, block.id, zoomRoot);
 		if (!plan) return;
 		const previous = blocks.find((row) => row.id === plan.intoId);
 		if (!previous) return;
@@ -1632,7 +1664,7 @@
 	async function handleDeleteBlock(block) {
 		if (!canDeleteFromMenu(blocks, block.id)) return;
 		recordSnapshot();
-		const prevId = previousVisibleId(blocks, block.id);
+		const prevId = previousVisibleId(blocks, block.id, zoomRoot);
 		const ids = [block.id, ...listDescendantIds(blocks, block.id)];
 		await softDeleteBlocks(ids);
 		const removed = new Set(ids);
@@ -1665,7 +1697,7 @@
 	}
 
 	async function handleOutdent(block) {
-		const plan = planOutdent(blocks, block.id);
+		const plan = planOutdent(blocks, block.id, zoomRoot);
 		if (!plan) return;
 		recordSnapshot();
 		await applyUpdates(plan.updates);
@@ -1758,6 +1790,73 @@
 		selectionMenu = null;
 	}
 
+	// Entrar en un renglón sin hijos le crea el primero y manda el cursor ahí: una
+	// vista sin renglones no tiene dónde escribir. En sólo lectura NO se crea nada,
+	// porque mirar no puede escribir (spec 043).
+	async function createFirstChild(parentId) {
+		if (readOnly) return;
+		recordSnapshot();
+		const created = await createBlock({
+			noteId: note.id,
+			parentBlockId: parentId,
+			type: 'text',
+			order: 0
+		});
+		blocks = [...blocks, created];
+		focusBlockId = created.id;
+	}
+
+	// Enter en el renglón-título lleva el cursor al primer hijo, creándolo si no
+	// hay ninguno (spec 043).
+	async function focusFirstChildOfRoot() {
+		if (!zoomRoot) return;
+		const first = buildVisibleList(blocks, zoomRoot)[0];
+		if (first) {
+			focusBlockId = first.block.id;
+			focusCaret = 0;
+			return;
+		}
+		await createFirstChild(zoomRoot);
+	}
+
+	// Cambiar de raíz es un RESET (spec 043): lo que quedaba abierto apuntaba a
+	// renglones que ya no se ven. No se re-monta el editor ni se toca
+	// `dataVersion`: `blocks` es el mismo arreglo, el historial sigue vivo y no se
+	// relee la base — re-montar robaría el cursor y partiría renglones a medio
+	// escribir (AGENT.md, regla de los cambios de afuera).
+	async function setZoomRoot(id) {
+		const next = id ?? null;
+		if (next === zoomRoot) return;
+		const leaving = zoomRoot;
+		reorder.cancel();
+		textDrag.cancel();
+		slash = null;
+		selectionMenu = null;
+		selection = null;
+		datePanelFor = null;
+		tagPickerFor = null;
+		actionsMenuFor = null;
+		// `toolbar = null` a secas y no `closeToolbar()`: esa función devuelve el
+		// foco al renglón que la abrió, que puede ser uno que ya no se ve.
+		toolbar = null;
+		focusCaret = null;
+		focusBlockId = null;
+		zoomBlockId = next;
+		const rows = buildVisibleList(blocks, next);
+		if (activeBlockId && !rows.some((row) => row.block.id === activeBlockId)) {
+			activeBlockId = null;
+		}
+		if (next && rows.length === 0) await createFirstChild(next);
+		// Al salir, el renglón donde se estaba parado queda a la vista. Sin esto,
+		// salir de una rama que estaba abajo en una nota larga devuelve la nota
+		// desde arriba y hay que buscar a mano dónde se estaba. Sin suavizado: es
+		// una reubicación, no un viaje (spec 024).
+		if (leaving && rows.some((row) => row.block.id === leaving)) {
+			await tick();
+			listEl?.querySelector(`[data-block-id="${leaving}"]`)?.scrollIntoView({ block: 'center' });
+		}
+	}
+
 	function setActionsMenu(blockId, open) {
 		actionsMenuFor = open ? blockId : null;
 		if (!open) return;
@@ -1848,7 +1947,7 @@
 	function handleVerticalArrow(block, direction) {
 		if (blockSelectionActive) return false;
 		if (!caretAtBlockEdge(direction)) return false;
-		const neighborId = neighborVisibleId(blocks, block.id, direction);
+		const neighborId = neighborVisibleId(blocks, block.id, direction, zoomRoot);
 		if (!neighborId) return false;
 		const x = caretColumnX();
 		const el = document.querySelector(`[data-block-id="${neighborId}"] [data-block-surface]`);
@@ -1869,13 +1968,13 @@
 	// the browser do normal in-line text selection.
 	function extendSelection(direction) {
 		if (blockSelectionActive) {
-			const focus = neighborVisibleId(blocks, selection.focusId, direction);
+			const focus = neighborVisibleId(blocks, selection.focusId, direction, zoomRoot);
 			if (focus) selection = { anchorId: selection.anchorId, focusId: focus };
 			selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
 			return true;
 		}
 		if (!activeBlockId || !caretAtBlockEdge(direction)) return false;
-		const neighbor = neighborVisibleId(blocks, activeBlockId, direction);
+		const neighbor = neighborVisibleId(blocks, activeBlockId, direction, zoomRoot);
 		if (!neighbor) return false;
 		selection = { anchorId: activeBlockId, focusId: neighbor };
 		selectionMenu = null; // rango nuevo, menú viejo afuera (ver shiftSelect)
@@ -1883,7 +1982,7 @@
 	}
 
 	async function copySelection() {
-		const rootIds = orderedSelectionRoots(blocks, selectedIds);
+		const rootIds = orderedSelectionRoots(blocks, selectedIds, zoomRoot);
 		const trees = rootIds.map((id) => buildCopyTree(blocks, id, true));
 		try {
 			await writeToClipboard({
@@ -1904,7 +2003,7 @@
 		const last = selectedIds[selectedIds.length - 1];
 		const first = selectedIds[0];
 		const focusTarget =
-			neighborVisibleId(blocks, last, 1) ?? neighborVisibleId(blocks, first, -1);
+			neighborVisibleId(blocks, last, 1, zoomRoot) ?? neighborVisibleId(blocks, first, -1, zoomRoot);
 		selection = null;
 		selectionMenu = null;
 		await softDeleteBlocks(ids);
@@ -1952,7 +2051,7 @@
 	// un Ctrl/Cmd+Z deshace la conversión entera.
 	async function applySelectionType(type) {
 		if (readOnly) return;
-		const plan = planTypeChangeSelection(blocks, selectedIds, type);
+		const plan = planTypeChangeSelection(blocks, selectedIds, type, zoomRoot);
 		selectionMenu = null;
 		if (!plan) return;
 		recordSnapshot();
@@ -2685,6 +2784,9 @@
 				<TagChips tags={noteTags} onRemove={(tag) => removeTag('note', note.id, tag)} />
 			</div>
 		{/if}
+		{#if zoomCrumbs.length > 0}
+			<ZoomBreadcrumbs crumbs={zoomCrumbs} onGo={(id) => setZoomRoot(id)} />
+		{/if}
 		<!-- focusin/focusout en la lista entera: moverse de un renglón a otro
 		     dispara los dos en el mismo tick, así que el escudo no parpadea. -->
 		<div
@@ -2740,6 +2842,7 @@
 					onToggleChecked={handleToggleChecked}
 					onCopy={handleCopy}
 					onSaveSnippet={handleSaveSnippet}
+					onZoomIn={(block) => setZoomRoot(block.id)}
 					onActive={(row) => (activeBlockId = row.id)}
 					selected={selectedSet.has(row.block.id)}
 					onShiftSelect={shiftSelect}

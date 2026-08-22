@@ -106,6 +106,11 @@
 		onToggleChecked,
 		onCopy,
 		onSaveSnippet,
+		// Entrar en el renglón (spec 043). El separador y la imagen no lo llevan:
+		// no tienen texto que pueda hacer de título.
+		onZoomIn,
+		// El renglón-título de la vista: se dibuja arriba y NO está en la lista.
+		zoomTitle = false,
 		onActive,
 		selected = false,
 		onShiftSelect,
@@ -274,6 +279,8 @@
 			// escribir sobre una captura que ya está puesta (spec 041 §3.5).
 			block.type !== 'image'
 	);
+
+	const canZoom = $derived(!zoomTitle && block.type !== 'separator' && block.type !== 'image');
 
 	const today = $derived(currentDay());
 	const dueLabel = $derived(block.dueDate ? badgeLabel(block.dueDate, today) : '');
@@ -1523,8 +1530,10 @@
 				open={actionsMenuOpen}
 				onOpenChange={onActionsMenuChange}
 				noteOnly={guest}
+				{canZoom}
 				contentActions={block.type !== 'separator'}
 				onAddNote={openNote}
+				onZoomIn={() => onZoomIn?.(block)}
 				onMoveUp={() => onMoveUp(block)}
 				onMoveDown={() => onMoveDown(block)}
 				onDelete={() => onDelete(block)}

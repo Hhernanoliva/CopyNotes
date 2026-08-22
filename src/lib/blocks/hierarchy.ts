@@ -46,15 +46,14 @@ export function buildVisibleList(blocks, rootId = null) {
 // eslabón. El `seen` corta un dato roto donde los padres se muerden la cola: sin
 // él la pantalla se cuelga, que es peor que una miga de menos.
 export function ancestorIds(blocks, id) {
-	const byId = new Map(blocks.map((block) => [block.id, block]));
 	const chain = [];
 	const seen = new Set();
-	let current = byId.get(id);
+	let current = blocks.find((block) => block.id === id);
 	while (current) {
 		const parentId = current.parentBlockId ?? null;
 		if (parentId === null || seen.has(parentId)) break;
 		seen.add(parentId);
-		const parent = byId.get(parentId);
+		const parent = blocks.find((block) => block.id === parentId);
 		if (!parent) break;
 		chain.unshift(parentId);
 		current = parent;

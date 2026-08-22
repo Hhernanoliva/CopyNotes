@@ -6,6 +6,7 @@
 		StickyNote,
 		ArrowUp,
 		ArrowDown,
+		ChevronsRight,
 		Trash2
 	} from '@lucide/svelte';
 	import { tooltip } from '$lib/actions/tooltip';
@@ -33,7 +34,13 @@
 		// El invitado de una nota compartida (spec 038 §6): de las seis puertas de
 		// este menú queda UNA, la de comentar. Las otras cinco escriben el renglón,
 		// y eso es exactamente lo que no puede hacer.
-		noteOnly = false
+		noteOnly = false,
+		// Entrar en el renglón (spec 043). Va AFUERA del bloque `noteOnly` a
+		// propósito: entrar es mirar, no escribir, así que el invitado de una nota
+		// compartida también lo tiene. Falso en el separador, en la imagen y en el
+		// propio renglón-título.
+		canZoom = false,
+		onZoomIn
 	} = $props();
 
 	let rootEl = $state();
@@ -131,6 +138,19 @@
 					<StickyNote size={15} aria-hidden="true" />
 					<span class="flex-1">Agregar comentario</span>
 					<kbd class="text-faint border-border rounded border px-1 text-xs">Ctrl+↵</kbd>
+				</button>
+			{/if}
+			{#if canZoom}
+				<button
+					type="button"
+					role="menuitem"
+					onmousedown={(event) => event.preventDefault()}
+					onclick={() => run(onZoomIn, false)}
+					class="cn-touch-row text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:bg-accent flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:outline-none max-md:min-h-11"
+				>
+					<ChevronsRight size={15} aria-hidden="true" />
+					<span class="flex-1">Entrar acá</span>
+					<kbd class="text-faint border-border rounded border px-1 text-xs">Alt+→</kbd>
 				</button>
 			{/if}
 			<!-- Todo lo que sigue escribe el renglón, así que el invitado no lo ve. -->

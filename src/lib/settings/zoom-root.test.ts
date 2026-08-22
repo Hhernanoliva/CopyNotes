@@ -23,7 +23,7 @@ describe('rememberZoomRoot', () => {
 		let map = {};
 		for (let i = 0; i < MAX_NOTES + 5; i += 1) map = rememberZoomRoot(map, `n${i}`, `b${i}`);
 		expect(Object.keys(map).length).toBe(MAX_NOTES);
-		expect(map.n0).toBeUndefined();
+		expect(Object.keys(map)).not.toContain('n0');
 		expect(map[`n${MAX_NOTES + 4}`]).toBe(`b${MAX_NOTES + 4}`);
 	});
 });
