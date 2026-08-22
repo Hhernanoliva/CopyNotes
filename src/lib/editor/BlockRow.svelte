@@ -1201,11 +1201,17 @@
 			onclick={() => onToggleChecked(block)}
 			class="cn-tap focus-visible:ring-ring mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:ring-2 focus-visible:outline-none disabled:cursor-default"
 		>
+			<!-- El borde de la casilla vacía va en `text-faint` y no en `border`: ese
+			     token es para líneas divisorias y da 1,25:1 contra el fondo claro, muy
+			     por debajo del 3:1 que pide un control. `text-faint` da 4,5:1 y es el
+			     mismo color de la viñeta y de la manija, así que no agrega tinta nueva
+			     al diseño. El color va dentro del ternario para que el estado marcado
+			     mande sin depender del orden en que Tailwind emita las dos reglas. -->
 			<span
 				aria-hidden="true"
-				class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {block.checked
+				class="flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {block.checked
 					? 'bg-primary border-primary text-primary-foreground'
-					: 'bg-transparent'}"
+					: 'border-faint bg-transparent'}"
 			>
 				{#if block.checked}
 					<span in:scale={{ start: 0.5, duration: ready ? motionDuration(MOTION.fast) : 0 }}>

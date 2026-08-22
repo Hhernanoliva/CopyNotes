@@ -30,7 +30,7 @@ export function demoNoteTree() {
 					{ type: 'bullet', content: 'Enter crea el siguiente renglón' }
 				]
 			},
-			{ type: 'todo', content: 'Tocá el círculo para marcar un pendiente', checked: false },
+			{ type: 'todo', content: 'Tocá la casilla para marcar un pendiente', checked: false },
 			{ type: 'todo', content: 'Este ya quedó listo', checked: true },
 			{
 				type: 'bullet',

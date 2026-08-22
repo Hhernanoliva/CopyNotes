@@ -9,6 +9,7 @@ la funcionalidad**, no al publicar.
 
 ## 0.2.3
 
+- **La casilla de una tarea sin marcar ahora se ve.** El cuadradito vacío tenía un borde tan tenue que casi se perdía contra el fondo, sobre todo en el tema claro; ahora tiene el mismo tono que la viñeta ● y la manija del renglón. La casilla marcada no cambia
 - **Arrastrar hasta el borde ahora desplaza la nota sola.** Si el lugar donde querés dejar el renglón está fuera de la pantalla, llevalo al borde de arriba o de abajo y esperá: la nota corre sola, más rápido cuanto más pegado al borde. Vale también al marcar renglones arrastrando y al mover un texto seleccionado
 - **Anidar un renglón con Tab ya no lo corre de lugar.** En listas que crecieron apretando Enter en el medio, algunos renglones se iban una posición hacia abajo al anidarlos. Ahora se quedan donde estaban. Vale igual para Shift+Tab y para mover filas con Alt+↑/↓
 - **Ahora podés entrar en un renglón y trabajar ahí adentro**, como si fuera una nota aparte: sus sub-ítems ocupan la pantalla y arriba queda un camino (`Mi nota › Casa ›`) para volver. Se entra de tres maneras: **doble clic en la manija** del renglón (los seis puntitos de la izquierda; un clic solo lo sigue seleccionando y arrastrarla lo sigue moviendo), el menú **⋯** con *Entrar acá* (la única en celular), o `Alt+→` con el cursor puesto — `Alt+←` sale un nivel

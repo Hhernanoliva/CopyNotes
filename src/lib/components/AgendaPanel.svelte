@@ -85,9 +85,9 @@
 			>
 				<span
 					aria-hidden="true"
-					class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {hideCompleted
+					class="flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {hideCompleted
 						? 'bg-primary border-primary text-primary-foreground'
-						: 'bg-transparent'}"
+						: 'border-faint bg-transparent'}"
 				>
 					{#if hideCompleted}
 						<Check size={12} />
@@ -124,9 +124,9 @@
 										>
 											<span
 												aria-hidden="true"
-												class="border-border flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {item.checked
+												class="flex size-4 items-center justify-center rounded-sm border transition-colors duration-(--motion-fast) {item.checked
 													? 'bg-primary border-primary text-primary-foreground'
-													: 'bg-transparent'}"
+													: 'border-faint bg-transparent'}"
 											>
 												{#if item.checked}
 													<Check size={12} />
