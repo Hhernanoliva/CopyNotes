@@ -66,3 +66,27 @@ describe('planDrop', () => {
 		expect(plan.updates).toEqual([]);
 	});
 });
+
+describe('planDrop dentro de una vista con raíz (spec 043)', () => {
+	// Rojo si `planDrop` no le pasa la raíz a `orderedSelectionRoots`: con la raíz
+	// colapsada, `roots` queda vacío y el arrastre no hace nada, en silencio.
+	it('mueve dentro de una raíz colapsada', () => {
+		const blocks = [
+			{ id: 'r', parentBlockId: null, order: 0, collapsed: true },
+			{ id: 'c1', parentBlockId: 'r', order: 0 },
+			{ id: 'c2', parentBlockId: 'r', order: 1 }
+		];
+		const plan = planDrop(blocks, ['c2'], 'r', 0, 'r');
+		// El renglón arrastrado siempre lleva su `parentBlockId` en la actualización,
+		// aunque el padre no haya cambiado: `planDrop` los re-hospeda a todos igual.
+		expect(plan.updates).toContainEqual({ id: 'c2', order: 0, parentBlockId: 'r' });
+	});
+
+	// La traducción del llamador: profundidad 0 dentro de la vista cuelga de la
+	// raíz de la vista, nunca del primer nivel de la nota.
+	it('con la raíz como padre, el renglón queda colgando de ella', () => {
+		const blocks = [block('r', null, 0), block('c1', 'r', 0), block('n', 'c1', 0)];
+		const plan = planDrop(blocks, ['n'], 'r', 1, 'r');
+		expect(plan.updates).toContainEqual({ id: 'n', order: 1, parentBlockId: 'r' });
+	});
+});

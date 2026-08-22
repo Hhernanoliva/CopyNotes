@@ -299,3 +299,45 @@ describe('planTypeChangeSelection', () => {
 		expect(planTypeChangeSelection(rows, ['sep'], 'todo')).toBeNull();
 	});
 });
+
+describe('la vista con raíz (spec 043)', () => {
+	// La raíz COLAPSADA es el caso que rompe todo si `rootId` no viaja: sin él, la
+	// lista visible de la nota no contiene ni un renglón de la rama.
+	const rama = () => [
+		b('r', null, 0, { collapsed: true, type: 'text', content: 'R' }),
+		b('c1', 'r', 0, { type: 'text', content: 'Uno' }),
+		b('c2', 'r', 1, { type: 'text', content: 'Dos' }),
+		b('c3', 'r', 2, { type: 'text', content: 'Tres' })
+	];
+
+	// Rojo si `selectionRange` no recibe la raíz: devuelve [] y Shift+↓ deja de
+	// seleccionar adentro de un renglón colapsado.
+	it('selectionRange marca el rango dentro de la vista', () => {
+		expect(selectionRange(rama(), 'c1', 'c3', 'r')).toEqual(['c1', 'c2', 'c3']);
+	});
+
+	// Rojo si `neighborVisibleId` no recibe la raíz: devuelve null y las flechas
+	// dejan de cruzar de renglón.
+	it('neighborVisibleId camina la vista y se detiene en sus bordes', () => {
+		expect(neighborVisibleId(rama(), 'c1', 1, 'r')).toBe('c2');
+		expect(neighborVisibleId(rama(), 'c1', -1, 'r')).toBe(null);
+	});
+
+	it('orderedSelectionRoots ordena los renglones de la vista', () => {
+		expect(orderedSelectionRoots(rama(), ['c3', 'c1'], 'r')).toEqual(['c1', 'c3']);
+	});
+
+	// Rojo si `planTypeChangeSelection` recorre la lista de la nota: no encuentra
+	// ninguno de los seleccionados y devuelve null.
+	it('planTypeChangeSelection convierte los renglones de la vista', () => {
+		const plan = planTypeChangeSelection(rama(), ['c1', 'c2'], 'bullet', 'r');
+		expect(plan.updates.map((update) => update.id)).toEqual(['c1', 'c2']);
+	});
+
+	// El control: `selectionRun` sigue exigiendo hermanos contiguos bajo un mismo
+	// padre, y eso no depende de la raíz.
+	it('la selección sigue sin ser una unidad si cruza padres', () => {
+		const blocks = [...rama(), b('n', 'c1', 0, { type: 'text', content: 'N' })];
+		expect(planIndentSelection(blocks, ['c2', 'n'])).toBe(null);
+	});
+});

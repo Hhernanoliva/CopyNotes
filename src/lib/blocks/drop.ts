@@ -13,9 +13,13 @@ function childIds(blocks, parentId) {
 	return sortByOrder(blocks.filter((b) => (b.parentBlockId ?? null) === parent)).map((b) => b.id);
 }
 
-export function planDrop(blocks, draggedIds, newParentId, insertIndex) {
+// `rootId` viaja sólo para `orderedSelectionRoots`, que camina la lista visible:
+// con la raíz de la vista colapsada, sin él no encuentra ningún renglón y el
+// arrastre no hace nada, en silencio (spec 043). La geometría no cambia: el
+// llamador ya tradujo "profundidad 0" a `newParentId`.
+export function planDrop(blocks, draggedIds, newParentId, insertIndex, rootId = null) {
 	const parent = newParentId ?? null;
-	const roots = orderedSelectionRoots(blocks, draggedIds);
+	const roots = orderedSelectionRoots(blocks, draggedIds, rootId);
 	if (roots.length === 0) return null;
 
 	// Cycle / self guard: the new parent can't be a dragged root or inside one.

@@ -7,8 +7,11 @@ import { buildVisibleList, listDescendantIds } from './hierarchy';
 import { planBlockType } from '$lib/format/blocktype';
 import { plainTextToHtml } from '$lib/format/sanitize';
 
-function visibleIds(blocks) {
-	return buildVisibleList(blocks).map((row) => row.block.id);
+// `rootId` es desde dónde se está mirando (spec 043). Va en todas las funciones
+// que caminan la lista VISIBLE: adentro de un renglón, "lo que veo" es la rama, y
+// con una raíz colapsada la lista de la nota no trae ni uno de esos renglones.
+function visibleIds(blocks, rootId = null) {
+	return buildVisibleList(blocks, rootId).map((row) => row.block.id);
 }
 
 function siblingsOf(blocks, parentId) {
@@ -17,8 +20,8 @@ function siblingsOf(blocks, parentId) {
 
 // Visible block ids between anchor and focus, inclusive, in visible order.
 // Collapsed descendants are hidden, so they never sneak into a range.
-export function selectionRange(blocks, anchorId, focusId) {
-	const visible = visibleIds(blocks);
+export function selectionRange(blocks, anchorId, focusId, rootId = null) {
+	const visible = visibleIds(blocks, rootId);
 	const a = visible.indexOf(anchorId);
 	const b = visible.indexOf(focusId);
 	if (a === -1 || b === -1) return [];
@@ -27,8 +30,8 @@ export function selectionRange(blocks, anchorId, focusId) {
 }
 
 // Neighbour visible block id: direction 1 = down, -1 = up. Null past an edge.
-export function neighborVisibleId(blocks, id, direction) {
-	const visible = visibleIds(blocks);
+export function neighborVisibleId(blocks, id, direction, rootId = null) {
+	const visible = visibleIds(blocks, rootId);
 	const index = visible.indexOf(id);
 	if (index === -1) return null;
 	const next = index + direction;
@@ -44,14 +47,14 @@ function selectionRoots(blocks, selectedIds) {
 
 // Root ids of the selection in visible (top-to-bottom) order. Copy uses this:
 // each root is formatted with its subtree, in the order the user sees them.
-export function orderedSelectionRoots(blocks, selectedIds) {
+export function orderedSelectionRoots(blocks, selectedIds, rootId = null) {
 	const set = new Set(selectedIds);
 	const rootIds = new Set(
 		blocks
 			.filter((block) => set.has(block.id) && !set.has(block.parentBlockId ?? null))
 			.map((block) => block.id)
 	);
-	return visibleIds(blocks).filter((id) => rootIds.has(id));
+	return visibleIds(blocks, rootId).filter((id) => rootIds.has(id));
 }
 
 // Every id to soft-delete: the selection plus all descendants (never orphan a
@@ -187,10 +190,10 @@ export function planOutdentSelection(blocks, selectedIds) {
 // a type change cannot orphan a child, so "what you see marked is what
 // changes" and a collapsed parent converts alone. Null when nothing is
 // convertible, so the caller can no-op without recording an undo step.
-export function planTypeChangeSelection(blocks, selectedIds, type) {
+export function planTypeChangeSelection(blocks, selectedIds, type, rootId = null) {
 	const set = new Set(selectedIds);
 	const updates = [];
-	for (const id of visibleIds(blocks)) {
+	for (const id of visibleIds(blocks, rootId)) {
 		if (!set.has(id)) continue;
 		const block = blocks.find((row) => row.id === id);
 		if (!block || block.type === 'separator') continue;
