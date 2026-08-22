@@ -203,3 +203,32 @@ test('arrastrar al margen izquierdo cuelga de la raíz de la vista, no de la not
 	const fila = page.locator(LIST_ROW, { hasText: 'Hijo 2' }).first();
 	await expect(fila).toHaveCSS('padding-left', '0px');
 });
+
+test('recargar estando adentro sigue adentro', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+	await page.waitForTimeout(400); // la preferencia se escribe fuera del clic
+
+	await page.reload();
+	await expect(page.locator(LIST_ROW).first()).toBeVisible();
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toBeVisible();
+});
+
+test('buscar y saltar a un renglón de otra rama muestra la nota entera', async ({ page }) => {
+	await notaConRama(page);
+	await entrarDesdeElMenu(page, 'Padre');
+	await expect.poll(() => blockTexts(page)).toEqual(['Hijo 1', 'Hijo 2']);
+
+	await page.getByRole('button', { name: 'Buscar' }).click();
+	await page.getByLabel('Texto a buscar').fill('Suelto');
+	await page.waitForTimeout(300);
+	await page.getByRole('button', { name: /Suelto/ }).click();
+	await page.waitForTimeout(400);
+
+	// El renglón buscado vive en otra rama: la nota entera es la única vista que
+	// lo muestra.
+	await expect.poll(() => blockTexts(page)).toEqual(['Padre', 'Hijo 1', 'Hijo 2', 'Suelto']);
+	await expect(page.getByRole('navigation', { name: 'Dónde estás' })).toHaveCount(0);
+});

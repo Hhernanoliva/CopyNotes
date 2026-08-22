@@ -19,7 +19,9 @@
 		unassignTag,
 		updateBlock,
 		updateNote,
-		writeJournal
+		writeJournal,
+		getZoomRoots,
+		setZoomRoots
 	} from '$lib/storage';
 	import {
 		selectionRange,
@@ -51,6 +53,7 @@
 	import { tooltip } from '$lib/actions/tooltip';
 	import { isTauriRuntime, openImageFiles } from '$lib/platform';
 	import { buildVisibleList, listDescendantIds, ancestorIds } from '$lib/blocks/hierarchy';
+	import { rememberZoomRoot } from '$lib/settings/zoom-root';
 	import { planIndent, planOutdent } from '$lib/blocks/indent';
 	import { planMoveDown, planMoveUp } from '$lib/blocks/reorder';
 	import {
@@ -316,6 +319,30 @@
 				label: byId.get(id)?.content || 'Sin texto'
 			}))
 		];
+	});
+
+	// El renglón donde se estaba parado desapareció desde afuera (otro aparato,
+	// importar, restaurar): se sale a la nota entera y se avisa.
+	//
+	// Es un efecto y no un derivado a propósito, y no calcula nada: la pantalla ya
+	// está bien (de eso se ocupa `zoomRoot`). Acá sólo se hacen las dos cosas que
+	// van hacia afuera — el aviso y limpiar la preferencia vieja.
+	//
+	// Sólo avisa si ese renglón llegó a estar a la vista: una preferencia guardada
+	// por un aparato que después borró el renglón se ignora en silencio, porque
+	// nadie estuvo ahí en esta pantalla.
+	let zoomRootSeen = null;
+	$effect(() => {
+		if (zoomRoot) {
+			zoomRootSeen = zoomRoot;
+			return;
+		}
+		if (zoomBlockId === null) return;
+		const vanished = zoomRootSeen === zoomBlockId;
+		zoomBlockId = null;
+		zoomRootSeen = null;
+		rememberZoom(null);
+		if (vanished) toast('El renglón donde estabas ya no existe.');
 	});
 
 	const selectedIds = $derived(
@@ -650,6 +677,10 @@
 		// renglones marcados que ya ni existen en su lista.
 		selection = null;
 		selectionMenu = null;
+		// La raíz es de ESTA nota: la próxima no hereda dónde estabas parado en la
+		// anterior.
+		zoomBlockId = null;
+		zoomRootSeen = null;
 		(async () => {
 			const [loadedNote, loadedBlocks, loadedActivity] = await Promise.all([
 				getNote(id),
@@ -673,6 +704,22 @@
 				focusBlockId = initialFocusBlockId;
 			}
 			await refreshTags();
+			// Volver a una nota deja a la persona donde estaba (spec 043). El salto
+			// desde la búsqueda o la Agenda gana: ahí se pide un renglón que puede
+			// estar en cualquier rama, y la nota entera es la única vista que lo
+			// muestra siempre. Un id inválido o de otra nota lo descarta `zoomRoot`,
+			// sin error y sin aviso.
+			if (!jumpingToBlock) {
+				const stored = await getZoomRoots();
+				if (cancelled) return;
+				const savedRoot = stored?.[id];
+				if (savedRoot && loadedBlocks.some((block) => block.id === savedRoot)) {
+					zoomBlockId = savedRoot;
+					// La rama pudo quedarse sin hijos desde otro aparato: una vista sin
+					// renglones no tiene dónde escribir.
+					if (buildVisibleList(blocks, savedRoot).length === 0) await createFirstChild(savedRoot);
+				}
+			}
 			// An empty title only grabs focus when we did not land here to jump to a
 			// specific block (spec 021 Slice B) — the Agenda's request wins.
 			if (note && note.title === '' && titleEl && !jumpingToBlock) {
@@ -1820,6 +1867,15 @@
 		await createFirstChild(zoomRoot);
 	}
 
+	// Dónde quedó parada esta persona en esta nota, en ESTE aparato. Se escribe
+	// sin esperar: perder esta escritura cuesta "volver a la nota entera", que es
+	// exactamente lo que ya se ve si nunca se guardó nada.
+	function rememberZoom(blockId) {
+		getZoomRoots()
+			.then((stored) => setZoomRoots(rememberZoomRoot(stored, noteId, blockId)))
+			.catch(() => {});
+	}
+
 	// Cambiar de raíz es un RESET (spec 043): lo que quedaba abierto apuntaba a
 	// renglones que ya no se ven. No se re-monta el editor ni se toca
 	// `dataVersion`: `blocks` es el mismo arreglo, el historial sigue vivo y no se
@@ -1843,6 +1899,7 @@
 		focusCaret = null;
 		focusBlockId = null;
 		zoomBlockId = next;
+		rememberZoom(next);
 		const rows = buildVisibleList(blocks, next);
 		if (activeBlockId && !rows.some((row) => row.block.id === activeBlockId)) {
 			activeBlockId = null;

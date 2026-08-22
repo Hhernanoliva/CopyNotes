@@ -66,8 +66,10 @@
 			: [...selectedTagIds, id];
 	}
 
-	function openNote(noteId) {
-		onOpenNote(noteId);
+	// Un resultado de bloque abre la nota Y pide ese renglón: adentro de una rama
+	// (spec 043) la nota entera es la única vista que muestra siempre lo buscado.
+	function openNote(noteId, blockId = null) {
+		onOpenNote(noteId, blockId);
 		open = false;
 	}
 
@@ -168,7 +170,7 @@
 						<li>
 							<button
 								type="button"
-								onclick={() => openNote(block.noteId)}
+								onclick={() => openNote(block.noteId, block.id)}
 								class="hover:bg-accent focus-visible:ring-ring flex min-h-9 w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors duration-(--motion-fast) focus-visible:ring-2 focus-visible:outline-none"
 							>
 								<Icon size={15} aria-hidden="true" class="text-faint mt-0.5 shrink-0" />

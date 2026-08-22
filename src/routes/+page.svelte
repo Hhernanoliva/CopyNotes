@@ -691,7 +691,11 @@
 		noteTitle={notes.find((note) => note.id === shareNoteId)?.title ?? ''}
 		onChanged={() => sharedNoteIds().then((ids) => (sharedIds = ids))}
 	/>
-	<SearchDialog bind:open={searchOpen} initialQuery={searchSeed} onOpenNote={selectNote} />
+	<SearchDialog
+		bind:open={searchOpen}
+		initialQuery={searchSeed}
+		onOpenNote={(noteId, blockId) => (blockId ? openFromAgenda(noteId, blockId) : selectNote(noteId))}
+	/>
 	<HelpDialog bind:open={helpOpen} />
 	<SettingsDialog
 		bind:open={settingsOpen}

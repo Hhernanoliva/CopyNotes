@@ -12,7 +12,7 @@ Arriba, en la barra de la app, hay una **lupa**. También podés usar **Cmd/Ctrl
 
 - **Escribí** en el campo de arriba: busca a la vez en los **títulos de notas**, el **texto de los bloques** y los **snippets** (nombre y contenido). No distingue mayúsculas ni acentos (`cafe` encuentra `café`).
 - Los resultados aparecen agrupados en **Notas**, **Bloques** y **Snippets**, con la parte que coincide resaltada —también cuando el renglón tiene emojis, que antes corrían el resaltado de lugar—. Cada bloque muestra en qué nota está.
-- **Clic en un resultado de nota o bloque** te abre esa nota y cierra el panel.
+- **Clic en un resultado de nota** te abre esa nota y cierra el panel. **Clic en un resultado de bloque** además te deja el cursor en ese renglón, y si estabas *dentro* de un renglón (tema 22) te devuelve la nota entera, para que lo buscado se vea aunque esté en otra rama.
 - **Filtrar por etiqueta:** debajo del campo hay una fila con tus etiquetas. Tocá una o varias para mostrar solo lo que las tenga. Si elegís varias, tiene que tener **todas**.
 - **Combinado:** texto y etiquetas se suman. "Mostrame lo que diga _plan_ y esté etiquetado _#trabajo_".
 - Lo borrado nunca aparece en los resultados. Todo funciona sin internet.

@@ -71,6 +71,8 @@ export {
 	getSidebarWidth,
 	setSidebarWidth,
 	getAgentsPaused,
-	setAgentsPaused
+	setAgentsPaused,
+	getZoomRoots,
+	setZoomRoots
 } from './settings';
 export { onOtherTabWrite } from './tab-channel';
