@@ -83,6 +83,7 @@
 	import ZoomBreadcrumbs from './ZoomBreadcrumbs.svelte';
 	import { createDragReorder } from './dragReorder.svelte.js';
 	import { createTextDrag } from './textDrag.svelte.js';
+	import { createAutoScroll } from './autoscroll';
 	import { planTextMove } from './text-move';
 	import FloatingFormattingToolbar from './FloatingFormattingToolbar.svelte';
 	import { textOffset, rangeFromTextOffsets, plainTextOffset, rangeAtPlainOffset } from './selection-offsets';
@@ -391,7 +392,8 @@
 	// offset, and applyTextMove runs the pure planTextMove and persists it.
 	const textDrag = createTextDrag({
 		resolveDropPoint: resolveTextDropPoint,
-		onApply: applyTextMove
+		onApply: applyTextMove,
+		getScrollFrom: () => listEl
 	});
 	$effect(() => () => textDrag.destroy());
 
@@ -1990,7 +1992,40 @@
 		window.getSelection()?.removeAllRanges();
 	}
 
+	// Marcar renglones arrastrando también corre la nota al llegar al borde. El
+	// navegador desplaza solo mientras se arrastra una selección de TEXTO, pero
+	// acá se le quita el rango en cuanto la marca pasa a ser de renglones
+	// (`removeAllRanges`), y con eso también se le va el desplazamiento: medido,
+	// sin esto la nota se queda quieta.
+	//
+	// Y en cada cuadro hay que preguntar a mano qué renglón quedó debajo: Chrome
+	// dispara `pointerenter` solo al correr el contenido bajo un puntero quieto,
+	// pero WebKit —o sea la app de escritorio y el iPhone— NO, y ahí la nota se
+	// desplazaba sin que la marca creciera. El punto se mete dentro de la
+	// ventana: arrastrando MÁS ABAJO del borde, que es justamente el caso,
+	// `elementFromPoint` contesta null.
+	let selectPointerX = 0;
+	let selectPointerY = 0;
+	const selectAutoScroll = createAutoScroll(() => extendSelectionAtPointer());
+
+	function extendSelectionAtPointer() {
+		const y = Math.min(Math.max(selectPointerY, 0), window.innerHeight - 1);
+		const row = document.elementFromPoint(selectPointerX, y)?.closest('[data-block-id]');
+		const id = row?.getAttribute('data-block-id');
+		const block = id && blocks.find((item) => item.id === id);
+		if (block) dragOver(block, 1);
+	}
+
+	function selectMove(event) {
+		if (!dragAnchorId || !(event.buttons & 1)) return;
+		if (reorder.active || textDrag.active) return; // otro arrastre manda
+		selectPointerX = event.clientX;
+		selectPointerY = event.clientY;
+		selectAutoScroll.track(listEl, event.clientY);
+	}
+
 	function endDrag() {
+		selectAutoScroll.stop();
 		dragAnchorId = null;
 		dragging = false;
 	}
@@ -1998,7 +2033,11 @@
 	// Reset the drag on any mouse release, even outside the editor.
 	$effect(() => {
 		window.addEventListener('pointerup', endDrag);
-		return () => window.removeEventListener('pointerup', endDrag);
+		window.addEventListener('pointermove', selectMove);
+		return () => {
+			window.removeEventListener('pointerup', endDrag);
+			window.removeEventListener('pointermove', selectMove);
+		};
 	});
 
 	// True when the caret sits on the block's first (up) or last (down) visual

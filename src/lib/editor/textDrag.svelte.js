@@ -9,21 +9,41 @@
 // caretRect } is injected as resolveDropPoint so the editor owns block
 // eligibility (code/separators excluded) and offset math stays testable.
 
+import { createAutoScroll } from './autoscroll';
+
 const THRESHOLD_PX = 5;
 
-export function createTextDrag({ resolveDropPoint, onApply }) {
+// `getScrollFrom` devuelve un elemento del editor: desde ahí se busca quién
+// scrollea, para que arrastrar hasta el borde siga corriendo la nota en vez de
+// dejar el destino fuera de la pantalla.
+export function createTextDrag({ resolveDropPoint, onApply, getScrollFrom = () => null }) {
 	let active = $state(false);
 	let indicator = $state(null); // { x, top, height } viewport coords for the caret line
 
 	let source = null; // { id, start, end }
 	let startX = 0;
 	let startY = 0;
+	// Con el puntero quieto en el borde no llega ningún movimiento nuevo, así que
+	// el caret de destino se recalcula en cada cuadro del desplazamiento.
+	let lastX = 0;
+	let lastY = 0;
+	const autoScroll = createAutoScroll(() => {
+		if (active) trackPoint(lastX, lastY);
+	});
+
+	function trackPoint(clientX, clientY) {
+		const point = resolveDropPoint(clientX, clientY);
+		indicator = point
+			? { x: point.caretRect.left, top: point.caretRect.top, height: point.caretRect.height }
+			: null;
+	}
 
 	function suppressNative(event) {
 		event.preventDefault();
 	}
 
 	function cleanup() {
+		autoScroll.stop();
 		window.removeEventListener('pointermove', onMove);
 		window.removeEventListener('pointerup', onUp);
 		window.removeEventListener('keydown', onKey);
@@ -72,10 +92,10 @@ export function createTextDrag({ resolveDropPoint, onApply }) {
 			document.addEventListener('selectstart', suppressNative);
 		}
 		event.preventDefault();
-		const point = resolveDropPoint(event.clientX, event.clientY);
-		indicator = point
-			? { x: point.caretRect.left, top: point.caretRect.top, height: point.caretRect.height }
-			: null;
+		lastX = event.clientX;
+		lastY = event.clientY;
+		trackPoint(event.clientX, event.clientY);
+		autoScroll.track(getScrollFrom(), event.clientY);
 	}
 
 	function onUp(event) {

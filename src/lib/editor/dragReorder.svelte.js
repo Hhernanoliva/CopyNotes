@@ -9,12 +9,11 @@ import { buildVisibleList } from '$lib/blocks/hierarchy';
 import { orderedSelectionRoots } from '$lib/blocks/selection';
 import { resolveDrop } from '$lib/blocks/resolve';
 import { planDrop } from '$lib/blocks/drop';
+import { createAutoScroll } from './autoscroll';
 
 const HOLD_MS = 350;
 const MOVE_CANCEL_PX = 6;
 const INDENT_PX = 24; // 1.5rem
-const AUTOSCROLL_EDGE_PX = 48;
-const AUTOSCROLL_SPEED = 8;
 
 export function createDragReorder({
 	getBlocks,
@@ -35,7 +34,14 @@ export function createDragReorder({
 	let startY = 0;
 	let grabDepth = 0; // depth of the grabbed row, so nesting is relative to it
 	let draggedIds = [];
-	let scrollRAF = null;
+	// Última posición del puntero: mientras la nota se desplaza sola, el puntero
+	// está quieto y no llega ningún movimiento nuevo, así que el indicador se
+	// recalcula desde acá en cada cuadro.
+	let lastX = 0;
+	let lastY = 0;
+	const autoScroll = createAutoScroll(() => {
+		if (active) update(lastX, lastY);
+	});
 	// Handle drags skip the long-press: the grip is not editable, so there is no
 	// text-selection to disambiguate from. Arm on pointerdown, activate on the
 	// first real move. A press with no move stays a plain click.
@@ -50,8 +56,7 @@ export function createDragReorder({
 	function cleanup() {
 		clearTimeout(holdTimer);
 		holdTimer = null;
-		if (scrollRAF) cancelAnimationFrame(scrollRAF);
-		scrollRAF = null;
+		autoScroll.stop();
 		window.removeEventListener('pointermove', onMove);
 		window.removeEventListener('pointerup', onUp);
 		window.removeEventListener('keydown', onKey);
@@ -189,8 +194,10 @@ export function createDragReorder({
 			}
 		}
 		event.preventDefault();
+		lastX = event.clientX;
+		lastY = event.clientY;
 		update(event.clientX, event.clientY);
-		autoScroll(event.clientY);
+		autoScroll.track(getListEl(), event.clientY);
 	}
 
 	function update(clientX, clientY) {
@@ -200,27 +207,6 @@ export function createDragReorder({
 		ghost = { x: clientX, y: clientY, ids: draggedIds };
 		const target = resolveDrop(rows, clientX, clientY - listTop, originX, INDENT_PX);
 		indicator = target ? { top: target.indicatorTop, depth: target.indicatorDepth } : null;
-	}
-
-	function autoScroll(clientY) {
-		const listEl = getListEl();
-		const scroller = listEl?.closest('[data-scroll-container]') ?? document.scrollingElement;
-		if (!scroller) return;
-		const rect =
-			typeof scroller.getBoundingClientRect === 'function'
-				? scroller.getBoundingClientRect()
-				: { top: 0, bottom: window.innerHeight };
-		let delta = 0;
-		if (clientY < rect.top + AUTOSCROLL_EDGE_PX) delta = -AUTOSCROLL_SPEED;
-		else if (clientY > rect.bottom - AUTOSCROLL_EDGE_PX) delta = AUTOSCROLL_SPEED;
-		if (scrollRAF) cancelAnimationFrame(scrollRAF);
-		scrollRAF = null;
-		if (delta === 0) return;
-		const step = () => {
-			scroller.scrollBy(0, delta);
-			scrollRAF = requestAnimationFrame(step);
-		};
-		scrollRAF = requestAnimationFrame(step);
 	}
 
 	function onUp(event) {

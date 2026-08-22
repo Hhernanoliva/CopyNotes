@@ -29,6 +29,18 @@ export default defineConfig({
 			name: 'webkit',
 			testMatch: /(desktop-(readiness|import)|formatting-undo)\.spec\.ts/,
 			use: { ...devices['Desktop Safari'], permissions: [] }
+		},
+		// Los tres arrastres con auto-scroll, también en WebKit: es el motor de la
+		// app de escritorio y del iPhone, y contesta DISTINTO que Chrome. Medido:
+		// Chrome dispara `pointerenter` al correr el contenido bajo un puntero
+		// quieto y WebKit no, y Chrome sigue desplazando solo durante el arrastre
+		// de un texto marcado y WebKit tampoco. Cada diferencia dejaba un gesto a
+		// medias sólo en la app, que es donde nadie lo ve hasta que lo usa.
+		{
+			name: 'webkit-arrastres',
+			testMatch: /move-blocks\.spec\.ts/,
+			grep: /desplaza la nota/,
+			use: { ...devices['Desktop Safari'], permissions: [] }
 		}
 	],
 	webServer: {

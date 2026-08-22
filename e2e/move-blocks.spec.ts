@@ -374,6 +374,105 @@ test('drag a line to reorder it above the first', async ({ page }) => {
 	await expect.poll(() => blockTexts(page)).toEqual(['C', 'A', 'B']);
 });
 
+// Una nota más alta que la ventana: sin eso no hay nada que desplazar y las
+// pruebas de auto-scroll pasarían sin medir nada.
+async function seedLongNote(page) {
+	await newNote(page);
+	await page.setViewportSize({ width: 1000, height: 520 });
+	const first = page.locator('main [data-block-id] .block-editable').first();
+	await first.click();
+	for (let i = 1; i <= 16; i++) {
+		await page.keyboard.type(`Renglón ${i}`);
+		await page.keyboard.press('Enter');
+		await page.waitForTimeout(120);
+	}
+	await page.keyboard.type('Último');
+	const main = page.locator('main');
+	await main.evaluate((el) => el.scrollTo(0, 0));
+	expect(await main.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+	await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBe(0);
+	return {
+		main,
+		// La caja del TEXTO, no la del renglón: el renglón arranca ~45px más a la
+		// izquierda (la manija), y un press ahí no lo agarra ningún gesto.
+		rowBox: await page.locator('main [data-block-id] .block-editable').first().boundingBox(),
+		mainBox: await main.boundingBox()
+	};
+}
+
+// El auto-scroll existía desde el día uno pero le pedía scroll a la página
+// entera, que con este layout no se mueve nunca: arrastrar hasta el borde no
+// hacía nada y había que soltar, scrollear con la rueda y volver a agarrar.
+// Rojo si vuelve a apuntar al elemento equivocado: `main` se queda en 0.
+test('arrastrar un renglón hasta el borde de abajo desplaza la nota sola', async ({ page }) => {
+	const { main, rowBox, mainBox } = await seedLongNote(page);
+
+	await page.mouse.move(rowBox.x + 5, rowBox.y + rowBox.height / 2);
+	await page.mouse.down();
+	await page.waitForTimeout(HOLD); // long-press arms the drag
+	await page.mouse.move(rowBox.x + 5, mainBox.y + mainBox.height - 8, { steps: 5 });
+
+	await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+	await page.keyboard.press('Escape'); // cancela: la prueba mide el scroll, no el orden
+	await page.mouse.up();
+});
+
+// Marcar renglones arrastrando: el desplazamiento es nuestro (al pasar a marcar
+// renglones se le saca el rango al navegador y con eso se le va su propio
+// desplazamiento), y que la marca siga creciendo sobre lo que aparece es del
+// navegador (`pointerenter` al correr el contenido). Rojo si se cae cualquiera
+// de las dos: el último renglón arranca fuera de la pantalla.
+test('marcar renglones arrastrando desplaza la nota y sigue marcando', async ({ page }) => {
+	const { main, rowBox, mainBox } = await seedLongNote(page);
+
+	await page.mouse.move(rowBox.x + 5, rowBox.y + rowBox.height / 2);
+	await page.mouse.down();
+	// Sin espera: un movimiento inmediato es marcar, no mover.
+	await page.mouse.move(rowBox.x + 5, mainBox.y + mainBox.height - 8, { steps: 5 });
+
+	await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+	// El último renglón arranca fuera de la pantalla: sólo queda marcado si la
+	// selección siguió creciendo sobre lo que el desplazamiento fue mostrando.
+	const ultimo = page.locator('main [data-block-id]').last();
+	await expect(ultimo.locator('[aria-pressed="true"]')).toHaveCount(1);
+
+	await page.mouse.up();
+});
+
+// Mover un texto marcado sí frena el gesto nativo (`preventDefault` + tapar el
+// `selectstart`), así que el navegador no desplaza nada y el destino fuera de
+// la pantalla era inalcanzable. Rojo si se cae el auto-scroll de ese arrastre.
+test('arrastrar un texto marcado hasta el borde desplaza la nota sola', async ({ page }) => {
+	const { main, mainBox } = await seedLongNote(page);
+
+	const grab = await page.evaluate(() => {
+		const el = document.querySelector('main [data-block-id] .block-editable');
+		const range = document.createRange();
+		range.setStart(el.firstChild, 0);
+		range.setEnd(el.firstChild, 7); // "Renglón"
+		const selection = window.getSelection();
+		selection.removeAllRanges();
+		selection.addRange(range);
+		const box = range.getBoundingClientRect();
+		return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+	});
+
+	await page.mouse.move(grab.x, grab.y);
+	await page.mouse.down();
+	await page.mouse.move(grab.x + 8, grab.y + 6, { steps: 2 }); // activa el arrastre
+	await page.mouse.move(grab.x, mainBox.y + mainBox.height - 8, { steps: 5 });
+
+	// Que el arrastre PROPIO esté vivo, no una selección de texto cualquiera: su
+	// caret de destino sólo existe mientras el controlador manda.
+	await expect(page.locator('div.fixed.z-50.w-0\\.5')).toHaveCount(1);
+	await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+
+	await page.keyboard.press('Escape'); // cancela: la prueba mide el scroll, no el texto
+	await page.mouse.up();
+	await expect.poll(() => blockTexts(page)).toContain('Renglón 1');
+});
+
 test('a quick drag selects text and does not move the line', async ({ page }) => {
 	await seedABC(page);
 	const rows = page.locator('main [data-block-id]');
